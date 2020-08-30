@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2002-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSOverheadWire.h
 /// @author  Jakub Sevcik (RICE)
@@ -14,12 +18,7 @@
 ///
 // Overhead wires for Electric (equipped with elecHybrid device) vehicles (Overhead wire segments, overhead wire sections, traction substations)
 /****************************************************************************/
-#ifndef MSOverheadWire_h
-#define MSOverheadWire_h
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <list>
@@ -33,7 +32,7 @@
 #include <utils/common/WrappingCommand.h>
 #include <utils/traction_wire/Circuit.h>
 
-// Resistivity of Cu is 1.69*10^-8 Ohm*m. A cross-section S of the overhead wire used in Pilsen is 150 mm^2. So the "resistivity/S" is 0.000113 Ohm/m. 
+// Resistivity of Cu is 1.69*10^-8 Ohm*m. A cross-section S of the overhead wire used in Pilsen is 150 mm^2. So the "resistivity/S" is 0.000113 Ohm/m.
 const double WIRE_RESISTIVITY = (double)2 * 0.000113;
 
 // Conversion macros
@@ -66,7 +65,7 @@ public:
 
     /// @brief constructor
     MSOverheadWire(const std::string& overheadWireSegmentID, MSLane& lane, double startPos, double endPos,
-        bool voltageSource);
+                   bool voltageSource);
 
     /// @brief destructor
     ~MSOverheadWire();
@@ -97,6 +96,10 @@ public:
         return (int)myChargingVehicles.size();
     }
 
+    const std::vector<SUMOVehicle*>& getChargingVehicles() const {
+        return myChargingVehicles;
+    }
+
     double getTotalCharged() const {
         return myTotalCharge;
     }
@@ -119,31 +122,31 @@ public:
 
     Circuit* getCircuit() const;
 
-    void setCircuitStartNode_pos(Node* node) {
-        myCircuitStartNode_pos = node;
+    void setCircuitStartNodePos(Node* node) {
+        myCircuitStartNodePos = node;
     }
 
-    void setCircuitEndNode_pos(Node* node) {
-        myCircuitEndNode_pos = node;
+    void setCircuitEndNodePos(Node* node) {
+        myCircuitEndNodePos = node;
     }
 
-    void setCircuitElement_pos(Element* element) {
-        myCircuitElement_pos = element;
+    void setCircuitElementPos(Element* element) {
+        myCircuitElementPos = element;
     }
 
-    Node* getCircuitStartNode_pos() {
-        return myCircuitStartNode_pos;
+    Node* getCircuitStartNodePos() const {
+        return myCircuitStartNodePos;
     }
 
-    Node* getCircuitEndNode_pos() {
-        return myCircuitEndNode_pos;
+    Node* getCircuitEndNodePos() const {
+        return myCircuitEndNodePos;
     }
 
-    Element* getCircuitElement_pos() {
-        return myCircuitElement_pos;
+    Element* getCircuitElementPos() const {
+        return myCircuitElementPos;
     }
 
-    bool isThereVoltageSource() {
+    bool isThereVoltageSource() const {
         return myVoltageSource;
     }
 
@@ -156,8 +159,8 @@ protected:
     struct charge {
         /// @brief constructor
         charge(SUMOTime _timeStep, std::string _vehicleID, std::string _vehicleType, std::string _status,
-            double _WCharged, double _actualBatteryCapacity, double _maxBatteryCapacity, double _voltage,
-            double _totalEnergyCharged) :
+               double _WCharged, double _actualBatteryCapacity, double _maxBatteryCapacity, double _voltage,
+               double _totalEnergyCharged) :
             timeStep(_timeStep),
             vehicleID(_vehicleID),
             vehicleType(_vehicleType),
@@ -189,8 +192,8 @@ protected:
         // @brief current energy charged by charging stations AFTER charging
         double totalEnergyCharged;
 
-         
-            
+
+
     };
 
     /** @brief A class for sorting vehicle on lane under the overhead wire segment */
@@ -224,16 +227,16 @@ protected:
 
     bool myVoltageSource;
 
-    Element* myCircuitElement_pos;
-    Node* myCircuitStartNode_pos;
-    Node* myCircuitEndNode_pos;
+    Element* myCircuitElementPos;
+    Node* myCircuitStartNodePos;
+    Node* myCircuitEndNodePos;
 
 private:
     /// @brief Invalidated copy constructor.
     MSOverheadWire(const MSOverheadWire&);
 
     /// @brief Invalidated assignment operator.
-    MSOverheadWire& operator=(const MSOverheadWire&);	
+    MSOverheadWire& operator=(const MSOverheadWire&);
 };
 
 
@@ -310,10 +313,10 @@ private:
     std::vector<MSLane*> myForbiddenLanes;
     static Command* myCommandForSolvingCircuit;
 
-public:   
+public:
     //preparation of overhead wire clamp
-    struct OverheadWireClamp{
-        // @todo: 'MSTractionSubstation::overheadWireClamp' : no appropriate default constructor available 
+    struct OverheadWireClamp {
+        // @todo: 'MSTractionSubstation::overheadWireClamp' : no appropriate default constructor available
         // provide default constructor for vector construction below
         OverheadWireClamp() :
             id("undefined"),
@@ -321,7 +324,7 @@ public:
             end(nullptr),
             usage(false) {}
 
-        OverheadWireClamp(const std::string _id, MSOverheadWire* _start, MSOverheadWire* _end, bool _usage ):
+        OverheadWireClamp(const std::string _id, MSOverheadWire* _start, MSOverheadWire* _end, bool _usage):
             id(_id),
             start(_start),
             end(_end),
@@ -329,7 +332,7 @@ public:
 
         const std::string id;
         MSOverheadWire* start;
-        MSOverheadWire* end; 
+        MSOverheadWire* end;
         bool usage;
 
         OverheadWireClamp& operator=(const OverheadWireClamp&) = delete;
@@ -342,4 +345,3 @@ public:
     OverheadWireClamp* findClamp(std::string id);
     //bool findClamp(std::string id);
 };
-#endif

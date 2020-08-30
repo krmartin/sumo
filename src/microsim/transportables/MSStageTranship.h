@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSStageTranship.h
 /// @author  Melanie Weber
@@ -15,10 +19,6 @@
 // The class for modelling container-movements
 /****************************************************************************/
 #pragma once
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <string>
@@ -66,7 +66,7 @@ public:
     MSStage* clone() const;
 
     /// proceeds to the next step
-    virtual void proceed(MSNet* net, MSTransportable* transportable, SUMOTime now, MSStage* previous);
+    void proceed(MSNet* net, MSTransportable* transportable, SUMOTime now, MSStage* previous);
 
     /// @brief get travel distance in this stage
     double getDistance() const;
@@ -82,20 +82,23 @@ public:
      * @param[in] os The stream to write the information into
      * @exception IOError not yet implemented
      */
-    virtual void tripInfoOutput(OutputDevice& os, const MSTransportable* const transportable) const;
+    void tripInfoOutput(OutputDevice& os, const MSTransportable* const transportable) const;
 
     /** @brief Called on writing vehroute output
+     * @param[in] isPerson Whether we are writing person or container info
      * @param[in] os The stream to write the information into
+     * @param[in] withRouteLength whether route length shall be written
+     * @param[in] previous The previous stage for additional info such as from edge
      * @exception IOError not yet implemented
      */
-    virtual void routeOutput(const bool isPerson, OutputDevice& os, const bool withRouteLength) const;
+    void routeOutput(const bool isPerson, OutputDevice& os, const bool withRouteLength, const MSStage* const previous) const;
 
     /// @brief move forward and return whether the container arrived
     bool moveToNextEdge(MSTransportable* container, SUMOTime currentTime, MSEdge* nextInternal = 0);
 
 
     /// @brief the maximum speed of the transportable
-    inline double getMaxSpeed(const MSTransportable* const transportable=nullptr) const {
+    inline double getMaxSpeed(const MSTransportable* const transportable = nullptr) const {
         UNUSED_PARAMETER(transportable);
         return mySpeed;
     }
@@ -116,6 +119,3 @@ private:
     MSStageTranship& operator=(const MSStageTranship&);
 
 };
-
-
-/****************************************************************************/

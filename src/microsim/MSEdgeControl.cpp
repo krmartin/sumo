@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSEdgeControl.cpp
 /// @author  Christian Roessel
@@ -16,11 +20,6 @@
 ///
 // Stores edges and lanes, performs moving of vehicle
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <iostream>
@@ -46,6 +45,7 @@ MSEdgeControl::MSEdgeControl(const std::vector< MSEdge* >& edges)
       myLanes(MSLane::dictSize()),
       myWithVehicles2Integrate(MSGlobals::gNumSimThreads > 1),
       myLastLaneChange(MSEdge::dictSize()),
+      myInactiveCheckCollisions(MSGlobals::gNumSimThreads > 1),
       myMinLengthGeometryFactor(1.) {
     // build the usage definitions for lanes
     for (MSEdge* const edge : myEdges) {
@@ -225,13 +225,12 @@ void
 MSEdgeControl::changeLanes(const SUMOTime t) {
     std::vector<MSLane*> toAdd;
 #ifdef PARALLEL_CHANGE_LANES
-    std::vector<MSEdge*> recheckLaneUsage;
+    std::vector<const MSEdge*> recheckLaneUsage;
 #endif
     MSGlobals::gComputeLC = true;
-    for (std::list<MSLane*>::iterator i = myActiveLanes.begin(); i != myActiveLanes.end();) {
-        LaneUsage& lu = myLanes[(*i)->getNumericalID()];
-        if (lu.haveNeighbors) {
-            MSEdge& edge = (*i)->getEdge();
+    for (const MSLane* const l : myActiveLanes) {
+        if (myLanes[l->getNumericalID()].haveNeighbors) {
+            const MSEdge& edge = l->getEdge();
             if (myLastLaneChange[edge.getNumericalID()] != t) {
                 myLastLaneChange[edge.getNumericalID()] = t;
 #ifdef PARALLEL_CHANGE_LANES
@@ -257,21 +256,19 @@ MSEdgeControl::changeLanes(const SUMOTime t) {
                 }
 #endif
             }
-            ++i;
         } else {
-            i = myActiveLanes.end();
+            break;
         }
     }
 
 #ifdef PARALLEL_CHANGE_LANES
     if (MSGlobals::gNumSimThreads > 1) {
         myThreadPool.waitAll(false);
-        for (MSEdge* e : recheckLaneUsage) {
-            const std::vector<MSLane*>& lanes = e->getLanes();
-            for (std::vector<MSLane*>::const_iterator i = lanes.begin(); i != lanes.end(); ++i) {
-                LaneUsage& lu = myLanes[(*i)->getNumericalID()];
-                if ((*i)->getVehicleNumber() > 0 && !lu.amActive) {
-                    toAdd.push_back(*i);
+        for (const MSEdge* e : recheckLaneUsage) {
+            for (MSLane* const l : e->getLanes()) {
+                LaneUsage& lu = myLanes[l->getNumericalID()];
+                if (l->getVehicleNumber() > 0 && !lu.amActive) {
+                    toAdd.push_back(l);
                     lu.amActive = true;
                 }
             }
@@ -301,10 +298,11 @@ MSEdgeControl::detectCollisions(SUMOTime timestep, const std::string& stage) {
         }
     }
     if (myInactiveCheckCollisions.size() > 0) {
-        for (MSLane* lane : myInactiveCheckCollisions) {
+        for (MSLane* lane : myInactiveCheckCollisions.getContainer()) {
             lane->detectCollisions(timestep, stage);
         }
         myInactiveCheckCollisions.clear();
+        myInactiveCheckCollisions.unlock();
     }
 }
 
@@ -331,4 +329,3 @@ MSEdgeControl::setAdditionalRestrictions() {
 
 
 /****************************************************************************/
-

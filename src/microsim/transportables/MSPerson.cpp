@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSPerson.cpp
 /// @author  Daniel Krajzewicz
@@ -16,11 +20,6 @@
 ///
 // The class for modelling person-movements
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <string>
@@ -211,7 +210,11 @@ MSPerson::MSPersonStage_Walking::tripInfoOutput(OutputDevice& os, const MSTransp
     const double distance = walkDistance();
     const double maxSpeed = getMaxSpeed(person);
     const SUMOTime duration = myArrived - myDeparted;
-    const SUMOTime timeLoss = myArrived == -1 ? 0 : duration - TIME2STEPS(distance / maxSpeed);
+    SUMOTime timeLoss = myArrived == -1 ? 0 : duration - TIME2STEPS(distance / maxSpeed);
+    if (timeLoss < 0 && timeLoss > TIME2STEPS(-0.1)) {
+        // avoid negative timeLoss due to rounding errors
+        timeLoss = 0;
+    }
     MSDevice_Tripinfo::addPedestrianData(distance, duration, timeLoss);
     os.openTag("walk");
     os.writeAttr("depart", time2string(myDeparted));
@@ -228,7 +231,7 @@ MSPerson::MSPersonStage_Walking::tripInfoOutput(OutputDevice& os, const MSTransp
 
 
 void
-MSPerson::MSPersonStage_Walking::routeOutput(const bool /* isPerson */, OutputDevice& os, const bool withRouteLength) const {
+MSPerson::MSPersonStage_Walking::routeOutput(const bool /* isPerson */, OutputDevice& os, const bool withRouteLength, const MSStage* const previous) const {
     os.openTag("walk").writeAttr(SUMO_ATTR_EDGES, myRoute);
     std::string comment = "";
     if (myDestinationStop != nullptr) {
@@ -265,6 +268,12 @@ MSPerson::MSPersonStage_Walking::moveToNextEdge(MSTransportable* person, SUMOTim
     myLastEdgeEntryTime = currentTime;
     //std::cout << SIMTIME << " moveToNextEdge person=" << person->getID() << "\n";
     if (arrived) {
+        MSPerson* p = dynamic_cast<MSPerson*>(person);
+        if (p->hasInfluencer() && p->getInfluencer().isRemoteControlled()) {
+            myCurrentInternalEdge = nextInternal;
+            ((MSEdge*) getEdge())->addPerson(person);
+            return false;
+        }
         if (myDestinationStop != nullptr) {
             myDestinationStop->addTransportable(person);
         }
@@ -276,10 +285,8 @@ MSPerson::MSPersonStage_Walking::moveToNextEdge(MSTransportable* person, SUMOTim
     } else {
         if (nextInternal == nullptr) {
             ++myRouteStep;
-            myCurrentInternalEdge = nullptr;
-        } else {
-            myCurrentInternalEdge = nextInternal;
         }
+        myCurrentInternalEdge = nextInternal;
         const MSLane* nextLane = getSidewalk<MSEdge, MSLane>(getEdge());
         if (nextLane != nullptr) {
             for (MSMoveReminder* rem : nextLane->getMoveReminders()) {
@@ -293,7 +300,7 @@ MSPerson::MSPersonStage_Walking::moveToNextEdge(MSTransportable* person, SUMOTim
 
 double
 MSPerson::MSPersonStage_Walking::getMaxSpeed(const MSTransportable* const person) const {
-    return mySpeed > 0 ? mySpeed : person->getVehicleType().getMaxSpeed() * person->getSpeedFactor();
+    return mySpeed >= 0 ? mySpeed : person->getVehicleType().getMaxSpeed() * person->getSpeedFactor();
 }
 
 std::string
@@ -541,7 +548,7 @@ MSPerson::Influencer::postProcessRemoteControl(MSPerson* p) {
             MSPersonStage_Walking* s = dynamic_cast<MSPerson::MSPersonStage_Walking*>(p->getCurrentStage());
             assert(s != nullptr);
             s->getState()->moveToXY(p, myRemoteXYPos, myRemoteLane, myRemotePos, myRemotePosLat, myRemoteAngle, myRemoteEdgeOffset, myRemoteRoute,
-                                              MSNet::getInstance()->getCurrentTimeStep());
+                                    MSNet::getInstance()->getCurrentTimeStep());
         }
         break;
         default:

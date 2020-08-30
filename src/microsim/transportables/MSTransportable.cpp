@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSTransportable.cpp
 /// @author  Melanie Weber
@@ -15,11 +19,6 @@
 ///
 // The common superclass for modelling transportable objects like persons and containers
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <utils/common/StringTokenizer.h>
@@ -74,6 +73,10 @@ MSTransportable::~MSTransportable() {
     }
 }
 
+std::mt19937*
+MSTransportable::getRNG() const {
+    return getEdge()->getLanes()[0]->getRNG();
+}
 
 bool
 MSTransportable::proceed(MSNet* net, SUMOTime time) {
@@ -103,6 +106,7 @@ MSTransportable::proceed(MSNet* net, SUMOTime time) {
         if (prior->getDestinationStop() != nullptr) {
             prior->getDestinationStop()->removeTransportable(this);
         }
+        MSNet::getInstance()->getPersonControl().addArrived();
         return false;
     }
 }
@@ -177,14 +181,16 @@ MSTransportable::tripInfoOutput(OutputDevice& os) const {
 void
 MSTransportable::routeOutput(OutputDevice& os, const bool withRouteLength) const {
     const std::string typeID = (
-            (isPerson() && getVehicleType().getID() == DEFAULT_PEDTYPE_ID)
-            || (isContainer() && getVehicleType().getID() == DEFAULT_CONTAINERTYPE_ID)) ? "" : getVehicleType().getID();
+                                   (isPerson() && getVehicleType().getID() == DEFAULT_PEDTYPE_ID)
+                                   || (isContainer() && getVehicleType().getID() == DEFAULT_CONTAINERTYPE_ID)) ? "" : getVehicleType().getID();
     myParameter->write(os, OptionsCont::getOptions(), isPerson() ? SUMO_TAG_PERSON : SUMO_TAG_CONTAINER, typeID);
     if (hasArrived()) {
         os.writeAttr("arrival", time2string(MSNet::getInstance()->getCurrentTimeStep()));
     }
-    for (MSTransportablePlan::const_iterator i = myPlan->begin(); i != myPlan->end(); ++i) {
-        (*i)->routeOutput(myAmPerson, os, withRouteLength);
+    const MSStage* previous = nullptr;
+    for (const MSStage* const stage : *myPlan) {
+        stage->routeOutput(myAmPerson, os, withRouteLength, previous);
+        previous = stage;
     }
     os.closeTag();
     os.lf();
@@ -299,7 +305,7 @@ MSTransportable::rerouteParkingArea(MSStoppingPlace* orig, MSStoppingPlace* repl
     // @note: parkingArea can currently not be set as myDestinationStop so we
     // check for stops on the edge instead
     assert(getCurrentStageType() == MSStageType::DRIVING);
-    if (dynamic_cast<MSPerson*>(this) == nullptr) {
+    if (!myAmPerson) {
         WRITE_WARNING("parkingAreaReroute not support for containers");
         return;
     }
@@ -329,7 +335,7 @@ MSTransportable::rerouteParkingArea(MSStoppingPlace* orig, MSStoppingPlace* repl
             const MSStage* const futureStage = *it;
             MSStage* const prevStage = *(it - 1);
             if (futureStage->getStageType() == MSStageType::DRIVING) {
-                const MSStageDriving* const ds = static_cast<const MSStageDriving* const>(futureStage);
+                const MSStageDriving* const ds = static_cast<const MSStageDriving*>(futureStage);
                 if (ds->getLines() == stage->getLines()
                         && prevStage->getDestination() == &orig->getLane().getEdge()) {
                     if (prevStage->getStageType() == MSStageType::TRIP) {
@@ -379,6 +385,34 @@ MSTransportable::getMaxSpeed() const {
 SUMOVehicleClass
 MSTransportable::getVClass() const {
     return getVehicleType().getVehicleClass();
+}
+
+
+void
+MSTransportable::saveState(OutputDevice& out) {
+    // this saves lots of departParameters which are only needed for transportables that did not yet depart
+    // the parameters may hold the name of a vTypeDistribution but we are interested in the actual type
+    myParameter->write(out, OptionsCont::getOptions(), myAmPerson ? SUMO_TAG_PERSON : SUMO_TAG_CONTAINER, getVehicleType().getID());
+    std::ostringstream state;
+    state << (myStep - myPlan->begin());
+    (*myStep)->saveState(state);
+    out.writeAttr(SUMO_ATTR_STATE, state.str());
+    const MSStage* previous = nullptr;
+    for (const MSStage* const stage : *myPlan) {
+        stage->routeOutput(myAmPerson, out, false, previous);
+        previous = stage;
+    }
+    out.closeTag();
+}
+
+
+void
+MSTransportable::loadState(const std::string& state) {
+    std::istringstream iss(state);
+    int step;
+    iss >> step;
+    myStep = myPlan->begin() + step;
+    (*myStep)->loadState(this, iss);
 }
 
 

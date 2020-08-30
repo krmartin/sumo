@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2013-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2013-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSDevice_Battery.cpp
 /// @author  Tamas Kurczveil
@@ -14,10 +18,6 @@
 ///
 // The Battery parameters for the vehicle
 /****************************************************************************/
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <utils/common/StringUtils.h>
@@ -63,7 +63,7 @@ MSDevice_Battery::buildVehicleDevices(SUMOVehicle& v, std::vector<MSVehicleDevic
         double actualBatteryCapacity = 0;
         if (v.getParameter().getParameter(toString(SUMO_ATTR_ACTUALBATTERYCAPACITY), "-") == "-") {
             actualBatteryCapacity = typeParams.getDouble(toString(SUMO_ATTR_ACTUALBATTERYCAPACITY),
-                    maximumBatteryCapacity * DEFAULT_CHARGE_RATIO);
+                                    maximumBatteryCapacity * DEFAULT_CHARGE_RATIO);
         } else {
             actualBatteryCapacity = StringUtils::toDouble(v.getParameter().getParameter(toString(SUMO_ATTR_ACTUALBATTERYCAPACITY), "0"));
         }
@@ -111,6 +111,10 @@ bool MSDevice_Battery::notifyMove(SUMOTrafficObject& tObject, double /* oldPos *
     if (getMaximumBatteryCapacity() != 0) {
         myParam[SUMO_ATTR_ANGLE] = myLastAngle == std::numeric_limits<double>::infinity() ? 0. : GeomHelper::angleDiff(myLastAngle, veh.getAngle());
         myConsum = PollutantsInterface::getEnergyHelper().compute(0, PollutantsInterface::ELEC, veh.getSpeed(), veh.getAcceleration(), veh.getSlope(), &myParam);
+        if (veh.isParking()) {
+            // recupration from last braking step is ok but further consumption should cease
+            myConsum = MIN2(myConsum, 0.0);
+        }
 
         // Energy lost/gained from vehicle movement (via vehicle energy model) [Wh]
         setActualBatteryCapacity(getActualBatteryCapacity() - myConsum);
@@ -166,7 +170,7 @@ bool MSDevice_Battery::notifyMove(SUMOTrafficObject& tObject, double /* oldPos *
                 myActChargingStation->setChargingVehicle(true);
 
                 // Calulate energy charged
-                myEnergyCharged = myActChargingStation->getChargingPower() * myActChargingStation->getEfficency();
+                myEnergyCharged = myActChargingStation->getChargingPower() * myActChargingStation->getEfficency() * TS;
 
                 // Convert from [Ws] to [Wh] (3600s / 1h):
                 myEnergyCharged /= 3600;
@@ -462,4 +466,11 @@ MSDevice_Battery::setParameter(const std::string& key, const std::string& value)
     }
 }
 
+
+void
+MSDevice_Battery::notifyParking() {
+    // @note: only charing is performed but no energy is consumed
+    notifyMove(myHolder, myHolder.getPositionOnLane(), myHolder.getPositionOnLane(), myHolder.getSpeed());
+    myConsum = 0;
+}
 /****************************************************************************/

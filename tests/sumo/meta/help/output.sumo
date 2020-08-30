@@ -1,5 +1,5 @@
-Eclipse SUMO Version v1_4_0+0308-61819149b5
- Copyright (C) 2001-2019 German Aerospace Center (DLR) and others; https://sumo.dlr.de
+Eclipse SUMO sumo Version v1_6_0+1827-94450ab757
+ Copyright (C) 2001-2020 German Aerospace Center (DLR) and others; https://sumo.dlr.de
 A microscopic, multi-modal traffic simulation.
 
 Usage: sumo [OPTION]*
@@ -25,6 +25,9 @@ Input Options:
                                          state by the given offset
   --load-state.remove-vehicles STR[]   Removes vehicles with the given IDs from
                                          the loaded state
+  --junction-taz                       Initialize a TAZ for every junction to
+                                         use attributes toJunction and
+                                         fromJunction
 
 Output Options:
   --write-license                      Include license info into every output
@@ -68,6 +71,8 @@ Output Options:
   --fcd-output.distance                Add kilometrage to the FCD output
                                          (linear referencing)
   --fcd-output.acceleration            Add acceleration to the FCD output
+  --fcd-output.params STR[]            Add generic parameter values to the FCD
+                                         output
   --fcd-output.filter-edges.input-file FILE  Restrict fcd output to the edge
                                          selection from the given input file
   --full-output FILE                   Save a lot of information for each
@@ -82,6 +87,7 @@ Output Options:
                                          Amitran format
   --summary-output FILE                Save aggregated vehicle departure info
                                          into FILE
+  --person-summary-output FILE         Save aggregated person counts into FILE
   --tripinfo-output FILE               Save single vehicle trip info into FILE
   --tripinfo-output.write-unfinished   Write tripinfo output for vehicles which
                                          have not arrived at simulation end
@@ -101,6 +107,8 @@ Output Options:
                                          transport vehicles
   --vehroute-output.incomplete         Include invalid routes and route stubs
                                          in vehroute output
+  --vehroute-output.stop-edges         Include information about edges between
+                                         stops
   --link-output FILE                   Save links states into FILE
   --railsignal-block-output FILE       Save railsignal-blocks into FILE
   --bt-output FILE                     Save bluetooth visibilities into FILE
@@ -110,15 +118,22 @@ Output Options:
                                          motivations for all vehicles into FILE
   --lanechange-output.started          Record start of lane change manoeuvres
   --lanechange-output.ended            Record end of lane change manoeuvres
+  --lanechange-output.xy               Record coordinates of lane change
+                                         manoeuvres
   --stop-output FILE                   Record stops and loading/unloading of
                                          passenger and containers for all
                                          vehicles into FILE
-  --save-state.times INT[]             Use INT[] as times at which a network
+  --statistic-output FILE              Write overall statistics into FILE
+  --save-state.times STR[]             Use TIME[] as times at which a network
                                          state written
   --save-state.period TIME             save state repeatedly after TIME period
   --save-state.prefix FILE             Prefix for network states
-  --save-state.suffix STR              Suffix for network states (.sbx or .xml)
+  --save-state.suffix STR              Suffix for network states (.xml.gz or
+                                         .xml)
   --save-state.files FILE              Files for network states
+  --save-state.rng                     Save random number generator states
+  --save-state.transportables          Save person and container states
+                                         (experimental)
 
 Time Options:
   -b, --begin TIME                     Defines the begin time in seconds;
@@ -131,6 +146,9 @@ Processing Options:
   --step-method.ballistic              Whether to use ballistic method for the
                                          positional update of vehicles (default
                                          is a semi-implicit Euler method).
+  --extrapolate-departpos              Whether vehicles that depart between
+                                         simulation steps should extrapolate the
+                                         depart position
   --threads INT                        Defines the number of threads for
                                          parallel simulation
   --lateral-resolution FLOAT           Defines the resolution in m when
@@ -170,7 +188,7 @@ Processing Options:
                                          300, non-positive values disable
                                          teleporting
   --time-to-teleport.highways TIME     The waiting time after which vehicles on
-                                         a fast road (speed > 69m/s) are
+                                         a fast road (speed > 69km/h) are
                                          teleported if they are on a
                                          non-continuing lane
   --waiting-time-memory TIME           Length of time interval, over which
@@ -266,6 +284,8 @@ Routing Options:
   --weights.minor-penalty FLOAT        Apply the given time penalty when
                                          computing minimum routing costs for
                                          minor-link internal lanes
+  --weights.priority-factor FLOAT      Consider edge priorities in addition to
+                                         travel times, weighted by factor
   --astar.all-distances FILE           Initialize lookup table for astar from
                                          the given file (generated by marouter
                                          --all-pairs-output)
@@ -277,6 +297,12 @@ Routing Options:
                                          walking allowed (possible values:
                                          'parkingAreas', 'ptStops',
                                          'allJunctions' and combinations)
+  --persontrip.transfer.taxi-walk STR[]  Where taxis can drop off customers
+                                         ('allJunctions, 'ptStops')
+  --persontrip.transfer.walk-taxi STR[]  Where taxis can pick up customers
+                                         ('allJunctions, 'ptStops')
+  --railway.max-train-length FLOAT     Use FLOAT as a maximum train length when
+                                         initializing the railway router
   --device.rerouting.probability FLOAT  The probability for a vehicle to have a
                                          'rerouting' device
   --device.rerouting.explicit STR[]    Assign a 'rerouting' device to named
@@ -301,6 +327,10 @@ Routing Options:
                                          used for rerouting
   --device.rerouting.synchronize       Let rerouting happen at the same time
                                          for all vehicles
+  --device.rerouting.railsignal        Allow rerouting triggered by rail
+                                         signals.
+  --device.rerouting.bike-speeds       Compute separate average speeds for
+                                         bicycles
   --device.rerouting.output FILE       Save adapting weights to FILE
   --person-device.rerouting.probability FLOAT  The probability for a person to
                                          have a 'rerouting' device
@@ -320,6 +350,9 @@ Report Options:
                                          inputs ("never", "auto" or "always")
   --xml-validation.net STR             Set schema validation scheme of SUMO
                                          network inputs ("never", "auto" or
+                                         "always")
+  --xml-validation.routes STR          Set schema validation scheme of SUMO
+                                         route inputs ("never", "auto" or
                                          "always")
   -W, --no-warnings                    Disables output of warnings
   --aggregate-warnings INT             Aggregate warnings of the same type
@@ -346,6 +379,7 @@ Emissions Options:
                                          vehicles
   --device.emissions.deterministic     The 'emissions' devices are set
                                          deterministic using a fraction of 1000
+  --device.emissions.period STR        Recording period for emission-output
 
 Communication Options:
   --device.btreceiver.probability FLOAT  The probability for a vehicle to have
@@ -509,8 +543,9 @@ Bluelight Device Options:
                                          vehicles
   --device.bluelight.deterministic     The 'bluelight' devices are set
                                          deterministic using a fraction of 1000
-  --device.bluelight.parameter FLOAT   An exemplary parameter which can be used
-                                         by all instances of the example device
+  --device.bluelight.reactiondist FLOAT  Set the distance at which other
+                                         drivers react to the blue light and
+                                         siren sound
 
 FCD Device Options:
   --device.fcd.probability FLOAT       The probability for a vehicle to have a
@@ -543,9 +578,18 @@ Taxi Device Options:
   --device.taxi.deterministic          The 'taxi' devices are set deterministic
                                          using a fraction of 1000
   --device.taxi.dispatch-algorithm STR  The dispatch algorithm
-                                         [greedy|greedyClosest]
+                                         [greedy|greedyClosest|greedyShared]
+  --device.taxi.dispatch-algorithm.output STR  Write information from the
+                                         dispatch algorithm to FILE
+  --device.taxi.dispatch-algorithm.params STR  Load dispatch algorithm
+                                         parameters in format
+                                         KEY1:VALUE1[,KEY2:VALUE]
   --device.taxi.dispatch-period TIME   The period between successive calls to
                                          the dispatcher
+  --device.taxi.idle-algorithm STR     The behavior of idle taxis
+                                         [stop|randomCircling]
+  --device.taxi.idle-algorithm.output STR  Write information from the idling
+                                         algorithm to FILE
 
 Tripinfo Device Options:
   --device.tripinfo.probability FLOAT  The probability for a vehicle to have a
@@ -577,6 +621,7 @@ Mesoscopic Options:
                                          computed based on edge speed and tauff
                                          (default)
   --meso-multi-queue                   Enable multiple queues at edge ends
+  --meso-lane-queue                    Enable separate queues for every lane
   --meso-junction-control              Enable mesoscopic traffic light and
                                          priority junction handling
   --meso-junction-control.limited      Enable mesoscopic traffic light and
@@ -628,6 +673,8 @@ GUI Only Options:
                                          position
   --tracker-interval FLOAT             The aggregation period for value tracker
                                          windows
+  --osg-view                           Start with an OpenSceneGraph view
+                                         instead of the regular 2D view
   --gui-testing                        Enable ovelay for screen recognition
   --gui-testing-debug                  Enable output messages during
                                          GUI-Testing

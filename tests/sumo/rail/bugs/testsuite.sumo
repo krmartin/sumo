@@ -1,2 +1,23 @@
 # do not crash when the only signalized connection from one lane  is a turn-around
 signalized_turn
+
+# stopping two times at the same stop should not cause reversal
+double_stop
+
+# should not crash
+unregulated_junction
+
+# should not crash
+delayed_insertion_parallel_routing
+
+# vehicles that are stopped at a signal should be considered approaching depending on their stop duration (when stopped at the current signal)
+# 
+# 
+stopped_at_signal
+
+# vehicles that are stopped at a signal should be considered approaching depending on their stop duration (when stopped at the current signal)
+# 
+# Here,  'train' has to wait because it must drive across a track occupied by 'train2' in reverse diretion.
+# 
+# 
+stopped_at_signal2

@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    GUIContainer.cpp
 /// @author  Melanie Weber
@@ -14,11 +18,6 @@
 ///
 // A MSContainer extended by some values for usage within the gui
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <cmath>
@@ -84,7 +83,7 @@ GUIContainer::GUIContainerPopupMenu::onCmdShowPlan(FXObject*, FXSelector, void*)
     if (p == nullptr) {
         return 1;
     }
-    GUIParameterTableWindow* ret = new GUIParameterTableWindow(*myApplication, *p, p->getNumStages());
+    GUIParameterTableWindow* ret = new GUIParameterTableWindow(*myApplication, *p);
     // add items
     for (int stage = 1; stage < p->getNumStages(); stage++) {
         ret->mkItem(toString(stage).c_str(), false, p->getStageSummary(stage));
@@ -146,7 +145,7 @@ GUIContainer::getPopUpMenu(GUIMainWindow& app,
 
     buildShowParamsPopupEntry(ret);
     buildShowTypeParamsPopupEntry(ret);
-    new FXMenuCommand(ret, "Show Plan", GUIIconSubSys::getIcon(ICON_APP_TABLE), ret, MID_SHOWPLAN);
+    new FXMenuCommand(ret, "Show Plan", GUIIconSubSys::getIcon(GUIIcon::APP_TABLE), ret, MID_SHOWPLAN);
     new FXMenuSeparator(ret);
     buildPositionCopyEntry(ret, false);
     return ret;
@@ -156,8 +155,7 @@ GUIContainer::getPopUpMenu(GUIMainWindow& app,
 GUIParameterTableWindow*
 GUIContainer::getParameterWindow(GUIMainWindow& app,
                                  GUISUMOAbstractView&) {
-    GUIParameterTableWindow* ret =
-        new GUIParameterTableWindow(app, *this, 12 + (int)getParameter().getParametersMap().size());
+    GUIParameterTableWindow* ret = new GUIParameterTableWindow(app, *this);
     // add items
     ret->mkItem("stage", false, getCurrentStageDescription());
     // there is always the "start" stage which we do not count here because it is not strictly part of the plan
@@ -181,8 +179,7 @@ GUIContainer::getParameterWindow(GUIMainWindow& app,
 GUIParameterTableWindow*
 GUIContainer::getTypeParameterWindow(GUIMainWindow& app,
                                      GUISUMOAbstractView&) {
-    GUIParameterTableWindow* ret =
-        new GUIParameterTableWindow(app, *this, 8 + (int)myVType->getParameter().getParametersMap().size());
+    GUIParameterTableWindow* ret = new GUIParameterTableWindow(app, *this);
     // add items
     ret->mkItem("Type Information:", false, "");
     ret->mkItem("type [id]", false, myVType->getID());
@@ -445,5 +442,6 @@ GUIContainer::drawAction_drawAsImage(const GUIVisualizationSettings& s) const {
         drawAction_drawAsPoly(s);
     }
 }
-/****************************************************************************/
 
+
+/****************************************************************************/

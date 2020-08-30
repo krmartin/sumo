@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSStage.h
 /// @author  Michael Behrisch
@@ -14,10 +18,6 @@
 // The common superclass for modelling transportable objects like persons and containers
 /****************************************************************************/
 #pragma once
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <set>
@@ -68,7 +68,7 @@ enum class MSStageType {
 class MSStage {
 public:
     /// constructor
-    MSStage(const MSEdge* destination, MSStoppingPlace* toStop, const double arrivalPos, MSStageType type);
+    MSStage(const MSEdge* destination, MSStoppingPlace* toStop, const double arrivalPos, MSStageType type, const std::string& group = "");
 
     /// destructor
     virtual ~MSStage();
@@ -86,8 +86,12 @@ public:
         return nullptr;
     }
 
-    double getArrivalPos() const {
+    virtual double getArrivalPos() const {
         return myArrivalPos;
+    }
+
+    void setArrivalPos(double arrivalPos) {
+        myArrivalPos = arrivalPos;
     }
 
     /// Returns the current edge
@@ -101,9 +105,19 @@ public:
     /// returns the angle of the transportable
     virtual double getAngle(SUMOTime now) const = 0;
 
+    /// Returns the current lane (if applicable)
+    virtual const MSLane* getLane() const {
+        return nullptr;
+    }
+
     ///
     MSStageType getStageType() const {
         return myType;
+    }
+
+    /// @brief return the id of the group of transportables traveling together
+    const std::string& getGroup() const {
+        return myGroup;
     }
 
     /// @brief return (brief) string representation of the current stage
@@ -123,6 +137,9 @@ public:
 
     /// get departure time of stage
     SUMOTime getDeparted() const;
+
+    /// get arrival time of stage
+    SUMOTime getArrived() const;
 
     /// logs end of the step
     void setDeparted(SUMOTime now);
@@ -173,13 +190,23 @@ public:
     virtual void tripInfoOutput(OutputDevice& os, const MSTransportable* const transportable) const = 0;
 
     /** @brief Called on writing vehroute output
+     * @param[in] isPerson Whether we are writing person or container info
      * @param[in] os The stream to write the information into
      * @param[in] withRouteLength whether route length shall be written
+     * @param[in] previous The previous stage for additional info such as from edge
      * @exception IOError not yet implemented
      */
-    virtual void routeOutput(const bool isPerson, OutputDevice& os, const bool withRouteLength) const = 0;
+    virtual void routeOutput(const bool isPerson, OutputDevice& os, const bool withRouteLength, const MSStage* const previous) const = 0;
 
     virtual MSStage* clone() const = 0;
+
+    /** @brief Saves the current state into the given stream, standard implementation does nothing
+     */
+    virtual void saveState(std::ostringstream& out) {}
+
+    /** @brief Reconstructs the current state, standard implementation does nothing
+     */
+    virtual void loadState(MSTransportable* transportable, std::istringstream& state) {}
 
 protected:
     /// the next edge to reach by getting transported
@@ -199,6 +226,9 @@ protected:
 
     /// The type of this stage
     MSStageType myType;
+
+    /// The id of the group of transportables traveling together
+    const std::string myGroup;
 
     /// @brief the offset for computing positions when standing at an edge
     static const double ROADSIDE_OFFSET;
@@ -280,7 +310,7 @@ public:
     * @param[in] os The stream to write the information into
     * @exception IOError not yet implemented
     */
-    void routeOutput(const bool isPerson, OutputDevice& os, const bool withRouteLength) const {
+    void routeOutput(const bool isPerson, OutputDevice& os, const bool withRouteLength, const MSStage* const previous) const {
         UNUSED_PARAMETER(isPerson);
         UNUSED_PARAMETER(os);
         UNUSED_PARAMETER(withRouteLength);
@@ -376,11 +406,13 @@ public:
     void tripInfoOutput(OutputDevice& os, const MSTransportable* const transportable) const;
 
     /** @brief Called on writing vehroute output
-    *
-    * @param[in] os The stream to write the information into
-    * @exception IOError not yet implemented
-    */
-    void routeOutput(const bool isPerson, OutputDevice& os, const bool withRouteLength) const;
+     * @param[in] isPerson Whether we are writing person or container info
+     * @param[in] os The stream to write the information into
+     * @param[in] withRouteLength whether route length shall be written
+     * @param[in] previous The previous stage for additional info such as from edge
+     * @exception IOError not yet implemented
+     */
+    void routeOutput(const bool isPerson, OutputDevice& os, const bool withRouteLength, const MSStage* const previous) const;
 
 private:
     /// the time the person is waiting
@@ -425,6 +457,9 @@ public:
     /// Returns the current edge
     const MSEdge* getEdge() const;
 
+    /// Returns the current lane
+    const MSLane* getLane() const;
+
     /// Returns first edge of the containers route
     const MSEdge* getFromEdge() const;
 
@@ -447,13 +482,15 @@ public:
     double getSpeed() const;
 
     /// @brief the maximum speed of the transportable
-    virtual double getMaxSpeed(const MSTransportable* const transportable=nullptr) const = 0;
+    virtual double getMaxSpeed(const MSTransportable* const transportable = nullptr) const = 0;
 
     /// @brief move forward and return whether the transportable arrived
     virtual bool moveToNextEdge(MSTransportable* transportable, SUMOTime currentTime, MSEdge* nextInternal = 0) = 0;
 
     /// @brief place transportable on a previously passed edge
     virtual void setRouteIndex(MSTransportable* const transportable, int routeOffset);
+
+    virtual void replaceRoute(MSTransportable* const transportable, const ConstMSEdgeVector& edges, int routeOffset);
 
     inline const std::vector<const MSEdge*>& getRoute() const {
         return myRoute;
@@ -493,6 +530,3 @@ protected:
     /// @brief the lateral depart position
     double myDepartPosLat;
 };
-
-
-/****************************************************************************/

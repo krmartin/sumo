@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2013-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2013-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    PollutantsInterface.cpp
 /// @author  Daniel Krajzewicz
@@ -14,16 +18,12 @@
 ///
 // Interface to capsulate different emission models
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <limits>
 #include <cmath>
 #include <utils/common/SUMOVehicleClass.h>
+#include <utils/common/ToString.h>
 #include "HelpersHBEFA.h"
 #include "HelpersHBEFA3.h"
 #include "HelpersPHEMlight.h"
@@ -35,11 +35,13 @@
 // static definitions
 // ===========================================================================
 
+PollutantsInterface::Helper PollutantsInterface::myZeroHelper("Zero", PollutantsInterface::ZERO_EMISSIONS);
 HelpersHBEFA PollutantsInterface::myHBEFA2Helper;
 HelpersHBEFA3 PollutantsInterface::myHBEFA3Helper;
 HelpersPHEMlight PollutantsInterface::myPHEMlightHelper;
 HelpersEnergy PollutantsInterface::myEnergyHelper;
 PollutantsInterface::Helper* PollutantsInterface::myHelpers[] = {
+    &PollutantsInterface::myZeroHelper,
     &PollutantsInterface::myHBEFA2Helper, &PollutantsInterface::myHBEFA3Helper,
     &PollutantsInterface::myPHEMlightHelper, &PollutantsInterface::myEnergyHelper
 };
@@ -52,17 +54,25 @@ std::vector<std::string> PollutantsInterface::myAllClassesStr;
 SUMOEmissionClass
 PollutantsInterface::getClassByName(const std::string& eClass, const SUMOVehicleClass vc) {
     const std::string::size_type sep = eClass.find("/");
-    if (sep != std::string::npos) {
-        const std::string model = eClass.substr(0, sep);
-        const std::string subClass = eClass.substr(sep + 1);
-        for (int i = 0; i < 4; i++) {
-            if (myHelpers[i]->getName() == model) {
+    const std::string model = eClass.substr(0, sep); // this includes the case of no separator
+    for (int i = 0; i < 5; i++) {
+        if (myHelpers[i]->getName() == model) {
+            if (sep != std::string::npos) {
+                const std::string subClass = eClass.substr(sep + 1);
+                if (subClass == "zero") {
+                    return myZeroHelper.getClassByName("default", vc);
+                }
                 return myHelpers[i]->getClassByName(subClass, vc);
             }
+            return myHelpers[i]->getClassByName("default", vc);
         }
-    } else {
+    }
+    if (sep == std::string::npos) {
+        if (eClass == "zero") {
+            return myZeroHelper.getClassByName("default", vc);
+        }
         // default HBEFA2
-        return myHelpers[0]->getClassByName(eClass, vc);
+        return myHBEFA2Helper.getClassByName(eClass, vc);
     }
     throw InvalidArgument("Unknown emission class '" + eClass + "'.");
 }
@@ -71,7 +81,7 @@ PollutantsInterface::getClassByName(const std::string& eClass, const SUMOVehicle
 const std::vector<SUMOEmissionClass>
 PollutantsInterface::getAllClasses() {
     std::vector<SUMOEmissionClass> result;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 5; i++) {
         myHelpers[i]->addAllClassesInto(result);
     }
     return result;
@@ -84,7 +94,7 @@ PollutantsInterface::getAllClassesStr() {
     if (myAllClassesStr.empty()) {
         // first obtain all emissionClasses
         std::vector<SUMOEmissionClass> emissionClasses;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 5; i++) {
             myHelpers[i]->addAllClassesInto(emissionClasses);
         }
         // now write all emissionClasses in myAllClassesStr
@@ -100,6 +110,28 @@ PollutantsInterface::getName(const SUMOEmissionClass c) {
     return myHelpers[c >> 16]->getClassName(c);
 }
 
+
+std::string
+PollutantsInterface::getPollutantName(const EmissionType e) {
+    switch (e) {
+        case CO2:
+            return "CO2";
+        case CO:
+            return "CO";
+        case HC:
+            return "HC";
+        case FUEL:
+            return "fuel";
+        case NO_X:
+            return "NOx";
+        case PM_X:
+            return "PMx";
+        case ELEC:
+            return "electricity";
+        default:
+            throw InvalidArgument("Unknown emission type '" + toString(e) + "'");
+    }
+}
 
 bool
 PollutantsInterface::isHeavy(const SUMOEmissionClass c) {
@@ -171,5 +203,5 @@ PollutantsInterface::getModifiedAccel(const SUMOEmissionClass c, const double v,
     return myHelpers[c >> 16]->getModifiedAccel(c, v, a, slope);
 }
 
-/****************************************************************************/
 
+/****************************************************************************/

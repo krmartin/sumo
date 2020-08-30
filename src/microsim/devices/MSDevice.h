@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2007-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2007-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSDevice.h
 /// @author  Michael Behrisch
@@ -15,13 +19,7 @@
 ///
 // Abstract in-vehicle device
 /****************************************************************************/
-#ifndef MSDevice_h
-#define MSDevice_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <string>
@@ -110,11 +108,12 @@ public:
     virtual ~MSDevice() { }
 
 
-    /** @brief Called on writing tripinfo output
+    /** @brief Called on vehicle deletion to extend tripinfo and other outputs
      *
-     * The device may write some statistics into the tripinfo output. It
-     *  is assumed that the written information is a valid xml-snipplet, which
-     *  will be embedded within the vehicle's information.
+     * The device may write some statistics into the tripinfo output and may
+     *  choose to finalize its own outputs. It is assumed that the
+     *  information written to tripinfoOut is a valid xml-snipplet, which
+     *  will be embedded within the vehicle's tripinfo information.
      *
      * The device should use the openTag / closeTag methods of the OutputDevice
      *  for correct indentation.
@@ -130,7 +129,6 @@ public:
      * @param[in] out The OutputDevice to write the information into
      */
     virtual void saveState(OutputDevice& out) const;
-
 
     /** @brief Loads the state of the device from the given description
      *
@@ -149,6 +147,9 @@ public:
         UNUSED_PARAMETER(value);
         throw InvalidArgument("Setting parameter '" + key + "' is not supported for device of type '" + deviceName() + "'");
     }
+
+    /// @brief called to update state for parking vehicles
+    virtual void notifyParking() {}
 
 protected:
     /// @name Helper methods for device assignment
@@ -252,8 +253,3 @@ MSDevice::equippedByDefaultAssignmentOptions(const OptionsCont& oc, const std::s
         return !nameGiven && outputOptionSet;
     }
 }
-
-
-#endif
-
-/****************************************************************************/

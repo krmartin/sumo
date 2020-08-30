@@ -96,6 +96,12 @@ visibility
 
 # custom speed
 speed
+
+# custom connection length
+length
+
+# test option for setting default connection length
+length_default
 shape
 
 # custom connection permissions
@@ -103,3 +109,6 @@ permissions
 
 # some edges are disconnected explicitly
 unconnected
+
+# make sure that parallel left turns all use the same curve
+parallel_left_turns

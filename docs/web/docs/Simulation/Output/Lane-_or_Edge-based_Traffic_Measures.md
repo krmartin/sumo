@@ -23,13 +23,13 @@ possibilities to constraint the outputs are given.
 An edge-based state dump is defined within an {{AdditionalFile}} as following:
 
 ```
-<edgeData id="<MEASUREMENT_ID>" file="<OUTPUT_FILE>"/\>
+<edgeData id="<MEASUREMENT_ID>" file="<OUTPUT_FILE>"/>
 ```
 
 For a lane based dump simply write:
 
 ```
-<laneData id="<MEASUREMENT_ID>" file="<OUTPUT_FILE>"/\>
+<laneData id="<MEASUREMENT_ID>" file="<OUTPUT_FILE>"/>
 ```
 
 For additional attributes see the table below.
@@ -181,7 +181,7 @@ Sometimes one wants to know how many vehicles were on an edge. The exact
 definition of this value depends on how departed, arrived and
 lane-changing vehicles are counted. Each vehicle is either in *arrived*,
 *left* or *laneChangedFrom* and each vehicle is also either in
-*departed*, *entered* or *laneChangedTo*. Hoever, a vehicle may be
+*departed*, *entered* or *laneChangedTo*. However, a vehicle may be
 counted multiple times in *laneChangedFrom* and *laneChangedTo* if it
 performed back-and-forth lane changing.
 

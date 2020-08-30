@@ -1,10 +1,14 @@
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2013-2019 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2013-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    geomhelper.py
 # @author  Daniel Krajzewicz
@@ -17,6 +21,13 @@ import math
 
 INVALID_DISTANCE = -1
 
+# back-ported from python 3 for backward compatibility
+# https://www.python.org/dev/peps/pep-0485/#proposed-implementation
+
+
+def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
+    return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
+
 
 def distance(p1, p2):
     dx = p1[0] - p2[0]
@@ -26,6 +37,22 @@ def distance(p1, p2):
 
 def polyLength(polygon):
     return sum([distance(a, b) for a, b in zip(polygon[:-1], polygon[1:])])
+
+
+def addToBoundingBox(coordList, bbox=None):
+    if bbox is None:
+        minX = 1e400
+        minY = 1e400
+        maxX = -1e400
+        maxY = -1e400
+    else:
+        minX, minY, maxX, maxY = bbox
+    for x, y in coordList:
+        minX = min(x, minX)
+        minY = min(y, minY)
+        maxX = max(x, maxX)
+        maxY = max(y, maxY)
+    return minX, minY, maxX, maxY
 
 
 def lineOffsetWithMinimumDistanceToPoint(point, line_start, line_end, perpendicular=False):
@@ -116,11 +143,17 @@ def distancePointToPolygon(point, polygon, perpendicular=False):
 
 
 def positionAtOffset(p1, p2, offset):
-    if offset == 0.:  # for pathological cases with dist == 0 and offset == 0
+    if isclose(offset, 0.):  # for pathological cases with dist == 0 and offset == 0
         return p1
+
     dist = distance(p1, p2)
-    if dist < offset:
+
+    if isclose(dist, offset):
+        return p2
+
+    if offset > dist:
         return None
+
     return (p1[0] + (p2[0] - p1[0]) * (offset / dist), p1[1] + (p2[1] - p1[1]) * (offset / dist))
 
 

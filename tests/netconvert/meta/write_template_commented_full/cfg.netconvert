@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on Fri Jan  3 00:45:20 2020 by Eclipse SUMO netconvert Version v1_4_0+0301-c36eaff1a1
+<!-- generated on Sat Aug  8 12:26:00 2020 by Eclipse SUMO netconvert Version v1_6_0+1462-a775417066
 -->
 
 <configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/netconvertConfiguration.xsd">
@@ -25,7 +25,7 @@
 
     <input>
         <!-- Read SUMO-net from FILE -->
-        <sumo-net-file value="" synonymes="s sumo-net" type="FILE"/>
+        <sumo-net-file value="" synonymes="net-file s sumo-net" type="FILE"/>
 
         <!-- Read XML-node defs from FILE -->
         <node-files value="" synonymes="n nodes xml-node-files xml-nodes" type="FILE"/>
@@ -273,6 +273,9 @@
         <!-- Matches stops outside the road network to the referencing pt line when below the given distance -->
         <ptline.match-dist value="100" type="FLOAT"/>
 
+        <!-- Skips automatic generation of stops on the bidi-edge of a loaded stop -->
+        <ptstop-output.no-bidi value="false" type="BOOL"/>
+
         <!-- Warn about edge geometries with a grade in % above FLOAT. -->
         <geometry.max-grade value="10" type="FLOAT"/>
 
@@ -297,11 +300,17 @@
         <!-- Enable roundabout-guessing -->
         <roundabouts.guess value="true" synonymes="guess-roundabouts" type="BOOL"/>
 
+        <!-- Default visibility when approaching a roundabout -->
+        <roundabouts.visibility-distance value="9" type="FLOAT"/>
+
         <!-- Enable guessing of opposite direction lanes usable for overtaking -->
         <opposites.guess value="false" type="BOOL"/>
 
         <!-- Ensure that opposite edges have the same length -->
         <opposites.guess.fix-lengths value="false" type="BOOL"/>
+
+        <!-- Enable guessing of network fringe nodes -->
+        <fringe.guess value="false" type="BOOL"/>
 
         <!-- Assumes left-hand traffic on the network -->
         <lefthand value="false" type="BOOL"/>
@@ -318,6 +327,9 @@
         <!-- Modifies all edge speeds to at least FLOAT -->
         <speed.minimum value="0" type="FLOAT"/>
 
+        <!-- Joins tram edges into road lanes with similar geometry (within FLOAT distance) -->
+        <edges.join-tram-dist value="-1" type="FLOAT"/>
+
     </processing>
 
     <building_defaults>
@@ -326,6 +338,9 @@
 
         <!-- The default width of lanes -->
         <default.lanewidth value="-1" synonymes="lanewidth" type="FLOAT"/>
+
+        <!-- The default method for computing lane shapes from edge shapes -->
+        <default.spreadtype value="right" type="STR"/>
 
         <!-- The default speed on an edge (in m/s) -->
         <default.speed value="13.89" synonymes="S speed" type="FLOAT"/>
@@ -353,6 +368,9 @@
 
         <!-- The default turning radius of intersections -->
         <default.junctions.radius value="4" type="FLOAT"/>
+
+        <!-- The default length when overriding connection lengths -->
+        <default.connection-length value="-1" type="FLOAT"/>
 
         <!-- The default algorithm for computing right of way rules (&apos;default&apos;, &apos;edgePriority&apos;) -->
         <default.right-of-way value="default" type="STR"/>
@@ -456,6 +474,12 @@
         <!-- Default maximum phase duration for traffic lights with variable phase length -->
         <tls.max-dur value="50" type="INT"/>
 
+        <!-- Assign the same tls link index to connections that share the same states -->
+        <tls.group-signals value="false" type="BOOL"/>
+
+        <!-- Assign a distinct tls link index to every connection -->
+        <tls.ungroup-signals value="false" type="BOOL"/>
+
     </tls_building>
 
     <ramp_guessing>
@@ -473,6 +497,9 @@
 
         <!-- Use FLOAT as ramp-length -->
         <ramps.ramp-length value="100" synonymes="ramp-guess.ramp-length" type="FLOAT"/>
+
+        <!-- Use FLOAT as minimum ramp-length -->
+        <ramps.min-weave-length value="50" type="FLOAT"/>
 
         <!-- Tries to handle the given edges as ramps -->
         <ramps.set value="" synonymes="ramp-guess.explicite" type="STR[]"/>
@@ -564,6 +591,9 @@
         <!-- Disables building turnarounds except at at junctions with a dedicated turning lane -->
         <no-turnarounds.except-turnlane value="false" type="BOOL"/>
 
+        <!-- Disables building turnarounds at fringe junctions -->
+        <no-turnarounds.fringe value="false" type="BOOL"/>
+
         <!-- Disables building connections to left -->
         <no-left-connections value="false" type="BOOL"/>
 
@@ -642,6 +672,9 @@
         <!-- Always build walking areas even if there are no crossings -->
         <walkingareas value="false" type="BOOL"/>
 
+        <!-- Do not create a walkingarea between sidewalks that are connected by a pedestrian junction within FLOAT -->
+        <walkingareas.join-dist value="15" type="FLOAT"/>
+
     </pedestrian>
 
     <bicycle>
@@ -672,11 +705,17 @@
         <!-- Allow bidiretional rail use wherever rails with opposite directions meet at a straight angle -->
         <railway.topology.repair.connect-straight value="false" type="BOOL"/>
 
+        <!-- Add turn-around connections at all loaded stops. -->
+        <railway.topology.repair.stop-turn value="false" type="BOOL"/>
+
         <!-- Make all rails usable in both direction -->
         <railway.topology.all-bidi value="false" type="BOOL"/>
 
         <!-- Make all rails edge ids from FILE usable in both direction -->
         <railway.topology.all-bidi.input-file value="" type="FILE"/>
+
+        <!-- Set edge priority values based on estimated main direction -->
+        <railway.topology.direction-priority value="false" type="BOOL"/>
 
         <!-- The search radius for finding suitable road accesses for rail stops -->
         <railway.access-distance value="150" synonymes="osm.stop-output.footway-access-distance" type="FLOAT"/>
@@ -690,6 +729,9 @@
     </railway>
 
     <formats>
+        <!-- Remove the list of keys from all params -->
+        <discard-params value="" type="STR[]"/>
+
         <!-- Skips the check for duplicate nodes and edges -->
         <osm.skip-duplicates-check value="false" type="BOOL"/>
 
@@ -761,6 +803,12 @@
 
         <!-- Guess the proper projection -->
         <shapefile.guess-projection value="false" synonymes="arcview.guess-projection" type="BOOL"/>
+
+        <!-- Use traditional axis order (lon, lat) -->
+        <shapefile.traditional-axis-mapping value="false" type="BOOL"/>
+
+        <!-- Allow more vehicle classes by default -->
+        <dlr-navteq.tolerant-permissions value="false" type="BOOL"/>
 
         <!-- Structure join offset -->
         <vissim.join-distance value="5" synonymes="vissim.offset" type="FLOAT"/>

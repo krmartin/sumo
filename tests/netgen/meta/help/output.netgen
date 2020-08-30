@@ -1,5 +1,5 @@
-Eclipse SUMO netgenerate Version v1_4_0+0311-59c20cfff9
- Copyright (C) 2001-2019 German Aerospace Center (DLR) and others; https://sumo.dlr.de
+Eclipse SUMO netgenerate Version v1_6_0+1462-a775417066
+ Copyright (C) 2001-2020 German Aerospace Center (DLR) and others; https://sumo.dlr.de
 Synthetic network generator for the microscopic, multi-modal traffic simulation
   SUMO.
 
@@ -154,10 +154,13 @@ Processing Options:
   --offset.z FLOAT                     Adds FLOAT to net z-positions
   --flip-y-axis                        Flips the y-coordinate along zero
   --roundabouts.guess                  Enable roundabout-guessing
+  --roundabouts.visibility-distance FLOAT  Default visibility when approaching
+                                         a roundabout
   --opposites.guess                    Enable guessing of opposite direction
                                          lanes usable for overtaking
   --opposites.guess.fix-lengths        Ensure that opposite edges have the same
                                          length
+  --fringe.guess                       Enable guessing of network fringe nodes
   --lefthand                           Assumes left-hand traffic on the network
   --edges.join                         Merges edges which connect the same
                                          nodes and are close to each other
@@ -166,6 +169,8 @@ Processing Options:
 Building Defaults Options:
   -L, --default.lanenumber INT         The default number of lanes in an edge
   --default.lanewidth FLOAT            The default width of lanes
+  --default.spreadtype STR             The default method for computing lane
+                                         shapes from edge shapes
   -S, --default.speed FLOAT            The default speed on an edge (in m/s)
   -P, --default.priority INT           The default priority of an edge
   --default.type STR                   The default edge type
@@ -179,6 +184,8 @@ Building Defaults Options:
                                          by default
   --default.junctions.radius FLOAT     The default turning radius of
                                          intersections
+  --default.connection-length FLOAT    The default length when overriding
+                                         connection lengths
   --default.right-of-way STR           The default algorithm for computing
                                          right of way rules ('default',
                                          'edgePriority')
@@ -245,6 +252,10 @@ TLS Building Options:
   --tls.max-dur INT                    Default maximum phase duration for
                                          traffic lights with variable phase
                                          length
+  --tls.group-signals                  Assign the same tls link index to
+                                         connections that share the same states
+  --tls.ungroup-signals                Assign a distinct tls link index to
+                                         every connection
 
 Edge Removal Options:
   --keep-edges.min-speed FLOAT         Only keep edges with speed in
@@ -293,6 +304,8 @@ Junctions Options:
   --no-turnarounds.except-turnlane     Disables building turnarounds except at
                                          at junctions with a dedicated turning
                                          lane
+  --no-turnarounds.fringe              Disables building turnarounds at fringe
+                                         junctions
   --no-left-connections                Disables building connections to left
   --junctions.join                     Joins junctions that are close to each
                                          other (recommended for OSM import)
@@ -362,6 +375,9 @@ Pedestrian Options:
                                          above the threshold
   --walkingareas                       Always build walking areas even if there
                                          are no crossings
+  --walkingareas.join-dist FLOAT       Do not create a walkingarea between
+                                         sidewalks that are connected by a
+                                         pedestrian junction within FLOAT
 
 Bicycle Options:
   --bikelanes.guess                    Guess bike lanes based on edge speed
@@ -382,9 +398,6 @@ Report Options:
   -V, --version                        Prints the current version
   -X, --xml-validation STR             Set schema validation scheme of XML
                                          inputs ("never", "auto" or "always")
-  --xml-validation.net STR             Set schema validation scheme of SUMO
-                                         network inputs ("never", "auto" or
-                                         "always")
   -W, --no-warnings                    Disables output of warnings
   --aggregate-warnings INT             Aggregate warnings of the same type
                                          whenever more than INT occur

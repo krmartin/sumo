@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2009-2019 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2009-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    test.py
 # @author  Pablo Alvarez Lopez
@@ -31,28 +35,37 @@ netedit.rebuildNetwork()
 netedit.createEdgeMode()
 
 # Create two nodes
-netedit.leftClick(referencePosition, 100, 200)
-netedit.leftClick(referencePosition, 500, 200)
+netedit.leftClick(referencePosition, 100, 100)
+netedit.leftClick(referencePosition, 500, 100)
 
 # Create another two nodes
-netedit.leftClick(referencePosition, 100, 400)
-netedit.leftClick(referencePosition, 500, 400)
+netedit.leftClick(referencePosition, 100, 150)
+netedit.leftClick(referencePosition, 500, 150)
+netedit.leftClick(referencePosition, 500, 150)
+netedit.leftClick(referencePosition, 100, 150)
 
 # select two-way mode
-netedit.changeEditMode('4')
+netedit.changeEditMode('5')
 
 # create square
 netedit.leftClick(referencePosition, 100, 400)
 netedit.leftClick(referencePosition, 100, 200)
+
+netedit.leftClick(referencePosition, 100, 200)
+netedit.leftClick(referencePosition, 500, 200)
+
 netedit.leftClick(referencePosition, 500, 200)
 netedit.leftClick(referencePosition, 500, 400)
+
+netedit.leftClick(referencePosition, 500, 400)
+netedit.leftClick(referencePosition, 100, 400)
 
 # rebuild network
 netedit.rebuildNetwork()
 
 # Check undo and redo
-netedit.undo(referencePosition, 4)
-netedit.redo(referencePosition, 4)
+netedit.undo(referencePosition, 7)
+netedit.redo(referencePosition, 7)
 
 # rebuild network
 netedit.rebuildNetwork()

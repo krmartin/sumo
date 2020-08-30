@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2013-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2013-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSDevice_SSM.cpp
 /// @author  Daniel Krajzewicz
@@ -18,10 +22,6 @@
 // XXX: Preliminary implementation. Use with care. Especially rerouting vehicles could be problematic.
 // TODO: implement SSM time-gap (estimated conflict entry and exit times are already calculated for PET calculation)
 /****************************************************************************/
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <iostream>
@@ -475,7 +475,7 @@ MSDevice_SSM::computeGlobalMeasures() {
             if (leader.first == nullptr) {
                 mySGAPspan.push_back(INVALID_DOUBLE);
             } else {
-                double sgap = leader.second + leader.first->getVehicleType().getMinGap();
+                double sgap = leader.second + myHolder.getVehicleType().getMinGap();
                 mySGAPspan.push_back(sgap);
                 if (sgap < myMinSGAP.first.second) {
                     myMinSGAP = std::make_pair(std::make_pair(std::make_pair(SIMTIME, myHolderMS->getPosition()), sgap), leader.first->getID());
@@ -487,7 +487,7 @@ MSDevice_SSM::computeGlobalMeasures() {
             if (leader.first == nullptr || myHolderMS->getSpeed() == 0.) {
                 myTGAPspan.push_back(INVALID_DOUBLE);
             } else {
-                const double tgap = (leader.second + leader.first->getVehicleType().getMinGap()) / myHolderMS->getSpeed();
+                const double tgap = (leader.second + myHolder.getVehicleType().getMinGap()) / myHolderMS->getSpeed();
                 myTGAPspan.push_back(tgap);
                 if (tgap < myMinTGAP.first.second) {
                     myMinTGAP = std::make_pair(std::make_pair(std::make_pair(SIMTIME, myHolderMS->getPosition()), tgap), leader.first->getID());
@@ -2285,7 +2285,10 @@ MSDevice_SSM::classifyEncounter(const FoeInfo* foeInfo, EncounterApproachInfo& e
                     if (!foeConflictLane->getCanonicalSuccessorLane()->isInternal()) {
                         // intersection has wierd geometry and the intersection was found
                         egoDistToConflictFromJunctionEntry = 0;
-                        WRITE_WARNINGF("Cannot compute SSM due to bad internal lane geometry at junction '%'.", egoEntryLink->getJunction()->getID())
+                        WRITE_WARNINGF("Cannot compute SSM due to bad internal lane geometry at junction '%'. Crossing point between traffic from links % and % not found.",
+                                       egoEntryLink->getJunction()->getID(),
+                                       egoEntryLink->getIndex(),
+                                       foeEntryLink->getIndex());
                         break;
                     }
                     foeConflictLane = foeConflictLane->getCanonicalSuccessorLane();
@@ -2304,13 +2307,16 @@ MSDevice_SSM::classifyEncounter(const FoeInfo* foeInfo, EncounterApproachInfo& e
                         foeDistToConflictFromJunctionEntry += 0.5 * (egoConflictLane->getWidth() - e->ego->getVehicleType().getWidth());
                         break;
                     } else {
-                        if (!egoConflictLane->getCanonicalSuccessorLane()->isInternal()) {
-                            // intersection has wierd geometry and the intersection was found
-                            foeDistToConflictFromJunctionEntry = 0;
-                            WRITE_WARNINGF("Cannot compute SSM due to bad internal lane geometry at junction '%'.", foeEntryLink->getJunction()->getID())
-                            break;
-                        }
                         egoInternalLaneLengthsBeforeCrossing += egoConflictLane->getLength();
+                    }
+                    if (!egoConflictLane->getCanonicalSuccessorLane()->isInternal()) {
+                        // intersection has wierd geometry and the intersection was found
+                        foeDistToConflictFromJunctionEntry = 0;
+                        WRITE_WARNINGF("Cannot compute SSM due to bad internal lane geometry at junction '%'. Crossing point between traffic from links % and % not found.",
+                                       foeEntryLink->getJunction()->getID(),
+                                       foeEntryLink->getIndex(),
+                                       egoEntryLink->getIndex());
+                        break;
                     }
                     egoConflictLane = egoConflictLane->getCanonicalSuccessorLane();
                     assert(egoConflictLane != 0 && egoConflictLane->isInternal()); // this loop should be ended by the break! Otherwise the lanes do not cross, which should be the case here.
@@ -3136,18 +3142,13 @@ MSDevice_SSM::getUpstreamVehicles(const UpstreamScanStartInfo& scanStart, FoeInf
         return;
     }
 
-    const std::vector<MSLane*>& lanes = scanStart.edge->getLanes();
     // Collect vehicles on the given edge with position in [pos-range,pos]
-    for (MSLane* lane : lanes) {
+    for (MSLane* lane : scanStart.edge->getLanes()) {
         if (seenLanes.find(lane) != seenLanes.end()) {
             return;
         }
         int foundCount = 0;
-
-        const MSLane::VehCont& vehicles = lane->getVehiclesSecure();
-        for (MSLane::VehCont::const_iterator vi = vehicles.begin(); vi != vehicles.end(); ++vi) {
-
-            MSVehicle* veh = *vi;
+        for (MSVehicle* const veh : lane->getVehiclesSecure()) {
             if (foeCollector.find(veh) != foeCollector.end()) {
                 // vehicle already recognized, earlier recognized conflict has priority
                 continue;
@@ -3208,8 +3209,7 @@ MSDevice_SSM::getUpstreamVehicles(const UpstreamScanStartInfo& scanStart, FoeInf
 
         // Collect vehicles on the junction, if it wasn't considered already
         // run vehicle collection for all incoming connections
-        const std::vector<MSLane*> internalLanes = junction->getInternalLanes();
-        for (MSLane* internalLane : internalLanes) {
+        for (MSLane* const internalLane : junction->getInternalLanes()) {
             if (internalLane->getEdge().getSuccessors()[0]->getID() == scanStart.edge->getID()) {
                 getVehiclesOnJunction(junction, internalLane, scanStart.egoDistToConflictLane, scanStart.egoConflictLane, foeCollector, seenLanes);
                 incomingEdgeCount++;
@@ -3218,14 +3218,12 @@ MSDevice_SSM::getUpstreamVehicles(const UpstreamScanStartInfo& scanStart, FoeInf
     }
     // Collect vehicles from incoming edges from the junction representing the origin of 'edge'
     if (incomingEdgeCount > 0) {
-        const ConstMSEdgeVector& incoming = junction->getIncoming();
-        for (ConstMSEdgeVector::const_iterator ei = incoming.begin(); ei != incoming.end(); ++ei) {
-            if ((*ei)->isInternal() || (*ei)->isCrossing()) {
+        for (const MSEdge* inEdge : junction->getIncoming()) {
+            if (inEdge->isInternal() || inEdge->isCrossing()) {
                 continue;
             }
-            const std::vector<MSLane*> lanes = (*ei)->getLanes();
             bool skip = false;
-            for (MSLane* lane : lanes) {
+            for (MSLane* const lane : inEdge->getLanes()) {
                 if (seenLanes.find(lane) != seenLanes.end()) {
                     skip = true;
                     break;
@@ -3238,8 +3236,6 @@ MSDevice_SSM::getUpstreamVehicles(const UpstreamScanStartInfo& scanStart, FoeInf
                 continue;
             }
 
-            const MSEdge* inEdge = *ei;
-            assert(inEdge != 0);
             double distOnJunction = scanStart.edge->isInternal() ? 0. : inEdge->getInternalFollowingLengthTo(scanStart.edge);
             if (distOnJunction >= remainingRange) {
 #ifdef DEBUG_SSM_SURROUNDING
@@ -3254,6 +3250,7 @@ MSDevice_SSM::getUpstreamVehicles(const UpstreamScanStartInfo& scanStart, FoeInf
     }
 }
 
+
 void
 MSDevice_SSM::getVehiclesOnJunction(const MSJunction* junction, const MSLane* const egoJunctionLane, double egoDistToConflictLane, const MSLane* const egoConflictLane, FoeInfoMap& foeCollector, std::set<const MSLane*>& seenLanes) {
 #ifdef DEBUG_SSM_SURROUNDING
@@ -3265,7 +3262,7 @@ MSDevice_SSM::getVehiclesOnJunction(const MSJunction* junction, const MSLane* co
 #endif
     // FoeInfo creation
     auto collectFoeInfos = [&](const MSLane::VehCont & vehicles) {
-        for (MSVehicle* veh : vehicles) {
+        for (MSVehicle* const veh : vehicles) {
             if (foeCollector.find(veh) != foeCollector.end()) {
                 delete foeCollector[veh];
             }
@@ -3275,9 +3272,7 @@ MSDevice_SSM::getVehiclesOnJunction(const MSJunction* junction, const MSLane* co
             foeCollector[veh] = c;
 #ifdef DEBUG_SSM_SURROUNDING
             if (gDebugFlag3) {
-                for (MSVehicle* veh : vehicles) {
-                    std::cout << "\t" << veh->getID() << "\n";
-                }
+                std::cout << "\t" << veh->getID() << "\n";
             }
 #endif
         }
@@ -3659,5 +3654,5 @@ MSDevice_SSM::setParameter(const std::string& key, const std::string& value) {
     }
 }
 
-/****************************************************************************/
 
+/****************************************************************************/

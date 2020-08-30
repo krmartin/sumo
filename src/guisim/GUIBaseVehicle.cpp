@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    GUIBaseVehicle.cpp
 /// @author  Daniel Krajzewicz
@@ -16,11 +20,6 @@
 ///
 // A MSVehicle extended by some values for usage within the gui
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <cmath>
@@ -73,6 +72,8 @@ FXDEFMAP(GUIBaseVehicle::GUIBaseVehiclePopupMenu) GUIBaseVehiclePopupMenuMap[] =
     FXMAPFUNC(SEL_COMMAND, MID_HIDE_CURRENTROUTE, GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdHideCurrentRoute),
     FXMAPFUNC(SEL_COMMAND, MID_SHOW_FUTUREROUTE, GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdShowFutureRoute),
     FXMAPFUNC(SEL_COMMAND, MID_HIDE_FUTUREROUTE, GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdHideFutureRoute),
+    FXMAPFUNC(SEL_COMMAND, MID_SHOW_ROUTE_NOLOOPS, GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdShowRouteNoLoops),
+    FXMAPFUNC(SEL_COMMAND, MID_HIDE_ROUTE_NOLOOPS, GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdHideRouteNoLoops),
     FXMAPFUNC(SEL_COMMAND, MID_SHOW_BEST_LANES, GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdShowBestLanes),
     FXMAPFUNC(SEL_COMMAND, MID_HIDE_BEST_LANES, GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdHideBestLanes),
     FXMAPFUNC(SEL_COMMAND, MID_START_TRACK, GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdStartTrack),
@@ -81,6 +82,7 @@ FXDEFMAP(GUIBaseVehicle::GUIBaseVehiclePopupMenu) GUIBaseVehiclePopupMenuMap[] =
     FXMAPFUNC(SEL_COMMAND, MID_HIDE_LFLINKITEMS, GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdHideLFLinkItems),
     FXMAPFUNC(SEL_COMMAND, MID_SHOW_FOES, GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdShowFoes),
     FXMAPFUNC(SEL_COMMAND, MID_REMOVE_OBJECT, GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdRemoveObject),
+    FXMAPFUNC(SEL_COMMAND, MID_TOGGLE_STOP, GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdToggleStop),
 };
 
 // Object implementation
@@ -153,6 +155,23 @@ GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdHideFutureRoute(FXObject*, FXSelec
 
 
 long
+GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdShowRouteNoLoops(FXObject*, FXSelector, void*) {
+    assert(myObject->getType() == GLO_VEHICLE);
+    if (!static_cast<GUIBaseVehicle*>(myObject)->hasActiveAddVisualisation(myParent, VO_SHOW_ROUTE_NOLOOP)) {
+        static_cast<GUIBaseVehicle*>(myObject)->addActiveAddVisualisation(myParent, VO_SHOW_ROUTE_NOLOOP);
+    }
+    return 1;
+}
+
+long
+GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdHideRouteNoLoops(FXObject*, FXSelector, void*) {
+    assert(myObject->getType() == GLO_VEHICLE);
+    static_cast<GUIBaseVehicle*>(myObject)->removeActiveAddVisualisation(myParent, VO_SHOW_ROUTE_NOLOOP);
+    return 1;
+}
+
+
+long
 GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdShowBestLanes(FXObject*, FXSelector, void*) {
     assert(myObject->getType() == GLO_VEHICLE);
     if (!static_cast<GUIBaseVehicle*>(myObject)->hasActiveAddVisualisation(myParent, VO_SHOW_BEST_LANES)) {
@@ -216,15 +235,46 @@ GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdRemoveObject(FXObject*, FXSelector
     GUIBaseVehicle* baseVeh = static_cast<GUIBaseVehicle*>(myObject);
     MSVehicle* microVeh = dynamic_cast<MSVehicle*>(&baseVeh->myVehicle);
     if (microVeh != nullptr) {
-        microVeh->onRemovalFromNet(MSMoveReminder::NOTIFICATION_VAPORIZED);
+        microVeh->onRemovalFromNet(MSMoveReminder::NOTIFICATION_VAPORIZED_GUI);
         if (microVeh->getLane() != nullptr) {
-            microVeh->getLane()->removeVehicle(microVeh, MSMoveReminder::NOTIFICATION_VAPORIZED);
+            microVeh->getLane()->removeVehicle(microVeh, MSMoveReminder::NOTIFICATION_VAPORIZED_GUI);
         }
     } else {
         MEVehicle* mesoVeh = dynamic_cast<MEVehicle*>(&baseVeh->myVehicle);
-        MSGlobals::gMesoNet->vaporizeCar(mesoVeh);
+        MSGlobals::gMesoNet->vaporizeCar(mesoVeh, MSMoveReminder::NOTIFICATION_VAPORIZED_GUI);
     }
     MSNet::getInstance()->getVehicleControl().scheduleVehicleRemoval(&baseVeh->myVehicle);
+    myParent->update();
+    return 1;
+}
+
+
+long
+GUIBaseVehicle::GUIBaseVehiclePopupMenu::onCmdToggleStop(FXObject*, FXSelector, void*) {
+    GUIBaseVehicle* baseVeh = static_cast<GUIBaseVehicle*>(myObject);
+    MSVehicle* microVeh = dynamic_cast<MSVehicle*>(&baseVeh->myVehicle);
+    if (microVeh != nullptr) {
+        if (microVeh->isStopped()) {
+            microVeh->resumeFromStopping();
+        } else {
+            std::string errorOut;
+            const double brakeGap = microVeh->getCarFollowModel().brakeGap(microVeh->getSpeed());
+            std::pair<const MSLane*, double> stopPos = microVeh->getLanePosAfterDist(brakeGap);
+            if (stopPos.first != nullptr) {
+                SUMOVehicleParameter::Stop stop;
+                stop.lane = stopPos.first->getID();
+                stop.startPos = stopPos.second;
+                stop.endPos = stopPos.second + POSITION_EPS;
+                stop.duration = TIME2STEPS(3600);
+                microVeh->addTraciStop(stop, errorOut);
+                if (errorOut != "") {
+                    WRITE_WARNING(errorOut);
+                }
+            }
+        }
+    } else {
+        WRITE_WARNING("GUI-triggered stop not implemented for meso");
+    }
     myParent->update();
     return 1;
 }
@@ -249,9 +299,6 @@ GUIBaseVehicle::GUIBaseVehicle(MSBaseVehicle& vehicle) :
 GUIBaseVehicle::~GUIBaseVehicle() {
     myLock.lock();
     for (std::map<GUISUMOAbstractView*, int>::iterator i = myAdditionalVisualizations.begin(); i != myAdditionalVisualizations.end(); ++i) {
-        if (i->first->getTrackedID() == getGlID()) {
-            i->first->stopTrack();
-        }
         while (i->first->removeAdditionalGLVisualisation(this));
     }
     myLock.unlock();
@@ -286,6 +333,13 @@ GUIBaseVehicle::getPopUpMenu(GUIMainWindow& app,
     } else {
         new FXMenuCommand(ret, "Show All Routes", nullptr, ret, MID_SHOW_ALLROUTES);
     }
+    if (hasActiveAddVisualisation(&parent, VO_SHOW_ROUTE_NOLOOP)) {
+        FXMenuCheck* showLoops = new FXMenuCheck(ret, "Draw looped routes", ret, MID_HIDE_ROUTE_NOLOOPS);
+        showLoops->setCheck(false);
+    } else {
+        FXMenuCheck* showLoops = new FXMenuCheck(ret, "Draw looped routes", ret, MID_SHOW_ROUTE_NOLOOPS);
+        showLoops->setCheck(true);
+    }
     if (hasActiveAddVisualisation(&parent, VO_SHOW_BEST_LANES)) {
         new FXMenuCommand(ret, "Hide Best Lanes", nullptr, ret, MID_HIDE_BEST_LANES);
     } else {
@@ -304,7 +358,7 @@ GUIBaseVehicle::getPopUpMenu(GUIMainWindow& app,
     }
     new FXMenuCommand(ret, "Select Foes", nullptr, ret, MID_SHOW_FOES);
 
-
+    new FXMenuCommand(ret, myVehicle.isStopped() ? "Abort stop" : "Stop", nullptr, ret, MID_TOGGLE_STOP);
     new FXMenuCommand(ret, "Remove", nullptr, ret, MID_REMOVE_OBJECT);
 
     new FXMenuSeparator(ret);
@@ -352,7 +406,9 @@ GUIBaseVehicle::drawOnPos(const GUIVisualizationSettings& s, const Position& pos
     double upscaleLength = upscale;
     if (upscale > 1 && length > 5) {
         // reduce the length/width ratio because this is not usefull at high zoom
-        upscaleLength = MAX2(1.0, upscaleLength * (5 + sqrt(length - 5)) / length);
+        const double widthLengthFactor = length / getVType().getWidth();
+        const double shrinkFactor = MIN2(widthLengthFactor, sqrt(upscaleLength));
+        upscaleLength /= shrinkFactor;
     }
     glScaled(upscale, upscaleLength, 1);
     /*
@@ -503,7 +559,8 @@ GUIBaseVehicle::drawOnPos(const GUIVisualizationSettings& s, const Position& pos
         GLHelper::drawTextSettings(s.vehicleValue, toString(value), Position(0, 0), s.scale, s.angle);
     }
     if (s.vehicleText.show) {
-        const std::string& value = myVehicle.getParameter().getParameter(s.vehicleTextParam, "");
+        std::string error;
+        std::string value = myVehicle.getPrefixedParameter(s.vehicleTextParam, error);
         if (value != "") {
             auto lines = StringTokenizer(value, StringTokenizer::NEWLINE).getVector();
             glRotated(-s.angle, 0, 0, 1);
@@ -551,11 +608,12 @@ GUIBaseVehicle::drawGLAdditional(GUISUMOAbstractView* const parent, const GUIVis
     if (hasActiveAddVisualisation(parent, VO_SHOW_BEST_LANES)) {
         drawBestLanes();
     }
+    bool noLoop = hasActiveAddVisualisation(parent, VO_SHOW_ROUTE_NOLOOP);
     if (hasActiveAddVisualisation(parent, VO_SHOW_ROUTE)) {
-        drawRoute(s, 0, 0.25, false);
+        drawRoute(s, 0, 0.25, false, noLoop);
     }
     if (hasActiveAddVisualisation(parent, VO_SHOW_FUTURE_ROUTE)) {
-        drawRoute(s, 0, 0.25, true);
+        drawRoute(s, 0, 0.25, true, noLoop);
     }
     if (hasActiveAddVisualisation(parent, VO_SHOW_ALL_ROUTES)) {
         if (myVehicle.getNumberReroutes() > 0) {
@@ -565,7 +623,7 @@ GUIBaseVehicle::drawGLAdditional(GUISUMOAbstractView* const parent, const GUIVis
                 drawRoute(s, i, darken);
             }
         } else {
-            drawRoute(s, 0, 0.25);
+            drawRoute(s, 0, 0.25, false, noLoop);
         }
     }
     if (hasActiveAddVisualisation(parent, VO_SHOW_LFLINKITEMS)) {
@@ -681,11 +739,16 @@ GUIBaseVehicle::setFunctionalColor(int activeScheme, const MSBaseVehicle* veh, R
             col = RGBColor::fromHSV(hue, sat, 1.);
             return true;
         }
-        case 30: { // color randomly (by pointer hash)
+        case 32: { // color randomly (by pointer hash)
             std::hash<const MSBaseVehicle*> ptr_hash;
             const double hue = (double)(ptr_hash(veh) % 360); // [0-360]
             const double sat = ((ptr_hash(veh) / 360) % 67) / 100.0 + 0.33; // [0.33-1]
             col = RGBColor::fromHSV(hue, sat, 1.);
+            return true;
+        }
+        case 33: { // color by angle
+            double hue = GeomHelper::naviDegree(veh->getAngle());
+            col = RGBColor::fromHSV(hue, 1., 1.);
             return true;
         }
     }
@@ -721,16 +784,16 @@ GUIBaseVehicle::removeActiveAddVisualisation(GUISUMOAbstractView* const parent, 
 
 
 void
-GUIBaseVehicle::drawRoute(const GUIVisualizationSettings& s, int routeNo, double darken, bool future) const {
+GUIBaseVehicle::drawRoute(const GUIVisualizationSettings& s, int routeNo, double darken, bool future, bool noLoop) const {
     RGBColor darker = setColor(s).changedBrightness((int)(darken * -255));
     GLHelper::setColor(darker);
     if (routeNo == 0) {
-        drawRouteHelper(s, myVehicle.getRoute(), future, darker);
+        drawRouteHelper(s, myVehicle.getRoute(), future, noLoop, darker);
         return;
     }
     const MSRoute* route = myRoutes->getRoute(routeNo - 1); // only prior routes are stored
     if (route != nullptr) {
-        drawRouteHelper(s, *route, future, darker);
+        drawRouteHelper(s, *route, future, noLoop, darker);
     }
 }
 
@@ -821,6 +884,15 @@ GUIBaseVehicle::getNumContainers() const {
     return 0;
 }
 
+std::string
+GUIBaseVehicle::getDeviceDescription() {
+    std::vector<std::string> devs;
+    for (MSDevice* d : myVehicle.getDevices()) {
+        devs.push_back(d->deviceName());
+    }
+    return joinToString(devs, " ");
+}
+
 
 void
 GUIBaseVehicle::computeSeats(const Position& front, const Position& back, double seatOffset, int maxSeats, double exaggeration, int& requiredSeats, Seats& into) const {
@@ -846,5 +918,6 @@ GUIBaseVehicle::computeSeats(const Position& front, const Position& back, double
         requiredSeats--;
     }
 }
+
 
 /****************************************************************************/

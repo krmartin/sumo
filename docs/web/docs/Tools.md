@@ -18,6 +18,9 @@ The tools are divided into the following topics:
 by the building subsystems
 - *[detector](Tools/Detector.md)* - some tools for dealing
 with real life induction loop data
+- *[turn-data](Tools/Turns.md)* - some tools with turning counts and turning
+  ratio data
+with real life induction loop data
 - *[district](Tools/District.md)* - tools for handling traffic
 analysis zones (TAZ) aka districts
 - *import* - allow to import data from formats which can not be
@@ -28,6 +31,8 @@ processed "natively"
     using VISUM data
   - *[vissim](Tools/Import/VISSIM.md)* - some helpers for
     using VISSIM data
+  - *[MATSim](Tools/Import/MATSim.md)* - some helpers for
+    using MATSim data
 - *[net](Tools/Net.md)* - tools for working with networks
 (mainly SUMO-networks)
 - *projects* - additional tools used by our projects
@@ -41,7 +46,7 @@ implementation of the TraCI interface
 mobility traces / trajectories / orbits / gps tracks in various
 formats
 - *[trip](Tools/Trip.md)* - Trip generation and modification
-without [OD2TRIPS](OD2TRIPS.md)
+without [od2trips](od2trips.md)
 - *[visualization](Tools/Visualization.md)* - graphical
 evaluation of SUMO-outputs
 - *[sumolib](Tools/Sumolib.md)* - python library for working

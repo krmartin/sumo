@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    GUIPolygon.cpp
 /// @author  Daniel Krajzewicz
@@ -16,10 +20,6 @@
 ///
 // The GUI-version of a polygon
 /****************************************************************************/
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <string>
@@ -126,8 +126,7 @@ GUIPolygon::getPopUpMenu(GUIMainWindow& app,
 GUIParameterTableWindow*
 GUIPolygon::getParameterWindow(GUIMainWindow& app,
                                GUISUMOAbstractView&) {
-    GUIParameterTableWindow* ret =
-        new GUIParameterTableWindow(app, *this, 3 + (int)getParametersMap().size());
+    GUIParameterTableWindow* ret = new GUIParameterTableWindow(app, *this);
     // add items
     ret->mkItem("type", false, getShapeType());
     ret->mkItem("layer", false, toString(getShapeLayer()));
@@ -157,7 +156,7 @@ GUIPolygon::drawGL(const GUIVisualizationSettings& s) const {
         // push name (needed for getGUIGlObjectsUnderCursor(...)
         glPushName(getGlID());
         // draw inner polygon
-        drawInnerPolygon(s, false);
+        drawInnerPolygon(s, (myRotatedShape != nullptr ? *myRotatedShape : myShape), getShapeLayer(), false);
         // pop name
         glPopName();
     }
@@ -186,8 +185,7 @@ GUIPolygon::setShape(const PositionVector& shape) {
 
 
 void
-GUIPolygon::performTesselation(double lineWidth) const {
-    const PositionVector& shape = myRotatedShape != nullptr ? *myRotatedShape : myShape;
+GUIPolygon::performTesselation(const PositionVector& shape, double lineWidth) const {
     if (getFill()) {
         // draw the tesselated shape
         double* points = new double[shape.size() * 3];
@@ -221,7 +219,7 @@ GUIPolygon::performTesselation(double lineWidth) const {
 
 
 void
-GUIPolygon::storeTesselation(double lineWidth) const {
+GUIPolygon::storeTesselation(const PositionVector& shape, double lineWidth) const {
     if (myDisplayList > 0) {
         glDeleteLists(myDisplayList, 1);
     }
@@ -230,7 +228,7 @@ GUIPolygon::storeTesselation(double lineWidth) const {
         throw ProcessError("GUIPolygon::storeTesselation() could not create display list");
     }
     glNewList(myDisplayList, GL_COMPILE);
-    performTesselation(lineWidth);
+    performTesselation(shape, lineWidth);
     glEndList();
 }
 
@@ -275,9 +273,9 @@ GUIPolygon::checkDraw(const GUIVisualizationSettings& s) const {
 
 
 void
-GUIPolygon::drawInnerPolygon(const GUIVisualizationSettings& s, bool disableSelectionColor) const {
+GUIPolygon::drawInnerPolygon(const GUIVisualizationSettings& s, const PositionVector& shape, double layer, bool disableSelectionColor) const {
     glPushMatrix();
-    glTranslated(0, 0, getShapeLayer());
+    glTranslated(0, 0, layer);
     setColor(s, disableSelectionColor);
 
     int textureID = -1;
@@ -312,7 +310,7 @@ GUIPolygon::drawInnerPolygon(const GUIVisualizationSettings& s, bool disableSele
     }
     // recall tesselation
     //glCallList(myDisplayList);
-    performTesselation(myLineWidth * s.polySize.getExaggeration(s, this));
+    performTesselation(shape, myLineWidth * s.polySize.getExaggeration(s, this));
     // de-init generation of texture coordinates
     if (textureID >= 0) {
         glEnable(GL_DEPTH_TEST);
@@ -321,7 +319,6 @@ GUIPolygon::drawInnerPolygon(const GUIVisualizationSettings& s, bool disableSele
         glDisable(GL_TEXTURE_GEN_S);
         glDisable(GL_TEXTURE_GEN_T);
     }
-    const PositionVector& shape = myRotatedShape != nullptr ? *myRotatedShape : myShape;
 #ifdef GUIPolygon_DEBUG_DRAW_VERTICES
     GLHelper::debugVertices(shape, 80 / s.scale);
 #endif

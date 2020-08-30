@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSStage.cpp
 /// @author  Melanie Weber
@@ -15,11 +19,6 @@
 ///
 // The common superclass for modelling transportable objects like persons and containers
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <utils/common/StringTokenizer.h>
@@ -55,8 +54,15 @@ const double MSStage::ROADSIDE_OFFSET(3);
 /* -------------------------------------------------------------------------
  * MSStage - methods
  * ----------------------------------------------------------------------- */
-MSStage::MSStage(const MSEdge* destination, MSStoppingPlace* toStop, const double arrivalPos, MSStageType type)
-    : myDestination(destination), myDestinationStop(toStop), myArrivalPos(arrivalPos), myDeparted(-1), myArrived(-1), myType(type) {}
+MSStage::MSStage(const MSEdge* destination, MSStoppingPlace* toStop, const double arrivalPos, MSStageType type, const std::string& group) :
+    myDestination(destination),
+    myDestinationStop(toStop),
+    myArrivalPos(arrivalPos),
+    myDeparted(-1),
+    myArrived(-1),
+    myType(type),
+    myGroup(group)
+{}
 
 MSStage::~MSStage() {}
 
@@ -114,6 +120,11 @@ MSStage::setDeparted(SUMOTime now) {
 SUMOTime
 MSStage::getDeparted() const {
     return myDeparted;
+}
+
+SUMOTime
+MSStage::getArrived() const {
+    return myArrived;
 }
 
 const std::string
@@ -189,14 +200,14 @@ MSStageTrip::clone() const {
 Position
 MSStageTrip::getPosition(SUMOTime /* now */) const {
     // may be called concurrently while the trip is still being routed
-    return getEdgePosition(myOrigin, myDepartPos, ROADSIDE_OFFSET * (MSNet::getInstance()->lefthand() ? -1 : 1));
+    return getEdgePosition(myOrigin, myDepartPos, ROADSIDE_OFFSET * (MSGlobals::gLefthand ? -1 : 1));
 }
 
 
 double
 MSStageTrip::getAngle(SUMOTime /* now */) const {
     // may be called concurrently while the trip is still being routed
-    return getEdgeAngle(myOrigin, myDepartPos) + M_PI / 2 * (MSNet::getInstance()->lefthand() ? -1 : 1);
+    return getEdgeAngle(myOrigin, myDepartPos) + M_PI / 2 * (MSGlobals::gLefthand ? -1 : 1);
 }
 
 
@@ -229,6 +240,11 @@ MSStageTrip::setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now
             pars.push_back(new SUMOVehicleParameter());
             pars.back()->id = transportable->getID() + "_0";
             pars.back()->departProcedure = DEPART_TRIGGERED;
+        } else if ((myModeSet & SVC_TAXI) != 0) {
+            pars.push_back(new SUMOVehicleParameter());
+            pars.back()->vtypeid = DEFAULT_TAXITYPE_ID;
+            pars.back()->id = transportable->getID() + "_taxi";
+            pars.back()->line = "taxi";
         } else if ((myModeSet & SVC_BICYCLE) != 0) {
             pars.push_back(new SUMOVehicleParameter());
             pars.back()->vtypeid = DEFAULT_BIKETYPE_ID;
@@ -243,7 +259,7 @@ MSStageTrip::setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now
     SUMOTime time = MSNet::getInstance()->getCurrentTimeStep();
     if (transportable->getNumStages() == transportable->getNumRemainingStages()) { // this is a difficult way to check that we are the first stage
         myDepartPos = transportable->getParameter().departPos;
-        if (transportable->getParameter().departPosProcedure == DEPART_POS_RANDOM) {
+        if (transportable->getParameter().departPosProcedure == DepartPosDefinition::RANDOM) {
             myDepartPos = RandHelper::rand(myOrigin->getLength());
         }
         previous = new MSStageWaiting(myOrigin, nullptr, -1, transportable->getParameter().depart, myDepartPos, "start", true);
@@ -253,16 +269,19 @@ MSStageTrip::setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now
         myDepartPos = previous->getArrivalPos();
     }
     // TODO This works currently only for a single vehicle type
+    const int oldNumStages = transportable->getNumStages();
     for (SUMOVehicleParameter* vehPar : pars) {
         SUMOVehicle* vehicle = nullptr;
+        bool isTaxi = false;
         if (vehPar != nullptr) {
+            isTaxi = vehPar->vtypeid == DEFAULT_TAXITYPE_ID && vehPar->line == "taxi";
             if (myDepartPos != 0) {
-                vehPar->departPosProcedure = DEPART_POS_GIVEN;
+                vehPar->departPosProcedure = DepartPosDefinition::GIVEN;
                 vehPar->departPos = myDepartPos;
                 vehPar->parametersSet |= VEHPARS_DEPARTPOS_SET;
             }
             MSVehicleType* type = vehControl.getVType(vehPar->vtypeid);
-            if (type->getVehicleClass() != SVC_IGNORING && (myOrigin->getPermissions() & type->getVehicleClass()) == 0) {
+            if (type->getVehicleClass() != SVC_IGNORING && (myOrigin->getPermissions() & type->getVehicleClass()) == 0 && !isTaxi) {
                 WRITE_WARNING("Ignoring vehicle type '" + type->getID() + "' when routing person '" + transportable->getID() + "' because it is not allowed on the start edge.");
             } else {
                 const MSRoute* const routeDummy = new MSRoute(vehPar->id, ConstMSEdgeVector({ myOrigin }), false, nullptr, std::vector<SUMOVehicleParameter::Stop>());
@@ -282,9 +301,18 @@ MSStageTrip::setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now
                         localArrivalPos = myArrivalPos;
                     }
                     if (it->line == "") {
+                        // determine walk departPos
                         double depPos = previous->getArrivalPos();
                         if (previous->getDestinationStop() != nullptr) {
                             depPos = previous->getDestinationStop()->getAccessPos(it->edges.front());
+                        } else if (myOrigin->isTazConnector()) {
+                            // walk the whole length of the first edge
+                            const MSEdge* first = it->edges.front();
+                            if (std::find(first->getPredecessors().begin(), first->getPredecessors().end(), myOrigin) != first->getPredecessors().end()) {
+                                depPos = 0;
+                            } else {
+                                depPos = first->getLength();
+                            }
                         } else if (previous->getEdge() != it->edges.front()) {
 //                            if (previous->getEdge()->getToJunction() == it->edges.front()->getToJunction()) {
 //                                depPos = it->edges.front()->getLength();
@@ -292,7 +320,31 @@ MSStageTrip::setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now
                             depPos = 0.;
 //                            }
                         }
+                        if (myDestination->isTazConnector()) {
+                            // walk the whole length of the last edge
+                            const MSEdge* last = it->edges.back();
+                            if (std::find(last->getSuccessors().begin(), last->getSuccessors().end(), myDestination) != last->getSuccessors().end()) {
+                                localArrivalPos = last->getLength();
+                            } else {
+                                localArrivalPos = 0;
+                            }
+                        }
                         previous = new MSPerson::MSPersonStage_Walking(transportable->getID(), it->edges, bs, myDuration, mySpeed, depPos, localArrivalPos, myDepartPosLat);
+                        transportable->appendStage(previous, stageIndex++);
+                    } else if (isTaxi) {
+                        const ConstMSEdgeVector& prevEdges = previous->getEdges();
+                        if (prevEdges.size() >= 2) {
+                            // determine walking direction and let the previous
+                            // stage end after entering its final edge
+                            const MSEdge* last = prevEdges.back();
+                            const MSEdge* prev = prevEdges[prevEdges.size() - 2];
+                            if (last->getFromJunction() == prev->getToJunction() || prev->getFromJunction() == last->getFromJunction()) {
+                                previous->setArrivalPos(MIN2(last->getLength(), 10.0));
+                            } else {
+                                previous->setArrivalPos(MAX2(0.0, last->getLength() - 10));
+                            }
+                        }
+                        previous = new MSStageDriving(it->edges.back(), bs, localArrivalPos, std::vector<std::string>({ "taxi" }));
                         transportable->appendStage(previous, stageIndex++);
                     } else if (vehicle != nullptr && it->line == vehicle->getID()) {
                         if (bs == nullptr && it + 1 != result.end()) {
@@ -306,7 +358,7 @@ MSStageTrip::setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now
                         vehControl.addVehicle(vehPar->id, vehicle);
                         carUsed = true;
                     } else {
-                        previous = new MSStageDriving(it->edges.back(), bs, localArrivalPos, std::vector<std::string>({ it->line }), it->intended, TIME2STEPS(it->depart));
+                        previous = new MSStageDriving(it->edges.back(), bs, localArrivalPos, std::vector<std::string>({ it->line }), myGroup, it->intended, TIME2STEPS(it->depart));
                         transportable->appendStage(previous, stageIndex++);
                     }
                 }
@@ -318,8 +370,15 @@ MSStageTrip::setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now
                 return "No connection found between edge '" + myOrigin->getID() + "' and edge '" + (myDestinationStop != nullptr ? myDestinationStop->getID() : myDestination->getID()) + "' for person '" + transportable->getID() + "'.";
             }
         }
-        if (vehicle != nullptr && !carUsed) {
+        if (vehicle != nullptr && (isTaxi || !carUsed)) {
             vehControl.deleteVehicle(vehicle, true);
+        }
+    }
+    if (transportable->getNumStages() == oldNumStages) {
+        // append stage so the GUI won't crash due to inconsistent state
+        transportable->appendStage(new MSPerson::MSPersonStage_Walking(transportable->getID(), ConstMSEdgeVector({ myOrigin, myDestination }), myDestinationStop, myDuration, mySpeed, previous->getArrivalPos(), myArrivalPos, myDepartPosLat), -1);
+        if (MSGlobals::gCheckRoutes) {  // if not pedestrians will teleport
+            return "Empty route between edge '" + myOrigin->getID() + "' and edge '" + (myDestinationStop != nullptr ? myDestinationStop->getID() : myDestination->getID()) + "' for person '" + transportable->getID() + "'.";
         }
     }
     return "";
@@ -370,13 +429,13 @@ MSStageWaiting::getUntil() const {
 Position
 MSStageWaiting::getPosition(SUMOTime /* now */) const {
     return getEdgePosition(myDestination, myArrivalPos,
-                           ROADSIDE_OFFSET * (MSNet::getInstance()->lefthand() ? -1 : 1));
+                           ROADSIDE_OFFSET * (MSGlobals::gLefthand ? -1 : 1));
 }
 
 
 double
 MSStageWaiting::getAngle(SUMOTime /* now */) const {
-    return getEdgeAngle(myDestination, myArrivalPos) + M_PI / 2 * (MSNet::getInstance()->lefthand() ? -1 : 1);
+    return getEdgeAngle(myDestination, myArrivalPos) + M_PI / 2 * (MSGlobals::gLefthand ? -1 : 1);
 }
 
 
@@ -411,17 +470,27 @@ MSStageWaiting::tripInfoOutput(OutputDevice& os, const MSTransportable* const) c
 
 
 void
-MSStageWaiting::routeOutput(const bool /* isPerson */, OutputDevice& os, const bool) const {
+MSStageWaiting::routeOutput(const bool /* isPerson */, OutputDevice& os, const bool, const MSStage* const previous) const {
     if (myType != MSStageType::WAITING_FOR_DEPART) {
-        // lane index is arbitrary
-        os.openTag("stop").writeAttr(SUMO_ATTR_LANE, getDestination()->getID() + "_0");
+        os.openTag("stop");
+        std::string comment = "";
+        if (myDestinationStop != nullptr) {
+            os.writeAttr(SUMO_ATTR_BUS_STOP, myDestinationStop->getID());
+            if (myDestinationStop->getMyName() != "") {
+                comment =  " <!-- " + StringUtils::escapeXML(myDestinationStop->getMyName(), true) + " -->";
+            }
+        } else {
+            // lane index is arbitrary
+            os.writeAttr(SUMO_ATTR_LANE, getDestination()->getID() + "_0");
+            os.writeAttr(SUMO_ATTR_ENDPOS, getArrivalPos());
+        }
         if (myWaitingDuration >= 0) {
             os.writeAttr(SUMO_ATTR_DURATION, time2string(myWaitingDuration));
         }
         if (myWaitingUntil >= 0) {
             os.writeAttr(SUMO_ATTR_UNTIL, time2string(myWaitingUntil));
         }
-        os.closeTag();
+        os.closeTag(comment);
     }
 }
 
@@ -506,6 +575,10 @@ MSStageMoving::getSpeed() const {
     return myState == nullptr ? 0. : myState->getSpeed(*this);
 }
 
+const MSLane*
+MSStageMoving::getLane() const {
+    return myState == nullptr ? nullptr : myState->getLane();
+}
 
 void
 MSStageMoving::setRouteIndex(MSTransportable* const transportable, int routeOffset) {
@@ -516,5 +589,14 @@ MSStageMoving::setRouteIndex(MSTransportable* const transportable, int routeOffs
     getEdge()->addPerson(transportable);
 }
 
+void
+MSStageMoving::replaceRoute(MSTransportable* const transportable, const ConstMSEdgeVector& edges, int routeOffset) {
+    assert(routeOffset >= 0);
+    assert(routeOffset < (int)edges.size());
+    getEdge()->removePerson(transportable);
+    myRoute = edges;
+    myRouteStep = myRoute.begin() + routeOffset;
+    getEdge()->addPerson(transportable);
+}
 
 /****************************************************************************/

@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSNet.h
 /// @author  Christian Roessel
@@ -20,13 +24,7 @@
 ///
 // The simulated network and simulation performer
 /****************************************************************************/
-#ifndef MSNet_h
-#define MSNet_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <typeinfo>
@@ -70,7 +68,6 @@ class MSDetectorControl;
 class ShapeContainer;
 class MSDynamicShapeUpdater;
 class PolygonDynamics;
-class BinaryInputDevice;
 class MSEdgeWeightsStorage;
 class SUMOVehicle;
 class MSTractionSubstation;
@@ -181,14 +178,13 @@ public:
      * @param[in] stateDumpTimes List of time steps at which state shall be written
      * @param[in] stateDumpFiles Filenames for states
      * @param[in] hasInternalLinks Whether the network actually contains internal links
-     * @param[in] lefthand Whether the network was built for left-hand traffic
      * @param[in] version The network version
      * @todo Try to move all this to the constructor?
      */
     void closeBuilding(const OptionsCont& oc, MSEdgeControl* edges, MSJunctionControl* junctions,
                        SUMORouteLoaderControl* routeLoaders, MSTLLogicControl* tlc,
                        std::vector<SUMOTime> stateDumpTimes, std::vector<std::string> stateDumpFiles,
-                       bool hasInternalLinks, bool hasNeighs, bool lefthand,
+                       bool hasInternalLinks, bool hasNeighs,
                        double version);
 
 
@@ -254,6 +250,8 @@ public:
      */
     const std::string generateStatistics(SUMOTime start);
 
+    /// @brief write statistic output to (xml) file
+    void writeStatistics() const;
 
     /** @brief Closes the simulation (all files, connections, etc.)
      *
@@ -261,7 +259,7 @@ public:
      *
      * @param[in] start The step the simulation was started with
      */
-    void closeSimulation(SUMOTime start, const std::string& reason="");
+    void closeSimulation(SUMOTime start, const std::string& reason = "");
 
 
     /** @brief This method returns the current simulation state. It should not modify status.
@@ -301,6 +299,11 @@ public:
         myStep = step;
     }
 
+
+    /** @brief Resets events when quick-loading state
+     * @param step The new simulation step
+     */
+    void clearState(const SUMOTime step);
 
     /** @brief Write netstate, summary and detector output
      * @todo Which exceptions may occur?
@@ -685,11 +688,6 @@ public:
         return myHasBidiEdges;
     }
 
-    /// @brief return whether the network was built for lefthand traffic
-    bool lefthand() const {
-        return myLefthand;
-    }
-
     /// @brief return the network version
     double getNetworkVersion() const {
         return myVersion;
@@ -843,8 +841,8 @@ protected:
     /// @brief Dictionary of bus / container stops
     std::map<SumoXMLTag, NamedObjectCont<MSStoppingPlace*> > myStoppingPlaces;
 
-	/// @brief Dictionary of traction substations
-	std::vector<MSTractionSubstation*> myTractionSubstations;
+    /// @brief Dictionary of traction substations
+    std::vector<MSTractionSubstation*> myTractionSubstations;
 
     /// @brief Container for vehicle state listener
     std::vector<VehicleStateListener*> myVehicleStateListeners;
@@ -891,9 +889,3 @@ private:
 
 
 };
-
-
-#endif
-
-/****************************************************************************/
-

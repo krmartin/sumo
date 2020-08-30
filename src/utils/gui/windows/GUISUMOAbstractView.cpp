@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    GUISUMOAbstractView.cpp
 /// @author  Daniel Krajzewicz
@@ -17,11 +21,6 @@
 ///
 // The base class for a view
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <iostream>
@@ -124,7 +123,7 @@ GUISUMOAbstractView::GUISUMOAbstractView(FXComposite* p, GUIMainWindow& app, GUI
     FXGLCanvas(p, glVis, share, p, MID_GLCANVAS, LAYOUT_SIDE_TOP | LAYOUT_FILL_X | LAYOUT_FILL_Y, 0, 0, 0, 0),
     myApp(&app),
     myParent(parent),
-    myGrid(&((SUMORTree&)grid)),
+    myGrid(&grid),
     myChanger(nullptr),
     myMouseHotspotX(app.getDefaultCursor()->getHotX()),
     myMouseHotspotY(app.getDefaultCursor()->getHotY()),
@@ -135,7 +134,8 @@ GUISUMOAbstractView::GUISUMOAbstractView(FXComposite* p, GUIMainWindow& app, GUI
     myViewportChooser(nullptr),
     myWindowCursorPositionX(getWidth() / 2),
     myWindowCursorPositionY(getHeight() / 2),
-    myVisualizationChanger(nullptr) {
+    myVisualizationChanger(nullptr),
+    myFrameDrawTime(0) {
     setTarget(this);
     enable();
     flags |= FLAG_ENABLED;
@@ -232,12 +232,6 @@ GUISUMOAbstractView::addDecals(const std::vector<Decal>& decals) {
 }
 
 
-GUIVisualizationSettings*
-GUISUMOAbstractView::getVisualisationSettings() {
-    return myVisualizationSettings;
-}
-
-
 void
 GUISUMOAbstractView::updatePositionInformation() const {
     Position pos = getPositionInformation();
@@ -305,12 +299,7 @@ GUISUMOAbstractView::paintGL() {
 
     Boundary bound = applyGLTransform();
     doPaintGL(GL_RENDER, bound);
-    if (myVisualizationSettings->showSizeLegend) {
-        displayLegend();
-    }
-    if (myVisualizationSettings->showColorLegend) {
-        displayColorLegend();
-    }
+    displayLegends();
     const long end = SysUtils::getCurrentMillis();
     myFrameDrawTime = end - start;
     if (myVisualizationSettings->fps) {
@@ -488,12 +477,9 @@ GUISUMOAbstractView::getObjectsInBoundary(Boundary bound, bool singlePosition) {
         myVisualizationSettings->drawForRectangleSelection = true;
     }
     int hits2 = doPaintGL(GL_SELECT, bound);
-    // disable draw for selecting (to draw objects with less details)
-    if (singlePosition) {
-        myVisualizationSettings->drawForPositionSelection = false;
-    } else {
-        myVisualizationSettings->drawForRectangleSelection = false;
-    }
+    // reset flags
+    myVisualizationSettings->drawForPositionSelection = false;
+    myVisualizationSettings->drawForRectangleSelection = false;
     // Get the results
     nb_hits = glRenderMode(GL_RENDER);
     if (nb_hits == -1) {
@@ -645,7 +631,20 @@ GUISUMOAbstractView::displayLegend() {
 }
 
 void
-GUISUMOAbstractView::displayColorLegend() {
+GUISUMOAbstractView::displayLegends() {
+    if (myVisualizationSettings->showSizeLegend) {
+        displayLegend();
+    }
+    if (myVisualizationSettings->showColorLegend) {
+        displayColorLegend(myVisualizationSettings->getLaneEdgeScheme(), false);
+    }
+    if (myVisualizationSettings->showVehicleColorLegend) {
+        displayColorLegend(myVisualizationSettings->vehicleColorer.getScheme(), true);
+    }
+}
+
+void
+GUISUMOAbstractView::displayColorLegend(const GUIColorScheme& scheme, bool leftSide) {
     // compute the scale bar length
     glLineWidth(1.0);
     glMatrixMode(GL_PROJECTION);
@@ -661,17 +660,28 @@ GUISUMOAbstractView::displayColorLegend() {
     glPushMatrix();
     glTranslated(0, 0, z);
 
-    GUIColorScheme& scheme = myVisualizationSettings->getLaneEdgeScheme();
     const bool fixed = scheme.isFixed();
     const int numColors = (int)scheme.getColors().size();
 
     // vertical
-    const double right = 0.98;
-    const double left = 0.95;
+    double right = 0.98;
+    double left = 0.95;
+    double textX = left - 0.01;
+    FONSalign textAlign = FONS_ALIGN_RIGHT;
     const double top = -0.8;
     const double bot = 0.8;
     const double dy = (top - bot) / numColors;
     const double bot2 = fixed ? bot : bot + dy / 2;
+    // legend placement
+    if (leftSide) {
+        right = -right;
+        left = -left;
+        std::swap(right, left);
+        textX = right + 0.01;
+        textAlign = FONS_ALIGN_LEFT;
+    }
+    // draw black boundary around legend colors
+    glColor3d(0, 0, 0);
     glBegin(GL_LINES);
     glVertex2d(right, top);
     glVertex2d(right, bot2);
@@ -717,7 +727,7 @@ GUISUMOAbstractView::displayColorLegend() {
 
         const double threshold = scheme.getThresholds()[i];
         std::string name = scheme.getNames()[i];
-        std::string text = fixed ? name : toString(threshold);
+        std::string text = fixed || threshold == GUIVisualizationSettings::MISSING_DATA ? name : toString(threshold);
 
         const double bgShift = 0.0;
         const double textShift = 0.02;
@@ -731,7 +741,7 @@ GUISUMOAbstractView::displayColorLegend() {
         glVertex2d(left, topi + fontHeight * (1 + bgShift));
         glEnd();
         glTranslated(0, 0, -0.1);
-        GLHelper::drawText(text, Position(left - 0.01, topi + textShift), 0, fontHeight, RGBColor::BLACK, 0, FONS_ALIGN_RIGHT, fontWidth);
+        GLHelper::drawText(text, Position(textX, topi + textShift), 0, fontHeight, RGBColor::BLACK, 0, textAlign, fontWidth);
     }
     glPopMatrix();
     // restore matrices
@@ -1075,6 +1085,20 @@ GUISUMOAbstractView::onKeyPress(FXObject* o, FXSelector sel, void* data) {
     if (myPopup != nullptr) {
         return myPopup->onKeyPress(o, sel, data);
     } else {
+        FXEvent* e = (FXEvent*) data;
+        if (e->state & CONTROLMASK) {
+            if (e->code == FX::KEY_Page_Up) {
+                myVisualizationSettings->gridXSize *= 2;
+                myVisualizationSettings->gridYSize *= 2;
+                update();
+                return 1;
+            } else if (e->code == FX::KEY_Page_Down) {
+                myVisualizationSettings->gridXSize /= 2;
+                myVisualizationSettings->gridYSize /= 2;
+                update();
+                return 1;
+            }
+        }
         FXGLCanvas::onKeyPress(o, sel, data);
         return myChanger->onKeyPress(data);
     }
@@ -1191,12 +1215,7 @@ GUISUMOAbstractView::makeSnapshot(const std::string& destFile, const int w, cons
             glEnable(GL_POLYGON_OFFSET_LINE);
             myGrid->Search(minB, maxB, *myVisualizationSettings);
 
-            if (myVisualizationSettings->showSizeLegend) {
-                displayLegend();
-            }
-            if (myVisualizationSettings->showColorLegend) {
-                displayColorLegend();
-            }
+            displayLegends();
             state = gl2psEndPage();
             glFinish();
         }
@@ -1207,12 +1226,7 @@ GUISUMOAbstractView::makeSnapshot(const std::string& destFile, const int w, cons
 #endif
     } else {
         doPaintGL(GL_RENDER, myChanger->getViewport());
-        if (myVisualizationSettings->showSizeLegend) {
-            displayLegend();
-        }
-        if (myVisualizationSettings->showColorLegend) {
-            displayColorLegend();
-        }
+        displayLegends();
         swapBuffers();
         glFinish();
         FXColor* buf;
@@ -1391,9 +1405,9 @@ GUISUMOAbstractView::setColorScheme(const std::string&) {
 }
 
 
-GUIVisualizationSettings*
+GUIVisualizationSettings&
 GUISUMOAbstractView::getVisualisationSettings() const {
-    return myVisualizationSettings;
+    return *myVisualizationSettings;
 }
 
 

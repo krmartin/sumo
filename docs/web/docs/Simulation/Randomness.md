@@ -70,8 +70,8 @@ to its departure time, equidistributed on \[0, {{DT_TIME}}\].
 
 # Flows with a fixed number of vehicles
 
-The [DUAROUTER](../DUAROUTER.md), [DFROUTER](../DFROUTER.md)
-and [JTRROUTER](../JTRROUTER.md) applications support the option **--randomize-flows**.
+The [duarouter](../duarouter.md), [dfrouter](../dfrouter.md)
+and [jtrrouter](../jtrrouter.md) applications support the option **--randomize-flows**.
 When this option is used, each vehicle defined by a `<flow>`-element will be
 given a random departure time which is equidistributed within the time
 interval of the flow. (By default vehicles of a flow are spaced equally
@@ -79,7 +79,7 @@ in time).
 
 # Flows with a random number of vehicles
 
-Both [DUAROUTER](../DUAROUTER.md) and [SUMO](../SUMO.md)
+Both [duarouter](../duarouter.md) and [sumo](../sumo.md)
 support loading of `<flow>` elements with attribute `probability`. When this attribute is
 used (instead of `vehsPerHour,number`, or `period`), a vehicle will be emitted randomly with the
 given probability each second. This results in a [binomially
@@ -88,6 +88,10 @@ distributed](https://en.wikipedia.org/wiki/Binomial_distribution) flow
 Distribution](https://en.wikipedia.org/wiki/Poisson_distribution) for
 small probabilities). When modeling such a flow on a multi-lane road it
 is recommended to define a `<flow>` for each individual lane.
+
+When simulating with subsecond time resolution, the random decision for insertion is take in every simulation step and the probability for insertion is scaled with step-length so that the per-second probability of insertion is independent of the step-length. 
+!!! note
+    The effective flow may be higher at lower step-length because the discretization error is reduced (vehicles usually cannot be inserted in subsequent seconds due to safety constraints and insertion in every other second does not achieve maximum flow).
 
 # Departure and arrival attributes
 
@@ -101,11 +105,11 @@ arrival value (i.e. after rerouting).
 - The tool [randomTrips.py](../Tools/Trip.md#randomtripspy)
   allows generating traffic between random edges. It also supports
   randomizing arrival rates.
-- [OD2TRIPS](../OD2TRIPS.md) adds randomness when drawing
+- [od2trips](../od2trips.md) adds randomness when drawing
   individual trips from an O/D-Matrix
-- [DUAROUTER](../DUAROUTER.md) adds randomness when performing
+- [duarouter](../duarouter.md) adds randomness when performing
   [Demand/Dynamic_User_Assignment](../Demand/Dynamic_User_Assignment.md)
-- [DUAROUTER](../DUAROUTER.md) can randomly disturb the fastest-paths by setting opion **--weights.random-factor**
+- [duarouter](../duarouter.md) can randomly disturb the fastest-paths by setting option **--weights.random-factor**
 - [Simulation routing can be
   randomized](../Demand/Automatic_Routing.md#randomness) to
   ensure usage of alternative routes.

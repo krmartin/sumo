@@ -1,5 +1,5 @@
-Eclipse SUMO netconvert Version v1_4_0+0301-c36eaff1a1
- Copyright (C) 2001-2019 German Aerospace Center (DLR) and others; https://sumo.dlr.de
+Eclipse SUMO netconvert Version v1_6_0+1462-a775417066
+ Copyright (C) 2001-2020 German Aerospace Center (DLR) and others; https://sumo.dlr.de
 Network importer / builder for the microscopic, multi-modal traffic simulation
   SUMO.
 
@@ -174,6 +174,8 @@ Processing Options:
   --ptline.match-dist FLOAT            Matches stops outside the road network
                                          to the referencing pt line when below
                                          the given distance
+  --ptstop-output.no-bidi              Skips automatic generation of stops on
+                                         the bidi-edge of a loaded stop
   --geometry.max-grade FLOAT           Warn about edge geometries with a grade
                                          in % above FLOAT.
   --geometry.max-grade.fix             Smooth edge edge geometries with a grade
@@ -184,10 +186,13 @@ Processing Options:
   --offset.z FLOAT                     Adds FLOAT to net z-positions
   --flip-y-axis                        Flips the y-coordinate along zero
   --roundabouts.guess                  Enable roundabout-guessing
+  --roundabouts.visibility-distance FLOAT  Default visibility when approaching
+                                         a roundabout
   --opposites.guess                    Enable guessing of opposite direction
                                          lanes usable for overtaking
   --opposites.guess.fix-lengths        Ensure that opposite edges have the same
                                          length
+  --fringe.guess                       Enable guessing of network fringe nodes
   --lefthand                           Assumes left-hand traffic on the network
   --edges.join                         Merges edges which connect the same
                                          nodes and are close to each other
@@ -197,10 +202,15 @@ Processing Options:
                                          by FLOAT
   --speed.minimum FLOAT                Modifies all edge speeds to at least
                                          FLOAT
+  --edges.join-tram-dist FLOAT         Joins tram edges into road lanes with
+                                         similar geometry (within FLOAT
+                                         distance)
 
 Building Defaults Options:
   -L, --default.lanenumber INT         The default number of lanes in an edge
   --default.lanewidth FLOAT            The default width of lanes
+  --default.spreadtype STR             The default method for computing lane
+                                         shapes from edge shapes
   -S, --default.speed FLOAT            The default speed on an edge (in m/s)
   -P, --default.priority INT           The default priority of an edge
   --default.type STR                   The default edge type
@@ -214,6 +224,8 @@ Building Defaults Options:
                                          by default
   --default.junctions.radius FLOAT     The default turning radius of
                                          intersections
+  --default.connection-length FLOAT    The default length when overriding
+                                         connection lengths
   --default.right-of-way STR           The default algorithm for computing
                                          right of way rules ('default',
                                          'edgePriority')
@@ -292,6 +304,10 @@ TLS Building Options:
   --tls.max-dur INT                    Default maximum phase duration for
                                          traffic lights with variable phase
                                          length
+  --tls.group-signals                  Assign the same tls link index to
+                                         connections that share the same states
+  --tls.ungroup-signals                Assign a distinct tls link index to
+                                         every connection
 
 Ramp Guessing Options:
   --ramps.guess                        Enable ramp-guessing
@@ -303,6 +319,7 @@ Ramp Guessing Options:
   --ramps.min-highway-speed FLOAT      Treat edges with speed < FLOAT as no
                                          highways
   --ramps.ramp-length FLOAT            Use FLOAT as ramp-length
+  --ramps.min-weave-length FLOAT       Use FLOAT as minimum ramp-length
   --ramps.set STR[]                    Tries to handle the given edges as ramps
   --ramps.unset STR[]                  Do not consider the given edges as ramps
   --ramps.no-split                     Avoids edge splitting
@@ -364,6 +381,8 @@ Junctions Options:
   --no-turnarounds.except-turnlane     Disables building turnarounds except at
                                          at junctions with a dedicated turning
                                          lane
+  --no-turnarounds.fringe              Disables building turnarounds at fringe
+                                         junctions
   --no-left-connections                Disables building connections to left
   --junctions.join                     Joins junctions that are close to each
                                          other (recommended for OSM import)
@@ -435,6 +454,9 @@ Pedestrian Options:
                                          above the threshold
   --walkingareas                       Always build walking areas even if there
                                          are no crossings
+  --walkingareas.join-dist FLOAT       Do not create a walkingarea between
+                                         sidewalks that are connected by a
+                                         pedestrian junction within FLOAT
 
 Bicycle Options:
   --bikelanes.guess                    Guess bike lanes based on edge speed
@@ -456,9 +478,13 @@ Railway Options:
   --railway.topology.repair.connect-straight  Allow bidiretional rail use
                                          wherever rails with opposite directions
                                          meet at a straight angle
+  --railway.topology.repair.stop-turn  Add turn-around connections at all
+                                         loaded stops.
   --railway.topology.all-bidi          Make all rails usable in both direction
   --railway.topology.all-bidi.input-file FILE  Make all rails edge ids from
                                          FILE usable in both direction
+  --railway.topology.direction-priority  Set edge priority values based on
+                                         estimated main direction
   --railway.access-distance FLOAT      The search radius for finding suitable
                                          road accesses for rail stops
   --railway.max-accesses INT           The maximum roud accesses registered per
@@ -468,6 +494,7 @@ Railway Options:
                                          multiplied by FLOAT
 
 Formats Options:
+  --discard-params STR[]               Remove the list of keys from all params
   --osm.skip-duplicates-check          Skips the check for duplicate nodes and
                                          edges
   --osm.elevation                      Imports elevation data
@@ -510,6 +537,8 @@ Formats Options:
   --shapefile.use-defaults-on-failure  Uses edge type defaults on problems
   --shapefile.all-bidirectional        Insert edges in both directions
   --shapefile.guess-projection         Guess the proper projection
+  --shapefile.traditional-axis-mapping  Use traditional axis order (lon, lat)
+  --dlr-navteq.tolerant-permissions    Allow more vehicle classes by default
   --vissim.join-distance FLOAT         Structure join offset
   --vissim.default-speed FLOAT         Use FLOAT as default speed
   --vissim.speed-norm FLOAT            Factor for edge velocity

@@ -29,6 +29,8 @@
 /build/cmake-build*
 /build/cmake_build*
 /build/cmake-codeblocks*
+/build/cmake-clang*
+/build/cmake-mingw*
 /out
 # bin dir
 /bin/TraCITestClient*
@@ -57,6 +59,8 @@
 /bin/*.pyd
 /bin/osgPlugins*
 /bin/libsumoc*
+/bin/liblibsumojni.jnilib
+/bin/libsumofmi2.dylib
 # data dir
 /data/proj
 # docs dir, make artifacts
@@ -96,6 +100,7 @@
 /src/utils/empty.cpp
 /unittest/src/sumo-unittest
 # tools dir
+/tools/[0-9]*
 /tools/game/*.netstate.xml
 /tools/game/*.tlsstate.xml
 /tools/game/*.tripinfos.xml
@@ -113,6 +118,8 @@
 /tools/libsumo/libsumo.py
 /tools/libsumo/libsumoPYTHON_wrap.cxx
 /tools/libsumo/libsumoc.so
+/tools/libsumo/libsumocpp.so
+/tools/libsumo/libsumocpp.dylib
 # extracted tests
 /tests/_*
 # global patterns
@@ -122,6 +129,7 @@ Makefile.in
 *.class
 lib*.a
 .deps
+**/.DS_Store
 .libs
 *.o
 *.pyc
@@ -145,3 +153,4 @@ lib*.a
 *.res
 *.ipch
 .vscode
+*.aps

@@ -15,10 +15,10 @@ vehicle types).
 .tg th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:black;}
 .tg .tg-cly1{text-align:left;vertical-align:middle}
 .tg .tg-eaoh{font-weight:bold;background-color:#ffdead;text-align:center;vertical-align:top}
-.tg .tg-dr3j{font-weight:bold;background-color:#ffdead;text-align:center;vertical-align:middle}
+.tg .tg-dr3j{color: #495057; font-weight:bold;background-color:#ffdead;text-align:center;vertical-align:middle}
 .tg .tg-ye8u{background-color:#ffdead;text-align:center;vertical-align:top}
 .tg .tg-0lax{text-align:left;vertical-align:top}
-.tg .tg-c882{font-weight:bold;background-color:#e0ffd0;text-align:center;vertical-align:top}
+.tg .tg-c882{color: #495057; font-weight:bold;background-color:#e0ffd0;text-align:center;vertical-align:top}
 </style>
 <table class="tg">
   <tr>
@@ -416,4 +416,4 @@ vehicle types).
 - (37):
   <http://www.rettungsdienst.brk.de/technik/rtw/rtw_by_2010/daten>
 - (\*): estimated
-- (\*\*): need to be revisited to fit to model behaviour
+- (\*\*): need to be revisited to fit to model behavior

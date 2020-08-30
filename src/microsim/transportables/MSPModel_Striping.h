@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2014-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2014-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSPModel_Striping.h
 /// @author  Jakob Erdmann
@@ -14,12 +18,7 @@
 ///
 // The pedestrian following model (prototype)
 /****************************************************************************/
-#ifndef MSPModel_Striping_h
-#define MSPModel_Striping_h
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <string>
@@ -159,7 +158,7 @@ protected:
     typedef std::map<const MSLane*, Pedestrians, lane_by_numid_sorter> ActiveLanes;
     typedef std::vector<Obstacle> Obstacles;
     typedef std::map<const MSLane*, Obstacles, lane_by_numid_sorter> NextLanesObstacles;
-    typedef std::map<std::pair<const MSLane*, const MSLane*>, WalkingAreaPath> WalkingAreaPaths;
+    typedef std::map<std::pair<const MSLane*, const MSLane*>, const WalkingAreaPath> WalkingAreaPaths;
     typedef std::map<const MSLane*, double> MinNextLengths;
 
     struct NextLaneInfo {
@@ -216,21 +215,25 @@ protected:
     };
 
     struct WalkingAreaPath {
-        WalkingAreaPath(const MSLane* _from, const MSLane* _walkingArea, const MSLane* _to, const PositionVector& _shape) :
+        WalkingAreaPath(const MSLane* _from, const MSLane* _walkingArea, const MSLane* _to, const PositionVector& _shape, int _dir) :
             from(_from),
             to(_to),
             lane(_walkingArea),
             shape(_shape),
+            dir(_dir),
             length(_shape.length()) {
         }
 
-        WalkingAreaPath(): from(0), to(0), lane(0) {};
+        const MSLane* const from;
+        const MSLane* const to;
+        const MSLane* const lane; // the walkingArea;
+        const PositionVector shape;
+        const int dir; // the direction when entering this path
+        const double length;
 
-        const MSLane* from;
-        const MSLane* to;
-        const MSLane* lane; // the walkingArea;
-        PositionVector shape; // actually const but needs to be copyable by some stl code
-        double length;
+    private:
+        /// @brief Invalidated assignment operator
+        WalkingAreaPath& operator=(const WalkingAreaPath& s) = delete;
 
     };
 
@@ -269,8 +272,9 @@ protected:
         void moveToXY(MSPerson* p, Position pos, MSLane* lane, double lanePos,
                       double lanePosLat, double angle, int routeOffset,
                       const ConstMSEdgeVector& edges, SUMOTime t);
-
+        /// @brief whether the transportable is jammed
         bool isJammed() const;
+        const MSLane* getLane() const;
         /// @}
 
         PState(MSPerson* person, MSStageMoving* stage, const MSLane* lane);
@@ -296,7 +300,7 @@ protected:
         /// @brief information about the upcoming lane
         NextLaneInfo myNLI;
         /// @brief the current walkingAreaPath or 0
-        WalkingAreaPath* myWalkingAreaPath;
+        const WalkingAreaPath* myWalkingAreaPath;
         /// @brief whether the person is jammed
         bool myAmJammed;
         /// @brief remote-controlled position
@@ -356,6 +360,9 @@ protected:
 
         /// @brief return the person width
         virtual double getWidth() const;
+
+        /// @brief whether the person is currently being controlled via TraCI
+        bool isRemoteControlled() const;
 
     protected:
         /// @brief constructor for PStateVehicle
@@ -423,6 +430,15 @@ protected:
         return myActiveLanes;
     }
 
+    /// @brief return the number of active objects
+    int getActiveNumber() {
+        return myNumActivePedestrians;
+    }
+
+    void registerActive() {
+        myNumActivePedestrians++;
+    }
+
 private:
     static void DEBUG_PRINT(const Obstacles& obs);
 
@@ -441,8 +457,12 @@ private:
 
     static void initWalkingAreaPaths(const MSNet* net);
 
+    static const WalkingAreaPath* getWalkingAreaPath(const MSEdge* walkingArea, const MSLane* before, const MSLane* after);
+
     /// @brief return an arbitrary path across the given walkingArea
-    static WalkingAreaPath* getArbitraryPath(const MSEdge* walkingArea);
+    static const WalkingAreaPath* getArbitraryPath(const MSEdge* walkingArea);
+
+    static const WalkingAreaPath* guessPath(const MSEdge* walkingArea, const MSEdge* before, const MSEdge* after);
 
     /// @brief return the maximum number of pedestrians walking side by side
     static int numStripes(const MSLane* lane);
@@ -475,6 +495,7 @@ private:
 
     static bool addVehicleFoe(const MSVehicle* veh, const MSLane* walkingarea, const Position& relPos, double lateral_offset,
                               double minY, double maxY, Pedestrians& toDelete, Pedestrians& transformedPeds);
+
 private:
     /// @brief the total number of active pedestrians
     int myNumActivePedestrians;
@@ -496,5 +517,4 @@ private:
 };
 
 
-#endif /* MSPModel_Striping_h */
 

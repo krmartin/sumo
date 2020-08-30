@@ -31,9 +31,11 @@ formats. Following files can be generated, sorted by application:
 - PHEM: .dri-files, .str-files, .fzp-files, .flt-files
 - GPSDAT csv traces (id,date,x,y,status,speedKMH)
 - [GPX](http://en.wikipedia.org/wiki/GPS_eXchange_Format)
+- [KML](https://en.wikipedia.org/wiki/Keyhole_Markup_Language)
+- [Kepler-JSON](https://kepler.gl/)
 - [POIs](../Simulation/Shapes.md#poi_point_of_interest_definitions)
   (can visualize GPS distortions and sampling in
-  [SUMO-GUI](../SUMO-GUI.md))
+  [sumo-gui](../sumo-gui.md))
 - [fcd output](../Simulation/Output/FCDOutput.md) to restrict the
   file to certain regions or time intervals
 

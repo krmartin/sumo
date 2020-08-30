@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSDetectorControl.h
 /// @author  Daniel Krajzewicz
@@ -17,13 +21,7 @@
 ///
 // Detectors container; responsible for string and output generation
 /****************************************************************************/
-#ifndef MSDetectorControl_h
-#define MSDetectorControl_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <string>
@@ -151,6 +149,9 @@ public:
      */
     const NamedObjectCont<MSDetectorFileOutput*>& getTypedDetectors(SumoXMLTag type) const;
 
+    const std::map<std::string, std::vector<MSMeanData*> >& getMeanData() const {
+        return myMeanData;
+    }
 
     /** @brief Computes detector values
      *
@@ -176,6 +177,8 @@ public:
      */
     void writeOutput(SUMOTime step, bool closing);
 
+    /** @brief Remove all vehicles before quick-loading state */
+    void clearState();
 
 protected:
     /// @name Structures needed for assigning detectors to intervals
@@ -223,8 +226,8 @@ protected:
     /// @brief The map that holds the last call for each sample interval
     std::map<IntervalsKey, SUMOTime> myLastCalls;
 
-    /// @brief List of harmonoise detectors
-    std::vector<MSMeanData*> myMeanData;
+    /// @brief List of meanData  detectors
+    std::map<std::string, std::vector<MSMeanData*> > myMeanData;
 
     /// @brief An empty container to return in getTypedDetectors() if no detectors of the asked type exist
     NamedObjectCont< MSDetectorFileOutput*> myEmptyContainer;
@@ -239,9 +242,3 @@ private:
 
 
 };
-
-
-#endif
-
-/****************************************************************************/
-

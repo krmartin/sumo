@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    GUIPolygon.h
 /// @author  Daniel Krajzewicz
@@ -15,13 +19,7 @@
 ///
 // The GUI-version of a polygon
 /****************************************************************************/
-#ifndef GUIPolygon_h
-#define GUIPolygon_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <string>
@@ -123,7 +121,7 @@ protected:
     bool checkDraw(const GUIVisualizationSettings& s) const;
 
     /// @brief draw inner Polygon (before pushName() )
-    void drawInnerPolygon(const GUIVisualizationSettings& s, bool disableSelectionColor) const;
+    void drawInnerPolygon(const GUIVisualizationSettings& s, const PositionVector& shape, double layer, bool disableSelectionColor) const;
 
 private:
     /// The mutex used to avoid concurrent updates of the shape
@@ -136,15 +134,9 @@ private:
     PositionVector* myRotatedShape;
 
     /// @brief store the drawing commands in a display list
-    void storeTesselation(double lineWidth) const;
+    void storeTesselation(const PositionVector& shape, double lineWidth) const;
 
     // @brief perform the tesselation / drawing
-    void performTesselation(double lineWidth) const;
+    void performTesselation(const PositionVector& shape, double lineWidth) const;
 
 };
-
-
-#endif
-
-/****************************************************************************/
-

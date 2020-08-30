@@ -29,7 +29,7 @@ type:
 
 Note, that that the `guiShape="bicycle"` along with [sensible default
 parameters](../Vehicle_Type_Parameter_Defaults.md) are
-automatically used when specifying `vClass="bicycle"`. By adapating [vType-parameters for
+automatically used when specifying `vClass="bicycle"`. By adapting [vType-parameters for
 acceleration,deceleration,maximumSpeed,etc..](../Definition_of_Vehicles,_Vehicle_Types,_and_Routes.md#vehicle_types)
 different cyclist types can be modelled.
 
@@ -56,7 +56,7 @@ script](../TraCI.md). This approach is described in [Integration of
 an external bicycle model in SUMO, Heather
 Twaddle 2016](https://www.researchgate.net/publication/302909195_Integration_of_an_External_Bicycle_Model_in_SUMO).
 
-## Bicyles as fast pedestrians
+## Bicycles as fast pedestrians
 
 In this case, persons walking at high speed are used.
 
@@ -122,9 +122,9 @@ A third option which can be used if no edge types are available is a heuristic b
 
 Option **--bikelanes.guess.from-permissons** {{DT_BOOL}} is suitable for networks which specify their edge permissions (such as [DlrNavteq](../Networks/Import/DlrNavteq.md)). It adds a bike lane for all edges which allow bicycles on any of their lanes. The option **--bikelanes.guess.exclude** {{DT_IDList}}[,{{DT_IDList}}\]* applies here as well. 
 
-### Adding bike lanes with [NETEDIT](../NETEDIT.md)
+### Adding bike lanes with [netedit](../netedit.md)
 
-To add bike lanes to a set of edges in [NETEDIT](../NETEDIT.md) select these and right click on them. From the context-menu select *lane operations->add restricted lane->Bikelane*. 
+To add bike lanes to a set of edges in [netedit](../netedit.md) select these and right click on them. From the context-menu select *lane operations->add restricted lane->Bikelane*. 
 
 ## Notes on Right-of-Way rules
 
@@ -137,3 +137,7 @@ the road) must yield to straight-going vehicles.
 
 !!! caution
     The trajectories of left-turning bicycles use a wide curve rather than going straight twice. Currently, this can only be remedied by setting [custom shapes for these internal lanes](../Networks/PlainXML.md#custom_shapes_for_internal_lanes_crossings_and_walkingareas).
+    
+# Bicycle routing
+
+When [routing bicycles in the simulation](../Demand/Automatic_Routing.md) the option **--device.rerouting.bike-speeds** can be used to enable separate tracking of bicycle speeds. This ensure that routing for bicycles which can use a dedicated bicycle lane is not affected by jammed cars.
