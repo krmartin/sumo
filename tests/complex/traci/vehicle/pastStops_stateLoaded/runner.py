@@ -41,21 +41,21 @@ for i in range(500):
 
 print("retrieve stops before saving")
 print("time", traci.simulation.getTime())
-print("  past 10 stops", traci.vehicle.getNextStops(vehID, -10))
-print("  next 10 stops", traci.vehicle.getNextStops(vehID, 10))
+print("  past 10 stops", traci.vehicle.getStops(vehID, -10))
+print("  next 10 stops", traci.vehicle.getStops(vehID, 10))
 
 traci.simulation.saveState("state.xml")
 
 traci.load(["-n", "input_net2.net.xml",
-             "--load-state", "state.xml",
-             "--no-step-log",
-             ] + sys.argv[1:])
+            "--load-state", "state.xml",
+            "--no-step-log",
+            ] + sys.argv[1:])
 
 print("retrieve stops after saving")
 for i in range(2):
     print("time", traci.simulation.getTime())
-    print("  past 10 stops", traci.vehicle.getNextStops(vehID, -10))
-    print("  next 10 stops", traci.vehicle.getNextStops(vehID, 10))
+    print("  past 10 stops", traci.vehicle.getStops(vehID, -10))
+    print("  next 10 stops", traci.vehicle.getStops(vehID, 10))
     traci.simulationStep()
 
 traci.close()

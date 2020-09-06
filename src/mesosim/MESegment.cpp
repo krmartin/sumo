@@ -105,7 +105,7 @@ MESegment::MESegment(const std::string& id,
     myCapacity(length * parent.getLanes().size()),
     myQueueCapacity(multiQueue ? length : length * parent.getLanes().size()),
     myJunctionControl(junctionControl),
-    myTLSPenalty(MSGlobals::gMesoTLSPenalty > 0 &&
+    myTLSPenalty((MSGlobals::gMesoTLSPenalty > 0 || MSGlobals::gMesoTLSFlowPenalty > 0) &&
                  // only apply to the last segment of a tls-controlled edge
                  myNextSegment == nullptr && (
                      parent.getToJunction()->getType() == SumoXMLNodeType::TRAFFIC_LIGHT ||
@@ -490,8 +490,8 @@ MESegment::send(MEVehicle* veh, MESegment* const next, const int nextQIdx, SUMOT
     if (!isInvalid(next)) {
         const bool nextFree = next->myQueues[nextQIdx].getOccupancy() <= next->myJamThreshold;
         const SUMOTime tau = (q.getOccupancy() <= myJamThreshold
-            ? (nextFree ? myTau_ff : myTau_fj)
-            : (nextFree ? myTau_jf : TIME2STEPS(myA * q.size() + myB)));
+                              ? (nextFree ? myTau_ff : myTau_fj)
+                              : (nextFree ? myTau_jf : TIME2STEPS(myA * q.size() + myB)));
         myLastHeadway = tauWithVehLength(tau, veh->getVehicleType().getLengthWithGap());
         if (myTLSPenalty) {
             const MSLink* const tllink = getLink(veh, true);
@@ -711,7 +711,7 @@ MESegment::loadState(const std::vector<std::string>& vehIds, MSVehicleControl& v
         MSGlobals::gMesoNet->addLeaderCar(veh, getLink(veh));
     }
     q.setBlockTime(block);
-    q.setOccupancy(MIN2(q.getOccupancy() , myQueueCapacity));
+    q.setOccupancy(MIN2(q.getOccupancy(), myQueueCapacity));
 }
 
 

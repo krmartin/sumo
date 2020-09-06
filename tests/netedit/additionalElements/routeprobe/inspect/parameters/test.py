@@ -44,10 +44,10 @@ netedit.rebuildNetwork()
 netedit.inspectMode()
 
 # inspect first routeProbe
-netedit.leftClick(referencePosition, 320, 200)
+netedit.leftClick(referencePosition, 320, 220)
 
 # check parameters
-netedit.checkParameters(referencePosition, 7, False)
+netedit.checkParameters(referencePosition, 7, True)
 
 # save additionals
 netedit.saveAdditionals(referencePosition)

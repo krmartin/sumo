@@ -11,23 +11,37 @@
 // https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
 // SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
-/// @file    libsumpcpp2c.c
+/// @file    libsumocpp2c.cpp
 /// @author  Robert Hilbrich
 /// @date    Mon, 17 Aug 2020
 ///
 // Implementation of the libsumo c++ to c wrapper
 /****************************************************************************/
 
+
 #include <libsumo/Simulation.h>
+#include <utils/geom/PositionVector.h>
+#include <libsumo/Vehicle.h>
+
 #include "libsumocpp2c.h"
 
 void
 libsumo_load() {
-    std::vector<std::string> options;
+    std::vector<std::string> options = {"-c", "/Users/robert/Git-Repositories/SUMO/tools/game/grid6.sumocfg"};
     libsumo::Simulation::load(options);
 }
 
-void 
+int
+libsumo_vehicle_getIDCount() {
+    return libsumo::Vehicle::getIDCount();
+}
+
+void
 libsumo_close() {
     libsumo::Simulation::close();
+}
+
+void
+libsumo_step(double time) {
+    libsumo::Simulation::step(time);
 }

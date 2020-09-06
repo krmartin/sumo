@@ -389,7 +389,7 @@ GNEAdditionalHandler::buildDetectorE1(GNENet* net, bool allowUndoRedo, const std
 
 
 GNEAdditional*
-GNEAdditionalHandler::buildSingleLaneDetectorE2(GNENet* net, bool allowUndoRedo, const std::string& id, GNELane* lane, double pos, double length, const std::string &freq, const std::string &trafficLight, 
+GNEAdditionalHandler::buildSingleLaneDetectorE2(GNENet* net, bool allowUndoRedo, const std::string& id, GNELane* lane, double pos, double length, const std::string& freq, const std::string& trafficLight,
         const std::string& filename, const std::string& vehicleTypes, const std::string& name, SUMOTime timeThreshold, double speedThreshold, double jamThreshold, bool friendlyPos, bool blockMovement) {
     if (net->retrieveAdditional(SUMO_TAG_E2DETECTOR, id, false) == nullptr) {
         GNEAdditional* detectorE2 = new GNEDetectorE2(id, lane, net, pos, length, freq, trafficLight, filename, vehicleTypes, name, timeThreshold, speedThreshold, jamThreshold, friendlyPos, blockMovement);
@@ -410,7 +410,7 @@ GNEAdditionalHandler::buildSingleLaneDetectorE2(GNENet* net, bool allowUndoRedo,
 
 
 GNEAdditional*
-GNEAdditionalHandler::buildMultiLaneDetectorE2(GNENet* net, bool allowUndoRedo, const std::string& id, const std::vector<GNELane*>& lanes, double pos, double endPos, const std::string &freq, const std::string &trafficLight,
+GNEAdditionalHandler::buildMultiLaneDetectorE2(GNENet* net, bool allowUndoRedo, const std::string& id, const std::vector<GNELane*>& lanes, double pos, double endPos, const std::string& freq, const std::string& trafficLight,
         const std::string& filename, const std::string& vehicleTypes, const std::string& name, SUMOTime timeThreshold, double speedThreshold, double jamThreshold, bool friendlyPos, bool blockMovement) {
     if (net->retrieveAdditional(SUMO_TAG_E2DETECTOR_MULTILANE, id, false) == nullptr) {
         GNEDetectorE2* detectorE2 = new GNEDetectorE2(id, lanes, net, pos, endPos, freq, trafficLight, filename, vehicleTypes, name, timeThreshold, speedThreshold, jamThreshold, friendlyPos, blockMovement);
@@ -427,8 +427,6 @@ GNEAdditionalHandler::buildMultiLaneDetectorE2(GNENet* net, bool allowUndoRedo, 
             }
             detectorE2->incRef("buildDetectorE2Multilane");
         }
-        // check E2 integrity
-        detectorE2->checkE2MultilaneIntegrity();
         return detectorE2;
     } else {
         throw ProcessError("Could not build " + toString(SUMO_TAG_E2DETECTOR_MULTILANE) + " with ID '" + id + "' in netedit; probably declared twice.");
@@ -1066,7 +1064,7 @@ GNEAdditionalHandler::checkOverlappingRerouterIntervals(GNEAdditional* rerouter,
     // declare a vector to keep sorted rerouter children
     std::vector<std::pair<SUMOTime, SUMOTime>> sortedIntervals;
     // iterate over child additional
-    for (const auto &rerouterChild : rerouter->getChildAdditionals()) {
+    for (const auto& rerouterChild : rerouter->getChildAdditionals()) {
         if (!rerouterChild->getTagProperty().isSymbol()) {
             sortedIntervals.push_back(std::make_pair((SUMOTime)0., (SUMOTime)0.));
             // set begin and end
@@ -2672,10 +2670,45 @@ GNEAdditionalHandler::parseParameter(const SUMOSAXAttributes& attrs) {
                 myLastInsertedElement->getLastInsertedShape()->setParameter(key, val);
             }
         } else {
-            WRITE_WARNING("Shape of type '" + myLastInsertedElement->getLastInsertedAdditional()->getTagStr() + "' doesn't support parameters");
+            WRITE_WARNING("Shape of type '" + myLastInsertedElement->getLastInsertedShape()->getTagStr() + "' doesn't support parameters");
+        }
+    } else if (myLastInsertedElement->getLastInsertedTAZElement()) {
+        // first check if given TAZ supports parameters
+        if (myLastInsertedElement->getLastInsertedTAZElement()->getTagProperty().hasParameters()) {
+            bool ok = true;
+            std::string key;
+            if (attrs.hasAttribute(SUMO_ATTR_KEY)) {
+                // obtain key
+                key = attrs.get<std::string>(SUMO_ATTR_KEY, nullptr, ok);
+                if (key.empty()) {
+                    WRITE_WARNING("Error parsing key from TAZ parameter. Key cannot be empty");
+                    ok = false;
+                }
+                if (!SUMOXMLDefinitions::isValidParameterKey(key)) {
+                    WRITE_WARNING("Error parsing key from TAZ parameter. Key contains invalid characters");
+                    ok = false;
+                }
+            } else {
+                WRITE_WARNING("Error parsing key from TAZ parameter. Key doesn't exist");
+                ok = false;
+            }
+            // circumventing empty string test
+            const std::string val = attrs.hasAttribute(SUMO_ATTR_VALUE) ? attrs.getString(SUMO_ATTR_VALUE) : "";
+            // check double values
+            if (myLastInsertedElement->getLastInsertedTAZElement()->getTagProperty().hasDoubleParameters() && !GNEAttributeCarrier::canParse<double>(val)) {
+                WRITE_WARNING("Error parsing value from TAZ float parameter. Value cannot be parsed to float");
+                ok = false;
+            }
+            // set parameter in last inserted TAZ
+            if (ok) {
+                WRITE_DEBUG("Inserting parameter '" + key + "|" + val + "' into TAZ " + myLastInsertedElement->getLastInsertedTAZElement()->getTagStr() + ".");
+                myLastInsertedElement->getLastInsertedTAZElement()->setParameter(key, val);
+            }
+        } else {
+            WRITE_WARNING("TAZ of type '" + myLastInsertedElement->getLastInsertedTAZElement()->getTagStr() + "' doesn't support parameters");
         }
     } else {
-        WRITE_WARNING("Parameters has to be declared within the definition of an additional or a shape element");
+        WRITE_WARNING("Parameters has to be declared within the definition of an additional, shape or TAZ element");
     }
 }
 

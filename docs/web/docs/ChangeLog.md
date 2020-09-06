@@ -38,7 +38,14 @@ permalink: /ChangeLog/
   - Person rides with a specified arrivalPos now longer exit their vehicle prematurely. Issue #7258
   - Person ride arrivalPos and stoppingPlace are now included in vehroute-output. Issue #7260, #7261
   - Fixed invalid vehicle angle when using option **--lanechange-duration** with low values of 'maxSpeedLat'. Issue #7263
-  - Fixed bug where vehicles would stop at [waypoints](Definition_of_Vehicles,_Vehicle_Types,_and_Routes.md#waypoints). Issue #7377
+  - Fixed bug where vehicles would stop at [waypoints](Definition_of_Vehicles,_Vehicle_Types,_and_Routes.md#waypoints). Issue #7377, #7419
+  - Fixed crash when loading railway network with unregulated junctions. Issue #7421
+  - Fixed invalid rail_signal state after loading simulation state. Issue #7451
+  - Fixed railway collision on bidirectional track. Issue #7462
+  - Fixed railway emergency braking. Issue #7487
+  - Fixed missing vehicle line information after loading state. Issue #7469
+  - Fixed crash when using bluelight device. Issue #7473
+  - Vehicles no longer get stuck when setting 'maxSpeedLatStanding=0'. Issue #3776, #6106, #7474
       
 - Meso
   - Fixed invalid jamming when a long vehicle passes a short edge. Issue #7035
@@ -83,12 +90,14 @@ permalink: /ChangeLog/
   - Selection of data elements can now be edited in inspect mode. Issue #7067
   - Removed invalid content restriction for shape params. Issue #7379
   - Flows with an embedded route can now be loaded. Issue #7317
+  - Size exaggeration for route is now working as in sumo-gui. Issue #7410
   
 - duarouter
   - Person ride arrivalPos is now included in route-output. Issue #7260
   
 - marouter
   - Fixed crash when using routing algorithm 'CH'. Issue #6912, #6935
+  - Fixed crash when loading fully defined person plan. Issue #7423
   
 - Tools
   - Fixed invalid connection diff when edges without any connections are removed. Issue #6643
@@ -109,6 +118,7 @@ permalink: /ChangeLog/
   - Fixed invalid electric vehicle parameters being used when calling 'traci.vehicle.getElectricityConsumption'. Issue #7196
   - Constructor of traci.simulation.Stage now uses the same default arguments as libsumo.simulation.Stage and an be constructed without arguments. Issue #7265
   - Fixed invalid vehicle lane position when using moveToXY in a network with [custom edge lengths](Simulation/Distances.md). Issue #7401
+  - Fixed invalid vehicle lists (i.e. simulation.getDepartedIDList) after loading simulation state. Issue #7454
   
   
 - All Applications
@@ -130,6 +140,9 @@ permalink: /ChangeLog/
   - Added new [taxi dispatch algorithm](Simulation/Taxi.md#dispatch) **routeExtension**. Issue #2606
   - Vehroute-output can now be restricted by assigning 'device.vehroute' with [generic assignment options](Definition_of_Vehicles,_Vehicle_Types,_and_Routes.md#devices). Issue #7393
   - Improved loading time of large rail networks. Issue #7403
+  - Added option **--railway.max-train-length** to tune the efficiency of the railway router initialization. Issue #7405
+  - Calibrators now support attribute 'jamThreshold' to configure automatic jam clearing. Issue #6592
+  - **--railsignal-block-output** now includes 'protectingSwitches' to distinguish flanks guarded by signals from flanks guarded by switches. Issue #7489
   
 - netconvert
   - Added option **--discard-param KEY1,KEY2,..** which deletes all `<param .../>` elements with the given keys. Issue #6972
@@ -151,6 +164,7 @@ permalink: /ChangeLog/
   - Selection mode now supports Ctrl+click to strictly move the view. Issue #7239
   - Improving loading speed of polygons. Issue #7287
   - Elements can now be marked as 'front element' (F11) to facilitate working with overlapped objects in move mode and traffic light mode. Issue #4903, #5781
+  - LaneAreaDetectors with multiple lanes can now be created. Issue #7475
 
 - sumo-gui
   - Improved visualization of long vehicles (i.e. trains) when zoomed out (length/width ratio reduces with zoom). Issue #6745
@@ -164,6 +178,9 @@ permalink: /ChangeLog/
   
 - od2trips
   - Can now specify persontrip modes with option **--persontrip.modes**. Issue #7219
+  
+- meso
+  - Added option **--meso-tls-flow-penalty FLOAT**. This can be used to control the headway penalty to model maximum (averaged) flow at traffic lights. Formerly the option **--meso-tls-penalty** was responsible for this but now the latter option only controls the travel time penalty. Issue #7497, #7491
 
 - All Applications
   - Symbolic color definition "random" can now be used (i.e. in vehicle, vType, poi, ...). Issue #7058
@@ -172,15 +189,18 @@ permalink: /ChangeLog/
 - TraCI
   - Added new function *simulation.loadState* for quick-loading simulation a saved state. Issue #6201
   - Added new optional 'reason' argument to *vehicle.moveTo* which controls how the vehicle interacts with detectors. By default, vehicles will be registered by detectors if the moveTo distance is physically plausible. Issue #3318. 
-  - Added new optional 'limit' argument to *vehicle.getNextStops* to limit the numer of returned stops. Issue #7015
-  - When calling *vehicle.getNextStops*, a negative limit argument can be used to return past stops. Issue #7249
+  - Added new function *vehicle.getStops*. This can be used to retrieve the next or last n stops. The method returns a list of stop objects with extended attributes. Issue #7015, #7249, #7117, #7452
   - Added functionality for retrieving lane, position and stopped vehicles for traci domains 'busstop', 'parkingarea', 'chargingstation' and 'overheadwire'. Issue #5952, #7099
-  - The python client now supports the optional argument 'traceFile' in function traci.start which records all traci commands to the given file (also works for libsumo.start). Issue#6604
+  - The python client now supports the optional argument 'traceFile' in function traci.start which records all traci commands to the given file (also works for libsumo.start). The optional boolean argumet 'traceGetters' can be used to switch of tracing of data retrieval functions. Issue#6604, #7481
   - Added function 'vehicle.replaceStop' which replace the upcoming stop with the given index and automatically adapts the route to the new stop edge. Issue #7226
   - Added function 'vehicle.getFollower' which works like getLeader but looks backwards. Issue #7107
   - Retrieval of prior person stages now includes departure time and travel time. Issue #7274
   - Added 'simulation.getVersion' to libsumo and C++ client. Issue #7282
   - Function ['person.moveToXY'](TraCI/Change_Person_State.md#move_to_xy_0xb4) is now officially supported whenever a person is walking or stopped. It can be used to move a person to an arbitrary place and will updated the route accordingly. Issue #2872, #7367, #7382
+  - Added function 'person.getLaneID'. Issue #7394
+  - Added function 'gui.track' which can be used to track persons. Issue #7400
+  - Added functions 'routeprobe.sampleLastRouteID' and 'traci.routeprobe.sampleCurrentRouteID'. Issue #6109
+  - Added functions 'gui.isSelected' and 'gui.toggleSelection' to retrieve and modify selection status. Issue #7428
   
 - Tools
   - [plot_trajectories.py](Tools/Visualization.md#plot_trajectoriespy) can now filter input data by edges (**--filter-edges**) and vehicle-ids (**--filter-ids**). Issue #6952
@@ -191,6 +211,8 @@ permalink: /ChangeLog/
   - [edgeDataFromFlow.py](Tools/Detector.md#edgedatafromflowpy) now supports time intervals. Issue #7133
   - Added new tool [net2geojson](Tools/Net.md#net2geojsonpy) for converting a .net.xml file into GeoJSON format. Issue #7237
   - [attributeStats.py](Tools/Output.md#attributestatspy) now supports option **--precision** to control output precision. Issue #7238
+  - Improved [cutRoutes.py](Tools/Routes.md#cutroutespy) for use with person plans. Issue #6027, #7384
+  - Added new tool 'addStopDelay.py' to add random stop delays to a route file. Issue #5209
     
 ### Other
 - Simulation
@@ -204,6 +226,7 @@ permalink: /ChangeLog/
 
 - TraCI
   - In the python client, function vehicle.getLeader can now optionally return the pair ("", -1) instead of 'None' if no leader is found. The new behavior can be enabled by calling function traci.setLegacyGetLeader(False). In later versions this will be the default behavior. The return value 'None' is deprecated. Issue #7013
+  - The function 'libsumo.vehicle.getNextStops' now returns a list of StopData objects rather than a list of tuples (the same result type returned by getStops) but different from the return type of 'traci.vehicle.getNextStops'. If the python script should be fully compatible between traci and libsumo, the new function 'vehicle.getStops' must be used.
 
 - Tools
   - [randomTrips.py](Tools/Trip.md) now generates repeatable results by default (by using a fixed default seed). To obtain the prior random behavior without specifying a seed, the option **--random** can be used (just like for [sumo](sumo.md)). Issue #6989

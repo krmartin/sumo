@@ -21,12 +21,15 @@
 #ifndef LIBSUMOCPP2C_H
 #define LIBSUMOCPP2C_H
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void libsumo_load();
 void libsumo_close();
+int libsumo_vehicle_getIDCount();
+void libsumo_step(double time);
 
 #ifdef __cplusplus
 }

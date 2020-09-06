@@ -145,7 +145,7 @@ public:
     void setDeparted(SUMOTime now);
 
     /// logs end of the step
-    virtual const std::string setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now);
+    virtual const std::string setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now, const bool vehicleArrived);
 
     /// Whether the transportable waits for the given vehicle
     virtual bool isWaitingFor(const SUMOVehicle* vehicle) const;
@@ -202,11 +202,16 @@ public:
 
     /** @brief Saves the current state into the given stream, standard implementation does nothing
      */
-    virtual void saveState(std::ostringstream& out) {}
+    virtual void saveState(std::ostringstream& out) {
+        UNUSED_PARAMETER(out);
+    }
 
     /** @brief Reconstructs the current state, standard implementation does nothing
      */
-    virtual void loadState(MSTransportable* transportable, std::istringstream& state) {}
+    virtual void loadState(MSTransportable* transportable, std::istringstream& state) {
+        UNUSED_PARAMETER(transportable);
+        UNUSED_PARAMETER(state);
+    }
 
 protected:
     /// the next edge to reach by getting transported
@@ -285,7 +290,7 @@ public:
     std::string getStageSummary(const bool isPerson) const;
 
     /// logs end of the step
-    const std::string setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now);
+    const std::string setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now, const bool vehicleArrived);
 
     /// change origin for parking area rerouting
     void setOrigin(const MSEdge* origin) {
@@ -314,6 +319,7 @@ public:
         UNUSED_PARAMETER(isPerson);
         UNUSED_PARAMETER(os);
         UNUSED_PARAMETER(withRouteLength);
+        UNUSED_PARAMETER(previous);
     }
 
 private:

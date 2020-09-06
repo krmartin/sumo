@@ -89,7 +89,8 @@ public:
     static int getSignals(const std::string& vehicleID);
     static std::vector<TraCIBestLanesData> getBestLanes(const std::string& vehicleID);
     static std::vector<TraCINextTLSData> getNextTLS(const std::string& vehicleID);
-    static std::vector<TraCINextStopData> getNextStops(const std::string& vehicleID, int limit = 0);
+    static std::vector<TraCINextStopData> getNextStops(const std::string& vehicleID);
+    static std::vector<TraCINextStopData> getStops(const std::string& vehicleID, int limit = 0);
     static int getStopState(const std::string& vehicleID);
     static double getDistance(const std::string& vehicleID);
     static double getDrivingDistance(const std::string& vehicleID, const std::string& edgeID, double position, int laneIndex = 0);
@@ -127,14 +128,14 @@ public:
                         double until = INVALID_DOUBLE_VALUE);
 
     static void replaceStop(const std::string& vehicleID,
-                        int nextStopIndex,
-                        const std::string& edgeID,
-                        double pos = 1.,
-                        int laneIndex = 0,
-                        double duration = INVALID_DOUBLE_VALUE,
-                        int flags = STOP_DEFAULT,
-                        double startPos = INVALID_DOUBLE_VALUE,
-                        double until = INVALID_DOUBLE_VALUE);
+                            int nextStopIndex,
+                            const std::string& edgeID,
+                            double pos = 1.,
+                            int laneIndex = 0,
+                            double duration = INVALID_DOUBLE_VALUE,
+                            int flags = STOP_DEFAULT,
+                            double startPos = INVALID_DOUBLE_VALUE,
+                            double until = INVALID_DOUBLE_VALUE);
 
     static void rerouteParkingArea(const std::string& vehicleID,
                                    const std::string& parkingAreaID);
@@ -242,6 +243,7 @@ private:
     static SUMOVehicleParameter::Stop buildStopParameters(const std::string& edgeOrStoppingPlaceID,
             double pos, int laneIndex, double startPos, int flags, double duration, double until);
 
+    static TraCINextStopData buildStopData(const SUMOVehicleParameter::Stop& stopPar);
 
 private:
     static SubscriptionResults mySubscriptionResults;

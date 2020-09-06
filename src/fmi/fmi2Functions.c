@@ -49,12 +49,12 @@ fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID,
                   fmi2Boolean visible, fmi2Boolean loggingOn)
 {
   
-   allocateMemoryType cbAllocateMemory = (allocateMemoryType)functions->allocateMemory;
+   allocateMemoryType funcAllocateMemory = (allocateMemoryType)functions->allocateMemory;
 
-   ModelInstance* comp = (ModelInstance *) cbAllocateMemory(1, sizeof(ModelInstance));
+   ModelInstance* comp = (ModelInstance *) funcAllocateMemory(1, sizeof(ModelInstance));
 
    if (comp) {
-      comp->componentEnvironment = functions->componentEnvironment;
+    	comp->componentEnvironment = functions->componentEnvironment;
 		
 		/* Callback functions for specific logging, malloc and free;
 		   we need callback functions because we cannot know, which functions
@@ -64,6 +64,7 @@ fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID,
 		comp->freeMemory = (freeMemoryType)functions->freeMemory;
 
 		comp->instanceName = (char *)comp->allocateMemory(1 + strlen(instanceName), sizeof(char));
+		strcpy((char *)comp->instanceName, (char *)instanceName);
 
 		if (fmuResourceLocation) {
 		 	comp->resourceLocation = (char *)comp->allocateMemory(1 + strlen(fmuResourceLocation), sizeof(char));
@@ -74,10 +75,9 @@ fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID,
 
 		comp->modelData = (ModelData *)comp->allocateMemory(1, sizeof(ModelData));
         
-      comp->logEvents = loggingOn;
-      comp->logErrors = true; // always log errors
+      	comp->logEvents = loggingOn;
+      	comp->logErrors = true; // always log errors
 	}
-	strcpy((char *)comp->instanceName, (char *)instanceName);
 
 	return comp;
 }
@@ -88,12 +88,15 @@ void
 fmi2FreeInstance(fmi2Component c) {
 	ModelInstance *comp = (ModelInstance *)c;
 
-    if (!comp) return;
+	/* Store the pointer to the freeMemory function, because we
+	   are going to free comp as well */
+	freeMemoryType freeMemoryFunc = comp->freeMemory;
 
 	/* We want to free everything that we allocated in fmi2Instantiate */
-	comp->freeMemory((void *)comp->instanceName);
-	comp->freeMemory((void *)comp->resourceLocation); 
-	comp->freeMemory((void *)comp->modelData);
+	freeMemoryFunc((void *)comp->instanceName);
+	freeMemoryFunc((void *)comp->resourceLocation); 
+	freeMemoryFunc((void *)comp->modelData);
+	freeMemoryFunc((void *)comp);
 }
 
 /* Define what should be logged - if logging is enabled globally */ 
@@ -148,6 +151,7 @@ fmi2EnterInitializationMode(fmi2Component c) {
 // Informs the FMU to exit Initialization Mode
 fmi2Status 
 fmi2ExitInitializationMode(fmi2Component c) {
+	libsumo_load();
     return fmi2OK;
 }
 
@@ -167,3 +171,128 @@ fmi2Reset(fmi2Component c) {
 	// Should we set some start values?
     return fmi2OK;
 }
+
+// Implementation of the getter features
+fmi2Status 
+fmi2GetInteger(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, fmi2Integer value[]) {
+
+    ModelInstance *comp = (ModelInstance *)c;
+	
+	// Check for null pointer errors 
+    if (nvr > 0 && (!vr || !value))
+        return fmi2Error;
+
+	fmi2Status status = fmi2OK;
+
+	// Go through the list of arrays and save all requested values
+	for (int i = 0; i < nvr; i++) { 
+		fmi2Status s = getInteger(comp, vr[i], &(value[i])); 
+		status = s > status ? s : status; 
+
+		if (status > fmi2Warning) 
+			return status; 
+	} 
+
+	return status;
+}
+
+fmi2Status 
+fmi2GetReal(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, fmi2Real value[]) {
+	return fmi2Error;
+}
+
+fmi2Status 
+fmi2GetBoolean(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, fmi2Boolean value[]) {
+	return fmi2Error;
+}
+
+fmi2Status 
+fmi2GetString(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, fmi2String value[]) {
+	return fmi2Error;
+}
+
+// Implementation of the setter features
+
+fmi2Status 
+fmi2SetInteger(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, const fmi2Integer value[]) {
+	return fmi2Error;
+}
+
+fmi2Status 
+fmi2SetReal (fmi2Component c, const fmi2ValueReference vr[], size_t nvr, const fmi2Real value[]) {
+	return fmi2Error;
+}
+
+fmi2Status 
+fmi2SetBoolean(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, const fmi2Boolean value[]) {
+	return fmi2Error;
+}
+
+fmi2Status 
+fmi2SetString (fmi2Component c, const fmi2ValueReference vr[], size_t nvr, const fmi2String value[]) {
+	return fmi2Error;
+}
+
+/* Further functions for interpolation */
+fmi2Status 
+fmi2SetRealInputDerivatives(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, const fmi2Integer order[], const fmi2Real value[]) {
+	return fmi2Error; /* Ignoring - SUMO cannot interpolate inputs */
+}
+
+fmi2Status 
+fmi2GetRealOutputDerivatives(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, const fmi2Integer order[], fmi2Real value[]) {
+    for (int i = 0; i < nvr; i++) 
+		value[i] = 0;	/* We cannot compute derivatives of outputs */
+	return fmi2Error;
+}
+
+/* Stepping */
+fmi2Status 
+fmi2DoStep(fmi2Component c, fmi2Real currentCommunicationPoint, fmi2Real communicationStepSize, fmi2Boolean noSetFMUStatePriorToCurrentPoint) {
+    ModelInstance *comp = (ModelInstance *)c;
+
+    if (communicationStepSize <= 0) {
+        return fmi2Error;
+    }
+
+    return step(comp, currentCommunicationPoint + communicationStepSize);
+}
+
+fmi2Status 
+fmi2CancelStep(fmi2Component c) {
+    return fmi2Error; /* We will never have a modelStepInProgress state */
+}
+
+/* Status functions */
+fmi2Status 
+fmi2GetStatus(fmi2Component c, const fmi2StatusKind s, fmi2Status *value) {
+	return fmi2Discard;
+}
+
+fmi2Status 
+fmi2GetRealStatus(fmi2Component c, const fmi2StatusKind s, fmi2Real *value) {
+	return fmi2Discard;
+}
+
+fmi2Status 
+fmi2GetIntegerStatus(fmi2Component c, const fmi2StatusKind s, fmi2Integer *value) {
+	return fmi2Discard;
+}
+
+fmi2Status 
+fmi2GetBooleanStatus(fmi2Component c, const fmi2StatusKind s, fmi2Boolean *value) {
+	return fmi2Discard;
+}
+
+fmi2Status 
+fmi2GetStringStatus(fmi2Component c, const fmi2StatusKind s, fmi2String *value) {
+	return fmi2Discard;
+}
+
+
+
+
+
+
+
+

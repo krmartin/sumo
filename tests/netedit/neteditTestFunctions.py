@@ -436,6 +436,7 @@ def focusOnFrame():
     @brief select focus on upper element of current frame
     """
     typeTwoKeys('shift', 'F12')
+    time.sleep(1)
 
 
 def undo(referencePosition, number):
@@ -1868,6 +1869,79 @@ def GEOPOILatLon():
         typeTab()
     # Change current value
     typeSpace()
+
+
+#################################################
+# TAZs
+#################################################
+
+
+def TAZMode():
+    """
+    @brief change to TAZ mode
+    """
+    typeKey('z')
+    # wait for gl debug
+    time.sleep(DELAY_CHANGEMODE)
+
+
+def createSquaredTAZ(referencePosition, positionx, positiony, size, close):
+    """
+    @brief Create squared TAZ in position with a certain size
+    """
+    # focus current frame
+    focusOnFrame()
+    # start draw
+    typeEnter()
+    # create TAZ
+    leftClick(referencePosition, positionx, positiony)
+    leftClick(referencePosition, positionx, positiony - (size / 2))
+    leftClick(referencePosition, positionx - (size / 2), positiony - (size / 2))
+    leftClick(referencePosition, positionx - (size / 2), positiony)
+    # check if TAZ has to be closed
+    if (close is True):
+        leftClick(referencePosition, positionx, positiony)
+    # finish draw
+    typeEnter()
+
+
+def createRectangledTAZ(referencePosition, positionx, positiony, sizex, sizey, close):
+    """
+    @brief Create rectangle TAZ in position with a certain size
+    """
+    # focus current frame
+    focusOnFrame()
+    # start draw
+    typeEnter()
+    # create TAZ
+    leftClick(referencePosition, positionx, positiony)
+    leftClick(referencePosition, positionx, positiony - (sizey / 2))
+    leftClick(referencePosition, positionx - (sizex / 2), positiony - (sizey / 2))
+    leftClick(referencePosition, positionx - (sizex / 2), positiony)
+    # check if TAZ has to be closed
+    if (close is True):
+        leftClick(referencePosition, positionx, positiony)
+    # finish draw
+    typeEnter()
+
+
+def createLineTAZ(referencePosition, positionx, positiony, sizex, sizey, close):
+    """
+    @brief Create line TAZ in position with a certain size
+    """
+    # focus current frame
+    focusOnFrame()
+    # start draw
+    typeEnter()
+    # create TAZ
+    leftClick(referencePosition, positionx, positiony)
+    leftClick(referencePosition, positionx - (sizex / 2), positiony - (sizey / 2))
+    # check if TAZ has to be closed
+    if (close is True):
+        leftClick(referencePosition, positionx, positiony)
+    # finish draw
+    typeEnter()
+
 
 #################################################
 # Contextual menu

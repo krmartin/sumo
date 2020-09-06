@@ -90,6 +90,10 @@ void
 MSDevice_Taxi::buildVehicleDevices(SUMOVehicle& v, std::vector<MSVehicleDevice*>& into) {
     OptionsCont& oc = OptionsCont::getOptions();
     if (equippedByDefaultAssignmentOptions(oc, "taxi", v, false)) {
+        if (MSGlobals::gUseMesoSim) {
+            WRITE_WARNING("Mesoscopic simulation does not support the taxi device yet.");
+            return;
+        }
         // build the device
         MSDevice_Taxi* device = new MSDevice_Taxi(v, "taxi_" + v.getID());
         into.push_back(device);
@@ -100,7 +104,7 @@ MSDevice_Taxi::buildVehicleDevices(SUMOVehicle& v, std::vector<MSVehicleDevice*>
             const_cast<SUMOVehicleParameter&>(v.getParameter()).line = TAXI_SERVICE;
         }
         if (v.getVClass() != SVC_TAXI) {
-            WRITE_WARNING("Vehicle '" + v.getID() + "' with device.taxi should have vClass taxi instead of '" + toString(v.getVClass()) + "'");
+            WRITE_WARNING("Vehicle '" + v.getID() + "' with device.taxi should have vClass taxi instead of '" + toString(v.getVClass()) + "'.");
         }
     }
 }
@@ -181,8 +185,7 @@ MSDevice_Taxi::cleanup() {
 // MSDevice_Taxi-methods
 // ---------------------------------------------------------------------------
 MSDevice_Taxi::MSDevice_Taxi(SUMOVehicle& holder, const std::string& id) :
-    MSVehicleDevice(holder, id)
-{
+    MSVehicleDevice(holder, id) {
     std::string defaultServiceEnd = toString(1e15);
     const std::string algo = getStringParam(holder, OptionsCont::getOptions(), "taxi.idle-algorithm", "", false);
     if (algo == "stop") {
@@ -191,9 +194,9 @@ MSDevice_Taxi::MSDevice_Taxi(SUMOVehicle& holder, const std::string& id) :
         myIdleAlgorithm = new MSIdling_RandomCircling();
         // make sure simulation terminates
         defaultServiceEnd = toString(STEPS2TIME(
-                    myHolder.getParameter().departProcedure == DEPART_GIVEN
-                    ? myHolder.getParameter().depart
-                    : MSNet::getInstance()->getCurrentTimeStep()) + (3600 * 8));
+                                         myHolder.getParameter().departProcedure == DEPART_GIVEN
+                                         ? myHolder.getParameter().depart
+                                         : MSNet::getInstance()->getCurrentTimeStep()) + (3600 * 8));
     } else {
         throw ProcessError("Idle algorithm '" + algo + "' is not known for vehicle '" + myHolder.getID() + "'");
     }
@@ -271,9 +274,16 @@ MSDevice_Taxi::prepareStop(ConstMSEdgeVector& edges,
                            double& lastPos, const MSEdge* stopEdge, double stopPos,
                            const std::string& action) {
     assert(!edges.empty());
-    if (stopEdge == edges.back() && stopPos == lastPos && !stops.empty()) {
-        // no new stop needed
-        return;
+    if (stopEdge == edges.back() && !stops.empty()) {
+        if (stopPos >= lastPos && stopPos <= stops.back().endPos) {
+            // no new stop and no adaption needed
+            return;
+        }
+        if (stopPos >= lastPos && stopPos <= lastPos + myHolder.getVehicleType().getLength()) {
+            // stop length adaption needed
+            stops.back().endPos = MIN2(lastPos + myHolder.getVehicleType().getLength(), stopEdge->getLength());
+            return;
+        }
     }
     if (stopEdge != edges.back() || stopPos < lastPos) {
         edges.push_back(stopEdge);
@@ -325,10 +335,8 @@ MSDevice_Taxi::notifyMove(SUMOTrafficObject& /*tObject*/, double oldPos,
         if (!myIsStopped) {
             // limit duration of stop
             // @note: stops are not yet added to the vehicle so we can change the loaded parameters. Stops added from a route are not affected
-            if (!MSGlobals::gUseMesoSim) {
-                MSVehicle& veh = static_cast<MSVehicle&>(myHolder);
-                veh.getNextStop().endBoarding = myServiceEnd;
-            }
+            MSVehicle& veh = static_cast<MSVehicle&>(myHolder);
+            veh.getNextStop().endBoarding = myServiceEnd;
         }
     }
     myIsStopped = myHolder.isStopped();

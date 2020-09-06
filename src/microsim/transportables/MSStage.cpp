@@ -128,7 +128,7 @@ MSStage::getArrived() const {
 }
 
 const std::string
-MSStage::setArrived(MSNet* /* net */, MSTransportable* /* transportable */, SUMOTime now) {
+MSStage::setArrived(MSNet* /* net */, MSTransportable* /* transportable */, SUMOTime now, const bool /* vehicleArrived */) {
     myArrived = now;
     return "";
 }
@@ -224,8 +224,8 @@ MSStageTrip::getEdgePos(SUMOTime /* now */) const {
 
 
 const std::string
-MSStageTrip::setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now) {
-    MSStage::setArrived(net, transportable, now);
+MSStageTrip::setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now, const bool vehicleArrived) {
+    MSStage::setArrived(net, transportable, now, vehicleArrived);
     MSVehicleControl& vehControl = net->getVehicleControl();
     std::vector<SUMOVehicleParameter*> pars;
     for (StringTokenizer st(myVTypes); st.hasNext();) {
@@ -470,7 +470,7 @@ MSStageWaiting::tripInfoOutput(OutputDevice& os, const MSTransportable* const) c
 
 
 void
-MSStageWaiting::routeOutput(const bool /* isPerson */, OutputDevice& os, const bool, const MSStage* const previous) const {
+MSStageWaiting::routeOutput(const bool /* isPerson */, OutputDevice& os, const bool, const MSStage* const /* previous */) const {
     if (myType != MSStageType::WAITING_FOR_DEPART) {
         os.openTag("stop");
         std::string comment = "";
