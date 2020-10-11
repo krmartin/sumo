@@ -21,18 +21,11 @@
 
 #include <utils/gui/div/GUIDesigns.h>
 #include <utils/gui/windows/GUIAppEnum.h>
-#include <utils/gui/div/GLHelper.h>
-#include <utils/gui/globjects/GLIncludes.h>
-#include <netedit/elements/network/GNEEdge.h>
-#include <netedit/elements/network/GNELane.h>
-#include <netedit/elements/network/GNEJunction.h>
 #include <netedit/elements/demand/GNERoute.h>
 #include <netedit/changes/GNEChange_DemandElement.h>
 #include <netedit/GNEViewNet.h>
 #include <netedit/GNENet.h>
 #include <netedit/GNEUndoList.h>
-#include <netedit/GNEViewParent.h>
-#include <netedit/GNEApplicationWindow.h>
 
 #include "GNERouteFrame.h"
 
@@ -231,11 +224,11 @@ GNERouteFrame::hide() {
 
 
 bool
-GNERouteFrame::addEdgeRoute(GNEEdge* clickedEdge, const GNEViewNetHelper::KeyPressed& keyPressed) {
+GNERouteFrame::addEdgeRoute(GNEEdge* clickedEdge, const GNEViewNetHelper::MouseButtonKeyPressed& mouseButtonKeyPressed) {
     // first check if current vClass and mode are valid and edge exist
     if (clickedEdge && myRouteModeSelector->isValidVehicleClass() && myRouteModeSelector->isValidMode()) {
         // add edge in path
-        myPathCreator->addEdge(clickedEdge, keyPressed.shiftKeyPressed(), keyPressed.controlKeyPressed());
+        myPathCreator->addEdge(clickedEdge, mouseButtonKeyPressed.shiftKeyPressed(), mouseButtonKeyPressed.controlKeyPressed());
         // update view
         myViewNet->updateViewNet();
         return true;

@@ -83,6 +83,10 @@ where all directions of movement are allowed
 than *traffic_light*, then compatible right-turns are allowed
 simultaneously
 
+## Intersection layout *alternateOneWay*
+This layout can be used to model alternating access to a road section which can only be used by one direction at a time.
+To make use of this layout, a [joint traffic light](#controlling_multiple_junctions_with_the_same_controller) must be defined for all junctions that border the restricted section. Alternating green phases are separated by an all-red phase that is long enough to clear the interior section.
+
 ## Other Intersections
 
 - If there are more than 4 roads meeting at an intersection,
@@ -236,8 +240,8 @@ TLS Link indices can be access using either
 
 ## Viewing TLS-Programs graphically
 
-In the sumo-gui you can click on a red/green stop bar and select show
-phases.
+In the sumo-gui you can right-click on a red/green stop bar and select *show
+phases*.
 
 ## Actuated Traffic Lights
 

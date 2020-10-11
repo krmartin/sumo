@@ -20,14 +20,11 @@
 #include <config.h>
 
 #include <netedit/GNENet.h>
-#include <netedit/GNEUndoList.h>
 #include <netedit/GNEViewNet.h>
-#include <netedit/changes/GNEChange_Attribute.h>
 #include <utils/gui/div/GLHelper.h>
 #include <utils/gui/globjects/GLIncludes.h>
 
 #include "GNERerouterSymbol.h"
-#include "GNEAdditionalHandler.h"
 
 // ===========================================================================
 // member method definitions
@@ -35,7 +32,9 @@
 
 GNERerouterSymbol::GNERerouterSymbol(GNEAdditional* rerouterParent, GNEEdge* edge) :
     GNEAdditional(rerouterParent->getNet(), GLO_REROUTER, GNE_TAG_REROUTER_SYMBOL, "", false,
-{}, {edge}, {}, {rerouterParent}, {}, {}, {}, {}) {
+        {}, {edge}, {}, {rerouterParent}, {}, {}, {}, {}) {
+    // update centering boundary without updating grid
+    updateCenteringBoundary(false);
 }
 
 
@@ -43,15 +42,10 @@ GNERerouterSymbol::~GNERerouterSymbol() {
 }
 
 
-void
-GNERerouterSymbol::moveGeometry(const Position& /*offset*/) {
-    // Nothing to do
-}
-
-
-void
-GNERerouterSymbol::commitGeometryMoving(GNEUndoList* /*undoList*/) {
-    // Nothing to do
+GNEMoveOperation* 
+GNERerouterSymbol::getMoveOperation(const double /*shapeOffset*/) {
+    // GNERerouterSymbols cannot be moved
+    return nullptr;
 }
 
 
@@ -59,27 +53,28 @@ void
 GNERerouterSymbol::updateGeometry() {
     // clear geometries
     mySymbolGeometries.clear();
-    // draw rerouter symbol over all lanes
+    // iterate over all lanes
     for (const auto& lane : getParentEdges().front()->getLanes()) {
+        // declare geometry
         GNEGeometry::Geometry symbolGeometry;
+        // update it with lane and pos over lane
         symbolGeometry.updateGeometry(lane, lane->getLaneShape().length2D() - 6);
+        // add in mySymbolGeometries
         mySymbolGeometries.push_back(symbolGeometry);
     }
+    // add shape boundary
+    myBoundary = mySymbolGeometries.front().getShape().getBoxBoundary();
+    // grow
+    myBoundary.grow(10);
     // update connections
     getParentAdditionals().front()->updateHierarchicalConnections();
 }
 
 
-Position
-GNERerouterSymbol::getPositionInView() const {
-    // get middle geometry
-    return mySymbolGeometries.at(int(mySymbolGeometries.size() * 0.5)).getPosition();
-}
-
-
-Boundary
-GNERerouterSymbol::getCenteringBoundary() const {
-    return myAdditionalGeometry.getShape().getBoxBoundary().grow(10);
+void 
+GNERerouterSymbol::updateCenteringBoundary(const bool /*updateGrid*/) {
+    // just update geometry
+    updateGeometry();
 }
 
 
@@ -115,9 +110,9 @@ GNERerouterSymbol::drawGL(const GUIVisualizationSettings& s) const {
             // push symbol matrix
             glPushMatrix();
             // translate to position
-            glTranslated(symbolGeometry.getPosition().x(), symbolGeometry.getPosition().y(), 0);
-            // rotate
-            glRotated(-1 * symbolGeometry.getRotation(), 0, 0, 1);
+            glTranslated(symbolGeometry.getShape().front().x(), symbolGeometry.getShape().front().y(), 0);
+            // rotate over lane
+            GNEGeometry::rotateOverLane(symbolGeometry.getShapeRotations().front() + 90);
             // scale
             glScaled(rerouteExaggeration, rerouteExaggeration, 1);
             // set color
@@ -163,16 +158,16 @@ GNERerouterSymbol::drawGL(const GUIVisualizationSettings& s) const {
             glPopName();
         }
         // check if dotted contour has to be drawn
-        if (s.drawDottedContour() || (myNet->getViewNet()->getInspectedAttributeCarrier() == getParentAdditionals().front())) {
+        if (s.drawDottedContour() || myNet->getViewNet()->isAttributeCarrierInspected(getParentAdditionals().front())) {
             // iterate over symbol geometries
             for (const auto& symbolGeometry : mySymbolGeometries) {
-                GNEGeometry::drawDottedSquaredShape(true, s, symbolGeometry.getPosition(), 1, 3, 0, 3, symbolGeometry.getRotation() + 90, rerouteExaggeration);
+                GNEGeometry::drawDottedSquaredShape(GNEGeometry::DottedContourType::INSPECT, s, symbolGeometry.getShape().front(), 1, 3, 0, 3, symbolGeometry.getShapeRotations().front() + 90, rerouteExaggeration);
             }
         }
         if (s.drawDottedContour() || (myNet->getViewNet()->getFrontAttributeCarrier() == getParentAdditionals().front())) {
             // iterate over symbol geometries
             for (const auto& symbolGeometry : mySymbolGeometries) {
-                GNEGeometry::drawDottedSquaredShape(false, s, symbolGeometry.getPosition(), 1, 3, 0, 3, symbolGeometry.getRotation() + 90, rerouteExaggeration);
+                GNEGeometry::drawDottedSquaredShape(GNEGeometry::DottedContourType::FRONT, s, symbolGeometry.getShape().front(), 1, 3, 0, 3, symbolGeometry.getShapeRotations().front() + 90, rerouteExaggeration);
             }
         }
     }
@@ -234,5 +229,16 @@ GNERerouterSymbol::setAttribute(SumoXMLAttr /*key*/, const std::string& /*value*
     throw InvalidArgument("Symbols cannot be edited");
 }
 
+
+void 
+GNERerouterSymbol::setMoveShape(const GNEMoveResult& /*moveResult*/) {
+    // nothing to do
+}
+
+
+void
+GNERerouterSymbol::commitMoveShape(const GNEMoveResult& /*moveResult*/, GNEUndoList* /*undoList*/)  {
+    // nothing to do
+}
 
 /****************************************************************************/

@@ -173,13 +173,16 @@ RODUAFrame::addDUAOptions() {
 
     oc.doRegister("persontrip.transfer.car-walk", new Option_StringVector(StringVector({ "parkingAreas" })));
     oc.addDescription("persontrip.transfer.car-walk", "Processing",
-                      "Where are mode changes from car to walking allowed (possible values: 'parkingAreas', 'ptStops', 'allJunctions', 'taxi' and combinations)");
+                      "Where are mode changes from car to walking allowed (possible values: 'parkingAreas', 'ptStops', 'allJunctions' and combinations)");
 
     oc.doRegister("persontrip.transfer.taxi-walk", new Option_StringVector());
     oc.addDescription("persontrip.transfer.taxi-walk", "Processing", "Where taxis can drop off customers ('allJunctions, 'ptStops')");
 
     oc.doRegister("persontrip.transfer.walk-taxi", new Option_StringVector());
     oc.addDescription("persontrip.transfer.walk-taxi", "Processing", "Where taxis can pick up customers ('allJunctions, 'ptStops')");
+
+    oc.doRegister("persontrip.taxi.waiting-time", new Option_String("300", "TIME"));
+    oc.addDescription("persontrip.taxi.waiting-time", "Processing", "Estimated time for taxi pickup");
 
     oc.doRegister("railway.max-train-length", new Option_Float(5000.0));
     oc.addDescription("railway.max-train-length", "Processing", "Use FLOAT as a maximum train length when initializing the railway router");

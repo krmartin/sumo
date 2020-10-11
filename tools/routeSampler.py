@@ -88,10 +88,15 @@ def get_options(args=None):
                         help="random seed")
     parser.add_argument("--mismatch-output", dest="mismatchOut",
                         help="write cout-data with overflow/underflow information to FILE")
+    parser.add_argument("--weighted", dest="weighted", action="store_true", default=False,
+                        help="Sample routes according to their probability (or count)")
     parser.add_argument("--optimize",
                         help="set optimization method level (full, INT boundary)")
     parser.add_argument("--optimize-input", dest="optimizeInput", action="store_true", default=False,
                         help="Skip resampling and run optimize directly on the input routes")
+    parser.add_argument("--minimize-vehicles", dest="minimizeVehs", type=float, default=0,
+                        help="Set optimization factor from [0, 1[ for reducing the number of vehicles" 
+                           + "(prefer routes that pass multiple counting locations over routes that pass fewer)")
     parser.add_argument("--geh-ok", dest="gehOk", default=5,
                         help="threshold for acceptable GEH values")
     parser.add_argument("-f", "--write-flows", dest="writeFlows",
@@ -316,10 +321,13 @@ def optimize(options, countData, routes, usedRoutes, routeUsage):
     import scipy.version
     import numpy as np
 
-    k = routes.number
     m = len(countData)
 
     priorRouteCounts = getRouteCounts(routes, usedRoutes)
+
+    relevantRoutes = [i for i in range(routes.number) if routeUsage[i]]
+    priorRelevantRouteCounts = [priorRouteCounts[r] for r in relevantRoutes]
+    k = len(relevantRoutes)
 
     if options.optimize == "full":
         # allow changing all prior usedRoutes
@@ -330,7 +338,7 @@ def optimize(options, countData, routes, usedRoutes, routeUsage):
             print("Optimization skipped")
             return
         # limited optimization: change prior routeCounts by at most u per route
-        bounds = [(max(0, p - u), p + u) for p in priorRouteCounts] + [(0, None)] * m
+        bounds = [(max(0, p - u), p + u) for p in priorRelevantRouteCounts] + [(0, None)] * m
 
     # Ax <= b
     # x + s = b
@@ -340,17 +348,17 @@ def optimize(options, countData, routes, usedRoutes, routeUsage):
     A = np.zeros((m, k))
     for i in range(0, m):
         for j in range(0, k):
-            A[i][j] = int(j in countData[i].routeSet)
+            A[i][j] = int(relevantRoutes[j] in countData[i].routeSet)
     A_eq = np.concatenate((A, np.identity(m)), 1)
 
     # constraint: achieve counts
     b = np.asarray([cd.origCount for cd in countData])
 
-    # minimization objective
-    c = np.concatenate((np.zeros(k), np.ones(m)))  # [x, s], only s counts for minimization
+    # minimization objective [routeCounts] + [slack]
+    c = [options.minimizeVehs] * k + [1] * m 
 
-    # set x to prior counts and slack to deficit (otherwise solver may fail to any find soluton
-    x0 = priorRouteCounts + [cd.origCount - cd.count for cd in countData]
+    # set x to prior counts and slack to deficit (otherwise solver may fail to find any soluton
+    x0 = priorRelevantRouteCounts + [cd.origCount - cd.count for cd in countData]
 
     # print("k=%s" % k)
     # print("m=%s" % m)
@@ -372,10 +380,20 @@ def optimize(options, countData, routes, usedRoutes, routeUsage):
                   % scipy.version.version, file=sys.stderr)
         res = opt.linprog(c, A_eq=A_eq, b_eq=b, bounds=bounds, options=linProgOpts)
 
-    del usedRoutes[:]
     if res.success:
         print("Optimization succeeded")
-        routeCounts = res.x[:k]  # cut of slack variables
+        del usedRoutes[:]
+        routeCountsR = res.x[:k]  # cut of slack variables
+        # translate to original route indices
+        routeCounts = [0] * routes.number
+        for index, count in zip(relevantRoutes, routeCountsR):
+            routeCounts[index] = count
+
+        #print("priorRouteCounts", priorRouteCounts)
+        #print("relevantRoutes", relevantRoutes)
+        #print("priorRelevantRouteCounts", priorRelevantRouteCounts)
+        #print("routeCountsR", routeCountsR)
+        #print("routeCounts", routeCounts)
         # slack = res.x[k:]
         # print("routeCounts (n=%s, sum=%s, intSum=%s, roundSum=%s) %s" % (
         #    len(routeCounts),
@@ -391,17 +409,41 @@ def optimize(options, countData, routes, usedRoutes, routeUsage):
         print("Optimization failed")
 
 
+def zero():
+    # cannot pickle lambda for multiprocessing
+    return 0
+
+
 class Routes:
     def __init__(self, routefiles):
         self.all = []
+        self.edgeProbs = defaultdict(zero)
+        self.edgeIDs = {}
+        self.withProb = 0
         for routefile in routefiles:
-            self.all += [tuple(r.edges.split()) for r in sumolib.xml.parse(routefile, 'route')]
-        self.unique = sorted(list(set(self.all)))
+            # not all routes may have specified probability, in this case use their number of occurence
+            for r in sumolib.xml.parse(routefile, 'route', heterogeneous=True):
+                edges = tuple(r.edges.split())
+                self.all.append(edges)
+                prob = float(r.getAttributeSecure("probability", 1))
+                if r.hasAttribute("probability"):
+                    self.withProb += 1
+                    prob = float(r.probability)
+                else:
+                    prob = 1
+                if prob <= 0:
+                    print("Warning: route probability must be positive (edges=%s)" % r.edges, file=sys.stderr)
+                    prob = 0
+                if r.hasAttribute("id"):
+                    self.edgeIDs[edges] = r.id
+                self.edgeProbs[edges] += prob
+        self.unique = sorted(list(self.edgeProbs.keys()))
         self.number = len(self.unique)
         self.edges2index = dict([(e, i) for i, e in enumerate(self.unique)])
-        self.loadedCounts = [0] * len(self.edges2index)  # route index to count
-        for e in self.all:
-            self.loadedCounts[self.edges2index[e]] += 1
+        if len(self.unique) == 0:
+            print("Error: no input routes loaded", file=sys.stderr)
+            sys.exit()
+        self.probabilities = np.array([self.edgeProbs[e] for e in self.unique], dtype=np.float64)
 
 
 def resetCounts(usedRoutes, routeUsage, countData):
@@ -431,6 +473,7 @@ def getRouteUsage(routes, countData):
 def main(options):
     if options.seed:
         random.seed(options.seed)
+        np.random.seed(options.seed)
 
     routes = Routes(options.routeFiles)
 
@@ -454,6 +497,8 @@ def main(options):
 
     if options.verbose:
         print("Loaded %s routes (%s distinct)" % (len(routes.all), routes.number))
+        if options.weighted:
+            print("Loaded probability for %s routes" % routes.withProb)
         if options.verboseHistogram:
             edgeCount = sumolib.miscutils.Statistics("route edge count", histogram=True)
             detectorCount = sumolib.miscutils.Statistics("route detector count", histogram=True)
@@ -509,9 +554,23 @@ def _sample(sampleSet, rng):
     return population[(int)(rng.random() * len(population))]
 
 
+def _sample_skewed(sampleSet, rng, probabilityMap):
+    # build cumulative distribution function for weighted sampling
+    cdf = []
+    total = 0
+    population = tuple(sampleSet)
+    for element in population:
+        total += probabilityMap[element]
+        cdf.append(total)
+
+    value = random.random() * total
+    return population[np.searchsorted(cdf, value)]
+
+
 def _solveIntervalMP(options, routes, interval, cpuIndex):
     output_list = []
-    rng = np.random.RandomState(options.seed + cpuIndex)
+    rng = random.Random()
+    rng.seed(options.seed + cpuIndex)
     for begin, end in interval:
         local_outf = StringIO()
         local_mismatch_outf = StringIO() if options.mismatchOut else None
@@ -537,6 +596,9 @@ def solveInterval(options, routes, begin, end, intervalPrefix, outf, mismatchf, 
                  )
 
     routeUsage = getRouteUsage(routes, countData)
+    unrestricted = set([r for r, usage in enumerate(routeUsage) if len(usage) == 0])
+    if options.verbose and len(unrestricted) > 0:
+        print("Ignored %s routes which do not pass any counting location" % len(unrestricted))
 
     # pick a random counting location and select a new route that passes it until
     # all counts are satisfied or no routes can be used anymore
@@ -544,6 +606,7 @@ def solveInterval(options, routes, begin, end, intervalPrefix, outf, mismatchf, 
     openCounts = set(range(0, len(countData)))
     openRoutes = updateOpenRoutes(openRoutes, routeUsage, countData)
     openCounts = updateOpenCounts(openCounts, countData, openRoutes)
+    openRoutes = openRoutes.difference(unrestricted)
 
     usedRoutes = []
     if options.optimizeInput:
@@ -551,8 +614,14 @@ def solveInterval(options, routes, begin, end, intervalPrefix, outf, mismatchf, 
         resetCounts(usedRoutes, routeUsage, countData)
     else:
         while openCounts:
-            cd = countData[_sample(openCounts, rng)]
-            routeIndex = _sample(cd.routeSet.intersection(openRoutes), rng)
+            if options.weighted:
+                routeIndex = _sample_skewed(openRoutes, rng, routes.probabilities)
+            else:
+                # sampling equally among open counting locations appears to
+                # improve GEH but it would also introduce a bias in the loaded
+                # route probabilities
+                cd = countData[_sample(openCounts, rng)]
+                routeIndex = _sample(cd.routeSet.intersection(openRoutes), rng)
             usedRoutes.append(routeIndex)
             for dataIndex in routeUsage[routeIndex]:
                 countData[dataIndex].count -= 1
@@ -576,8 +645,13 @@ def solveInterval(options, routes, begin, end, intervalPrefix, outf, mismatchf, 
         routeCounts = getRouteCounts(routes, usedRoutes)
         if options.writeRouteIDs:
             for routeIndex in sorted(set(usedRoutes)):
-                outf.write('    <route id="%s%s" edges="%s"/> <!-- %s -->\n' % (
-                    intervalPrefix, routeIndex, ' '.join(routes.unique[routeIndex]), routeCounts[routeIndex]))
+                edges = routes.unique[routeIndex]
+                routeIDComment = ""
+                if edges in routes.edgeIDs:
+                    routeIDComment = " (%s)" % routes.edgeIDs[edges]
+                outf.write('    <route id="%s%s" edges="%s"/> <!-- %s%s -->\n' % (
+                    intervalPrefix, routeIndex, ' '.join(edges),
+                    routeCounts[routeIndex], routeIDComment))
             outf.write('\n')
         elif options.writeRouteDist:
             outf.write('    <routeDistribution id="%s%s"/>\n' % (intervalPrefix, options.writeRouteDist))
@@ -656,9 +730,11 @@ def solveInterval(options, routes, begin, end, intervalPrefix, outf, mismatchf, 
     numGehOK = 0.0
     hourFraction = (end - begin) / 3600.0
     totalCount = 0
+    totalOrigCount = 0
     for cd in countData:
         localCount = cd.origCount - cd.count
         totalCount += localCount
+        totalOrigCount += cd.origCount
         if cd.count > 0:
             underflow.add(cd.count, cd.edgeTuple)
         elif cd.count < 0:
@@ -672,11 +748,13 @@ def solveInterval(options, routes, begin, end, intervalPrefix, outf, mismatchf, 
             ' '.join(cd.edgeTuple), int(origHourly), int(localHourly)))
 
     outputIntervalPrefix = "" if intervalPrefix == "" else "%s: " % int(begin)
-    gehOKNum = (100 * numGehOK / len(countData)) if countData else 100
+    countPercentage = gehOK = "%.2f%%" % (100 * totalCount / float(totalOrigCount)) if totalOrigCount else "-"
+    gehOKNum = 100 * numGehOK / float(len(countData)) if countData else 100
     gehOK = "%.2f%%" % gehOKNum if countData else "-"
-    print("%sWrote %s routes (%s distinct) achieving total count %s at %s locations. GEH<%s for %s" % (
+    print("%sWrote %s routes (%s distinct) achieving total count %s (%s) at %s locations. GEH<%s for %s" % (
         outputIntervalPrefix,
-        len(usedRoutes), len(set(usedRoutes)), totalCount, len(countData),
+        len(usedRoutes), len(set(usedRoutes)),
+        totalCount, countPercentage, len(countData),
         options.gehOk, gehOK))
 
     if options.verboseHistogram:

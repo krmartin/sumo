@@ -29,12 +29,12 @@ done.
  Import done:
    3434 nodes loaded.
    50 types loaded.
-   5181 edges loaded.
+   5208 edges loaded.
 Proj projection parameters used: '+proj=utm +zone=33 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'.
-Removing self-loops ... done (1ms).
+Removing self-loops ... done (0ms).
 Processing public transport stops ... done (0ms).
 Revising public transport stops based on pt lines ... 
-done (10ms).
+done (9ms).
 Align pt stop id signs with corresponding edge id signs ... done (0ms).
 Removing sharp turn with radius 1.40 at the start of edge '144014242#1'.
 Removing sharp turn with radius 1.76 at the end of edge '153522299#3'.
@@ -53,47 +53,47 @@ Added 1 bidi-edges between 1 pairs of railway switches (count by length: 1:1)
 DijkstraRouter answered 88 queries and explored 35.99 edges on average.
 DijkstraRouter spent 0.00s answering queries (0.00ms on average).
 Joining junction clusters ... 
-done (29ms).
- Joined 111 junction cluster(s).
-Removing empty nodes and geometry nodes ... done (28ms).
-   725 nodes removed.
-Moving network to origin ... done (110ms).
+done (27ms).
+ Joined 113 junction cluster(s).
+Removing empty nodes and geometry nodes ... done (24ms).
+   709 nodes removed.
+Moving network to origin ... done (101ms).
 Computing turning directions ... 
 done (4ms).
 Assigning nodes to traffic lights ... done (2ms).
-Guessing and setting on-/off-ramps ... done (11ms).
-Sorting nodes' edges ... done (7ms).
-Computing node shapes ... done (114ms).
-Computing edge shapes ... done (68ms).
+Guessing and setting on-/off-ramps ... done (8ms).
+Sorting nodes' edges ... done (6ms).
+Computing node shapes ... done (105ms).
+Computing edge shapes ... done (65ms).
 Computing node types ... done (4ms).
-Guessed 903 pedestrian crossings.
-Computing priorities ... done (5ms).
+Guessed 907 pedestrian crossings.
+Computing priorities ... done (4ms).
 Computing approached edges ... done (5ms).
 Guessing and setting roundabouts ... done (1ms).
-Computing approaching lanes ... done (15ms).
+Computing approaching lanes ... done (16ms).
 Dividing of lanes on approached lanes ... done (9ms).
 Processing turnarounds ... done (1ms).
 Rechecking of lane endings ... done (2ms).
-Joining traffic light nodes ... done (3ms).
+Joining traffic light nodes ... done (4ms).
 Computing traffic light control information ... 
 done (2ms).
-Computing node logics ... done (30ms).
+Computing node logics ... done (28ms).
 Computing traffic light logics ... 
-done (16ms).
+done (15ms).
  61 traffic light(s) computed.
 Building inner edges ... 
-done (75ms).
+done (81ms).
 Added 1 stops for superposed rail edges.
-Find accesses for pt rail stops ... done (86ms).
+Find accesses for pt rail stops ... done (81ms).
 DijkstraRouter answered 8 queries and explored 11.50 edges on average.
-DijkstraRouter spent 0.00s answering queries (0.12ms on average).
+DijkstraRouter spent 0.00s answering queries (0.00ms on average).
 -----------------------------------------------------
 Summary:
  Node type statistics:
-  Unregulated junctions       : 8
-  Dead-end junctions          : 1391
-  Priority junctions          : 776
-  Right-before-left junctions : 168
+  Unregulated junctions       : 9
+  Dead-end junctions          : 1381
+  Priority junctions          : 792
+  Right-before-left junctions : 174
   Traffic light junctions      : 65
   Rail crossing junctions      : 31
   Rail signal junctions      : 19
@@ -102,23 +102,23 @@ Summary:
   Applied offset     : -389562.46,-5817979.56
   Converted boundary : 0.00,0.00,4934.15,4470.73
 -----------------------------------------------------
-Writing network ... done (846ms).
+Writing network ... done (809ms).
 Success.
 Written configuration to 'osm.polycfg'
 Loading configuration ... done.
 Parsing network projection from 'osm.net.xml' ... done (1ms).
-Parsing nodes from osm-file 'osm_bbox.osm.xml' ... done (1492ms).
-Parsing relations from osm-file 'osm_bbox.osm.xml' ... done (1146ms).
-Parsing edges from osm-file 'osm_bbox.osm.xml' ... done (1195ms).
+Parsing nodes from osm-file 'osm_bbox.osm.xml' ... done (1440ms).
+Parsing relations from osm-file 'osm_bbox.osm.xml' ... done (1063ms).
+Parsing edges from osm-file 'osm_bbox.osm.xml' ... done (1158ms).
 Success.
-Building scenario in '/home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test'
+Building scenario in '/home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test'
 generating trips...
 Cannot extend route before first stop for line '1981933' (stop edge -148458500#1 not in route)
 Cannot extend route after last stop for line '2014286' (stop edge 207364192#0 not in route)
 Cannot extend route after last stop for line '2076231' (stop edge 207364191#0 not in route)
 Cannot extend route after last stop for line '2076232' (stop edge 207364191#0 not in route)
-Skipping line '2194813' because because it only drives at night
-Skipping line '2194814' because because it only drives at night
+Skipping line '2194813' because it only drives at night
+Skipping line '2194814' because it only drives at night
 Cannot extend route before first stop for line '2211985' (stop edge -478396988 not in route)
 Cannot extend route before first stop for line '28270' (stop edge -148458500#1 not in route)
 Cannot extend route to fringe for line '300432' (not enough edges given)
@@ -134,62 +134,62 @@ running SUMO to determine actual departure times...
 done.
 creating routes...
 done.
-calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.passenger.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --no-warnings -o routes.rou.xml
+calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.passenger.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --no-warnings -o routes.rou.xml
 Success.
-calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.passenger.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --no-warnings -o /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.passenger.trips.xml.tmp --write-trips
+calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.passenger.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --no-warnings -o /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.passenger.trips.xml.tmp --write-trips
 Success.
-calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.ship.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --no-warnings -o routes.rou.xml
+calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.ship.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --no-warnings -o routes.rou.xml
 Success.
-calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.ship.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --no-warnings -o /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.ship.trips.xml.tmp --write-trips
+calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.ship.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --no-warnings -o /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.ship.trips.xml.tmp --write-trips
 Success.
-calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.bicycle.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --no-warnings -o routes.rou.xml
+calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.bicycle.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --no-warnings -o routes.rou.xml
 Success.
-calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.bicycle.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --no-warnings -o /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.bicycle.trips.xml.tmp --write-trips
+calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.bicycle.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --no-warnings -o /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.bicycle.trips.xml.tmp --write-trips
 Success.
-calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.pedestrian.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --additional-files /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm_stops.add.xml,/home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm_pt.rou.xml --no-warnings -o /home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.pedestrian.rou.xml
+calling /home/kobo/dlr/sumo/bin/duarouter -n /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.net.xml -r /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.pedestrian.trips.xml --ignore-errors --begin 0 --end 900 --no-step-log --additional-files /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm_stops.add.xml,/home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm_pt.rou.xml --no-warnings -o /home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.pedestrian.rou.xml
 Success.
 Written configuration to 'osm.sumocfg'
 Loading configuration ... done.
-Loading net-file from '/home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.net.xml' ... done (1158ms).
-Loading additional-files from '/home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm.poly.xml' ... done (252ms).
-Loading additional-files from '/home/kobo/.texttest/tmp/tools.27Aug074402.7093/tools/import/OSM/webWizard/test/osm_stops.add.xml' ... done (29ms).
+Loading net-file from '/home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.net.xml' ... done (1150ms).
+Loading additional-files from '/home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm.poly.xml' ... done (245ms).
+Loading additional-files from '/home/kobo/.texttest/tmp/tools.06Oct103535.23091/tools/import/OSM/webWizard/test/osm_stops.add.xml' ... done (28ms).
 Loading done.
-Simulation version v1_6_0+1788-731f9410ea started with time: 0.00
-Simulation ended at time: 2564.00
+Simulation version v1_7_0+0491-9d8f09cefa started with time: 0.00
+Simulation ended at time: 2830.00
 Reason: All vehicles have left the simulation.
 Performance: 
- Duration: 12.52s
- Real time factor: 204.792
- UPS: 11357.348243
- UPS-Persons: 11853.833866
+ Duration: 10.01s
+ Real time factor: 282.689
+ UPS: 14590.050944
+ UPS-Persons: 14462.291479
 Vehicles: 
- Inserted: 429
+ Inserted: 434
  Running: 0
  Waiting: 0
 Teleports: 2 (Collisions: 2)
 Persons: 
- Inserted: 197
+ Inserted: 199
  Running: 0
 Statistics (avg):
- RouteLength: 1810.83
- Speed: 5.94
- Duration: 331.45
- WaitingTime: 47.99
- TimeLoss: 107.50
- DepartDelay: 0.36
-Pedestrian Statistics (avg of 410 walks):
- RouteLength: 293.04
- Duration: 246.87
- TimeLoss: 38.01
-Ride Statistics (avg of 170 rides):
- WaitingTime: 114.46
- RouteLength: 932.07
- Duration: 123.99
- Bus: 68
- Train: 99
+ RouteLength: 1835.21
+ Speed: 6.02
+ Duration: 336.54
+ WaitingTime: 48.50
+ TimeLoss: 107.51
+ DepartDelay: 0.33
+Pedestrian Statistics (avg of 422 walks):
+ RouteLength: 280.93
+ Duration: 237.79
+ TimeLoss: 36.93
+Ride Statistics (avg of 179 rides):
+ WaitingTime: 105.87
+ RouteLength: 899.98
+ Duration: 111.44
+ Bus: 54
+ Train: 122
  Aborted: 3
 
-DijkstraRouter answered 7341 queries and explored 22.12 edges on average.
-DijkstraRouter spent 0.09s answering queries (0.01ms on average).
-DijkstraRouter answered 274 queries and explored 558.38 edges on average.
-DijkstraRouter spent 0.23s answering queries (0.85ms on average).
+DijkstraRouter answered 7972 queries and explored 24.93 edges on average.
+DijkstraRouter spent 0.08s answering queries (0.01ms on average).
+DijkstraRouter answered 279 queries and explored 604.62 edges on average.
+DijkstraRouter spent 0.19s answering queries (0.70ms on average).

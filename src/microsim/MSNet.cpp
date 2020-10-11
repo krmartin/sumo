@@ -91,6 +91,7 @@
 #include <microsim/traffic_lights/MSTrafficLightLogic.h>
 #include <microsim/traffic_lights/MSRailSignal.h>
 #include <microsim/traffic_lights/MSRailSignalConstraint.h>
+#include <microsim/traffic_lights/MSRailSignalControl.h>
 #include <microsim/trigger/MSChargingStation.h>
 #include <microsim/trigger/MSOverheadWire.h>
 #include <utils/router/FareModul.h>
@@ -262,7 +263,7 @@ MSNet::closeBuilding(const OptionsCont& oc, MSEdgeControl* edges, MSJunctionCont
     mySimBeginMillis = SysUtils::getCurrentMillis();
     myHasInternalLinks = hasInternalLinks;
     if (hasNeighs && MSGlobals::gLateralResolution > 0) {
-        WRITE_WARNING("Opposite direction driving does not work together with the sublane model.");
+        throw ProcessError("Opposite direction driving does not work together with the sublane model.");
     }
     myHasElevation = checkElevation();
     myHasPedestrianNetwork = checkWalkingarea();
@@ -553,6 +554,7 @@ MSNet::simulationStep() {
         MSStateHandler::saveState(myStateDumpPrefix + "_" + timeStamp + myStateDumpSuffix, myStep);
     }
     myBeginOfTimestepEvents->execute(myStep);
+    MSRailSignal::recheckGreen();
 #ifdef HAVE_FOX
     MSRoutingEngine::waitForAll();
 #endif
@@ -727,6 +729,7 @@ MSNet::clearAll() {
     MSDevice_ToC::cleanup();
     MSStopOut::cleanup();
     MSRailSignalConstraint::cleanup();
+    MSRailSignalControl::cleanup();
     TraCIServer* t = TraCIServer::getInstance();
     if (t != nullptr) {
         t->cleanup();
@@ -757,6 +760,7 @@ MSNet::clearState(const SUMOTime step) {
             }
         }
     }
+    myLogics->clearState();
     myDetectorControl->updateDetectors(myStep);
     myDetectorControl->writeOutput(myStep, true);
     myDetectorControl->clearState();
@@ -923,13 +927,10 @@ MSNet::writeOutput() {
         OutputDevice& od = OutputDevice::getDeviceByOption("link-output");
         od.openTag("timestep");
         od.writeAttr(SUMO_ATTR_ID, STEPS2TIME(myStep));
-        const MSEdgeVector& edges = myEdges->getEdges();
-        for (MSEdgeVector::const_iterator i = edges.begin(); i != edges.end(); ++i) {
-            const std::vector<MSLane*>& lanes = (*i)->getLanes();
-            for (std::vector<MSLane*>::const_iterator j = lanes.begin(); j != lanes.end(); ++j) {
-                const std::vector<MSLink*>& links = (*j)->getLinkCont();
-                for (std::vector<MSLink*>::const_iterator k = links.begin(); k != links.end(); ++k) {
-                    (*k)->writeApproaching(od, (*j)->getID());
+        for (const MSEdge* const edge : myEdges->getEdges()) {
+            for (const MSLane* const lane : edge->getLanes()) {
+                for (const MSLink* const link : lane->getLinkCont()) {
+                    link->writeApproaching(od, lane->getID());
                 }
             }
         }
@@ -1244,10 +1245,11 @@ MSNet::getIntermodalRouter(const int rngIndex, const int routingMode, const MSEd
             carWalk |= MSIntermodalRouter::Network::TAXI_PICKUP_ANYWHERE;
         }
         const std::string routingAlgorithm = OptionsCont::getOptions().getString("routing-algorithm");
+        double taxiWait = STEPS2TIME(string2time(OptionsCont::getOptions().getString("persontrip.taxi.waiting-time")));
         if (routingMode == libsumo::ROUTING_MODE_COMBINED) {
-            myIntermodalRouter[key] = new MSIntermodalRouter(MSNet::adaptIntermodalRouter, carWalk, routingAlgorithm, routingMode, new FareModul());
+            myIntermodalRouter[key] = new MSIntermodalRouter(MSNet::adaptIntermodalRouter, carWalk, taxiWait, routingAlgorithm, routingMode, new FareModul());
         } else {
-            myIntermodalRouter[key] = new MSIntermodalRouter(MSNet::adaptIntermodalRouter, carWalk, routingAlgorithm, routingMode);
+            myIntermodalRouter[key] = new MSIntermodalRouter(MSNet::adaptIntermodalRouter, carWalk, taxiWait, routingAlgorithm, routingMode);
         }
     }
     myIntermodalRouter[key]->prohibit(prohibited);
@@ -1257,19 +1259,20 @@ MSNet::getIntermodalRouter(const int rngIndex, const int routingMode, const MSEd
 
 void
 MSNet::adaptIntermodalRouter(MSIntermodalRouter& router) {
+    double taxiWait = STEPS2TIME(string2time(OptionsCont::getOptions().getString("persontrip.taxi.waiting-time")));
     // add access to all parking areas
     for (const auto& i : myInstance->myStoppingPlaces[SUMO_TAG_PARKING_AREA]) {
         const MSEdge* const edge = &i.second->getLane().getEdge();
-        router.getNetwork()->addAccess(i.first, edge, i.second->getAccessPos(edge), i.second->getAccessDistance(edge), SUMO_TAG_PARKING_AREA);
+        router.getNetwork()->addAccess(i.first, edge, i.second->getAccessPos(edge), i.second->getAccessDistance(edge), SUMO_TAG_PARKING_AREA, false, taxiWait);
     }
     EffortCalculator* const external = router.getExternalEffort();
     // add access to all public transport stops
     for (const auto& i : myInstance->myStoppingPlaces[SUMO_TAG_BUS_STOP]) {
         const MSEdge* const edge = &i.second->getLane().getEdge();
         router.getNetwork()->addAccess(i.first, edge, i.second->getAccessPos(edge),
-                                       i.second->getAccessDistance(edge), SUMO_TAG_BUS_STOP);
+                                       i.second->getAccessDistance(edge), SUMO_TAG_BUS_STOP, false, taxiWait);
         for (const auto& a : i.second->getAllAccessPos()) {
-            router.getNetwork()->addAccess(i.first, &std::get<0>(a)->getEdge(), std::get<1>(a), std::get<2>(a), SUMO_TAG_BUS_STOP);
+            router.getNetwork()->addAccess(i.first, &std::get<0>(a)->getEdge(), std::get<1>(a), std::get<2>(a), SUMO_TAG_BUS_STOP, true, taxiWait);
         }
         if (external != nullptr) {
             external->addStop(router.getNetwork()->getStopEdge(i.first)->getNumericalID(), *i.second);
@@ -1281,7 +1284,7 @@ MSNet::adaptIntermodalRouter(MSIntermodalRouter& router) {
     if ((router.getCarWalkTransfer() & MSIntermodalRouter::Network::TAXI_PICKUP_ANYWHERE) != 0) {
         for (MSEdge* edge : myInstance->getEdgeControl().getEdges()) {
             if ((edge->getPermissions() & SVC_PEDESTRIAN) != 0 && (edge->getPermissions() & SVC_TAXI) != 0) {
-                router.getNetwork()->addCarAccess(edge, SVC_TAXI);
+                router.getNetwork()->addCarAccess(edge, SVC_TAXI, taxiWait);
             }
         }
     }

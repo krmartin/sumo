@@ -462,6 +462,12 @@ MSFrame::fillOptions() {
     oc.doRegister("persontrip.transfer.walk-taxi", new Option_StringVector());
     oc.addDescription("persontrip.transfer.walk-taxi", "Routing", "Where taxis can pick up customers ('allJunctions, 'ptStops')");
 
+    oc.doRegister("persontrip.default.group", new Option_String());
+    oc.addDescription("persontrip.default.group", "Routing", "When set, trips between the same origin and destination will share a taxi by default");
+
+    oc.doRegister("persontrip.taxi.waiting-time", new Option_String("300", "TIME"));
+    oc.addDescription("persontrip.taxi.waiting-time", "Routing", "Estimated time for taxi pickup");
+
     oc.doRegister("railway.max-train-length", new Option_Float(5000.0));
     oc.addDescription("railway.max-train-length", "Routing", "Use FLOAT as a maximum train length when initializing the railway router");
 
@@ -558,6 +564,9 @@ MSFrame::fillOptions() {
     oc.doRegister("start", 'S', new Option_Bool(false));
     oc.addDescription("start", "GUI Only", "Start the simulation after loading");
 
+    oc.doRegister("delay", 'd', new Option_Float(0.0));
+    oc.addDescription("delay", "GUI Only", "Use FLOAT in ms as delay between simulation steps");
+
     oc.doRegister("breakpoints", 'B', new Option_StringVector());
     oc.addDescription("breakpoints", "GUI Only", "Use TIME[] as times when the simulation should halt");
 
@@ -597,7 +606,7 @@ MSFrame::fillOptions() {
 
     // gui testing - settings output
     oc.doRegister("gui-testing.setting-output", new Option_FileName());
-    oc.addDescription("gui-testing.setting-output", "GUI Only", "Save gui settings in the given settingsoutput file");
+    oc.addDescription("gui-testing.setting-output", "GUI Only", "Save gui settings in the given settings output file");
 }
 
 
@@ -778,6 +787,10 @@ MSFrame::checkOptions() {
             }
         }
     }
+    if (oc.getFloat("delay") < 0.0) {
+        WRITE_ERROR("You need a non-negative delay.");
+        ok = false;
+    }
     for (const std::string& val : oc.getStringVector("breakpoints")) {
         try {
             string2time(val);
@@ -792,11 +805,16 @@ MSFrame::checkOptions() {
         ok = false;
     }
 #endif
+    if (oc.getInt("threads") < 1) {
+        WRITE_ERROR("You need at least one thread.");
+        ok = false;
+    }
     if (oc.getInt("threads") > oc.getInt("thread-rngs")) {
         WRITE_WARNING("Number of threads exceeds number of thread-rngs. Simulation runs with the same seed may produce different results");
     }
     if (oc.getString("game.mode") != "tls" && oc.getString("game.mode") != "drt") {
         WRITE_ERROR("game.mode must be one of ['tls', 'drt']");
+        ok = false;
     }
 
     if (oc.isSet("persontrip.transfer.car-walk")) {

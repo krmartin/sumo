@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on Thu Aug 13 12:36:10 2020 by Eclipse SUMO marouter Version v1_6_0+1520-cb474809f6
+<!-- generated on Mon Sep  7 13:28:02 2020 by Eclipse SUMO marouter Version v1_6_0+2015-336b3d6f93
 -->
 
 <configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/marouterConfiguration.xsd">
@@ -87,7 +87,7 @@
         <!-- Defines the number of digits after the comma for lon,lat output -->
         <precision.geo value="6" type="INT"/>
 
-        <!-- Write time values as hour:minute:second or day:hour:minute:second rathern than seconds -->
+        <!-- Write time values as hour:minute:second or day:hour:minute:second rather than seconds -->
         <human-readable-time value="false" synonymes="H" type="BOOL"/>
 
         <!-- Write exit times (weights) for each edge -->
@@ -165,7 +165,7 @@
         <!-- maximal number of iterations for new route searching in incremental and stochastic user assignment -->
         <max-iterations value="20" synonymes="i" type="INT"/>
 
-        <!-- maximal number of inner iterations for user equilibrium calcuation in the stochastic user assignment -->
+        <!-- maximal number of inner iterations for user equilibrium calculation in the stochastic user assignment -->
         <max-inner-iterations value="1000" type="INT"/>
 
         <!-- Choose a route choice method: gawron, logit, or lohse -->

@@ -238,6 +238,10 @@ enum SumoXMLTag {
     SUMO_TAG_RAILSIGNAL_CONSTRAINTS,
     /// @brief Predecessor constraint on switching a rail signal
     SUMO_TAG_PREDECESSOR,
+    /// @brief Predecessor constraint on insertion before rail signal
+    SUMO_TAG_INSERTION_PREDECESSOR,
+    /// @brief Saved state for constraint tracker
+    SUMO_TAG_RAILSIGNAL_CONSTRAINT_TRACKER,
     /// @brief Link information for state-saving
     SUMO_TAG_LINK,
     /// @brief Link-approaching vehicle information for state-saving
@@ -547,6 +551,7 @@ enum SumoXMLAttr {
     SUMO_ATTR_DEPARTPOS,
     SUMO_ATTR_DEPARTPOS_LAT,
     SUMO_ATTR_DEPARTSPEED,
+    SUMO_ATTR_DEPARTEDGE,
     SUMO_ATTR_ARRIVALLANE,
     SUMO_ATTR_ARRIVALPOS,
     SUMO_ATTR_ARRIVALPOS_LAT,
@@ -779,6 +784,7 @@ enum SumoXMLAttr {
     SUMO_ATTR_JM_IGNORE_FOE_SPEED,
     SUMO_ATTR_JM_IGNORE_FOE_PROB,
     SUMO_ATTR_JM_SIGMA_MINOR,
+    SUMO_ATTR_JM_STOPLINE_GAP,
     SUMO_ATTR_JM_TIMEGAP_MINOR,
     /// @}
 
@@ -1197,6 +1203,8 @@ enum SumoXMLAttr {
     GNE_ATTR_FROM_STOP,
     /// @brief to stop (used by personPlans)
     GNE_ATTR_TO_STOP,
+    /// @brief neighboring lane, simplified lane attr instead of child element
+    GNE_ATTR_OPPOSITE,
 
     // @}
 
@@ -1367,20 +1375,20 @@ enum LinkState {
  * used in netbuild (formerly NBMMLDirection) and MSLink
  */
 enum class LinkDirection {
+    /// @brief The link is a (hard) right direction
+    RIGHT = 0,
+    /// @brief The link is a partial right direction
+    PARTRIGHT,
     /// @brief The link is a straight direction
-    STRAIGHT = 0,
+    STRAIGHT,
+    /// @brief The link is a partial left direction
+    PARTLEFT,
+    /// @brief The link is a (hard) left direction
+    LEFT,
     /// @brief The link is a 180 degree turn
     TURN,
     /// @brief The link is a 180 degree turn (left-hand network)
     TURN_LEFTHAND,
-    /// @brief The link is a (hard) left direction
-    LEFT,
-    /// @brief The link is a (hard) right direction
-    RIGHT,
-    /// @brief The link is a partial left direction
-    PARTLEFT,
-    /// @brief The link is a partial right direction
-    PARTRIGHT,
     /// @brief The link has no direction (is a dead end link)
     NODIR
 };

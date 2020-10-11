@@ -24,6 +24,7 @@
 #include <cmath>
 #include <vector>
 #include <string>
+#include <bitset>
 #include <utils/common/StringUtils.h>
 #include <utils/vehicle/SUMOVehicleParameter.h>
 #include <utils/emissions/PollutantsInterface.h>
@@ -42,6 +43,7 @@
 #include <microsim/MSVehicle.h>
 #include <microsim/MSJunction.h>
 #include <microsim/MSLane.h>
+#include <microsim/MSStop.h>
 #include <microsim/logging/CastingFunctionBinding.h>
 #include <microsim/logging/FunctionBinding.h>
 #include <microsim/lcmodels/MSAbstractLaneChangeModel.h>
@@ -60,6 +62,9 @@
 #include "GUINet.h"
 #include "GUIEdge.h"
 #include "GUILane.h"
+
+#define SPEEDMODE_DEFAULT 31
+#define LANECHANGEMODE_DEFAULT 1621
 
 //#define DEBUG_FOES
 
@@ -103,6 +108,9 @@ GUIVehicle::getParameterWindow(GUIMainWindow& app,
     }
     if (MSGlobals::gLateralResolution > 0) {
         ret->mkItem("target lane [id]", true, new FunctionBindingString<GUIVehicle>(this, &GUIVehicle::getTargetLaneID));
+    }
+    if (isSelected()) {
+        ret->mkItem("back lane [id]", true, new FunctionBindingString<GUIVehicle>(this, &GUIVehicle::getBackLaneID));
     }
     ret->mkItem("position [m]", true,
                 new FunctionBinding<GUIVehicle, double>(this, &MSVehicle::getPositionOnLane));
@@ -183,6 +191,14 @@ GUIVehicle::getParameterWindow(GUIMainWindow& app,
                     new FunctionBinding<GUIVehicle, double>(this, &MSVehicle::getStateOfCharge));
         ret->mkItem("actual electric current [A]", true,
                     new FunctionBinding<GUIVehicle, double>(this, &MSVehicle::getElecHybridCurrent));
+    }
+    if (hasInfluencer()) {
+        if (getInfluencer().getSpeedMode() != SPEEDMODE_DEFAULT) {
+            ret->mkItem("speed mode", true, new FunctionBindingString<GUIVehicle>(this, &GUIVehicle::getSpeedMode));
+        }
+        if (getInfluencer().getLaneChangeMode() != LANECHANGEMODE_DEFAULT) {
+            ret->mkItem("lane change mode", true, new FunctionBindingString<GUIVehicle>(this, &GUIVehicle::getLaneChangeMode));
+        }
     }
     ret->closeBuilding(&getParameter());
     return ret;
@@ -332,6 +348,9 @@ GUIVehicle::drawAction_drawCarriageClass(const GUIVisualizationSettings& s, bool
     }
     Position front, back;
     double angle = 0.;
+    // position parking vehicle beside the road or track
+    const double lateralOffset = isParking() ? (SUMO_const_laneWidth * (MSGlobals::gLefthand ? -1 : 1)) : 0;
+
     // draw individual carriages
     double curCLength = firstCarriageLength;
     //std::cout << SIMTIME << " veh=" << getID() << " curCLength=" << curCLength << " loc=" << locomotiveLength << " car=" << carriageLength << " tlen=" << totalLength << " len=" << length << "\n";
@@ -359,8 +378,8 @@ GUIVehicle::drawAction_drawCarriageClass(const GUIVisualizationSettings& s, bool
             }
             backLane = prev;
         }
-        front = lane->geometryPositionAtOffset(carriageOffset);
-        back = backLane->geometryPositionAtOffset(carriageBackOffset);
+        front = lane->geometryPositionAtOffset(carriageOffset, lateralOffset);
+        back = backLane->geometryPositionAtOffset(carriageBackOffset, lateralOffset);
         if (front == back) {
             // no place for drawing available
             continue;
@@ -671,7 +690,7 @@ GUIVehicle::drawRouteHelper(const GUIVisualizationSettings& s, const MSRoute& r,
     // (vertical shift for repeated stops at the same position
     std::map<std::pair<const MSLane*, double>, int> repeat; // count repeated occurrences of the same position
     int stopIndex = 0;
-    for (const Stop& stop : myStops) {
+    for (const MSStop& stop : myStops) {
         double stopLanePos;
         if (stop.pars.speed > 0) {
             stopLanePos = stop.reached ? stop.pars.endPos : stop.pars.startPos;
@@ -936,7 +955,7 @@ GUIVehicle::getRightSublaneOnEdge() const {
             return MAX2(i - 1, 0);
         }
     }
-    return -1;
+    return (int)sublaneSides.size() - 1;
 }
 
 int
@@ -973,6 +992,11 @@ GUIVehicle::getLaneID() const {
 }
 
 std::string
+GUIVehicle::getBackLaneID() const {
+    return myFurtherLanes.size() > 0 ? myFurtherLanes.back()->getID() : getLaneID();
+}
+
+std::string
 GUIVehicle::getShadowLaneID() const {
     return Named::getIDSecure(getLaneChangeModel().getShadowLane(), "");
 }
@@ -985,6 +1009,16 @@ GUIVehicle::getTargetLaneID() const {
 double
 GUIVehicle::getManeuverDist() const {
     return getLaneChangeModel().getManeuverDist();
+}
+
+std::string
+GUIVehicle::getSpeedMode() const {
+    return std::bitset<5>(getInfluencer()->getSpeedMode()).to_string();
+}
+
+std::string
+GUIVehicle::getLaneChangeMode() const {
+    return std::bitset<12>(getInfluencer()->getLaneChangeMode()).to_string();
 }
 
 void

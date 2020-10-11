@@ -30,6 +30,7 @@
 #include <microsim/lcmodels/MSAbstractLaneChangeModel.h>
 #include <microsim/devices/MSDevice.h>
 #include <microsim/MSEdgeWeightsStorage.h>
+#include <microsim/MSStop.h>
 #include <microsim/MSVehicle.h>
 #include <microsim/MSVehicleControl.h>
 #include <microsim/MSVehicleType.h>
@@ -402,7 +403,7 @@ Vehicle::getNextTLS(const std::string& vehicleID) {
         const std::vector<MSLane*>& bestLaneConts = veh->getBestLanesContinuation(lane);
         double seen = lane->getLength() - veh->getPositionOnLane();
         int view = 1;
-        MSLinkCont::const_iterator linkIt = MSLane::succLinkSec(*veh, view, *lane, bestLaneConts);
+        std::vector<MSLink*>::const_iterator linkIt = MSLane::succLinkSec(*veh, view, *lane, bestLaneConts);
         while (!lane->isLinkEnd(linkIt)) {
             if (!lane->getEdge().isInternal()) {
                 if ((*linkIt)->isTLSControlled()) {
@@ -462,20 +463,15 @@ std::vector<TraCINextStopData>
 Vehicle::getStops(const std::string& vehicleID, int limit) {
     std::vector<TraCINextStopData> result;
     MSBaseVehicle* vehicle = Helper::getVehicle(vehicleID);
-    MSVehicle* veh = dynamic_cast<MSVehicle*>(vehicle);
-    if (veh == nullptr) {
-        WRITE_WARNING("getNextStops not yet implemented for meso");
-        return result;
-    }
     if (limit < 0) {
         // return past stops up to the given limit
-        const std::vector<SUMOVehicleParameter::Stop>& pastStops = veh->getPastStops();
+        const std::vector<SUMOVehicleParameter::Stop>& pastStops = vehicle->getPastStops();
         const int n = (int)pastStops.size();
         for (int i = MAX2(0, n + limit); i < n; i++) {
             result.push_back(buildStopData(pastStops[i]));
         }
     } else {
-        for (const MSVehicle::Stop& stop : veh->getStops()) {
+        for (const MSStop& stop : vehicle->getStops()) {
             if (!stop.collision) {
                 TraCINextStopData nsd = buildStopData(stop.pars);
                 if (stop.reached) {
@@ -502,7 +498,7 @@ Vehicle::getStopState(const std::string& vehicleID) {
     }
     int result = 0;
     if (veh->isStopped()) {
-        const MSVehicle::Stop& stop = veh->getNextStop();
+        const MSStop& stop = veh->getNextStop();
         result = ((stop.reached ? 1 : 0) +
                   (stop.pars.parking ? 2 : 0) +
                   (stop.pars.triggered ? 4 : 0) +
@@ -960,7 +956,7 @@ Vehicle::resume(const std::string& vehicleID) {
         throw TraCIException("Failed to resume vehicle '" + veh->getID() + "', it has no stops.");
     }
     if (!veh->resumeFromStopping()) {
-        MSVehicle::Stop& sto = veh->getNextStop();
+        MSStop& sto = veh->getNextStop();
         std::ostringstream strs;
         strs << "reached: " << sto.reached;
         strs << ", duration:" << sto.duration;

@@ -953,7 +953,8 @@ NBEdgeCont::joinSameNodeConnectingEdges(NBDistrictCont& dc,
     // count the number of lanes, the speed and the id
     int nolanes = 0;
     double speed = 0;
-    int priority = 0;
+    int priority = -1;
+    bool joinEdges = true;
     std::string id;
     sort(edges.begin(), edges.end(), NBContHelper::same_connection_edge_sorter());
     // retrieve the connected nodes
@@ -961,6 +962,7 @@ NBEdgeCont::joinSameNodeConnectingEdges(NBDistrictCont& dc,
     NBNode* from = tpledge->getFromNode();
     NBNode* to = tpledge->getToNode();
     EdgeVector::const_iterator i;
+    int myPriority = (*edges.begin())->getPriority();
     for (i = edges.begin(); i != edges.end(); i++) {
         // some assertions
         assert((*i)->getFromNode() == from);
@@ -975,56 +977,65 @@ NBEdgeCont::joinSameNodeConnectingEdges(NBDistrictCont& dc,
         // compute the speed
         speed += (*i)->getSpeed();
         // build the priority
-        priority = MAX2(priority, (*i)->getPriority());
-    }
-    speed /= edges.size();
-    // build the new edge
-    NBEdge* newEdge = new NBEdge(id, from, to, "", speed, nolanes, priority,
-                                 NBEdge::UNSPECIFIED_WIDTH, NBEdge::UNSPECIFIED_OFFSET,
-                                 tpledge->getStreetName(), tpledge->myLaneSpreadFunction);
-    // copy lane attributes
-    int laneIndex = 0;
-    for (i = edges.begin(); i != edges.end(); ++i) {
-        const std::vector<NBEdge::Lane>& lanes = (*i)->getLanes();
-        for (int j = 0; j < (int)lanes.size(); ++j) {
-            newEdge->setPermissions(lanes[j].permissions, laneIndex);
-            newEdge->setLaneWidth(laneIndex, lanes[j].width);
-            newEdge->setEndOffset(laneIndex, lanes[j].endOffset);
-            laneIndex++;
+        // merged edges should have the same inherited priority 
+        if (myPriority == (*i)->getPriority()) {
+            priority = myPriority; 
+        }
+        else { 
+            priority = -1;
+            joinEdges = false;
         }
     }
-    insert(newEdge, true);
-    // replace old edge by current within the nodes
-    //  and delete the old
-    from->replaceOutgoing(edges, newEdge);
-    to->replaceIncoming(edges, newEdge);
-    // patch connections
-    //  add edge2edge-information
-    for (i = edges.begin(); i != edges.end(); i++) {
-        EdgeVector ev = (*i)->getConnectedEdges();
-        for (EdgeVector::iterator j = ev.begin(); j != ev.end(); j++) {
-            newEdge->addEdge2EdgeConnection(*j);
+    if (joinEdges) {
+        speed /= edges.size();
+        // build the new edge
+        NBEdge* newEdge = new NBEdge(id, from, to, "", speed, nolanes, priority,
+            NBEdge::UNSPECIFIED_WIDTH, NBEdge::UNSPECIFIED_OFFSET,
+            tpledge->getStreetName(), tpledge->myLaneSpreadFunction);
+        // copy lane attributes
+        int laneIndex = 0;
+        for (i = edges.begin(); i != edges.end(); ++i) {
+            const std::vector<NBEdge::Lane>& lanes = (*i)->getLanes();
+            for (int j = 0; j < (int)lanes.size(); ++j) {
+                newEdge->setPermissions(lanes[j].permissions, laneIndex);
+                newEdge->setLaneWidth(laneIndex, lanes[j].width);
+                newEdge->setEndOffset(laneIndex, lanes[j].endOffset);
+                laneIndex++;
+            }
         }
-    }
-    //  copy outgoing connections to the new edge
-    int currLane = 0;
-    for (i = edges.begin(); i != edges.end(); i++) {
-        newEdge->moveOutgoingConnectionsFrom(*i, currLane);
-        currLane += (*i)->getNumLanes();
-    }
-    // patch tl-information
-    currLane = 0;
-    for (i = edges.begin(); i != edges.end(); i++) {
-        int noLanes = (*i)->getNumLanes();
-        for (int j = 0; j < noLanes; j++, currLane++) {
-            // replace in traffic lights
-            tlc.replaceRemoved(*i, j, newEdge, currLane, true);
-            tlc.replaceRemoved(*i, j, newEdge, currLane, false);
+        insert(newEdge, true);
+        // replace old edge by current within the nodes
+        //  and delete the old
+        from->replaceOutgoing(edges, newEdge);
+        to->replaceIncoming(edges, newEdge);
+        // patch connections
+        //  add edge2edge-information
+        for (i = edges.begin(); i != edges.end(); i++) {
+            EdgeVector ev = (*i)->getConnectedEdges();
+            for (EdgeVector::iterator j = ev.begin(); j != ev.end(); j++) {
+                newEdge->addEdge2EdgeConnection(*j);
+            }
         }
-    }
-    // delete joined edges
-    for (i = edges.begin(); i != edges.end(); i++) {
-        extract(dc, *i, true);
+        //  copy outgoing connections to the new edge
+        int currLane = 0;
+        for (i = edges.begin(); i != edges.end(); i++) {
+            newEdge->moveOutgoingConnectionsFrom(*i, currLane);
+            currLane += (*i)->getNumLanes();
+        }
+        // patch tl-information
+        currLane = 0;
+        for (i = edges.begin(); i != edges.end(); i++) {
+            int noLanes = (*i)->getNumLanes();
+            for (int j = 0; j < noLanes; j++, currLane++) {
+                // replace in traffic lights
+                tlc.replaceRemoved(*i, j, newEdge, currLane, true);
+                tlc.replaceRemoved(*i, j, newEdge, currLane, false);
+            }
+        }
+        // delete joined edges
+        for (i = edges.begin(); i != edges.end(); i++) {
+            extract(dc, *i, true);
+        }
     }
 }
 

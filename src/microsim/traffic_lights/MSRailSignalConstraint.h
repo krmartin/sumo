@@ -26,6 +26,7 @@
 // class declarations
 // ===========================================================================
 class MSRailSignal;
+class SUMOSAXAttributes;
 
 
 // ===========================================================================
@@ -47,8 +48,21 @@ public:
     /// @brief whether the constraint has been met
     virtual bool cleared() const = 0;
 
+    virtual std::string getDescription() const {
+        return "RailSignalConstraint";
+    }
+
     /// @brief clean up state
     static void cleanup();
+
+    /** @brief Saves the current constraint states into the given stream */
+    static void saveState(OutputDevice& out);
+
+    /** @brief Clear all constraint states before quick-loading state */
+    static void clearState();
+
+protected:
+    static std::string getVehID(const std::string& tripID);
 };
 
 
@@ -64,11 +78,22 @@ public:
     /// @brief clean up state
     static void cleanup();
 
+    /** @brief Saves the current constraint states into the given stream */
+    static void saveState(OutputDevice& out);
+
+    /** @brief loads the constraint state from the given attrs */
+    static void loadState(const SUMOSAXAttributes& attrs); 
+
+    /** @brief Clear all constraint states before quick-loading state */
+    static void clearState();
+
     bool cleared() const;
+
+    std::string getDescription() const;
 
     class PassedTracker : public MSMoveReminder {
     public:
-        PassedTracker(const MSLink* link);
+        PassedTracker(MSLane* lane);
 
         /// @name inherited from MSMoveReminder
         //@{
@@ -80,7 +105,15 @@ public:
 
         bool hasPassed(const std::string& tripId, int limit) const;
 
-    protected:
+        /** @brief Clear all passed states before quick-loading state */
+        void clearState();
+
+        /** @brief Saves the current passed states into the given stream */
+        void saveState(OutputDevice& out);
+
+        /** @brief loads the current passed states into the given stream */
+        void loadState(int index, const std::vector<std::string>& tripIDs);
+
         /// @brief passed tripIds
         std::vector<std::string> myPassed;
 
@@ -98,7 +131,7 @@ public:
     const int myLimit;
 
 
-    static std::map<const MSLink*, PassedTracker*> myTrackerLookup;
+    static std::map<const MSLane*, PassedTracker*> myTrackerLookup;
 
 private:
     /// invalidated assignment operator

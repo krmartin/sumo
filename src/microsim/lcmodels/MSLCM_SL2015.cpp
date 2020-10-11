@@ -27,6 +27,7 @@
 #include <microsim/MSNet.h>
 #include <microsim/MSDriverState.h>
 #include <microsim/MSGlobals.h>
+#include <microsim/MSStop.h>
 #include <microsim/transportables/MSTransportableControl.h>
 #include <microsim/transportables/MSPModel.h>
 #include "MSLCHelper.h"
@@ -941,13 +942,11 @@ int
 MSLCM_SL2015::computeSublaneShift(const MSEdge* prevEdge, const MSEdge* curEdge) {
     // find the first lane that targets the new edge
     int prevShift = 0;
-    const std::vector<MSLane*>& lanes = prevEdge->getLanes();
-    for (std::vector<MSLane*>::const_iterator it_lane = lanes.begin(); it_lane != lanes.end(); ++it_lane) {
-        const MSLane* lane = *it_lane;
-        for (MSLinkCont::const_iterator it_link = lane->getLinkCont().begin(); it_link != lane->getLinkCont().end(); ++it_link) {
-            if (&((*it_link)->getLane()->getEdge()) == curEdge) {
+    for (const MSLane* const lane : prevEdge->getLanes()) {
+        for (const MSLink* const link : lane->getLinkCont()) {
+            if (&link->getLane()->getEdge() == curEdge) {
                 int curShift = 0;
-                const MSLane* target = (*it_link)->getLane();
+                const MSLane* target = link->getLane();
                 const std::vector<MSLane*>& lanes2 = curEdge->getLanes();
                 for (std::vector<MSLane*>::const_iterator it_lane2 = lanes2.begin(); it_lane2 != lanes2.end(); ++it_lane2) {
                     const MSLane* lane2 = *it_lane2;
@@ -1300,7 +1299,7 @@ MSLCM_SL2015::_wantsChangeSublane(
         // unless we are approaching the exit
         if (left) {
             ret |= LCA_COOPERATIVE;
-            if (!cancelRequest(ret, laneOffset)) {
+            if (!cancelRequest(ret | LCA_LEFT, laneOffset)) {
                 if ((ret & LCA_STAY) == 0) {
                     latDist = latLaneDist;
                     maneuverDist = latLaneDist;
@@ -1309,6 +1308,8 @@ MSLCM_SL2015::_wantsChangeSublane(
                                             neighLeaders, neighFollowers, neighBlockers);
                 }
                 return ret;
+            } else {
+                ret &= ~LCA_COOPERATIVE;
             }
         } else {
             myKeepRightProbability = 0;
@@ -1356,13 +1357,15 @@ MSLCM_SL2015::_wantsChangeSublane(
 #endif
 
         ret |= LCA_COOPERATIVE | LCA_URGENT ;//| LCA_CHANGE_TO_HELP;
-        if (!cancelRequest(ret, laneOffset)) {
+        if (!cancelRequest(ret | getLCA(ret, latLaneDist), laneOffset)) {
             latDist = amBlockingFollowerPlusNB() ? latLaneDist : getManeuverDist();
             maneuverDist = latDist;
             blocked = checkBlocking(neighLane, latDist, maneuverDist, laneOffset,
                                     leaders, followers, blockers,
                                     neighLeaders, neighFollowers, neighBlockers);
             return ret;
+        } else {
+            ret &= ~(LCA_COOPERATIVE | LCA_URGENT);
         }
     }
 
@@ -1598,13 +1601,15 @@ MSLCM_SL2015::_wantsChangeSublane(
                     /*&& latLaneDist <= -NUMERICAL_EPS * myVehicle.getActionStepLengthSecs()*/) {
                 ret |= LCA_KEEPRIGHT;
                 assert(myVehicle.getLane()->getIndex() > neighLane.getIndex());
-                if (!cancelRequest(ret, laneOffset)) {
+                if (!cancelRequest(ret | LCA_RIGHT, laneOffset)) {
                     latDist = latLaneDist;
                     maneuverDist = latLaneDist;
                     blocked = checkBlocking(neighLane, latDist, maneuverDist, laneOffset,
                                             leaders, followers, blockers,
                                             neighLeaders, neighFollowers, neighBlockers);
                     return ret;
+                } else {
+                    ret &= ~LCA_KEEPRIGHT;
                 }
             }
         }
@@ -1625,7 +1630,7 @@ MSLCM_SL2015::_wantsChangeSublane(
         if (latDist < 0 && mySpeedGainProbabilityRight >= MAX2(myChangeProbThresholdRight, mySpeedGainProbabilityLeft)
                 && neighDist / MAX2(.1, myVehicle.getSpeed()) > 20.) {
             ret |= LCA_SPEEDGAIN;
-            if (!cancelRequest(ret, laneOffset)) {
+            if (!cancelRequest(ret | getLCA(ret, latDist), laneOffset)) {
                 int blockedFully = 0;
                 maneuverDist = latDist;
                 blocked = checkBlocking(neighLane, latDist, maneuverDist, laneOffset,
@@ -1634,6 +1639,10 @@ MSLCM_SL2015::_wantsChangeSublane(
                                         nullptr, nullptr, false, 0, &blockedFully);
                 //commitManoeuvre(blocked, blockedFully, leaders, neighLeaders, neighLane);
                 return ret;
+            } else {
+                // @note: restore ret so subsequent calls to cancelRequest work correctly
+                latDist = 0;
+                ret &= ~LCA_SPEEDGAIN;
             }
         }
     }
@@ -1659,7 +1668,7 @@ MSLCM_SL2015::_wantsChangeSublane(
                 // lane for some time
                 (stayInLane || neighDist / MAX2(.1, myVehicle.getSpeed()) > SPEED_GAIN_MIN_SECONDS)) {
             ret |= LCA_SPEEDGAIN;
-            if (!cancelRequest(ret, laneOffset)) {
+            if (!cancelRequest(ret + getLCA(ret, latDist), laneOffset)) {
                 int blockedFully = 0;
                 maneuverDist = latDist;
                 blocked = checkBlocking(neighLane, latDist, maneuverDist, laneOffset,
@@ -1668,6 +1677,9 @@ MSLCM_SL2015::_wantsChangeSublane(
                                         nullptr, nullptr, false, 0, &blockedFully);
                 //commitManoeuvre(blocked, blockedFully, leaders, neighLeaders, neighLane);
                 return ret;
+            } else {
+                latDist = 0;
+                ret &= ~LCA_SPEEDGAIN;
             }
         }
     }
@@ -1812,12 +1824,14 @@ MSLCM_SL2015::_wantsChangeSublane(
                             << " prevManeuverDist=" << getPreviousManeuverDist() << "\n";
 #endif
             }
-            if (!cancelRequest(ret, laneOffset)) {
+            if (!cancelRequest(ret + getLCA(ret, latDist), laneOffset)) {
                 maneuverDist = latDist;
                 blocked = checkBlocking(neighLane, latDist, maneuverDist, laneOffset,
                                         leaders, followers, blockers,
                                         neighLeaders, neighFollowers, neighBlockers);
                 return ret;
+            } else {
+                ret &= ~LCA_SUBLANE;
             }
         } else {
             return ret | LCA_SUBLANE | LCA_STAY;
@@ -1985,7 +1999,13 @@ MSLCM_SL2015::updateExpectedSublaneSpeeds(const MSLeaderDistanceInfo& ahead, int
                         // speed over the next few seconds
                         const double foreCastTime = mySpeedGainLookahead * 2;
                         const double gapClosingTime = gap / deltaV;
-                        vSafe = (gapClosingTime * vSafe + (foreCastTime - gapClosingTime) * leader->getSpeed()) / foreCastTime;
+                        const double vSafe2 = (gapClosingTime * vSafe + (foreCastTime - gapClosingTime) * leader->getSpeed()) / foreCastTime;
+#ifdef DEBUG_EXPECTED_SLSPEED
+                        if (DEBUG_COND && vSafe2 != vSafe) {
+                            std::cout << "   foreCastTime=" << foreCastTime << " gapClosingTime=" << gapClosingTime << " extrapolated vSafe=" << vSafe << "\n";
+                        }
+#endif
+                        vSafe = vSafe2;
                     }
                 }
             }

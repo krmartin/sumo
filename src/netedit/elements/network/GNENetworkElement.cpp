@@ -19,10 +19,6 @@
 /****************************************************************************/
 #include <config.h>
 
-#include <netedit/GNENet.h>
-#include <netedit/GNEViewNet.h>
-#include <netedit/GNEUndoList.h>
-#include <netedit/changes/GNEChange_Attribute.h>
 #include <utils/gui/div/GUIParameterTableWindow.h>
 
 #include "GNENetworkElement.h"
@@ -43,7 +39,6 @@ GNENetworkElement::GNENetworkElement(GNENet* net, const std::string& id, GUIGlOb
                                      const std::vector<GNEGenericData*>& genericDataParents) :
     GUIGlObject(type, id),
     GNEHierarchicalElement(net, tag, junctionParents, edgeParents, laneParents, additionalParents, shapeParents, TAZElementParents, demandElementParents, genericDataParents),
-    myMovingGeometryBoundary(),
     myShapeEdited(false) {
 }
 
@@ -91,6 +86,12 @@ GNENetworkElement::getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView&) 
     // close building
     ret->closeBuilding();
     return ret;
+}
+
+
+Boundary
+GNENetworkElement::getCenteringBoundary() const {
+    return myBoundary;
 }
 
 

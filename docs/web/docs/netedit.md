@@ -70,10 +70,11 @@ via menus. The following input formats are supported:
 | Undo           | Ctrl + Z | Undo the last change |
 | Redo           | Ctrl + Y | Redo the last change |
 
-| Supermodes shortcuts | Key | Description                                     |
-| -------------------- | --- | ----------------------------------------------- |
-| Network              | F3  | Change to Network supermode (default )          |
-| Demand               | F4  | Change to Demand supermode(implies recomputing) |
+| Supermodes shortcuts | Key  | Description                                      |
+| -------------------- | ---- | ------------------------------------------------ |
+| Network              | F2   | Change to supermode Network (default )           |
+| Demand               | F3   | Change to supermode Demand (implies recomputing) |
+| Data                 | F4   | Change to supermode Data (implies recomputing)   |
 
 | Common modes shortcuts | Key | Description              |
 | ---------------------- | --- | ------------------------ |
@@ -102,6 +103,11 @@ via menus. The following input formats are supported:
 | Create persons        | P   | Change to mode "Create Persons"      |
 | Create person plans   | C   | Change to mode "Create Person Plans" |
 
+| Data mode shortcuts | Key  | Description                                 |
+| ------------------- | ---- | ------------------------------------------- |
+| Edge data           | E    | Change to mode "Create Edge Datas"          |
+| Edge relation data  | E    | Change to mode "Create Edge Relation datas" |
+
 | Processing shortcuts    | Key | Description                            |
 | ----------------------- | --- | -------------------------------------- |
 | Compute Junction        | F5  | Compute junctions of the network       |
@@ -115,10 +121,10 @@ via menus. The following input formats are supported:
 | Locate Edges     | Shift + e | Open dialog to locate edges          |
 | Locate TLS       | Shift + t | Open dialog to locate Traffic Lights |
 
-| Help shortcuts       | Key | Description                                      |
-| -------------------- | --- | ------------------------------------------------ |
-| Online documentation | F1  | Open the online documentation in the web browser |
-| About                | F2  | Open the about dialog                            |
+| Help shortcuts       | Key  | Description                                      |
+| -------------------- | ---- | ------------------------------------------------ |
+| Online documentation | F1   | Open the online documentation in the web browser |
+| About                | F12  | Open the about dialog                            |
 
 | Text edition shortcuts | Key      | Description                                      |
 | ---------------------- | -------- | ------------------------------------------------ |
@@ -482,7 +488,7 @@ parallel
 
 - When clicking over an Polygon/TAZ edge or vertex, contour will be moved
 - If Polygon/TAZ is inspected an option "block shape" is enabled, then entire shape will be moved
-    
+  
 ## Network specific modes
 
 ### Create Edges
@@ -932,6 +938,16 @@ Person plans can be extended using the PersonPlan frame. Once the Person plan fr
 ![](images/PersonPlanCreator1.png)Person_0 has only a trip, and the last edge of person's trip is marked (green)
 
 ![](images/PersonPlanCreator2.png)Multiple person plans can be added continuously
+
+## Data specific modes
+
+### Edge data mode
+
+Edge data
+
+### Edge rel data mode
+
+Edge rel data
 
 
 # netedit elements
@@ -1495,6 +1511,11 @@ original junction positions.
 
 ## Converting an intersection into a roundabout
 
+1. set junction attribute 'radius' to the desired roundabout radius
+2. right-click on junction and select 'Convert to roundabout'
+
+## Converting an intersection into a roundabout (old manual method)
+
 1.  For each of the 'legs' of the intersection do a right click and
     select 'split edges in both directions' at some distance from the
     intersection (this will be the radius of the roundabout)
@@ -1507,7 +1528,7 @@ original junction positions.
     This should work by default but may fail if the shape of the roundabout is not 'round' enough.
     Either correct the geometry or assign a higher priority value to the roundabout roads
     (compared to the adjoining roads)
-  
+
 Assuming you have a regular intersection
 
 - **Visual example**
@@ -1574,6 +1595,12 @@ settings may help
 When setting coloring to *by selection* it may also help to modify
 transparency for selected or unselected edges.
 
+## Defining a linear referencing scheme [(kilometrage / mileage/ chainage)](Simulation/Railways.md#kilometrage_mileage_chainage)
+
+1. [Define a route](#route_mode) through your network along which you want to define kilometrage (in forward direction)
+2. (optional) Use inspect mode to et the initial distance value of the first edge of the route (default 0)
+3) Right click the route element (in demand mode) and select 'Apply distance along route'
+
 ## Creating [bidirectional railway tracks](Simulation/Railways.md)
 
 ### Make an existing track bidirectional
@@ -1614,7 +1641,7 @@ To make a unidirectional track usable in both directions,
     [Simulation/OppositeDirectionDriving](Simulation/OppositeDirectionDriving.md).
 
     !!! note
-        Currently, the only support is in switching on **--opposites.guess** via the [F10-menu](#processing_menu_options).
+        Currently, you may either switching on **--opposites.guess** via the [F10-menu](#processing_menu_options) or set lane attribute 'oppositeID'.
 
   - Editing [walkingarea
     shapes](Networks/PlainXML.md#walking_areas)

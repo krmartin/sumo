@@ -155,11 +155,11 @@ GNEEdgeRelData::drawPartialGL(const GUIVisualizationSettings& s, const GNELane* 
         drawFilteredAttribute(s, lane->getLaneShape(), myNet->getViewNet()->getViewParent()->getEdgeRelDataFrame()->getAttributeSelector()->getFilteredAttribute());
     }
     // draw dotted contour
-    if (s.drawDottedContour() || (myNet->getViewNet()->getInspectedAttributeCarrier() == this)) {
+    if (s.drawDottedContour() || myNet->getViewNet()->isAttributeCarrierInspected(this)) {
         if (getParentEdges().front() == lane->getParentEdge()) {
-            GNEGeometry::drawDottedContourEdge(true, s, getParentEdges().front(), true, false);
+            GNEGeometry::drawDottedContourEdge(GNEGeometry::DottedContourType::INSPECT, s, getParentEdges().front(), true, false);
         } else {
-            GNEGeometry::drawDottedContourEdge(true, s, getParentEdges().back(), false, true);
+            GNEGeometry::drawDottedContourEdge(GNEGeometry::DottedContourType::INSPECT, s, getParentEdges().back(), false, true);
         }
     }
 }
@@ -224,7 +224,7 @@ GNEEdgeRelData::drawPartialGL(const GUIVisualizationSettings& s, const GNELane* 
         // Pop name
         glPopName();
         // draw dotted contour
-        if (s.drawDottedContour() || (myNet->getViewNet()->getInspectedAttributeCarrier() == this)) {
+        if (s.drawDottedContour() || myNet->getViewNet()->isAttributeCarrierInspected(this)) {
             // declare lanes
             const GNELane* laneTopA = getParentEdges().front()->getLanes().front();
             const GNELane* laneTopB = getParentEdges().back()->getLanes().front();

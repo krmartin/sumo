@@ -46,6 +46,7 @@ class SUMOVehicle;
 class MSVehicleType;
 class MSPModel;
 class MSTransportableStateAdapter;
+class MSMoveReminder;
 
 typedef std::vector<const MSEdge*> ConstMSEdgeVector;
 
@@ -96,6 +97,14 @@ public:
 
         std::string getStageSummary(const bool isPerson) const;
 
+        /** @brief Saves the current state into the given stream
+         */
+        void saveState(std::ostringstream& out);
+
+        /** @brief Reconstructs the current state
+         */
+        void loadState(MSTransportable* transportable, std::istringstream& state);
+
         /** @brief Called on writing tripinfo output
          * @param[in] os The stream to write the information into
          * @exception IOError not yet implemented
@@ -142,6 +151,9 @@ public:
 
         /// the time the person entered the edge
         SUMOTime myLastEdgeEntryTime;
+
+        /// @brief the MoveReminders encountered while walking
+        std::vector<MSMoveReminder*> myMoveReminders;
 
         class arrival_finder {
         public:

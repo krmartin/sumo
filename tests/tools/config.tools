@@ -118,6 +118,7 @@ str:test.str
 gpsdat:gpsdat.txt
 gpx:output.gpx
 kml:output.kml
+ipg:ipg.txt
 geojson:output.geojson
 match:match.txt
 dualog:dua.log
@@ -146,6 +147,7 @@ districts:districts.xml
 restrictions:restrictions.txt
 parking:input_routes.rou.parking.xml
 parking:parking_parkingLot.add.xml
+toolcfg:out.toolcfg
 
 [run_dependent_text]
 output:Begin time
@@ -199,8 +201,12 @@ errors:No imaging
 errors:Bytes: 0xF6 0x74 0x2E 0x6E, line 3, column 27{REPLACE Bytes: 0xF6 0x74 0x2E 0x6E, line 3, column 26}
 errors:column ([0-9]*) \(line [0-9]*\){REPLACE column \1}
 errors:Scipy version [0-9]+\.[0-9]+\.[0-9]+{REPLACE Scipy}
+errors:OptimizeWarning
+errors:/home/
+errors:C:
 omnet:<!-- generated on
 shawn:<!-- generated on
+gpsdat:r[0-9]
 flows:<!-- generated on{[->]}-->
 turns:<!-- generated on{[->]}-->
 edgedata:<!-- generated on{[->]}-->
@@ -223,6 +229,11 @@ image:http:{REPLACE https:}
 image-600:http:{REPLACE https:}
 image-800:http:{REPLACE https:}
 csv:\r$
+diff_con:<!-- generated on{[->]}-->
+diff_edg:<!-- generated on{[->]}-->
+diff_nod:<!-- generated on{[->]}-->
+diff_tll:<!-- generated on{[->]}-->
+diff_xml:<!-- generated on{[->]}-->
 
 [floating_point_tolerance]
 net:0.0101

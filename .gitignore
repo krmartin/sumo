@@ -54,6 +54,7 @@
 /bin/testmicrosim*
 /bin/testnetbuild*
 /bin/testlibsumo*
+/bin/testthreadpool*
 /bin/*.dll
 /bin/*.so
 /bin/*.pyd
@@ -102,9 +103,12 @@
 /src/utils/empty.cpp
 /unittest/src/sumo-unittest
 # tools dir
+/tools/*.egg-info
 /tools/[0-9]*
 /tools/game/*.netstate.xml
 /tools/game/*.tlsstate.xml
+/tools/game/netstate.xml
+/tools/game/tlsstate.xml
 /tools/game/*.tripinfos.xml
 /tools/game/racing/log
 /tools/game/racing/tripinfos.xml
@@ -122,8 +126,15 @@
 /tools/libsumo/libsumoc.so
 /tools/libsumo/libsumocpp.so
 /tools/libsumo/libsumocpp.dylib
+/tools/libtraci/_libtraci.so
+/tools/libtraci/libtraci.py
+/tools/libtraci/libtraciPYTHON_wrap.cxx
+/tools/libtraci/libtracicpp.so
 # extracted tests
 /tests/_*
+# netedit test
+/tests/netedit/__pycache__
+/tests/netedit/filter_files
 # global patterns
 Makefile
 Makefile.in
@@ -157,3 +168,4 @@ lib*.a
 .vscode
 *.aps
 .gdb_history
+

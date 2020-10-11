@@ -31,6 +31,8 @@
 #include <utils/iodevices/OutputDevice.h>
 #include <utils/xml/SUMOXMLDefinitions.h>
 #include <utils/vehicle/SUMOVehicleParserHelper.h>
+#include <microsim/traffic_lights/MSTLLogicControl.h>
+#include <microsim/traffic_lights/MSRailSignalConstraint.h>
 #include <microsim/devices/MSDevice_Routing.h>
 #include <microsim/devices/MSDevice_BTreceiver.h>
 #include <microsim/devices/MSDevice_ToC.h>
@@ -60,8 +62,10 @@ MSStateHandler::MSStateHandler(const std::string& file, const SUMOTime offset, b
     myCurrentLane(nullptr),
     myCurrentLink(nullptr),
     myAttrs(nullptr),
+    myVCAttrs(nullptr),
     myLastParameterised(nullptr),
-    myOnlyReadTime(onlyReadTime) {
+    myOnlyReadTime(onlyReadTime),
+    myRemoved(0) {
     myAmLoadingState = true;
     const std::vector<std::string> vehIDs = OptionsCont::getOptions().getStringVector("load-state.remove-vehicles");
     myVehiclesToRemove.insert(vehIDs.begin(), vehIDs.end());
@@ -111,6 +115,7 @@ MSStateHandler::saveState(const std::string& file, SUMOTime step) {
             }
         }
     }
+    MSNet::getInstance()->getTLSControl().saveState(out);
     out.close();
 }
 
@@ -162,11 +167,7 @@ MSStateHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) {
             break;
         }
         case SUMO_TAG_DELAY: {
-            vc.setState(attrs.getInt(SUMO_ATTR_NUMBER),
-                        attrs.getInt(SUMO_ATTR_BEGIN),
-                        attrs.getInt(SUMO_ATTR_END),
-                        attrs.getFloat(SUMO_ATTR_DEPART),
-                        attrs.getFloat(SUMO_ATTR_TIME));
+            myVCAttrs = attrs.clone();
             break;
         }
         case SUMO_TAG_FLOWSTATE: {
@@ -262,6 +263,10 @@ MSStateHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) {
             }
             break;
         }
+        case SUMO_TAG_RAILSIGNAL_CONSTRAINT_TRACKER: {
+            MSRailSignalConstraint_Predecessor::loadState(attrs);
+            break;
+        }
         case SUMO_TAG_PARAM: {
             bool ok;
             const std::string key = attrs.get<std::string>(SUMO_ATTR_KEY, nullptr, ok);
@@ -299,8 +304,25 @@ MSStateHandler::myEndElement(int element) {
         case SUMO_TAG_CONTAINER: {
             MSTransportableControl& tc = (element == SUMO_TAG_PERSON ? MSNet::getInstance()->getPersonControl() : MSNet::getInstance()->getContainerControl());
             tc.get(myAttrs->getString(SUMO_ATTR_ID))->loadState(myAttrs->getString(SUMO_ATTR_STATE));
+            tc.fixLoadCount();
             delete myAttrs;
             myAttrs = nullptr;
+            break;
+        }
+        case SUMO_TAG_SNAPSHOT: {
+            if (myVCAttrs == nullptr) {
+                throw ProcessError("Could not load vehicle control state");
+            }
+            MSVehicleControl& vc = MSNet::getInstance()->getVehicleControl();
+            vc.setState(myVCAttrs->getInt(SUMO_ATTR_NUMBER),
+                        myVCAttrs->getInt(SUMO_ATTR_BEGIN),
+                        myVCAttrs->getInt(SUMO_ATTR_END),
+                        myVCAttrs->getFloat(SUMO_ATTR_DEPART),
+                        myVCAttrs->getFloat(SUMO_ATTR_TIME));
+            if (myRemoved > 0) {
+                WRITE_MESSAGE("Removed " + toString(myRemoved) + " vehicles while loading state.");
+                vc.discountStateRemoved(myRemoved);
+            }
             break;
         }
         default:
@@ -322,8 +344,6 @@ MSStateHandler::closeVehicle() {
     const std::string vehID = myVehicleParameter->id;
     if (myVehiclesToRemove.count(vehID) == 0) {
         MSRouteHandler::closeVehicle();
-        // reset depart
-        vc.discountStateLoaded();
         SUMOVehicle* v = vc.getVehicle(vehID);
         if (v == nullptr) {
             throw ProcessError("Could not load vehicle '" + vehID + "' from state");
@@ -349,9 +369,9 @@ MSStateHandler::closeVehicle() {
             myDeviceAttrs.pop_back();
         }
     } else {
-        vc.discountStateLoaded(true);
         delete myVehicleParameter;
         myVehicleParameter = nullptr;
+        myRemoved++;
     }
     delete myAttrs;
 }

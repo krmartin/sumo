@@ -6,12 +6,14 @@ cmake_policy(SET CMP0054 NEW)
 option(CHECK_OPTIONAL_LIBS "Try to download / enable all optional libraries (use only EPL clean libraries, if set to false)" true)
 option(MULTITHREADED_BUILD "Use all available cores for building (applies to Visual Studio only)" true)
 option(PROFILING "Enable output of profiling data (applies to gcc/clang builds only)" false)
+option(PPROF "Link the pprof profiler library (applies to gcc/clang builds only)" false)
 option(COVERAGE "Enable output of coverage data (applies to gcc/clang builds only)" false)
 option(SUMO_UTILS "Enable generation of a shared library for the utility functions for option handling, XML parsing etc." false)
 option(FMI "Enable generation of an FMI library for SUMO" false)
 set(BINARY_SUFFIX "" CACHE STRING "Append the suffix to every generated binary")
 set(COMPILE_DEFINITIONS "" CACHE STRING "Macros or defines to add when compiling")
-set(CCACHE_SUPPORT ON CACHE BOOL "Enable ccache support")
+set(CCACHE_SUPPORT ON CACHE BOOL "Enable ccache support if installed")
+set(TCMALLOC ON CACHE BOOL "Use tcmalloc if installed")
 
 # Set a default build type if none was specified
 # you may use -DCMAKE_BUILD_TYPE:STRING=Debug from the command line
@@ -22,17 +24,17 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
       STRING "Choose the type of build." FORCE)
   # Set the possible values of build type for cmake-gui
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo")
 endif ()
 
-project(SUMO)
+project(SUMO CXX C)
 set(PACKAGE_VERSION "git")
 cmake_minimum_required(VERSION 3.1)
 
 find_program(CCACHE_FOUND "ccache")
 if (CCACHE_FOUND AND CCACHE_SUPPORT)
-  message(STATUS "Enabling ccache")
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "ccache")
+    message(STATUS "Enabling ccache")
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "ccache")
 endif()
 
 set(CMAKE_COLOR_MAKEFILE ON)
@@ -77,6 +79,8 @@ elseif (MSVC)
     endif ()
     # exporting symbols for shared libraries needs to enabled explicitly
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    # add option for enabling console in release mode
+    option(CONSOLE_RELEASE "Enable console in SUMO-GUI and NETEDIT in release (use only for debug purposes)" false)
 endif ()
 
 # special debug flags
@@ -122,8 +126,10 @@ find_package(PythonInterp REQUIRED)
 message(STATUS "Found Python: " ${PYTHON_EXECUTABLE})
 execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "import setuptools" RESULT_VARIABLE SETUPTOOLS_MISSING)
 
-#http://stackoverflow.com/questions/1487752/how-do-i-instruct-cmake-to-look-for-libraries-installed-by-macports
 if (APPLE)
+    # we know that openGL is deprecated for newer MacOS
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGL_SILENCE_DEPRECATION")
+    # http://stackoverflow.com/questions/1487752/how-do-i-instruct-cmake-to-look-for-libraries-installed-by-macports
     link_directories(/opt/X11/lib)
     include_directories(SYSTEM /opt/X11/include)
     # Detect if the "port" command is valid on this system; if so, return full path
@@ -136,6 +142,7 @@ if (APPLE)
         include_directories(${MACPORTS_PREFIX}/../include)
         message(STATUS "Macports detected: ${MACPORTS_PREFIX}")
     endif ()
+
     # Recommendation, also add a "brew --prefix" custom command to detect a homebrew build environment
     execute_process(COMMAND brew --prefix RESULT_VARIABLE DETECT_BREW OUTPUT_VARIABLE BREW_PREFIX ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
     if (${DETECT_BREW} EQUAL 0)
@@ -311,6 +318,15 @@ if (SWIG_FOUND)
     set(ENABLED_FEATURES "${ENABLED_FEATURES} SWIG")
 endif ()
 
+if (TCMALLOC)
+    find_library(TCMALLOC_LIBRARY NAMES tcmalloc_minimal)
+    if (TCMALLOC_LIBRARY)
+        set(ENABLED_FEATURES "${ENABLED_FEATURES} tcmalloc")
+    else ()
+        set(TCMALLOC_LIBRARY "")
+    endif ()
+endif ()
+
 if (CHECK_OPTIONAL_LIBS)
     find_package(GDAL)
     if (GDAL_FOUND)
@@ -368,9 +384,12 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(commonlibs
         utils_distribution utils_shapes utils_options
         utils_xml utils_geom utils_common utils_importio utils_iodevices utils_traction_wire foreign_tcpip
-        ${XercesC_LIBRARIES} ${ZLIB_LIBRARIES} ${PROJ_LIBRARY})
+        ${XercesC_LIBRARIES} ${ZLIB_LIBRARIES} ${PROJ_LIBRARY} ${TCMALLOC_LIBRARY})
 if (MSVC)
     set(commonlibs ${commonlibs} ws2_32)
+endif ()
+if (PPROF)
+    set(commonlibs ${commonlibs} profiler)
 endif ()
 set(commonvehiclelibs
         utils_emissions foreign_phemlight utils_vehicle ${commonlibs} ${FOX_LIBRARY})
@@ -556,6 +575,10 @@ add_subdirectory(src)
 if (GTEST_FOUND)
     add_subdirectory(unittest)
 endif ()
+find_program(TEXTTEST_FOUND "texttest")
+if (TEXTTEST_FOUND AND EXISTS ${CMAKE_SOURCE_DIR}/tests/runTests.sh)
+    add_test(texttest ${CMAKE_SOURCE_DIR}/tests/runTests.sh -b ci -v ci)
+endif()
 
 # example and dist targets
 add_custom_target(examples
@@ -564,6 +587,14 @@ add_custom_target(examples
 add_dependencies(examples sumo netconvert dfrouter duarouter jtrrouter)
 set_property(TARGET examples PROPERTY EXCLUDE_FROM_DEFAULT_BUILD TRUE)
 set_property(TARGET examples PROPERTY FOLDER "doc")
+
+find_program(PYINSTALLER_FOUND "pyinstaller")
+if (PYINSTALLER_FOUND AND EXISTS ${CMAKE_SOURCE_DIR}/tools/game/runner.spec)
+    add_custom_target(game
+        COMMAND pyinstaller --noconfirm ${CMAKE_SOURCE_DIR}/tools/game/runner.spec
+		COMMAND ${CMAKE_COMMAND} -E chdir dist/runner ${CMAKE_COMMAND} -E tar "cf" "${CMAKE_SOURCE_DIR}/sumo-game-${PACKAGE_VERSION}.zip" --format=zip "."
+    )
+endif()
 
 add_test(exampletest ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/docs/examples/runAll.py)
 find_package(Git)

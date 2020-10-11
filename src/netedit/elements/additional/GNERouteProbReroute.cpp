@@ -20,7 +20,6 @@
 #include <config.h>
 
 #include <netedit/changes/GNEChange_Attribute.h>
-#include <netedit/dialogs/GNERerouterIntervalDialog.h>
 #include <netedit/GNEUndoList.h>
 #include <netedit/GNENet.h>
 
@@ -32,24 +31,21 @@
 
 GNERouteProbReroute::GNERouteProbReroute(GNEAdditional* rerouterIntervalParent, const std::string& newRouteId, double probability) :
     GNEAdditional(rerouterIntervalParent->getNet(), GLO_REROUTER, SUMO_TAG_ROUTE_PROB_REROUTE, "", false,
-{}, {}, {}, {rerouterIntervalParent}, {}, {}, {}, {}),
-myNewRouteId(newRouteId),
-myProbability(probability) {
+        {}, {}, {}, {rerouterIntervalParent}, {}, {}, {}, {}),
+    myNewRouteId(newRouteId),
+    myProbability(probability) {
+    // update centering boundary without updating grid
+    updateCenteringBoundary(false);
 }
 
 
 GNERouteProbReroute::~GNERouteProbReroute() {}
 
 
-void
-GNERouteProbReroute::moveGeometry(const Position&) {
-    // This additional cannot be moved
-}
-
-
-void
-GNERouteProbReroute::commitGeometryMoving(GNEUndoList*) {
-    // This additional cannot be moved
+GNEMoveOperation* 
+GNERouteProbReroute::getMoveOperation(const double /*shapeOffset*/) {
+    // GNERouteProbReroutes cannot be moved
+    return nullptr;
 }
 
 
@@ -59,15 +55,10 @@ GNERouteProbReroute::updateGeometry() {
 }
 
 
-Position
-GNERouteProbReroute::getPositionInView() const {
-    return getParentAdditionals().at(0)->getPositionInView();
-}
-
-
-Boundary
-GNERouteProbReroute::getCenteringBoundary() const {
-    return getParentAdditionals().at(0)->getCenteringBoundary();
+void 
+GNERouteProbReroute::updateCenteringBoundary(const bool /*updateGrid*/) {
+    // use boundary of parent element
+    myBoundary = getParentAdditionals().front()->getCenteringBoundary();
 }
 
 
@@ -188,6 +179,17 @@ GNERouteProbReroute::setAttribute(SumoXMLAttr key, const std::string& value) {
         default:
             throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
     }
+}
+
+
+void 
+GNERouteProbReroute::setMoveShape(const GNEMoveResult& /*moveResult*/) {
+    // nothing to do
+}
+
+
+void GNERouteProbReroute::commitMoveShape(const GNEMoveResult& /*moveResult*/, GNEUndoList* /*undoList*/) {
+    // nothing to do
 }
 
 

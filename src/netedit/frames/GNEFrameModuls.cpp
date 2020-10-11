@@ -25,18 +25,9 @@
 #include <netedit/GNEViewNet.h>
 #include <netedit/GNEViewParent.h>
 #include <netedit/changes/GNEChange_Children.h>
-#include <netedit/elements/additional/GNEAdditional.h>
-#include <netedit/elements/additional/GNEPOI.h>
-#include <netedit/elements/additional/GNETAZ.h>
 #include <netedit/elements/data/GNEDataInterval.h>
-#include <netedit/elements/data/GNEGenericData.h>
-#include <netedit/elements/data/GNEDataSet.h>
-#include <netedit/elements/demand/GNEDemandElement.h>
 #include <netedit/elements/network/GNEConnection.h>
 #include <netedit/elements/network/GNECrossing.h>
-#include <netedit/elements/network/GNEEdge.h>
-#include <netedit/elements/network/GNEJunction.h>
-#include <netedit/elements/network/GNELane.h>
 #include <netedit/frames/common/GNEInspectorFrame.h>
 #include <utils/foxtools/MFXMenuHeader.h>
 #include <utils/gui/div/GLHelper.h>
@@ -693,8 +684,6 @@ GNEFrameModuls::HierarchicalElementTree::onCmdInspectItem(FXObject*, FXSelector,
 
 long
 GNEFrameModuls::HierarchicalElementTree::onCmdDeleteItem(FXObject*, FXSelector, void*) {
-    // check if Inspector frame was opened before removing
-    const std::vector<GNEAttributeCarrier*>& currentInspectedACs = myFrameParent->myViewNet->getViewParent()->getInspectorFrame()->getAttributesEditor()->getEditedACs();
     // Remove Attribute Carrier
     if (myClickedJunction) {
         myFrameParent->myViewNet->getNet()->deleteJunction(myClickedJunction, myFrameParent->myViewNet->getUndoList());
@@ -750,9 +739,9 @@ GNEFrameModuls::HierarchicalElementTree::onCmdDeleteItem(FXObject*, FXSelector, 
     // refresh AC Hierarchy
     refreshHierarchicalElementTree();
     // check if inspector frame has to be shown again
-    if (currentInspectedACs.size() == 1) {
-        if (currentInspectedACs.front() != myClickedAC) {
-            myFrameParent->myViewNet->getViewParent()->getInspectorFrame()->inspectSingleElement(currentInspectedACs.front());
+    if (myFrameParent->myViewNet->getInspectedAttributeCarriers().size() == 1) {
+        if (myFrameParent->myViewNet->getInspectedAttributeCarriers().front() != myClickedAC) {
+            myFrameParent->myViewNet->getViewParent()->getInspectorFrame()->inspectSingleElement(myFrameParent->myViewNet->getInspectedAttributeCarriers().front());
         } else {
             // inspect a nullprt element to reset inspector frame
             myFrameParent->myViewNet->getViewParent()->getInspectorFrame()->inspectSingleElement(nullptr);
@@ -2483,7 +2472,7 @@ GNEFrameModuls::PathCreator::updateEdgeColors() {
 
 
 void
-GNEFrameModuls::PathCreator::drawTemporalRoute(const GUIVisualizationSettings* s) const {
+GNEFrameModuls::PathCreator::drawTemporalRoute(const GUIVisualizationSettings& s) const {
     if (myPath.size() > 0) {
         const double lineWidth = 0.35;
         const double lineWidthin = 0.25;
@@ -2523,9 +2512,9 @@ GNEFrameModuls::PathCreator::drawTemporalRoute(const GUIVisualizationSettings* s
             if ((myCreationMode & SHOW_CANDIDATE_EDGES) == 0) {
                 GLHelper::setColor(RGBColor::ORANGE);
             } else if (path.isConflictDisconnected()) {
-                GLHelper::setColor(s->candidateColorSettings.conflict);
+                GLHelper::setColor(s.candidateColorSettings.conflict);
             } else if (path.isConflictVClass()) {
-                GLHelper::setColor(s->candidateColorSettings.special);
+                GLHelper::setColor(s.candidateColorSettings.special);
             } else {
                 GLHelper::setColor(RGBColor::ORANGE);
             }

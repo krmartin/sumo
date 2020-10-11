@@ -137,6 +137,8 @@ StringBijection<int>::Entry SUMOXMLDefinitions::tags[] = {
     { "stopOffset",                     SUMO_TAG_STOPOFFSET },
     { "railSignalConstraints",          SUMO_TAG_RAILSIGNAL_CONSTRAINTS },
     { "predecessor",                    SUMO_TAG_PREDECESSOR },
+    { "insertionPredecessor",           SUMO_TAG_INSERTION_PREDECESSOR },
+    { "railSignalConstraintTracker",    SUMO_TAG_RAILSIGNAL_CONSTRAINT_TRACKER },
     { "link",                           SUMO_TAG_LINK },
     { "approaching",                    SUMO_TAG_APPROACHING },
     // OSM
@@ -373,6 +375,7 @@ StringBijection<int>::Entry SUMOXMLDefinitions::attrs[] = {
     { "departPos",              SUMO_ATTR_DEPARTPOS },
     { "departPosLat",           SUMO_ATTR_DEPARTPOS_LAT },
     { "departSpeed",            SUMO_ATTR_DEPARTSPEED },
+    { "departEdge",             SUMO_ATTR_DEPARTEDGE },
     { "arrivalLane",            SUMO_ATTR_ARRIVALLANE },
     { "arrivalPos",             SUMO_ATTR_ARRIVALPOS },
     { "arrivalPosLat",          SUMO_ATTR_ARRIVALPOS_LAT },
@@ -517,6 +520,7 @@ StringBijection<int>::Entry SUMOXMLDefinitions::attrs[] = {
     { "jmIgnoreFoeSpeed",       SUMO_ATTR_JM_IGNORE_FOE_SPEED },
     { "jmIgnoreFoeProb",        SUMO_ATTR_JM_IGNORE_FOE_PROB },
     { "jmSigmaMinor",           SUMO_ATTR_JM_SIGMA_MINOR },
+    { "jmStoplineGap",          SUMO_ATTR_JM_STOPLINE_GAP },
     { "jmTimegapMinor",         SUMO_ATTR_JM_TIMEGAP_MINOR },
 
     { "last",                   SUMO_ATTR_LAST },
@@ -818,6 +822,7 @@ StringBijection<int>::Entry SUMOXMLDefinitions::attrs[] = {
     { "toBusStop",                          GNE_ATTR_TO_BUSSTOP },
     { "fromStop",                           GNE_ATTR_FROM_STOP },
     { "toStop",                             GNE_ATTR_TO_STOP },
+    { "opposite",                              GNE_ATTR_OPPOSITE },
 
     { "carriageLength",     SUMO_ATTR_CARRIAGE_LENGTH },
     { "locomotiveLength",   SUMO_ATTR_LOCOMOTIVE_LENGTH },

@@ -590,7 +590,7 @@ GNEVehicle::invalidatePath() {
 
 Position
 GNEVehicle::getPositionInView() const {
-    return myDemandElementGeometry.getPosition();
+    return myDemandElementGeometry.getShape().front();
 }
 
 
@@ -630,7 +630,7 @@ GNEVehicle::getParentName() const {
 Boundary
 GNEVehicle::getCenteringBoundary() const {
     Boundary vehicleBoundary;
-    vehicleBoundary.add(myDemandElementGeometry.getPosition());
+    vehicleBoundary.add(myDemandElementGeometry.getShape().front());
     vehicleBoundary.grow(20);
     return vehicleBoundary;
 }
@@ -655,8 +655,8 @@ GNEVehicle::drawGL(const GUIVisualizationSettings& s) const {
         const double length = getParentDemandElements().at(0)->getAttributeDouble(SUMO_ATTR_LENGTH);
         const double vehicleSizeSquared = (width * width) * (length * length) * (exaggeration * exaggeration);
         // obtain Position an rotation (depending of draw spread vehicles)
-        const Position vehiclePosition = drawSpreadVehicles ? mySpreadGeometry.getPosition() : myDemandElementGeometry.getPosition();
-        const double vehicleRotation = drawSpreadVehicles ? mySpreadGeometry.getRotation() : myDemandElementGeometry.getRotation();
+        const Position vehiclePosition = drawSpreadVehicles ? mySpreadGeometry.getShape().front() : myDemandElementGeometry.getShape().front();
+        const double vehicleRotation = drawSpreadVehicles ? mySpreadGeometry.getShapeRotations().front() : myDemandElementGeometry.getShapeRotations().front();
         // check that position is valid
         if (vehiclePosition != Position::INVALID) {
             // first push name
@@ -754,13 +754,13 @@ GNEVehicle::drawGL(const GUIVisualizationSettings& s) const {
                     drawFlowLabel(s, vehiclePosition, vehicleRotation, width, length);
                 }
                 // check if dotted contours has to be drawn
-                if (s.drawDottedContour() || myNet->getViewNet()->getInspectedAttributeCarrier() == this) {
+                if (s.drawDottedContour() || myNet->getViewNet()->isAttributeCarrierInspected(this)) {
                     // draw using drawDottedContourClosedShape
-                    GNEGeometry::drawDottedSquaredShape(true, s, vehiclePosition, length * 0.5, width * 0.5, length * -0.5, 0, vehicleRotation, exaggeration);
+                    GNEGeometry::drawDottedSquaredShape(GNEGeometry::DottedContourType::INSPECT, s, vehiclePosition, length * 0.5, width * 0.5, length * -0.5, 0, vehicleRotation, exaggeration);
                 }
                 if (s.drawDottedContour() || myNet->getViewNet()->getFrontAttributeCarrier() == this) {
                     // draw using drawDottedContourClosedShape
-                    GNEGeometry::drawDottedSquaredShape(false, s, vehiclePosition, length * 0.5, width * 0.5, length * -0.5, 0, vehicleRotation, exaggeration);
+                    GNEGeometry::drawDottedSquaredShape(GNEGeometry::DottedContourType::FRONT, s, vehiclePosition, length * 0.5, width * 0.5, length * -0.5, 0, vehicleRotation, exaggeration);
                 }
             }
             // pop name
@@ -772,7 +772,7 @@ GNEVehicle::drawGL(const GUIVisualizationSettings& s) const {
 
 void
 GNEVehicle::drawPartialGL(const GUIVisualizationSettings& s, const GNELane* lane, const double offsetFront) const {
-    if (!s.drawForRectangleSelection && ((s.drawDottedContour() || (myNet->getViewNet()->getInspectedAttributeCarrier() == this)) || isAttributeCarrierSelected())) {
+    if (!s.drawForRectangleSelection && ((s.drawDottedContour() || myNet->getViewNet()->isAttributeCarrierInspected(this)) || isAttributeCarrierSelected())) {
         // declare flag to draw spread vehicles
         const bool drawSpreadVehicles = (myNet->getViewNet()->getNetworkViewOptions().drawSpreadVehicles() || myNet->getViewNet()->getDemandViewOptions().drawSpreadVehicles());
         // calculate width
@@ -812,7 +812,7 @@ GNEVehicle::drawPartialGL(const GUIVisualizationSettings& s, const GNELane* lane
             drawName(getCenteringBoundary().getCenter(), s.scale, s.addName);
         }
         // check if shape dotted contour has to be drawn
-        if (s.drawDottedContour() || (myNet->getViewNet()->getInspectedAttributeCarrier() == this)) {
+        if (s.drawDottedContour() || myNet->getViewNet()->isAttributeCarrierInspected(this)) {
             // get first and last allowed lanes
             const GNELane* firstLane = getFirstAllowedVehicleLane();
             const GNELane* lastLane = getLastAllowedVehicleLane();
@@ -822,13 +822,13 @@ GNEVehicle::drawPartialGL(const GUIVisualizationSettings& s, const GNELane* lane
                     // draw partial segment
                     if (firstLane == lane) {
                         // draw front dotted contour
-                        GNEGeometry::drawDottedContourLane(true, s, GNEGeometry::DottedGeometry(s, segment.getShape(), false), width, true, false);
+                        GNEGeometry::drawDottedContourLane(GNEGeometry::DottedContourType::INSPECT, s, GNEGeometry::DottedGeometry(s, segment.getShape(), false), width, true, false);
                     } else if (lastLane == lane) {
                         // draw back dotted contour
-                        GNEGeometry::drawDottedContourLane(true, s, GNEGeometry::DottedGeometry(s, segment.getShape(), false), width, false, true);
+                        GNEGeometry::drawDottedContourLane(GNEGeometry::DottedContourType::INSPECT, s, GNEGeometry::DottedGeometry(s, segment.getShape(), false), width, false, true);
                     } else {
                         // draw dotted contour
-                        GNEGeometry::drawDottedContourLane(true, s, lane->getDottedLaneGeometry(), width, false, false);
+                        GNEGeometry::drawDottedContourLane(GNEGeometry::DottedContourType::INSPECT, s, lane->getDottedLaneGeometry(), width, false, false);
                     }
                 }
             }
@@ -842,7 +842,7 @@ GNEVehicle::drawPartialGL(const GUIVisualizationSettings& s, const GNELane* lane
 void
 GNEVehicle::drawPartialGL(const GUIVisualizationSettings& s, const GNELane* fromLane, const GNELane* toLane, const double offsetFront) const {
     if (!s.drawForRectangleSelection && fromLane->getLane2laneConnections().exist(toLane) &&
-            ((s.drawDottedContour() || (myNet->getViewNet()->getInspectedAttributeCarrier() == this)) || isAttributeCarrierSelected())) {
+            ((s.drawDottedContour() || myNet->getViewNet()->isAttributeCarrierInspected(this)) || isAttributeCarrierSelected())) {
         // Start drawing adding an gl identificator
         glPushName(getGlID());
         // obtain lane2lane geometry
@@ -864,10 +864,10 @@ GNEVehicle::drawPartialGL(const GUIVisualizationSettings& s, const GNELane* from
         // Pop last matrix
         glPopMatrix();
         // check if shape dotted contour has to be drawn
-        if (s.drawDottedContour() || (myNet->getViewNet()->getInspectedAttributeCarrier() == this)) {
+        if (s.drawDottedContour() || myNet->getViewNet()->isAttributeCarrierInspected(this)) {
             // draw lane2lane dotted geometry
             if (fromLane->getLane2laneConnections().exist(toLane)) {
-                GNEGeometry::drawDottedContourLane(true, s, fromLane->getLane2laneConnections().getLane2laneDottedGeometry(toLane), width, false, false);
+                GNEGeometry::drawDottedContourLane(GNEGeometry::DottedContourType::INSPECT, s, fromLane->getLane2laneConnections().getLane2laneDottedGeometry(toLane), width, false, false);
             }
         }
         // Pop name
@@ -1308,17 +1308,17 @@ GNEVehicle::getHierarchyName() const {
     // special case for Trips and flow
     if ((myTagProperty.getTag() == SUMO_TAG_TRIP) || (myTagProperty.getTag() == SUMO_TAG_FLOW)) {
         // check if we're inspecting a Edge
-        if (myNet->getViewNet()->getInspectedAttributeCarrier() &&
-                myNet->getViewNet()->getInspectedAttributeCarrier()->getTagProperty().getTag() == SUMO_TAG_EDGE) {
+        if (!myNet->getViewNet()->getInspectedAttributeCarriers().empty() &&
+                myNet->getViewNet()->getInspectedAttributeCarriers().front()->getTagProperty().getTag() == SUMO_TAG_EDGE) {
             // check if edge correspond to a "from", "to" or "via" edge
-            if (getParentEdges().front() == myNet->getViewNet()->getInspectedAttributeCarrier()) {
+            if (myNet->getViewNet()->isAttributeCarrierInspected(getParentEdges().front())) {
                 return getTagStr() + ": " + getAttribute(SUMO_ATTR_ID) + " (from)";
-            } else if (getParentEdges().front() == myNet->getViewNet()->getInspectedAttributeCarrier()) {
+            } else if (myNet->getViewNet()->isAttributeCarrierInspected(getParentEdges().front())) {
                 return getTagStr() + ": " + getAttribute(SUMO_ATTR_ID) + " (to)";
             } else {
                 // iterate over via
                 for (const auto& i : via) {
-                    if (i == myNet->getViewNet()->getInspectedAttributeCarrier()->getID()) {
+                    if (i == myNet->getViewNet()->getInspectedAttributeCarriers().front()->getID()) {
                         return getTagStr() + ": " + getAttribute(SUMO_ATTR_ID) + " (via)";
                     }
                 }

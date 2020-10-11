@@ -688,6 +688,10 @@ GNEApplicationWindow::onCmdOpenDataElements(FXObject*, FXSelector, void*) {
         // udpate current folder
         gCurrentFolder = opendialog.getDirectory();
         std::string file = opendialog.getFilename().text();
+        // disable interval bar update
+        myViewNet->getIntervalBar().disableIntervalBarUpdate();
+        // disable update data
+        myViewNet->getNet()->disableUpdateData();
         // disable validation for additionals
         XMLSubSys::setValidation("never", "auto", "auto");
         // Create additional handler
@@ -698,11 +702,16 @@ GNEApplicationWindow::onCmdOpenDataElements(FXObject*, FXSelector, void*) {
         if (!XMLSubSys::runParser(dataHandler, file, false)) {
             WRITE_ERROR("Loading of " + file + " failed.");
         }
-        // end undoList operation and update view
-        myUndoList->p_end();
-        update();
         // restore validation for data
         XMLSubSys::setValidation("auto", "auto", "auto");
+        // end undoList operation and update view
+        myUndoList->p_end();
+        // enable update data
+        myViewNet->getNet()->enableUpdateData();
+        // enable interval bar update
+        myViewNet->getIntervalBar().enableIntervalBarUpdate();
+        // update 
+        update();
     } else {
         // write debug information
         WRITE_DEBUG("Cancel data element dialog");
@@ -796,7 +805,7 @@ GNEApplicationWindow::onCmdClearMsgWindow(FXObject*, FXSelector, void*) {
 long
 GNEApplicationWindow::onCmdLoadAdditionalsInSUMOGUI(FXObject*, FXSelector, void*) {
     // write warning if netedit is running in testing mode
-    WRITE_DEBUG("Toogle load additionals in SUMO-GUI");
+    WRITE_DEBUG("Toogle load additionals in sumo-gui");
     return 1;
 }
 
@@ -804,7 +813,7 @@ GNEApplicationWindow::onCmdLoadAdditionalsInSUMOGUI(FXObject*, FXSelector, void*
 long
 GNEApplicationWindow::onCmdLoadDemandInSUMOGUI(FXObject*, FXSelector, void*) {
     // write warning if netedit is running in testing mode
-    WRITE_DEBUG("Toogle load demand in SUMO-GUI");
+    WRITE_DEBUG("Toogle load demand in sumo-gui");
     return 1;
 }
 
@@ -959,10 +968,12 @@ GNEApplicationWindow::handleEvent_NetworkLoaded(GUIEvent* e) {
     if (oc.isSet("data-files") && !oc.getString("data-files").empty() && myNet) {
         // obtain vector of data files
         std::vector<std::string> dataElementsFiles = oc.getStringVector("data-files");
-        // begin undolist
-        myUndoList->p_begin("Loading data elements from '" + toString(dataElementsFiles) + "'");
         // disable interval bar update
         myViewNet->getIntervalBar().disableIntervalBarUpdate();
+        // disable update data
+        myViewNet->getNet()->disableUpdateData();
+        // begin undolist
+        myUndoList->p_begin("Loading data elements from '" + toString(dataElementsFiles) + "'");
         // iterate over every data file
         for (const auto& dataElementsFile : dataElementsFiles) {
             WRITE_MESSAGE("Loading data elements from '" + dataElementsFile + "'");
@@ -975,9 +986,12 @@ GNEApplicationWindow::handleEvent_NetworkLoaded(GUIEvent* e) {
             // disable validation for data elements
             XMLSubSys::setValidation("auto", "auto", "auto");
         }
+        // end undolist
+        myUndoList->p_end();
+        // enable update data
+        myViewNet->getNet()->enableUpdateData();
         // enable interval bar update
         myViewNet->getIntervalBar().enableIntervalBarUpdate();
-        myUndoList->p_end();
     }
     // check if additionals output must be changed
     if (oc.isSet("additionals-output")) {
@@ -1757,8 +1771,7 @@ GNEApplicationWindow::onCmdSetFrontElement(FXObject* /*obj*/, FXSelector /*sel*/
     if (myViewNet) {
         if (myViewNet->getViewParent()->getInspectorFrame()->shown()) {
             // get inspected AC
-            const GNEAttributeCarrier* inspectedAC = (myViewNet->getViewParent()->getInspectorFrame()->getAttributesEditor()->getEditedACs().size() == 1) ?
-                    myViewNet->getViewParent()->getInspectorFrame()->getAttributesEditor()->getEditedACs().front() : nullptr;
+            const GNEAttributeCarrier* inspectedAC = (myViewNet->getInspectedAttributeCarriers().size() == 1) ? myViewNet->getInspectedAttributeCarriers().front() : nullptr;
             // set or clear front attribute
             if (myViewNet->getFrontAttributeCarrier() == inspectedAC) {
                 myViewNet->setFrontAttributeCarrier(nullptr);

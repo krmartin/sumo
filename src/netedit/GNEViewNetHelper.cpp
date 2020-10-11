@@ -32,6 +32,8 @@
 #include <netedit/frames/network/GNETLSEditorFrame.h>
 #include <utils/gui/div/GLHelper.h>
 #include <utils/gui/div/GUIDesigns.h>
+#include <utils/gui/globjects/GLIncludes.h>
+#include <utils/gui/images/GUITextureSubSys.h>
 #include <utils/gui/windows/GUIAppEnum.h>
 #include <utils/options/OptionsCont.h>
 
@@ -841,22 +843,22 @@ GNEViewNetHelper::ObjectsUnderCursor::ObjectsUnderCursor() :
 }
 
 // ---------------------------------------------------------------------------
-// GNEViewNetHelper::keyPressed - methods
+// GNEViewNetHelper::MouseButtonKeyPressed - methods
 // ---------------------------------------------------------------------------
 
-GNEViewNetHelper::KeyPressed::KeyPressed() :
+GNEViewNetHelper::MouseButtonKeyPressed::MouseButtonKeyPressed() :
     myEventInfo(nullptr) {
 }
 
 
 void
-GNEViewNetHelper::KeyPressed::update(void* eventData) {
+GNEViewNetHelper::MouseButtonKeyPressed::update(void* eventData) {
     myEventInfo = (FXEvent*) eventData;
 }
 
 
 bool
-GNEViewNetHelper::KeyPressed::shiftKeyPressed() const {
+GNEViewNetHelper::MouseButtonKeyPressed::shiftKeyPressed() const {
     if (myEventInfo) {
         return (myEventInfo->state & SHIFTMASK) != 0;
     } else {
@@ -866,9 +868,29 @@ GNEViewNetHelper::KeyPressed::shiftKeyPressed() const {
 
 
 bool
-GNEViewNetHelper::KeyPressed::controlKeyPressed() const {
+GNEViewNetHelper::MouseButtonKeyPressed::controlKeyPressed() const {
     if (myEventInfo) {
         return (myEventInfo->state & CONTROLMASK) != 0;
+    } else {
+        return false;
+    }
+}
+
+
+bool
+GNEViewNetHelper::MouseButtonKeyPressed::mouseLeftButtonPressed() const {
+    if (myEventInfo) {
+        return (myEventInfo->state & LEFTBUTTONMASK) != 0;
+    } else {
+        return false;
+    }
+}
+
+
+bool 
+GNEViewNetHelper::MouseButtonKeyPressed::mouseRightButtonPressed() const {
+    if (myEventInfo) {
+        return (myEventInfo->state & RIGHTBUTTONMASK) != 0;
     } else {
         return false;
     }
@@ -880,17 +902,7 @@ GNEViewNetHelper::KeyPressed::controlKeyPressed() const {
 
 GNEViewNetHelper::MoveSingleElementValues::MoveSingleElementValues(GNEViewNet* viewNet) :
     myViewNet(viewNet),
-    myMovingStartPos(false),
-    myMovingEndPos(false),
-    myJunctionToMove(nullptr),
-    myCrossingToMove(nullptr),
-    myConnectionToMove(nullptr),
-    myEdgeToMove(nullptr),
-    myPolyToMove(nullptr),
-    myPOIToMove(nullptr),
-    myAdditionalToMove(nullptr),
-    myDemandElementToMove(nullptr),
-    myTAZElementToMove(nullptr) {
+    myDemandElementToMove(nullptr) {
 }
 
 
@@ -901,15 +913,18 @@ GNEViewNetHelper::MoveSingleElementValues::beginMoveNetworkElementShape() {
     // get edited element
     const GNENetworkElement* editedElement = myViewNet->myEditNetworkElementShapes.getEditedNetworkElement();
     // check what type of AC will be moved
-    if (myViewNet->myObjectsUnderCursor.getCrossingFront() &&
-            (myViewNet->myObjectsUnderCursor.getCrossingFront() == editedElement)) {
-        return calculateCrossingValues();
-    } else if (myViewNet->myObjectsUnderCursor.getConnectionFront() &&
-               (myViewNet->myObjectsUnderCursor.getConnectionFront() == editedElement)) {
-        return calculateConnectionValues();
-    } else if (myViewNet->myObjectsUnderCursor.getJunctionFront() &&
-               (myViewNet->myObjectsUnderCursor.getJunctionFront() == editedElement)) {
-        return calculateJunctionValues();
+    if (myViewNet->myObjectsUnderCursor.getJunctionFront() && (myViewNet->myObjectsUnderCursor.getJunctionFront() == editedElement)) {
+        return calculateMoveOperationShape(myViewNet->myObjectsUnderCursor.getJunctionFront(), 
+            myViewNet->myObjectsUnderCursor.getJunctionFront()->getNBNode()->getShape(), 
+            myViewNet->getVisualisationSettings().neteditSizeSettings.junctionGeometryPointRadius);
+    } else if (myViewNet->myObjectsUnderCursor.getCrossingFront() && (myViewNet->myObjectsUnderCursor.getCrossingFront() == editedElement)) {
+        return calculateMoveOperationShape(myViewNet->myObjectsUnderCursor.getCrossingFront(), 
+            myViewNet->myObjectsUnderCursor.getCrossingFront()->getCrossingShape(), 
+            myViewNet->getVisualisationSettings().neteditSizeSettings.crossingGeometryPointRadius);
+    } else if (myViewNet->myObjectsUnderCursor.getConnectionFront() && (myViewNet->myObjectsUnderCursor.getConnectionFront() == editedElement)) {
+        return calculateMoveOperationShape(myViewNet->myObjectsUnderCursor.getConnectionFront(), 
+            myViewNet->myObjectsUnderCursor.getConnectionFront()->getConnectionShape(), 
+            myViewNet->getVisualisationSettings().neteditSizeSettings.connectionGeometryPointRadius);
     } else {
         // there isn't moved items, then return false
         return false;
@@ -925,40 +940,98 @@ GNEViewNetHelper::MoveSingleElementValues::beginMoveSingleElementNetworkMode() {
     const GNEAttributeCarrier* frontAC = myViewNet->myObjectsUnderCursor.getAttributeCarrierFront();
     // check what type of AC will be moved
     if (myViewNet->myObjectsUnderCursor.getPolyFront() && (frontAC == myViewNet->myObjectsUnderCursor.getPolyFront())) {
-        // calculate poly movement values (can be entire shape, single geometry points, altitude, etc.)
-        return calculatePolyValues();
+        // calculate polygonShapeOffset
+        const double polygonShapeOffset = myViewNet->myObjectsUnderCursor.getPolyFront()->getShape().nearest_offset_to_point2D(myViewNet->getPositionInformation(), false);
+        // calculate distance to shape
+        const double distanceToShape = myViewNet->myObjectsUnderCursor.getPolyFront()->getShape().distance2D(myViewNet->getPositionInformation());
+        // get snap radius
+        const double snap_radius = myViewNet->getVisualisationSettings().neteditSizeSettings.polygonGeometryPointRadius;
+        // check if we clicked over shape
+        if (distanceToShape <= snap_radius) {
+            // get move operation
+            GNEMoveOperation* moveOperation = myViewNet->myObjectsUnderCursor.getPolyFront()->getMoveOperation(polygonShapeOffset);
+            // continue if move operation is valid
+            if (moveOperation) {
+                myMoveOperations.push_back(moveOperation);
+                return true;
+            }
+        }
+        // shape operation value wasn't calculated, then return false
+        return false;
     } else if (myViewNet->myObjectsUnderCursor.getPOIFront() && (frontAC == myViewNet->myObjectsUnderCursor.getPOIFront())) {
-        // set POI moved object
-        myPOIToMove = myViewNet->myObjectsUnderCursor.getPOIFront();
-        // start POI geometry moving
-        myPOIToMove->startPOIGeometryMoving();
-        // there is moved items, then return true
-        return true;
+        // get move operation
+        GNEMoveOperation* moveOperation = myViewNet->myObjectsUnderCursor.getPOIFront()->getMoveOperation(0);
+        // continue if move operation is valid
+        if (moveOperation) {
+            myMoveOperations.push_back(moveOperation);
+            return true;
+        } else {
+            return false;
+        }
     } else if (myViewNet->myObjectsUnderCursor.getAdditionalFront() && (frontAC == myViewNet->myObjectsUnderCursor.getAdditionalFront())) {
-        // set additionals moved object
-        myAdditionalToMove = myViewNet->myObjectsUnderCursor.getAdditionalFront();
-        // start additional geometry moving
-        myAdditionalToMove->startGeometryMoving();
-        // there is moved items, then return true
-        return true;
+        // get move operation
+        GNEMoveOperation* moveOperation = myViewNet->myObjectsUnderCursor.getAdditionalFront()->getMoveOperation(0);
+        // continue if move operation is valid
+        if (moveOperation) {
+            myMoveOperations.push_back(moveOperation);
+            return true;
+        } else {
+            return false;
+        }
     } else if (myViewNet->myObjectsUnderCursor.getTAZFront() && (frontAC == myViewNet->myObjectsUnderCursor.getTAZFront())) {
-        // calculate TAZ movement values (can be entire shape or single geometry points)
-        return calculateTAZValues();
+        // calculate TAZShapeOffset
+        const double TAZShapeOffset = myViewNet->myObjectsUnderCursor.getTAZFront()->getTAZElementShape().nearest_offset_to_point2D(myViewNet->getPositionInformation(), false);
+        // calculate distance to TAZ
+        const double distanceToShape = myViewNet->myObjectsUnderCursor.getTAZFront()->getTAZElementShape().distance2D(myViewNet->getPositionInformation());
+        // get snap radius
+        const double snap_radius = myViewNet->getVisualisationSettings().neteditSizeSettings.polygonGeometryPointRadius;
+        // check if we clicked over TAZ
+        if (distanceToShape <= snap_radius) {
+            // get move operation
+            GNEMoveOperation* moveOperation = myViewNet->myObjectsUnderCursor.getTAZFront()->getMoveOperation(TAZShapeOffset);
+            // continue if move operation is valid
+            if (moveOperation) {
+                myMoveOperations.push_back(moveOperation);
+                return true;
+            }
+        }
+        // TAZ operation value wasn't calculated, then return false
+        return false;
     } else if (myViewNet->myObjectsUnderCursor.getJunctionFront() && (frontAC == myViewNet->myObjectsUnderCursor.getJunctionFront())) {
         if (myViewNet->myObjectsUnderCursor.getJunctionFront()->isShapeEdited()) {
             return false;
         } else {
-            // set junction moved object
-            myJunctionToMove = myViewNet->myObjectsUnderCursor.getJunctionFront();
-            // start junction geometry moving
-            myJunctionToMove->startGeometryMoving();
-            // there is moved items, then return true
-            return true;
+            // get move operation
+            GNEMoveOperation* moveOperation = myViewNet->myObjectsUnderCursor.getJunctionFront()->getMoveOperation(0);
+            // continue if move operation is valid
+            if (moveOperation) {
+                myMoveOperations.push_back(moveOperation);
+                return true;
+            } else {
+                return false;
+            }
         }
     } else if ((myViewNet->myObjectsUnderCursor.getEdgeFront() && (frontAC == myViewNet->myObjectsUnderCursor.getEdgeFront())) ||
                (myViewNet->myObjectsUnderCursor.getLaneFront() && (frontAC == myViewNet->myObjectsUnderCursor.getLaneFront()))) {
         // calculate Edge movement values (can be entire shape, single geometry points, altitude, etc.)
-        return calculateEdgeValues();
+        if (myViewNet->myMouseButtonKeyPressed.shiftKeyPressed()) {
+            // edit end point
+            myViewNet->myObjectsUnderCursor.getEdgeFront()->editEndpoint(myViewNet->getPositionInformation(), myViewNet->myUndoList);
+            // edge values wasn't calculated, then return false
+            return false;
+        } else {
+            // calculate shape offset
+            const double shapeOffset = myViewNet->myObjectsUnderCursor.getEdgeFront()->getNBEdge()->getGeometry().nearest_offset_to_point2D(myViewNet->getPositionInformation());
+            // get move operation
+            GNEMoveOperation* moveOperation = myViewNet->myObjectsUnderCursor.getEdgeFront()->getMoveOperation(shapeOffset);
+            // continue if move operation is valid
+            if (moveOperation) {
+                myMoveOperations.push_back(moveOperation);
+                return true;
+            } else {
+                return false;
+            }
+        }
     } else {
         // there isn't moved items, then return false
         return false;
@@ -987,10 +1060,61 @@ GNEViewNetHelper::MoveSingleElementValues::beginMoveSingleElementDemandMode() {
 
 
 void
-GNEViewNetHelper::MoveSingleElementValues::moveSingleElement() {
+GNEViewNetHelper::MoveSingleElementValues::moveSingleElement(const bool mouseLeftButtonPressed) {
+    // calculate offsetMovement
+    const Position offsetMovement = calculateOffset();
+    // calculate movement for demand (temporal)
+    if (myDemandElementToMove/* && (myDemandElementToMove->isDemandElementBlocked() == false)*/) {
+        // Move DemandElement geometry without commiting changes
+        myDemandElementToMove->moveGeometry(offsetMovement);
+    }
+    // check if mouse button is pressed
+    if (mouseLeftButtonPressed) {
+        // iterate over all operations
+        for (const auto &moveOperation : myMoveOperations) {
+            // move elements
+            GNEMoveElement::moveElement(myViewNet, moveOperation, offsetMovement);
+        }
+    } else {
+        // iterate over all operations
+        for (const auto &moveOperation : myMoveOperations) {
+            // commit move
+            GNEMoveElement::commitMove(myViewNet, moveOperation, offsetMovement, myViewNet->getUndoList());
+            // don't forget delete move operation
+            delete moveOperation;
+        }
+        // clear move operations
+        myMoveOperations.clear();
+    }
+}
+
+
+void
+GNEViewNetHelper::MoveSingleElementValues::finishMoveSingleElement() {
+    // calculate offsetMovement
+    const Position offsetMovement = calculateOffset();
+    // finish demand (temporal)
+    if (myDemandElementToMove) {
+        myDemandElementToMove->commitGeometryMoving(myViewNet->getUndoList());
+        myDemandElementToMove->endGeometryMoving();
+        myDemandElementToMove = nullptr;
+    }
+    // finish all move operations
+    for (const auto &moveOperation : myMoveOperations) {
+        GNEMoveElement::commitMove(myViewNet, moveOperation, offsetMovement, myViewNet->getUndoList());
+        // don't forget delete move operation
+        delete moveOperation;
+    }
+    // clear move operations
+    myMoveOperations.clear();
+}
+
+
+Position 
+GNEViewNetHelper::MoveSingleElementValues::calculateOffset() const {
     // calculate offsetMovement depending of current mouse position and relative clicked position
     // @note  #3521: Add checkBox to allow moving elements... has to be implemented and used here
-    Position offsetMovement = myViewNet->getPositionInformation() - myViewNet->myMoveSingleElementValues.myRelativeClickedPosition;
+    Position offsetMovement = (myViewNet->getPositionInformation() - myViewNet->myMoveSingleElementValues.myRelativeClickedPosition);
     // calculate Z depending of moveElevation
     if (myViewNet->myNetworkViewOptions.menuCheckMoveElevation->shown() && myViewNet->myNetworkViewOptions.menuCheckMoveElevation->getCheck() == TRUE) {
         // reset offset X and Y and use Y for Z
@@ -999,332 +1123,29 @@ GNEViewNetHelper::MoveSingleElementValues::moveSingleElement() {
         // leave z empty (because in this case offset only actuates over X-Y)
         offsetMovement.setz(0);
     }
-    // check what element will be moved
-    if (myPolyToMove) {
-        // move poly's geometry without commiting changes
-        myPolyToMove->movePolyShape(offsetMovement);
-    } else if (myPOIToMove) {
-        // Move POI's geometry without commiting changes
-        myPOIToMove->movePOIGeometry(offsetMovement);
-    } else if (myJunctionToMove) {
-        if (myJunctionToMove->isShapeEdited()) {
-            // move junction's geometry without commiting changes
-            myJunctionToMove->moveJunctionShape(offsetMovement);
-        } else {
-            // Move entire juntion's geometry without commiting changes
-            myJunctionToMove->moveGeometry(offsetMovement);
-        }
-    } else if (myCrossingToMove) {
-        if (myCrossingToMove->isShapeEdited()) {
-            // move crossing's geometry without commiting changes
-            myCrossingToMove->moveCrossingShape(offsetMovement);
-        }
-    } else if (myConnectionToMove) {
-        if (myConnectionToMove->isShapeEdited()) {
-            // move connection's geometry without commiting changes
-            myConnectionToMove->moveConnectionShape(offsetMovement);
-        }
-    } else if (myEdgeToMove) {
-        // check if we're moving the start or end position, or a geometry point
-        if (myMovingStartPos) {
-            myEdgeToMove->moveShapeBegin(offsetMovement);
-        } else if (myMovingEndPos) {
-            myEdgeToMove->moveShapeEnd(offsetMovement);
-        } else {
-            // move edge's geometry without commiting changes
-            myEdgeToMove->moveEdgeShape(offsetMovement);
-        }
-    } else if (myAdditionalToMove && (myAdditionalToMove->isAdditionalBlocked() == false)) {
-        // Move Additional geometry without commiting changes
-        myAdditionalToMove->moveGeometry(offsetMovement);
-    } else if (myDemandElementToMove/* && (myDemandElementToMove->isDemandElementBlocked() == false)*/) {
-        // Move DemandElement geometry without commiting changes
-        myDemandElementToMove->moveGeometry(offsetMovement);
-    } else if (myTAZElementToMove) {
-        // move TAZ's geometry without commiting changes
-        myTAZElementToMove->moveTAZShape(offsetMovement);
-    }
+    // return offset
+    return offsetMovement;
 }
 
 
-void
-GNEViewNetHelper::MoveSingleElementValues::finishMoveSingleElement() {
-    if (myPolyToMove) {
-        myPolyToMove->commitPolyShapeChange(myViewNet->getUndoList());
-        myPolyToMove = nullptr;
-    } else if (myPOIToMove) {
-        myPOIToMove->commitPOIGeometryMoving(myViewNet->getUndoList());
-        myPOIToMove = nullptr;
-    } else if (myJunctionToMove) {
-        // check if in the moved position there is another Junction and it will be merged
-        if (myJunctionToMove->isShapeEdited()) {
-            myJunctionToMove->commitJunctionShapeChange(myViewNet->getUndoList());
-        } else if (!myViewNet->mergeJunctions(myJunctionToMove)) {
-            myJunctionToMove->commitGeometryMoving(myViewNet->getUndoList());
-        }
-        myJunctionToMove = nullptr;
-    } else if (myCrossingToMove) {
-        // check if in the moved position there is another crossing and it will be merged
-        if (myCrossingToMove->isShapeEdited()) {
-            myCrossingToMove->commitCrossingShapeChange(myViewNet->getUndoList());
-        }
-        myCrossingToMove = nullptr;
-    } else if (myConnectionToMove) {
-        // check if in the moved position there is another connection and it will be merged
-        if (myConnectionToMove->isShapeEdited()) {
-            myConnectionToMove->commitConnectionShapeChange(myViewNet->getUndoList());
-        }
-        myConnectionToMove = nullptr;
-    } else if (myEdgeToMove) {
-        // commit change depending of what was moved
-        if (myMovingStartPos) {
-            myEdgeToMove->commitShapeChangeBegin(myViewNet->getUndoList());
-            myMovingStartPos = false;
-        } else if (myMovingEndPos) {
-            myEdgeToMove->commitShapeChangeEnd(myViewNet->getUndoList());
-            myMovingEndPos = false;
-        } else {
-            myEdgeToMove->commitEdgeShapeChange(myViewNet->getUndoList());
-        }
-        myEdgeToMove = nullptr;
-    } else if (myAdditionalToMove) {
-        myAdditionalToMove->commitGeometryMoving(myViewNet->getUndoList());
-        myAdditionalToMove->endGeometryMoving();
-        myAdditionalToMove = nullptr;
-    } else if (myDemandElementToMove) {
-        myDemandElementToMove->commitGeometryMoving(myViewNet->getUndoList());
-        myDemandElementToMove->endGeometryMoving();
-        myDemandElementToMove = nullptr;
-    } else if (myTAZElementToMove) {
-        myTAZElementToMove->commitTAZShapeChange(myViewNet->getUndoList());
-        myTAZElementToMove = nullptr;
-    }
-}
-
-
-bool
-GNEViewNetHelper::MoveSingleElementValues::calculateJunctionValues() {
-    // assign clicked junction to junctionToMove
-    myJunctionToMove = myViewNet->myObjectsUnderCursor.getJunctionFront();
+bool 
+GNEViewNetHelper::MoveSingleElementValues::calculateMoveOperationShape(GNEMoveElement* moveElement, const PositionVector &shape, const double radius) {
     // calculate junctionShapeOffset
-    const double junctionShapeOffset = myJunctionToMove->getNBNode()->getShape().nearest_offset_to_point2D(myViewNet->getPositionInformation(), false);
+    const double junctionShapeOffset = shape.nearest_offset_to_point2D(myViewNet->getPositionInformation(), false);
     // calculate distance to shape
-    const double distanceToShape = myJunctionToMove->getNBNode()->getShape().distance2D(myViewNet->getPositionInformation());
-    // now we have two cases: if we're editing the X-Y coordenade or the altitude (z)
-    if (myViewNet->myNetworkViewOptions.menuCheckMoveElevation->shown() && myViewNet->myNetworkViewOptions.menuCheckMoveElevation->getCheck() == TRUE) {
-        // check if we clicked over a vertex index
-        if (myJunctionToMove->getJunctionShapeVertexIndex(myViewNet->getPositionInformation(), false) != -1) {
-            // start geometry moving
-            myJunctionToMove->startJunctionShapeGeometryMoving(junctionShapeOffset);
-            // junction values sucesfully calculated, then return true
+    const double distanceToShape = shape.distance2D(myViewNet->getPositionInformation());
+    // check if we clicked over shape
+    if (distanceToShape <= radius) {
+        // get move operation
+        GNEMoveOperation* moveOperation = moveElement->getMoveOperation(junctionShapeOffset);
+        // continue if move operation is valid
+        if (moveOperation) {
+            myMoveOperations.push_back(moveOperation);
             return true;
-        } else {
-            // stop junction moving
-            myJunctionToMove = nullptr;
-            // junction values wasn't calculated, then return false
-            return false;
-        }
-    } else if (distanceToShape <= myViewNet->getVisualisationSettings().neteditSizeSettings.junctionGeometryPointRadius) {
-        // start geometry moving
-        myJunctionToMove->startJunctionShapeGeometryMoving(junctionShapeOffset);
-        // junction values sucesfully calculated, then return true
-        return true;
-    } else {
-        // stop junction moving
-        myJunctionToMove = nullptr;
-        // junction values wasn't calculated, then return false
-        return false;
-    }
-}
-
-
-bool
-GNEViewNetHelper::MoveSingleElementValues::calculateCrossingValues() {
-    // assign clicked crossing to crossingToMove
-    myCrossingToMove = myViewNet->myObjectsUnderCursor.getCrossingFront();
-    // calculate crossingShapeOffset
-    const double crossingShapeOffset = myCrossingToMove->getCrossingShape().nearest_offset_to_point2D(myViewNet->getPositionInformation(), false);
-    // calculate distance to shape
-    const double distanceToShape = myCrossingToMove->getCrossingShape().distance2D(myViewNet->getPositionInformation());
-    // now we have two cases: if we're editing the X-Y coordenade or the altitude (z)
-    if (myViewNet->myNetworkViewOptions.menuCheckMoveElevation->shown() && myViewNet->myNetworkViewOptions.menuCheckMoveElevation->getCheck() == TRUE) {
-        // check if we clicked over a vertex index
-        if (myCrossingToMove->getCrossingShapeVertexIndex(myViewNet->getPositionInformation(), false) != -1) {
-            // start geometry moving
-            myCrossingToMove->startCrossingShapeGeometryMoving(crossingShapeOffset);
-            // crossing values sucesfully calculated, then return true
-            return true;
-        } else {
-            // stop crossing moving
-            myCrossingToMove = nullptr;
-            // crossing values wasn't calculated, then return false
-            return false;
-        }
-    } else if (distanceToShape <= myViewNet->getVisualisationSettings().neteditSizeSettings.crossingGeometryPointRadius) {
-        // start geometry moving
-        myCrossingToMove->startCrossingShapeGeometryMoving(crossingShapeOffset);
-        // crossing values sucesfully calculated, then return true
-        return true;
-    } else {
-        // stop crossing moving
-        myCrossingToMove = nullptr;
-        // crossing values wasn't calculated, then return false
-        return false;
-    }
-}
-
-
-bool
-GNEViewNetHelper::MoveSingleElementValues::calculateConnectionValues() {
-    // assign clicked crossing to crossingToMove
-    myConnectionToMove = myViewNet->myObjectsUnderCursor.getConnectionFront();
-    // calculate crossingShapeOffset
-    const double crossingShapeOffset = myConnectionToMove->getConnectionShape().nearest_offset_to_point2D(myViewNet->getPositionInformation(), false);
-    // calculate distance to shape
-    const double distanceToShape = myConnectionToMove->getConnectionShape().distance2D(myViewNet->getPositionInformation());
-    // now we have two cases: if we're editing the X-Y coordenade or the altitude (z)
-    if (myViewNet->myNetworkViewOptions.menuCheckMoveElevation->shown() && myViewNet->myNetworkViewOptions.menuCheckMoveElevation->getCheck() == TRUE) {
-        // check if we clicked over a vertex index
-        if (myConnectionToMove->getConnectionShapeVertexIndex(myViewNet->getPositionInformation(), false) != -1) {
-            // start geometry moving
-            myConnectionToMove->startConnectionShapeGeometryMoving(crossingShapeOffset);
-            // crossing values sucesfully calculated, then return true
-            return true;
-        } else {
-            // stop crossing moving
-            myConnectionToMove = nullptr;
-            // crossing values wasn't calculated, then return false
-            return false;
-        }
-    } else if (distanceToShape <= myViewNet->getVisualisationSettings().neteditSizeSettings.connectionGeometryPointRadius) {
-        // start geometry moving
-        myConnectionToMove->startConnectionShapeGeometryMoving(crossingShapeOffset);
-        // crossing values sucesfully calculated, then return true
-        return true;
-    } else {
-        // stop crossing moving
-        myConnectionToMove = nullptr;
-        // crossing values wasn't calculated, then return false
-        return false;
-    }
-}
-
-
-bool
-GNEViewNetHelper::MoveSingleElementValues::calculatePolyValues() {
-    // assign clicked poly to polyToMove
-    myPolyToMove = myViewNet->myObjectsUnderCursor.getPolyFront();
-    // calculate polyShapeOffset
-    const double polyShapeOffset = myPolyToMove->getShape().nearest_offset_to_point2D(myViewNet->getPositionInformation(), false);
-    // calculate distance to shape
-    const double distanceToShape = myPolyToMove->getShape().distance2D(myViewNet->getPositionInformation());
-    // now we have two cases: if we're editing the X-Y coordenade or the altitude (z)
-    if (myViewNet->myNetworkViewOptions.menuCheckMoveElevation->shown() && myViewNet->myNetworkViewOptions.menuCheckMoveElevation->getCheck() == TRUE) {
-        // check if we clicked over a vertex index
-        if (myPolyToMove->getPolyVertexIndex(myViewNet->getPositionInformation(), false) != -1) {
-            // start geometry moving
-            myPolyToMove->startPolyShapeGeometryMoving(polyShapeOffset);
-            // poly values sucesfully calculated, then return true
-            return true;
-        } else {
-            // stop poly moving
-            myPolyToMove = nullptr;
-            // poly values wasn't calculated, then return false
-            return false;
-        }
-    } else if ((distanceToShape <= myViewNet->getVisualisationSettings().neteditSizeSettings.polygonGeometryPointRadius) || myPolyToMove->isPolygonBlocked()) {
-        // start geometry moving
-        myPolyToMove->startPolyShapeGeometryMoving(polyShapeOffset);
-        // poly values sucesfully calculated, then return true
-        return true;
-    } else {
-        // stop poly moving
-        myPolyToMove = nullptr;
-        // poly values wasn't calculated, then return false
-        return false;
-    }
-}
-
-
-bool
-GNEViewNetHelper::MoveSingleElementValues::calculateEdgeValues() {
-    if (myViewNet->myKeyPressed.shiftKeyPressed()) {
-        // edit end point
-        myViewNet->myObjectsUnderCursor.getEdgeFront()->editEndpoint(myViewNet->getPositionInformation(), myViewNet->myUndoList);
-        // edge values wasn't calculated, then return false
-        return false;
-    } else {
-        // assign clicked edge to edgeToMove
-        myEdgeToMove = myViewNet->myObjectsUnderCursor.getEdgeFront();
-        // calculate edgeShapeOffset
-        const double edgeShapeOffset = myEdgeToMove->getNBEdge()->getGeometry().nearest_offset_to_point2D(myViewNet->getPositionInformation());
-        // check if we clicked over a start or end position
-        if (myEdgeToMove->clickedOverShapeStart(myViewNet->getPositionInformation())) {
-            // set flag
-            myViewNet->myMoveSingleElementValues.myMovingStartPos = true;
-            // start begin geometry moving
-            myEdgeToMove->startShapeBegin();
-            // edge values sucesfully calculated, then return true
-            return true;
-        } else if (myEdgeToMove->clickedOverShapeEnd(myViewNet->getPositionInformation())) {
-            // set flag
-            myViewNet->myMoveSingleElementValues.myMovingEndPos = true;
-            // start end geometry moving
-            myEdgeToMove->startShapeEnd();
-            // edge values sucesfully calculated, then return true
-            return true;
-        } else {
-            // now we have two cases: if we're editing the X-Y coordenade or the altitude (z)
-            if (myViewNet->myNetworkViewOptions.menuCheckMoveElevation->shown() && myViewNet->myNetworkViewOptions.menuCheckMoveElevation->getCheck() == TRUE) {
-                // check if in the clicked position a geometry point exist
-                if (myEdgeToMove->getEdgeVertexIndex(myViewNet->getPositionInformation(), false) != -1) {
-                    // start geometry moving
-                    myEdgeToMove->startEdgeGeometryMoving(edgeShapeOffset, false);
-                    // edge values sucesfully calculated, then return true
-                    return true;
-                } else {
-                    // stop edge moving
-                    myEdgeToMove = nullptr;
-                    // edge values wasn't calculated, then return false
-                    return false;
-                }
-            } else {
-                // start geometry moving
-                myEdgeToMove->startEdgeGeometryMoving(edgeShapeOffset, false);
-                // edge values sucesfully calculated, then return true
-                return true;
-            }
         }
     }
-}
-
-
-bool
-GNEViewNetHelper::MoveSingleElementValues::calculateTAZValues() {
-    // assign clicked TAZ to TAZToMove
-    myTAZElementToMove = myViewNet->myObjectsUnderCursor.getTAZFront();
-    // calculate TAZShapeOffset
-    const double TAZShapeOffset = myTAZElementToMove->getTAZElementShape().nearest_offset_to_point2D(myViewNet->getPositionInformation(), false);
-    // now we have two cases: if we're editing the X-Y coordenade or the altitude (z)
-    if (myViewNet->myNetworkViewOptions.menuCheckMoveElevation->shown() && myViewNet->myNetworkViewOptions.menuCheckMoveElevation->getCheck() == TRUE) {
-        // check if in the clicked position a geometry point exist
-        if (myTAZElementToMove->getTAZVertexIndex(myViewNet->getPositionInformation(), false) != -1) {
-            // start geometry moving
-            myTAZElementToMove->startTAZShapeGeometryMoving(TAZShapeOffset);
-            // TAZ values sucesfully calculated, then return true
-            return true;
-        } else {
-            // stop TAZ moving
-            myTAZElementToMove = nullptr;
-            // TAZ values wasn't calculated, then return false
-            return false;
-        }
-    } else {
-        // start geometry moving
-        myTAZElementToMove->startTAZShapeGeometryMoving(TAZShapeOffset);
-        // TAZ values sucesfully calculated, then return true
-        return true;
-    }
+    // shape operation value wasn't calculated, then return false
+    return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -1332,103 +1153,86 @@ GNEViewNetHelper::MoveSingleElementValues::calculateTAZValues() {
 // ---------------------------------------------------------------------------
 
 GNEViewNetHelper::MoveMultipleElementValues::MoveMultipleElementValues(GNEViewNet* viewNet) :
-    myViewNet(viewNet),
-    myMovingSelection(false) {
+    myViewNet(viewNet) {
 }
 
 
 void
-GNEViewNetHelper::MoveMultipleElementValues::beginMoveSelection(GNEAttributeCarrier* originAC) {
-    // enable moving selection
-    myMovingSelection = true;
+GNEViewNetHelper::MoveMultipleElementValues::beginMoveSelection() {
     // save clicked position (to calculate offset)
     myClickedPosition = myViewNet->getPositionInformation();
     // obtain Junctions and edges selected
-    myMovedJunctions = myViewNet->getNet()->retrieveJunctions(true);
+    const auto movedJunctions = myViewNet->getNet()->retrieveJunctions(true);
     const auto movedEdges = myViewNet->getNet()->retrieveEdges(true);
-    // make a set using of myMovedEdges
-    myMovedEdges = std::set<GNEEdge*>(movedEdges.begin(), movedEdges.end());
-    // Junctions are always moved, then save position of current selected junctions (Needed when mouse is released)
-    for (const auto& junction : myMovedJunctions) {
-        // start geometry moving
-        junction->startGeometryMoving();
-        // interate over junction edges
-        for (const auto& edge : junction->getChildEdges()) {
-            // if both junction are selected, then move shape
-            if (edge->isAttributeCarrierSelected() &&
-                    edge->getParentJunctions().front()->isAttributeCarrierSelected() &&
-                    edge->getParentJunctions().back()->isAttributeCarrierSelected()) {
-                myMovedEdges.insert(edge);
-            }
-        }
-    }
-    // make special movement depending of clicked AC
-    if (originAC->getTagProperty().getTag() == SUMO_TAG_JUNCTION) {
-        // if clicked element is a junction, move shapes of all selected edges
-        for (const auto& edge : myMovedEdges) {
-            // add edge into movedEdges
-            myMovedEdges.insert(edge);
-            // start geometry moving
-            edge->startEdgeGeometryMoving(-1, false);
-        }
-    } else if (originAC->getTagProperty().getTag() == SUMO_TAG_EDGE) {
-        // get clicked edge
-        GNEEdge* clickedEdge = myViewNet->myObjectsUnderCursor.getEdgeFront();
-        GNEEdge* oppositeClickedEdge = clickedEdge->getOppositeEdge();
-        // calculate edgeShapeOffset
-        const double edgeShapeOffset = clickedEdge->getNBEdge()->getGeometry().nearest_offset_to_point2D(myViewNet->getPositionInformation());
-        // split edges in two groups
-        std::vector<GNEEdge*> groupNormalEdges;
-        std::vector<GNEEdge*> groupOppositeEdges;
-        // add clicked edge in group A
-        groupNormalEdges.push_back(clickedEdge);
-        // remove it from copyOfMovedEdges
-        myMovedEdges.erase(clickedEdge);
-        // if opposite edge is selected, add it in group B
-        if (oppositeClickedEdge && oppositeClickedEdge->isAttributeCarrierSelected()) {
-            groupOppositeEdges.push_back(clickedEdge->getOppositeEdge());
-            // remove it from copyOfMovedEdges
-            myMovedEdges.erase(oppositeClickedEdge);
-        }
-        // iterate over copyOfMovedEdges
-        while (myMovedEdges.size() > 0) {
-            // get first and opposite edge
-            GNEEdge* edge = (*myMovedEdges.begin());
-            GNEEdge* oppositeEdge = edge->getOppositeEdge();
-            // add edge in group A
-            groupNormalEdges.push_back(edge);
-            // check if oppositeEdge exist and is selected
-            if (oppositeEdge && oppositeEdge->isAttributeCarrierSelected()) {
-                // add opposite edge in group B
-                groupOppositeEdges.push_back(oppositeEdge);
-                // remove opposite edge from setMovedEdges
-                myMovedEdges.erase(oppositeEdge);
-            }
-            // pop back element
-            myMovedEdges.erase(edge);
-        }
-        // move shapes of both groups
-        for (const auto& edge : groupNormalEdges) {
-            // insert it again in myMovedEdges
-            myMovedEdges.insert(edge);
-            // start geometry moving
-            edge->startEdgeGeometryMoving(edgeShapeOffset, false);
-        }
-        for (const auto& edge : groupOppositeEdges) {
-            // insert it again in myMovedEdges
-            myMovedEdges.insert(edge);
-            // start geometry moving using an opposite offset
-            edge->startEdgeGeometryMoving(edgeShapeOffset, true);
-        }
+    // continue depending of clicked element
+    if (myViewNet->myObjectsUnderCursor.getJunctionFront()) {
+        calculateJunctionSelection();
+    } else if (myViewNet->myObjectsUnderCursor.getEdgeFront()) {
+        calculateEdgeSelection(myViewNet->myObjectsUnderCursor.getEdgeFront());
     }
 }
 
 
 void
-GNEViewNetHelper::MoveMultipleElementValues::moveSelection() {
-    // calculate offset between current position and original position
-    Position offsetMovement = myViewNet->getPositionInformation() - myClickedPosition;
-    // calculate Z depending of Grid
+GNEViewNetHelper::MoveMultipleElementValues::moveSelection(const bool mouseLeftButtonPressed) {
+    // calculate offsetMovement
+    const Position offsetMovement = calculateOffset();
+    // check if mouse button is pressed
+    if (mouseLeftButtonPressed) {
+        // iterate over all operations
+        for (const auto &moveOperation : myMoveOperations) {
+            // move elements
+            GNEMoveElement::moveElement(myViewNet, moveOperation, offsetMovement);
+        }
+    } else if (myMoveOperations.size() > 0) {
+        // begin undo list
+        myViewNet->getUndoList()->p_begin("moving selection");
+        // iterate over all operations
+        for (const auto &moveOperation : myMoveOperations) {
+            // commit move
+            GNEMoveElement::commitMove(myViewNet, moveOperation, offsetMovement, myViewNet->getUndoList());
+            // don't forget delete move operation
+            delete moveOperation;
+        }
+        // end undo list
+        myViewNet->getUndoList()->p_end();
+        // clear move operations
+        myMoveOperations.clear();
+    }
+}
+
+
+void
+GNEViewNetHelper::MoveMultipleElementValues::finishMoveSelection() {
+    // calculate offsetMovement
+    const Position offsetMovement = calculateOffset();
+    // begin undo list
+    myViewNet->getUndoList()->p_begin("moving selection");
+    // finish all move operations
+    for (const auto &moveOperation : myMoveOperations) {
+        GNEMoveElement::commitMove(myViewNet, moveOperation, offsetMovement, myViewNet->getUndoList());
+        // don't forget delete move operation
+        delete moveOperation;
+    }
+    // end undo list
+    myViewNet->getUndoList()->p_end();
+    // clear move operations
+    myMoveOperations.clear();
+}
+
+
+bool
+GNEViewNetHelper::MoveMultipleElementValues::isMovingSelection() const {
+    return (myMoveOperations.size() > 0);
+}
+
+
+Position 
+GNEViewNetHelper::MoveMultipleElementValues::calculateOffset() const{
+    // calculate offsetMovement depending of current mouse position and relative clicked position
+    // @note  #3521: Add checkBox to allow moving elements... has to be implemented and used here
+    Position offsetMovement = (myViewNet->getPositionInformation() - myClickedPosition);
+    // calculate Z depending of moveElevation
     if (myViewNet->myNetworkViewOptions.menuCheckMoveElevation->shown() && myViewNet->myNetworkViewOptions.menuCheckMoveElevation->getCheck() == TRUE) {
         // reset offset X and Y and use Y for Z
         offsetMovement = Position(0, 0, offsetMovement.y());
@@ -1436,42 +1240,82 @@ GNEViewNetHelper::MoveMultipleElementValues::moveSelection() {
         // leave z empty (because in this case offset only actuates over X-Y)
         offsetMovement.setz(0);
     }
-    // move junctions
-    for (const auto& junction : myMovedJunctions) {
-        junction->moveGeometry(offsetMovement);
+    // return offset
+    return offsetMovement;
+}
+
+
+void 
+GNEViewNetHelper::MoveMultipleElementValues::calculateJunctionSelection() {
+    // declare move operation
+    GNEMoveOperation* moveOperation = nullptr;
+    // first move all selected junctions
+    const auto selectedJunctions = myViewNet->getNet()->retrieveJunctions(true);
+    // iterate over selected junctions
+    for (const auto &junction : selectedJunctions) {
+        moveOperation = junction->getMoveOperation(0);
+        if (moveOperation) {
+            myMoveOperations.push_back(moveOperation);
+        }
     }
-    // move edges
-    for (const auto& edge : myMovedEdges) {
-        edge->moveEdgeShape(offsetMovement);
+    // now move all selected edges
+    const auto selectedEdges = myViewNet->getNet()->retrieveEdges(true);
+    // iterate over selected edges
+    for (const auto &edge : selectedEdges) {
+        moveOperation = edge->getMoveOperation(0);
+        if (moveOperation) {
+            myMoveOperations.push_back(moveOperation);
+        }
     }
 }
 
 
-void
-GNEViewNetHelper::MoveMultipleElementValues::finishMoveSelection() {
-    // begin undo list
-    myViewNet->getUndoList()->p_begin("position of selected elements");
-    // commit positions of moved junctions
-    for (const auto& junction : myMovedJunctions) {
-        junction->commitGeometryMoving(myViewNet->getUndoList());
+void 
+GNEViewNetHelper::MoveMultipleElementValues::calculateEdgeSelection(const GNEEdge* clickedEdge) {
+    // declare move operation
+    GNEMoveOperation* moveOperation = nullptr;
+    // first move all selected junctions
+    const auto selectedJunctions = myViewNet->getNet()->retrieveJunctions(true);
+    // iterate over selected junctions
+    for (const auto &junction : selectedJunctions) {
+        moveOperation = junction->getMoveOperation(0);
+        if (moveOperation) {
+            myMoveOperations.push_back(moveOperation);
+        }
     }
-    // commit shapes of entired moved edges
-    for (const auto& edge : myMovedEdges) {
-        edge->commitEdgeShapeChange(myViewNet->getUndoList());
+    // obtain selected edges in two groups (depending of angle)
+    const auto selectedEdges000180 = myViewNet->getNet()->retrieve000180AngleEdges(true);
+    const auto selectedEdges180360 = myViewNet->getNet()->retrieve180360AngleEdges(true);
+    // calculate shape offset for clicked edge
+    const double shapeOffset = clickedEdge->getNBEdge()->getGeometry().nearest_offset_to_point2D(myViewNet->getPositionInformation());
+    // get flag for inverse offset
+    const bool useInverseOffset = (std::find(selectedEdges000180.begin(), selectedEdges000180.end(), clickedEdge) != selectedEdges000180.end());
+    // iterate over edges betwen 0 and 180 degrees
+    for (const auto &edge : selectedEdges000180) {
+        // get move operation depending of useInverseOffset
+        if (useInverseOffset) {
+            moveOperation = edge->getMoveOperation(shapeOffset);
+        } else {
+            moveOperation = edge->getMoveOperation(edge->getNBEdge()->getGeometry().length2D() - shapeOffset);
+        }
+        // continue if move operation is valid
+        if (moveOperation) {
+            myMoveOperations.push_back(moveOperation);
+        }
     }
-    // end undo list
-    myViewNet->getUndoList()->p_end();
-    // stop moving selection
-    myMovingSelection = false;
-    // clear containers
-    myMovedJunctions.clear();
-    myMovedEdges.clear();
-}
-
-
-bool
-GNEViewNetHelper::MoveMultipleElementValues::isMovingSelection() const {
-    return myMovingSelection;
+    // iterate over edges betwen 180 and 360 degrees
+    for (const auto &edge : selectedEdges180360) {
+        // get move operation depending of useInverseOffset
+        if (useInverseOffset) {
+            moveOperation = edge->getMoveOperation(edge->getNBEdge()->getGeometry().length2D() - shapeOffset);
+        } else {
+            moveOperation = edge->getMoveOperation(shapeOffset);
+        }
+        // continue if move operation is valid
+        if (moveOperation) {
+            myMoveOperations.push_back(moveOperation);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1561,7 +1405,7 @@ GNEViewNetHelper::SelectingArea::processRectangleSelection() {
     // shift held down on mouse-down and mouse-up and check that rectangle exist
     if ((abs(selectionCorner1.x() - selectionCorner2.x()) > 0.01) &&
             (abs(selectionCorner1.y() - selectionCorner2.y()) > 0.01) &&
-            myViewNet->myKeyPressed.shiftKeyPressed()) {
+            myViewNet->myMouseButtonKeyPressed.shiftKeyPressed()) {
         // create boundary between two corners
         Boundary rectangleBoundary;
         rectangleBoundary.add(selectionCorner1);
@@ -1579,7 +1423,7 @@ GNEViewNetHelper::SelectingArea::processEdgeRectangleSelection() {
     // shift held down on mouse-down and mouse-up and check that rectangle exist
     if ((abs(selectionCorner1.x() - selectionCorner2.x()) > 0.01) &&
             (abs(selectionCorner1.y() - selectionCorner2.y()) > 0.01) &&
-            myViewNet->myKeyPressed.shiftKeyPressed()) {
+            myViewNet->myMouseButtonKeyPressed.shiftKeyPressed()) {
         // create boundary between two corners
         Boundary rectangleBoundary;
         rectangleBoundary.add(selectionCorner1);
@@ -1809,22 +1653,22 @@ void
 GNEViewNetHelper::SaveElements::buildSaveElementsButtons() {
     // create save network button
     saveNetwork = new FXButton(myViewNet->getViewParent()->getGNEAppWindows()->getToolbarsGrip().saveElements,
-                               "\tSave network\tSave network.", GUIIconSubSys::getIcon(GUIIcon::SAVENETWORKELEMENTS),
+                               "\tSave network\tSave network. (Ctrl+S)", GUIIconSubSys::getIcon(GUIIcon::SAVENETWORKELEMENTS),
                                myViewNet->getViewParent()->getGNEAppWindows(), MID_HOTKEY_CTRL_S_STOPSIMULATION_SAVENETWORK, GUIDesignButtonToolbar);
     saveNetwork->create();
     // create save additional elements button
     saveAdditionalElements = new FXButton(myViewNet->getViewParent()->getGNEAppWindows()->getToolbarsGrip().saveElements,
-                                          "\tSave additional elements\tSave additional elements.", GUIIconSubSys::getIcon(GUIIcon::SAVEADDITIONALELEMENTS),
+                                          "\tSave additional elements\tSave additional elements. (Ctrl+Shift+A)", GUIIconSubSys::getIcon(GUIIcon::SAVEADDITIONALELEMENTS),
                                           myViewNet->getViewParent()->getGNEAppWindows(), MID_HOTKEY_CTRL_SHIFT_A_SAVEADDITIONALS, GUIDesignButtonToolbar);
     saveAdditionalElements->create();
     // create save demand elements button
     saveDemandElements = new FXButton(myViewNet->getViewParent()->getGNEAppWindows()->getToolbarsGrip().saveElements,
-                                      "\tSave demand elements\tSave demand elements.", GUIIconSubSys::getIcon(GUIIcon::SAVEDEMANDELEMENTS),
+                                      "\tSave demand elements\tSave demand elements. (Ctrl+Shift+D)", GUIIconSubSys::getIcon(GUIIcon::SAVEDEMANDELEMENTS),
                                       myViewNet->getViewParent()->getGNEAppWindows(), MID_HOTKEY_CTRL_SHIFT_D_SAVEDEMANDELEMENTS, GUIDesignButtonToolbar);
     saveDemandElements->create();
     // create save data elements button
     saveDataElements = new FXButton(myViewNet->getViewParent()->getGNEAppWindows()->getToolbarsGrip().saveElements,
-                                    "\tSave data elements\tSave data elements.", GUIIconSubSys::getIcon(GUIIcon::SAVEDATAELEMENTS),
+                                    "\tSave data elements\tSave data elements. (Ctrl+Shift+B)", GUIIconSubSys::getIcon(GUIIcon::SAVEDATAELEMENTS),
                                     myViewNet->getViewParent()->getGNEAppWindows(), MID_HOTKEY_CTRL_SHIFT_B_SAVEDATAELEMENTS, GUIDesignButtonToolbar);
     saveDataElements->create();
     // recalc menu bar because there is new elements
@@ -1853,17 +1697,17 @@ void
 GNEViewNetHelper::EditModes::buildSuperModeButtons() {
     // create network button
     networkButton = new MFXCheckableButton(false,
-                                           myViewNet->getViewParent()->getGNEAppWindows()->getToolbarsGrip().superModes, "Network\t\tSet mode for edit network elements.",
+                                           myViewNet->getViewParent()->getGNEAppWindows()->getToolbarsGrip().superModes, "Network\t\tSet mode for edit network elements. (F2)",
                                            GUIIconSubSys::getIcon(GUIIcon::SUPERMODENETWORK), myViewNet, MID_HOTKEY_F2_SUPERMODE_NETWORK, GUIDesignButtonToolbarSupermode);
     networkButton->create();
     // create demand button
     demandButton = new MFXCheckableButton(false,
-                                          myViewNet->getViewParent()->getGNEAppWindows()->getToolbarsGrip().superModes, "Demand\t\tSet mode for edit traffic demand.",
+                                          myViewNet->getViewParent()->getGNEAppWindows()->getToolbarsGrip().superModes, "Demand\t\tSet mode for edit traffic demand. (F3)",
                                           GUIIconSubSys::getIcon(GUIIcon::SUPERMODEDEMAND), myViewNet, MID_HOTKEY_F3_SUPERMODE_DEMAND, GUIDesignButtonToolbarSupermode);
     demandButton->create();
     // create data button
     dataButton = new MFXCheckableButton(false,
-                                        myViewNet->getViewParent()->getGNEAppWindows()->getToolbarsGrip().superModes, "Data\t\tSet mode for edit data demand.",
+                                        myViewNet->getViewParent()->getGNEAppWindows()->getToolbarsGrip().superModes, "Data\t\tSet mode for edit data demand. (F4)",
                                         GUIIconSubSys::getIcon(GUIIcon::SUPERMODEDATA), myViewNet, MID_HOTKEY_F4_SUPERMODE_DATA, GUIDesignButtonToolbarSupermode);
     dataButton->create();
     // recalc menu bar because there is new elements
@@ -1945,7 +1789,7 @@ GNEViewNetHelper::EditModes::setNetworkEditMode(NetworkEditMode mode, const bool
             myViewNet->myCurrentFrame->focusUpperElement();
         }
     } else if (networkEditMode == NetworkEditMode::NETWORK_TLS && !myViewNet->myViewParent->getTLSEditorFrame()->isTLSSaved()) {
-        myViewNet->setStatusBarText("save modifications in TLS before change mode");
+        myViewNet->setStatusBarText("Save modifications in TLS before change mode");
         myViewNet->myCurrentFrame->focusUpperElement();
     } else {
         myViewNet->setStatusBarText("");
@@ -2103,7 +1947,7 @@ void
 GNEViewNetHelper::NetworkViewOptions::buildNetworkViewOptionsMenuChecks() {
     // create menu checks
     menuCheckShowGrid = new FXMenuCheck(myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modeOptions,
-                                        ("Grid\t\tshow grid and restrict movement to the grid (size defined in visualization options)"),
+                                        ("Grid\t\tShow grid and restrict movement to the grid - define grid size in visualization options (Ctrl+G)"),
                                         myViewNet, MID_GNE_NETWORKVIEWOPTIONS_SHOWGRID, LAYOUT_FIX_HEIGHT);
     menuCheckShowGrid->setHeight(23);
     menuCheckShowGrid->setCheck(false);
@@ -2138,7 +1982,7 @@ GNEViewNetHelper::NetworkViewOptions::buildNetworkViewOptionsMenuChecks() {
     menuCheckShowConnections->create();
 
     menuCheckHideConnections = new FXMenuCheck(myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modeOptions,
-            ("hide " + toString(SUMO_TAG_CONNECTION) + "s\t\tHide connections").c_str(),
+            ("Hide " + toString(SUMO_TAG_CONNECTION) + "s\t\tHide connections").c_str(),
             myViewNet, MID_GNE_NETWORKVIEWOPTIONS_HIDECONNECTIONS, LAYOUT_FIX_HEIGHT);
     menuCheckHideConnections->setHeight(23);
     menuCheckHideConnections->setCheck(false);
@@ -2335,7 +2179,7 @@ void
 GNEViewNetHelper::DemandViewOptions::buildDemandViewOptionsMenuChecks() {
     // create menu checks
     menuCheckShowGrid = new FXMenuCheck(myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modeOptions,
-                                        ("Grid\t\tshow grid and restrict movement to the grid (size defined in visualization options)"),
+                                        ("Grid\t\tShow grid and restrict movement to the grid - define grid size in visualization options (Ctrl+G)"),
                                         myViewNet, MID_GNE_DEMANDVIEWOPTIONS_SHOWGRID, LAYOUT_FIX_HEIGHT);
     menuCheckShowGrid->setHeight(23);
     menuCheckShowGrid->setCheck(false);
@@ -2363,7 +2207,7 @@ GNEViewNetHelper::DemandViewOptions::buildDemandViewOptionsMenuChecks() {
     menuCheckHideNonInspectedDemandElements->create();
 
     menuCheckShowAllPersonPlans = new FXMenuCheck(myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modeOptions,
-            ("Show person plans\t\tshow all person plans"),
+            ("Show person plans\t\tShow all person plans"),
             myViewNet, MID_GNE_DEMANDVIEWOPTIONS_SHOWALLPERSONPLANS, LAYOUT_FIX_HEIGHT);
     menuCheckShowAllPersonPlans->setHeight(23);
     menuCheckShowAllPersonPlans->setCheck(false);
@@ -2428,23 +2272,23 @@ bool
 GNEViewNetHelper::DemandViewOptions::showNonInspectedDemandElements(const GNEDemandElement* demandElement) const {
     if (menuCheckHideNonInspectedDemandElements->shown()) {
         // check conditions
-        if ((menuCheckHideNonInspectedDemandElements->getCheck() == FALSE) || (myViewNet->getInspectedAttributeCarrier() == nullptr)) {
+        if ((menuCheckHideNonInspectedDemandElements->getCheck() == FALSE) || (myViewNet->getInspectedAttributeCarriers().empty())) {
             // if checkbox is disabled or there isn't insepected element, then return true
             return true;
-        } else if (myViewNet->getInspectedAttributeCarrier()->getTagProperty().isDemandElement()) {
-            if (myViewNet->getInspectedAttributeCarrier() == demandElement) {
+        } else if (myViewNet->getInspectedAttributeCarriers().front()->getTagProperty().isDemandElement()) {
+            if (myViewNet->isAttributeCarrierInspected(demandElement)) {
                 // if inspected element correspond to demandElement, return true
                 return true;
             } else {
                 // if demandElement is a route, check if dottedAC is one of their children (Vehicle or Stop)
                 for (const auto& i : demandElement->getChildDemandElements()) {
-                    if (i == myViewNet->getInspectedAttributeCarrier()) {
+                    if (myViewNet->isAttributeCarrierInspected(i)) {
                         return true;
                     }
                 }
                 // if demandElement is a vehicle, check if dottedAC is one of his route Parent
                 for (const auto& i : demandElement->getParentDemandElements()) {
-                    if (i == myViewNet->getInspectedAttributeCarrier()) {
+                    if (myViewNet->isAttributeCarrierInspected(i)) {
                         return true;
                     }
                 }
@@ -2976,17 +2820,17 @@ void
 GNEViewNetHelper::CommonCheckableButtons::buildCommonCheckableButtons() {
     // inspect button
     inspectButton = new MFXCheckableButton(false, myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modes,
-                                           "\tset inspect mode\tMode for inspect elements and change their attributes.",
+                                           "\tset inspect mode\tMode for inspect elements and change their attributes. (I)",
                                            GUIIconSubSys::getIcon(GUIIcon::MODEINSPECT), myViewNet, MID_HOTKEY_I_MODES_INSPECT, GUIDesignButtonToolbarCheckable);
     inspectButton->create();
     // delete button
     deleteButton = new MFXCheckableButton(false, myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modes,
-                                          "\tset delete mode\tMode for delete elements.",
+                                          "\tset delete mode\tMode for delete elements. (D)",
                                           GUIIconSubSys::getIcon(GUIIcon::MODEDELETE), myViewNet, MID_HOTKEY_D_MODES_DELETE, GUIDesignButtonToolbarCheckable);
     deleteButton->create();
     // select button
     selectButton = new MFXCheckableButton(false, myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modes,
-                                          "\tset select mode\tMode for select elements.",
+                                          "\tset select mode\tMode for select elements. (S)",
                                           GUIIconSubSys::getIcon(GUIIcon::MODESELECT), myViewNet, MID_HOTKEY_S_MODES_SELECT, GUIDesignButtonToolbarCheckable);
     selectButton->create();
     // always recalc menu bar after creating new elements
@@ -3047,47 +2891,47 @@ void
 GNEViewNetHelper::NetworkCheckableButtons::buildNetworkCheckableButtons() {
     // move button
     moveNetworkElementsButton = new MFXCheckableButton(false, myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modes,
-            "\tset move mode\tMode for move elements.",
+            "\tset move mode\tMode for move elements. (M)",
             GUIIconSubSys::getIcon(GUIIcon::MODEMOVE), myViewNet, MID_HOTKEY_M_MODES_MOVE, GUIDesignButtonToolbarCheckable);
     moveNetworkElementsButton->create();
     // create edge
     createEdgeButton = new MFXCheckableButton(false, myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modes,
-            "\tset create edge mode\tMode for creating junction and edges.",
+            "\tset create edge mode\tMode for creating junction and edges. (E)",
             GUIIconSubSys::getIcon(GUIIcon::MODECREATEEDGE), myViewNet, MID_HOTKEY_E_MODES_EDGE_EDGEDATA, GUIDesignButtonToolbarCheckable);
     createEdgeButton->create();
     // connection mode
     connectionButton = new MFXCheckableButton(false, myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modes,
-            "\tset connection mode\tMode for edit connections between lanes.",
+            "\tset connection mode\tMode for edit connections between lanes. (C)",
             GUIIconSubSys::getIcon(GUIIcon::MODECONNECTION), myViewNet, MID_HOTKEY_C_MODES_CONNECT_PERSONPLAN, GUIDesignButtonToolbarCheckable);
     connectionButton->create();
     // prohibition mode
     prohibitionButton = new MFXCheckableButton(false, myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modes,
-            "\tset prohibition mode\tMode for editing connection prohibitions.",
+            "\tset prohibition mode\tMode for editing connection prohibitions. (W)",
             GUIIconSubSys::getIcon(GUIIcon::MODEPROHIBITION), myViewNet, MID_HOTKEY_W_MODES_PROHIBITION_PERSONTYPE, GUIDesignButtonToolbarCheckable);
     prohibitionButton->create();
     // traffic light mode
     trafficLightButton = new MFXCheckableButton(false, myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modes,
-            "\tset traffic light mode\tMode for edit traffic lights over junctions.",
+            "\tset traffic light mode\tMode for edit traffic lights over junctions. (T)",
             GUIIconSubSys::getIcon(GUIIcon::MODETLS), myViewNet, MID_HOTKEY_T_MODES_TLS_VTYPE, GUIDesignButtonToolbarCheckable);
     trafficLightButton->create();
     // additional mode
     additionalButton = new MFXCheckableButton(false, myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modes,
-            "\tset additional mode\tMode for adding additional elements.",
+            "\tset additional mode\tMode for adding additional elements. (A)",
             GUIIconSubSys::getIcon(GUIIcon::MODEADDITIONAL), myViewNet, MID_HOTKEY_A_MODES_ADDITIONAL_STOP, GUIDesignButtonToolbarCheckable);
     additionalButton->create();
     // crossing mode
     crossingButton = new MFXCheckableButton(false, myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modes,
-                                            "\tset crossing mode\tMode for creating crossings between edges.",
+                                            "\tset crossing mode\tMode for creating crossings between edges. (R)",
                                             GUIIconSubSys::getIcon(GUIIcon::MODECROSSING), myViewNet, MID_HOTKEY_R_MODES_CROSSING_ROUTE_EDGERELDATA, GUIDesignButtonToolbarCheckable);
     crossingButton->create();
     // TAZ Mode
     TAZButton = new MFXCheckableButton(false, myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modes,
-                                       "\tset TAZ mode\tMode for creating Traffic Assignment Zones.",
+                                       "\tset TAZ mode\tMode for creating Traffic Assignment Zones. (Z)",
                                        GUIIconSubSys::getIcon(GUIIcon::MODETAZ), myViewNet, MID_HOTKEY_Z_MODES_TAZ_TAZREL, GUIDesignButtonToolbarCheckable);
     TAZButton->create();
     // shape mode
     shapeButton = new MFXCheckableButton(false, myViewNet->myViewParent->getGNEAppWindows()->getToolbarsGrip().modes,
-                                         "\tset polygon mode\tMode for creating polygons and POIs.",
+                                         "\tset polygon mode\tMode for creating polygons and POIs. (P)",
                                          GUIIconSubSys::getIcon(GUIIcon::MODEPOLYGON), myViewNet, MID_HOTKEY_P_MODES_POLYGON_PERSON, GUIDesignButtonToolbarCheckable);
     shapeButton->create();
     // always recalc after creating new elements
@@ -3391,6 +3235,106 @@ GNEViewNetHelper::EditNetworkElementShapes::commitEditedShape() {
 GNENetworkElement*
 GNEViewNetHelper::EditNetworkElementShapes::getEditedNetworkElement() const {
     return myEditedNetworkElement;
+}
+
+// ---------------------------------------------------------------------------
+// GNEViewNetHelper::BlockIcon - methods
+// ---------------------------------------------------------------------------
+
+void
+GNEViewNetHelper::LockIcon::drawLockIcon(const GNEAttributeCarrier *AC, const GNEGeometry::Geometry &geometry,
+    const double exaggeration, const double offsetx, const double offsety, const bool overlane, const double size) {
+    // first check if icon can be drawn
+    if (checkDrawing(AC, exaggeration) && (geometry.getShape().size() > 0)) {
+        // calculate middle point
+        const double middlePoint = (geometry.getShape().length2D() * 0.5);
+        // calculate position
+        const Position pos = (geometry.getShape().size() == 1)? geometry.getShape().front() : geometry.getShape().positionAtOffset2D(middlePoint);
+        // calculate rotation
+        double rot = 0; 
+        if ((geometry.getShape().size() == 1) && (geometry.getShapeRotations().size() > 0)) {
+            rot = geometry.getShapeRotations().front();
+        } else if (geometry.getShape().size() > 1) {
+            rot = geometry.getShape().rotationDegreeAtOffset(middlePoint);
+        }
+        // get texture
+        const GUIGlID lockTexture = getLockIcon(AC);
+        // Start pushing matrix
+        glPushMatrix();
+        // Traslate to position
+        glTranslated(pos.x(), pos.y(), 0.1);
+        // rotate depending of overlane
+        if (overlane) {
+            GNEGeometry::rotateOverLane(rot);
+        } else {
+            // avoid draw invert
+            glRotated(180, 0, 0, 1);
+        }
+        // Set draw color
+        glColor3d(1, 1, 1);
+        // Traslate depending of the offset
+        glTranslated(offsetx, offsety, 0);
+        // Draw lock icon
+        GUITexturesHelper::drawTexturedBox(lockTexture, size);
+        // Pop matrix
+        glPopMatrix();
+    }
+}
+
+
+GNEViewNetHelper::LockIcon::LockIcon() {}
+
+
+bool 
+GNEViewNetHelper::LockIcon::checkDrawing(const GNEAttributeCarrier *AC, const double exaggeration) {
+    // get visualization settings
+    const auto s = AC->getNet()->getViewNet()->getVisualisationSettings();
+    // check exaggeration
+    if (exaggeration == 0) {
+        return false;
+    }
+    // check visualizationSettings
+    if (s.drawForPositionSelection || s.drawForRectangleSelection) {
+        return false;
+    }
+    // check detail
+    if (!s.drawDetail(s.detailSettings.lockIcon, exaggeration)) {
+        return false;
+    }
+    // check modes
+    if (!AC->getNet()->getViewNet()->showLockIcon()) {
+        return false;
+    }
+    return true;
+}
+
+
+GUIGlID 
+GNEViewNetHelper::LockIcon::getLockIcon(const GNEAttributeCarrier *AC) {
+    // Draw icon depending of the state of additional
+    if (AC->drawUsingSelectColor()) {
+        if (!AC->getTagProperty().canBlockMovement()) {
+            // Draw not movable texture if additional isn't movable and is selected
+            return GUITextureSubSys::getTexture(GNETEXTURE_NOTMOVINGSELECTED);
+        } else if (AC->getAttribute(GNE_ATTR_BLOCK_MOVEMENT) == toString(true)) {
+            // Draw lock texture if additional is movable, is blocked and is selected
+            return GUITextureSubSys::getTexture(GNETEXTURE_LOCKSELECTED);
+        } else {
+            // Draw empty texture if additional is movable, isn't blocked and is selected
+            return GUITextureSubSys::getTexture(GNETEXTURE_EMPTYSELECTED);
+        }
+    } else {
+        if (!AC->getTagProperty().canBlockMovement()) {
+            // Draw not movable texture if additional isn't movable
+            return GUITextureSubSys::getTexture(GNETEXTURE_NOTMOVING);
+        } else if (AC->getAttribute(GNE_ATTR_BLOCK_MOVEMENT) == toString(true)) {
+            // Draw lock texture if additional is movable and is blocked
+            return GUITextureSubSys::getTexture(GNETEXTURE_LOCK);
+        } else {
+            // Draw empty texture if additional is movable and isn't blocked
+            return GUITextureSubSys::getTexture(GNETEXTURE_EMPTY);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

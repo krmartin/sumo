@@ -19,7 +19,6 @@
 /****************************************************************************/
 #include <config.h>
 
-#include <netedit/dialogs/GNERerouterIntervalDialog.h>
 #include <netedit/changes/GNEChange_Attribute.h>
 #include <netedit/GNENet.h>
 #include <netedit/GNEUndoList.h>
@@ -32,25 +31,23 @@
 
 GNEDestProbReroute::GNEDestProbReroute(GNEAdditional* rerouterIntervalParent, GNEEdge* newEdgeDestination, double probability):
     GNEAdditional(rerouterIntervalParent->getNet(), GLO_REROUTER, SUMO_TAG_DEST_PROB_REROUTE, "", false,
-{}, {}, {}, {rerouterIntervalParent}, {}, {}, {}, {}),
-myNewEdgeDestination(newEdgeDestination),
-myProbability(probability) {
+        {}, {}, {}, {rerouterIntervalParent}, {}, {}, {}, {}),
+    myNewEdgeDestination(newEdgeDestination),
+    myProbability(probability) {
+    // update centering boundary without updating grid
+    updateCenteringBoundary(false);
 }
 
 
 GNEDestProbReroute::~GNEDestProbReroute() {}
 
 
-void
-GNEDestProbReroute::moveGeometry(const Position&) {
-    // This additional cannot be moved
+GNEMoveOperation*
+GNEDestProbReroute::getMoveOperation(const double /*shapeOffset*/) {
+    // GNEDestProbReroutes cannot be moved
+    return nullptr;
 }
 
-
-void
-GNEDestProbReroute::commitGeometryMoving(GNEUndoList*) {
-    // This additional cannot be moved
-}
 
 void
 GNEDestProbReroute::updateGeometry() {
@@ -58,15 +55,10 @@ GNEDestProbReroute::updateGeometry() {
 }
 
 
-Position
-GNEDestProbReroute::getPositionInView() const {
-    return getParentAdditionals().at(0)->getPositionInView();
-}
-
-
-Boundary
-GNEDestProbReroute::getCenteringBoundary() const {
-    return getParentAdditionals().at(0)->getCenteringBoundary();
+void 
+GNEDestProbReroute::updateCenteringBoundary(const bool /*updateGrid*/) {
+    // use boundary of parent element
+    myBoundary = getParentAdditionals().front()->getCenteringBoundary();
 }
 
 
@@ -187,6 +179,18 @@ GNEDestProbReroute::setAttribute(SumoXMLAttr key, const std::string& value) {
         default:
             throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
     }
+}
+
+
+void 
+GNEDestProbReroute::setMoveShape(const GNEMoveResult& /*moveResult*/) {
+    // nothing to do
+}
+
+
+void 
+GNEDestProbReroute::commitMoveShape(const GNEMoveResult& /*moveResult*/, GNEUndoList* /*undoList*/) {
+    // nothing to do
 }
 
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on Thu Sep  3 10:19:24 2020 by Eclipse SUMO sumo Version v1_6_0+1929-72c132134b
+<!-- generated on Thu Oct  8 04:13:34 2020 by Eclipse SUMO sumo Version v1_7_0+0543-38a9bf14c0
 -->
 
 <configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/sumoConfiguration.xsd">
@@ -66,7 +66,7 @@
         <!-- Defines the number of digits after the comma for lon,lat output -->
         <precision.geo value="6" type="INT"/>
 
-        <!-- Write time values as hour:minute:second or day:hour:minute:second rathern than seconds -->
+        <!-- Write time values as hour:minute:second or day:hour:minute:second rather than seconds -->
         <human-readable-time value="false" synonymes="H" type="BOOL"/>
 
         <!-- Save complete network states into FILE -->
@@ -419,6 +419,12 @@
 
         <!-- Where taxis can pick up customers (&apos;allJunctions, &apos;ptStops&apos;) -->
         <persontrip.transfer.walk-taxi value="" type="STR[]"/>
+
+        <!-- When set, trips between the same origin and destination will share a taxi by default -->
+        <persontrip.default.group value="" type="STR"/>
+
+        <!-- Estimated time for taxi pickup -->
+        <persontrip.taxi.waiting-time value="300" type="TIME"/>
 
         <!-- Use FLOAT as a maximum train length when initializing the railway router -->
         <railway.max-train-length value="5000" type="FLOAT"/>
@@ -816,7 +822,7 @@
         <!-- The &apos;taxi&apos; devices are set deterministic using a fraction of 1000 -->
         <device.taxi.deterministic value="false" type="BOOL"/>
 
-        <!-- The dispatch algorithm [greedy|greedyClosest|greedyShared] -->
+        <!-- The dispatch algorithm [greedy|greedyClosest|greedyShared|routeExtension|traci] -->
         <device.taxi.dispatch-algorithm value="greedy" type="STR"/>
 
         <!-- Write information from the dispatch algorithm to FILE -->
@@ -936,6 +942,9 @@
         <!-- Start the simulation after loading -->
         <start value="false" synonymes="S" type="BOOL"/>
 
+        <!-- Use FLOAT in ms as delay between simulation steps -->
+        <delay value="0" synonymes="d" type="FLOAT"/>
+
         <!-- Use TIME[] as times when the simulation should halt -->
         <breakpoints value="" synonymes="B" type="STR[]"/>
 
@@ -966,7 +975,7 @@
         <!-- Enable output messages during GUI-Testing -->
         <gui-testing-debug value="false" type="BOOL"/>
 
-        <!-- Save gui settings in the given settingsoutput file -->
+        <!-- Save gui settings in the given settings output file -->
         <gui-testing.setting-output value="" type="FILE"/>
 
     </gui_only>

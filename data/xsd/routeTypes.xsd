@@ -102,6 +102,7 @@
                 </xsd:restriction>
             </xsd:simpleType>
         </xsd:attribute>
+        <xsd:attribute name="jmStoplineGap" type="nonNegativeFloatType"/>
         <xsd:attribute name="jmTimegapMinor" type="nonNegativeFloatType"/>
         <xsd:attribute name="sigma">
             <xsd:simpleType>
@@ -429,6 +430,7 @@
         <xsd:attribute name="departLane" type="departLaneType"/>
         <xsd:attribute name="departPos" type="departPosType"/>
         <xsd:attribute name="departSpeed" type="departSpeedType"/>
+        <xsd:attribute name="departEdge" type="departEdgeType"/>
         <xsd:attribute name="arrivalLane" type="arrivalLaneType"/>
         <xsd:attribute name="arrivalPos" type="arrivalPosType"/>
         <xsd:attribute name="arrivalSpeed" type="arrivalSpeedType"/>
@@ -443,14 +445,12 @@
     </xsd:complexType>
 
     <xsd:complexType name="flowWithoutIDType">
-        <xsd:sequence>
-            <xsd:choice minOccurs="0">
-                <xsd:element name="route" type="vehicleRouteType"/>
-                <xsd:element name="routeDistribution" type="vehicleRouteDistributionType"/>
-            </xsd:choice>
+        <xsd:choice minOccurs="0" maxOccurs="unbounded">
+            <xsd:element name="route" type="vehicleRouteType" maxOccurs="1"/>
+            <xsd:element name="routeDistribution" type="vehicleRouteDistributionType" maxOccurs="1"/>
             <xsd:element name="stop" type="stopType" minOccurs="0" maxOccurs="unbounded"/>
             <xsd:element name="param" type="paramType" minOccurs="0" maxOccurs="unbounded"/>
-        </xsd:sequence>
+        </xsd:choice>
         <xsd:attribute name="route" type="xsd:string"/>
         <xsd:attribute name="fromTaz" type="xsd:string"/>
         <xsd:attribute name="toTaz" type="xsd:string"/>
@@ -502,6 +502,7 @@
             <xsd:extension base="flowWithoutIDType">
                 <xsd:attribute name="id" type="idType" use="required"/>
                 <xsd:attribute name="reroute" type="boolType" use="optional"/>
+                <xsd:attribute name="departEdge" type="departEdgeType"/>
             </xsd:extension>
         </xsd:complexContent>
     </xsd:complexType>
@@ -617,6 +618,18 @@
         </xsd:union>
     </xsd:simpleType>
 
+    <xsd:simpleType name="departEdgeType">
+        <xsd:union memberTypes="xsd:nonNegativeInteger">
+            <xsd:simpleType>
+                <xsd:restriction base="xsd:string">
+                    <xsd:enumeration value="random"/>
+                    <xsd:enumeration value="free"/>
+                </xsd:restriction>
+            </xsd:simpleType> 
+        </xsd:union>
+    </xsd:simpleType>
+
+
     <xsd:simpleType name="arrivalLaneType">
         <xsd:union memberTypes="xsd:nonNegativeInteger">
             <xsd:simpleType>
@@ -688,6 +701,7 @@
         <xsd:attribute name="savings" type="xsd:float"/>
         <xsd:attribute name="repeat" type="xsd:nonNegativeInteger"/>
         <xsd:attribute name="cycleTime" type="timeType"/>
+        <xsd:attribute name="probability" type="xsd:float" use="optional"/>
     </xsd:complexType>
 
     <xsd:complexType name="routeDistRouteType">
@@ -829,6 +843,8 @@
                     <xsd:attribute name="edges" type="xsd:string"/>
                     <xsd:attribute name="from" type="xsd:string"/>
                     <xsd:attribute name="to" type="xsd:string"/>
+                    <xsd:attribute name="fromTaz" type="xsd:string"/>
+                    <xsd:attribute name="toTaz" type="xsd:string"/>
                     <xsd:attribute name="fromJunction" type="xsd:string"/>
                     <xsd:attribute name="toJunction" type="xsd:string"/>
                     <xsd:attribute name="viaJunctions" type="xsd:string"/>
