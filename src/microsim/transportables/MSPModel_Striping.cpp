@@ -84,6 +84,7 @@ double MSPModel_Striping::stripeWidth;
 double MSPModel_Striping::dawdling;
 SUMOTime MSPModel_Striping::jamTime;
 SUMOTime MSPModel_Striping::jamTimeCrossing;
+SUMOTime MSPModel_Striping::jamTimeNarrow;
 const double MSPModel_Striping::LOOKAHEAD_SAMEDIR(4.0); // seconds
 const double MSPModel_Striping::LOOKAHEAD_ONCOMING(10.0); // seconds
 const double MSPModel_Striping::LOOKAROUND_VEHICLES(60.0); // meters
@@ -123,6 +124,10 @@ MSPModel_Striping::MSPModel_Striping(const OptionsCont& oc, MSNet* net) :
     jamTimeCrossing = string2time(oc.getString("pedestrian.striping.jamtime.crossing"));
     if (jamTimeCrossing <= 0) {
         jamTimeCrossing = SUMOTime_MAX;
+    }
+    jamTimeNarrow = string2time(oc.getString("pedestrian.striping.jamtime.narrow"));
+    if (jamTimeNarrow <= 0) {
+        jamTimeNarrow = SUMOTime_MAX;
     }
 }
 
@@ -414,23 +419,26 @@ MSPModel_Striping::guessPath(const MSEdge* walkingArea, const MSEdge* before, co
     assert(walkingArea->isWalkingArea());
     const MSLane* swBefore = getSidewalk<MSEdge, MSLane>(before);
     const MSLane* swAfter = getSidewalk<MSEdge, MSLane>(after);
+    const auto pathIt = myWalkingAreaPaths.find(std::make_pair(swBefore, swAfter));
+    if (pathIt != myWalkingAreaPaths.end()) {
+        return &pathIt->second;
+    }
     const MSEdgeVector& preds = walkingArea->getPredecessors();
-    bool useBefore = swBefore != nullptr && std::find(preds.begin(), preds.end(), before) != preds.end();
     const MSEdgeVector& succs = walkingArea->getSuccessors();
+    bool useBefore = swBefore != nullptr && std::find(preds.begin(), preds.end(), before) != preds.end();
     bool useAfter = swAfter != nullptr && std::find(succs.begin(), succs.end(), after) != succs.end();
     if (useBefore) {
         if (useAfter) {
             return getWalkingAreaPath(walkingArea, swBefore, swAfter);
-        } else {
+        } else if (succs.size() > 0) {
             // could also try to exploit direction
             return getWalkingAreaPath(walkingArea, swBefore, getSidewalk<MSEdge, MSLane>(succs.front()));
         }
-    } else if (useAfter) {
+    } else if (useAfter && preds.size() > 0) {
         // could also try to exploit direction
         return getWalkingAreaPath(walkingArea, getSidewalk<MSEdge, MSLane>(preds.front()), swAfter);
-    } else {
-        return getArbitraryPath(walkingArea);
     }
+    return getArbitraryPath(walkingArea);
 }
 
 
@@ -442,10 +450,15 @@ MSPModel_Striping::getWalkingAreaPath(const MSEdge* walkingArea, const MSLane* b
         return &pathIt->second;
     } else {
         // this can happen in case of moveToXY where before can point anywhere
-        const MSEdge* const pred = walkingArea->getPredecessors().front();
-        const auto pathIt2 = myWalkingAreaPaths.find(std::make_pair(getSidewalk<MSEdge, MSLane>(pred), after));
-        assert(pathIt2 != myWalkingAreaPaths.end());
-        return &pathIt2->second;
+        const MSEdgeVector& preds = walkingArea->getPredecessors();
+        if (preds.size() > 0) {
+            const MSEdge* const pred = walkingArea->getPredecessors().front();
+            const auto pathIt2 = myWalkingAreaPaths.find(std::make_pair(getSidewalk<MSEdge, MSLane>(pred), after));
+            assert(pathIt2 != myWalkingAreaPaths.end());
+            return &pathIt2->second;
+        } else {
+            return getArbitraryPath(walkingArea);
+        }
     }
 }
 
@@ -1754,7 +1767,9 @@ MSPModel_Striping::PState::walk(const Obstacles& obs, SUMOTime currentTime) {
         xSpeed = 0;
     }
     if (xSpeed == 0) {
-        if (myWaitingTime > (myLane->getEdge().isCrossing() ? jamTimeCrossing : jamTime) || myAmJammed) {
+        if (myWaitingTime > (myLane->getEdge().isCrossing() ? jamTimeCrossing : jamTime)
+                || (sMax == 0 && obs[0].speed * myDir < 0 && myWaitingTime > jamTimeNarrow)
+                || myAmJammed) {
             // squeeze slowly through the crowd ignoring others
             if (!myAmJammed) {
                 MSNet::getInstance()->getPersonControl().registerJammed();
@@ -1927,6 +1942,15 @@ MSPModel_Striping::PState::moveToXY(MSPerson* p, Position pos, MSLane* lane, dou
     assert(p == myPerson);
     assert(pm != nullptr);
     const double oldAngle = GeomHelper::naviDegree(getAngle(*myStage, t));
+    // person already walking in this step. undo this to obtain the previous position
+    const double oldX = myRelX - SPEED2DIST(mySpeed * myDir);
+    const double tmp = myRelX;
+    myRelX = oldX;
+    Position oldPos = getPosition(*myStage, t);
+    myRelX = tmp;
+    //if (oldPos == Position::INVALID) {
+    //    oldPos = pos
+    //}
     myAngle = GeomHelper::fromNaviDegree(angle);
 #ifdef DEBUG_MOVETOXY
     std::cout << SIMTIME << " ped=" << p->getID()
@@ -2026,9 +2050,16 @@ MSPModel_Striping::PState::moveToXY(MSPerson* p, Position pos, MSLane* lane, dou
         std::cout << " newRelPos=" << Position(myRelX, myRelY) << " edge=" << myPerson->getEdge()->getID() << " newPos=" << myPerson->getPosition()
                   << " oldAngle=" << oldAngle << " angleDiff=" << angleDiff << " newDir=" << myDir << "\n";
 #endif
+        if (oldLane == myLane) {
+            mySpeed = DIST2SPEED(fabs(oldX - myRelX));
+        } else {
+            //std::cout << SIMTIME << " oldX=" << oldX << " oldSpeed=" << mySpeed << " oldPos=" << oldPos << " pos=" << pos << " dist=" << oldPos.distanceTo2D(pos) << " oldLane=" << Named::getIDSecure(oldLane) << " lane=" << lane->getID() << "\n";
+            mySpeed = DIST2SPEED(oldPos.distanceTo2D(pos));
+        }
     } else {
         // map outside the network
         myRemoteXYPos = pos;
+        mySpeed = DIST2SPEED(oldPos.distanceTo2D(pos));
     }
 
 }

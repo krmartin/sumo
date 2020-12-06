@@ -6,36 +6,33 @@ GLDebug: 	Inserted edge:gneE1 into SUMORTree with boundary -10.00,-10.00,60.00,1
 Debug: Selected item 'DEFAULT_PEDTYPE' in DemandElementSelector
 Debug: Adding poly 'poly_0' into viewNet
 GLDebug: 	Inserted polygon:poly_0 into SUMORTree with boundary -8.00,-2.00,22.00,28.00
-Debug: Additionals has to be saved
-Debug: Current saving Status: net saved, additionals unsaved, demand elements saved, data sets saved
 Debug: Adding poly 'poly_1' into viewNet
 GLDebug: 	Inserted polygon:poly_1 into SUMORTree with boundary 12.00,-2.00,42.00,28.00
-Debug: net has to be saved
-Debug: Current saving Status: net unsaved, additionals unsaved, demand elements saved, data sets saved
-Error: Could not load 'dummyAngle'.
-Unknown file extension '' for image 'dummyAngle'!
-Debug: Value 'dummyAngle' for attribute imgFile of poly isn't valid
-Error: Could not load '-5'.
-Unknown file extension '' for image '-5'!
-Debug: Value '-5' for attribute imgFile of poly isn't valid
-Error: Could not load '365'.
-Unknown file extension '' for image '365'!
-Debug: Value '365' for attribute imgFile of poly isn't valid
-Error: Could not load '10'.
-Unknown file extension '' for image '10'!
-Debug: Value '10' for attribute imgFile of poly isn't valid
-Error: Could not load '10i'.
-Unknown file extension '' for image '10i'!
-Debug: Value '10i' for attribute imgFile of poly isn't valid
+Debug: Value 'dummyAngle' for attribute angle of poly isn't valid
+Debug: Setting new attribute angle '-5.00' into poly 'poly_0'
+Debug: Setting new attribute angle '-5.00' into poly 'poly_1'
+Debug: Setting new attribute angle '5.00' into poly 'poly_0'
+Debug: Setting new attribute angle '5.00' into poly 'poly_1'
+Debug: Setting new attribute angle '10.00' into poly 'poly_0'
+Debug: Setting new attribute angle '10.00' into poly 'poly_1'
+Debug: Keys Ctrl+Z (Undo) pressed
+Debug: Calling GNEUndoList::undo()
+Debug: Setting previous attribute angle '5.00' into poly 'poly_1'
+Debug: Setting previous attribute angle '5.00' into poly 'poly_0'
+Debug: Keys Ctrl+Z (Undo) pressed
+Debug: Calling GNEUndoList::undo()
+Debug: Setting previous attribute angle '-5.00' into poly 'poly_1'
+Debug: Setting previous attribute angle '-5.00' into poly 'poly_0'
+Debug: Keys Ctrl+Z (Undo) pressed
+Debug: Calling GNEUndoList::undo()
+Debug: Setting previous attribute angle '2.00' into poly 'poly_1'
+Debug: Setting previous attribute angle '1.00' into poly 'poly_0'
 Debug: Keys Ctrl+Z (Undo) pressed
 Debug: Calling GNEUndoList::undo()
 Debug: Removing poly 'poly_1' from viewNet
 GLDebug: 	Removed object polygon:poly_1 from SUMORTree with boundary 12.00,-2.00,42.00,28.00
 Debug: Removing poly 'poly_0' from viewNet
 GLDebug: 	Removed object polygon:poly_0 from SUMORTree with boundary -8.00,-2.00,22.00,28.00
-Debug: Keys Ctrl+Z (Undo) pressed
-Debug: Keys Ctrl+Z (Undo) pressed
-Debug: Keys Ctrl+Z (Undo) pressed
 Debug: Keys Ctrl+Y (Redo) pressed
 Debug: Calling GNEUndoList::redo()
 Debug: Adding poly 'poly_0' into viewNet
@@ -43,8 +40,17 @@ GLDebug: 	Inserted polygon:poly_0 into SUMORTree with boundary -8.00,-2.00,22.00
 Debug: Adding poly 'poly_1' into viewNet
 GLDebug: 	Inserted polygon:poly_1 into SUMORTree with boundary 12.00,-2.00,42.00,28.00
 Debug: Keys Ctrl+Y (Redo) pressed
+Debug: Calling GNEUndoList::redo()
+Debug: Setting new attribute angle '-5.00' into poly 'poly_0'
+Debug: Setting new attribute angle '-5.00' into poly 'poly_1'
 Debug: Keys Ctrl+Y (Redo) pressed
+Debug: Calling GNEUndoList::redo()
+Debug: Setting new attribute angle '5.00' into poly 'poly_0'
+Debug: Setting new attribute angle '5.00' into poly 'poly_1'
 Debug: Keys Ctrl+Y (Redo) pressed
+Debug: Calling GNEUndoList::redo()
+Debug: Setting new attribute angle '10.00' into poly 'poly_0'
+Debug: Setting new attribute angle '10.00' into poly 'poly_1'
 Debug: Additionals saved
 GLDebug: Removing junctions during recomputing
 GLDebug: 	Removed object junction:gneJ0 from SUMORTree with boundary -12.00,-12.00,12.00,12.00
@@ -62,8 +68,6 @@ Debug: Created connection 'fromgneE0_0togneE1_0' in retrieveGNEConnection()
 Debug: Created connection 'fromgneE1_0togneE0_0' in retrieveGNEConnection()
 Debug: Removing poly 'poly_1' from net in ~GNEChange_Shape()
 GLDebug: 	Removed object polygon:poly_1 from SUMORTree with boundary 12.00,-2.00,42.00,28.00
-Debug: Additionals has to be saved
-Debug: Current saving Status: net saved, additionals unsaved, demand elements saved, data sets saved
 Debug: delete poly 'poly_1' in ~GNEChange_Shape()
 Debug: Removing poly 'poly_0' from net in ~GNEChange_Shape()
 GLDebug: 	Removed object polygon:poly_0 from SUMORTree with boundary -8.00,-2.00,22.00,28.00

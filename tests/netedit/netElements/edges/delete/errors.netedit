@@ -1,11 +1,7 @@
 Debug: Selected item 'DEFAULT_PEDTYPE' in DemandElementSelector
 Debug: Adding busStop 'busStop_3_2_0' in GNEChange_Additional
-Debug: Additionals has to be saved
-Debug: Current saving Status: net saved, additionals unsaved, demand elements saved, data sets saved
 Debug: Adding busStop 'busStop_4_2_2' in GNEChange_Additional
 Debug: Adding busStop 'busStop_8_2_1' in GNEChange_Additional
-Debug: net has to be saved
-Debug: Current saving Status: net unsaved, additionals unsaved, demand elements saved, data sets saved
 Debug: Key F5 (Compute) pressed
 Debug: Created connection 'from1_1to5_1' in retrieveGNEConnection()
 Debug: Created connection 'from2_1to6_1' in retrieveGNEConnection()
@@ -39,8 +35,6 @@ Debug: Created crossing ':Center_c0' in retrieveGNECrossing()
 Debug: Created crossing ':Center_c1' in retrieveGNECrossing()
 Debug: Removing busStop 'busStop_3_2_0' in GNEChange_Additional
 Debug: Setting new attribute edges '7' into crossing ':Center_c1'
-Debug: net has to be saved
-Debug: Current saving Status: net unsaved, additionals unsaved, demand elements saved, data sets saved
 Debug: Removing connection '6_0->3_2' from edge '6'
 Debug: Deleting unreferenced connection 'from6_0to3_2' in removeConnection()
 Debug: Removing connection '6_0->3_1' from edge '6'
@@ -130,6 +124,7 @@ Debug: Created connection 'from5_0to2_0' in retrieveGNEConnection()
 Debug: Created connection 'from5_1to2_1' in retrieveGNEConnection()
 Debug: Created connection 'from6_0to1_0' in retrieveGNEConnection()
 Debug: Created connection 'from6_1to1_1' in retrieveGNEConnection()
+Debug: Created connection 'from7_1to1_0' in retrieveGNEConnection()
 Debug: Created connection 'from7_2to1_0' in retrieveGNEConnection()
 Debug: Created connection 'from7_3to1_1' in retrieveGNEConnection()
 Debug: Created connection 'from7_3to2_1' in retrieveGNEConnection()
@@ -143,6 +138,7 @@ Debug: invalidating (removing) connections of edge '4' due it were guessed
 Debug: Setting previous attribute modificationStatusNotForPrinting 'guessed' into junction 'Center'
 Debug: Setting previous attribute modificationStatusNotForPrinting 'guessed' into edge '7'
 Debug: invalidating (removing) connections of edge '7' due it were guessed
+Debug: Deleting unreferenced connection 'from7_1to1_0' in clearGNEConnections()
 Debug: Deleting unreferenced connection 'from7_2to1_0' in clearGNEConnections()
 Debug: Deleting unreferenced connection 'from7_3to1_1' in clearGNEConnections()
 Debug: Deleting unreferenced connection 'from7_3to2_1' in clearGNEConnections()
@@ -334,6 +330,7 @@ Debug: Created connection 'from5_0to2_0' in retrieveGNEConnection()
 Debug: Created connection 'from5_1to2_1' in retrieveGNEConnection()
 Debug: Created connection 'from6_0to1_0' in retrieveGNEConnection()
 Debug: Created connection 'from6_1to1_1' in retrieveGNEConnection()
+Debug: Created connection 'from7_1to1_0' in retrieveGNEConnection()
 Debug: Created connection 'from7_2to1_0' in retrieveGNEConnection()
 Debug: Created connection 'from7_3to1_1' in retrieveGNEConnection()
 Debug: Created connection 'from7_3to2_1' in retrieveGNEConnection()
@@ -382,6 +379,7 @@ Debug: Deleting unreferenced lane '7_0' in GNEEdge destructor
 Debug: Deleting unreferenced lane '7_1' in GNEEdge destructor
 Debug: Deleting unreferenced lane '7_2' in GNEEdge destructor
 Debug: Deleting unreferenced lane '7_3' in GNEEdge destructor
+Debug: Deleting unreferenced connection 'from7_1to1_0' in GNEEdge destructor
 Debug: Deleting unreferenced connection 'from7_2to1_0' in GNEEdge destructor
 Debug: Deleting unreferenced connection 'from7_3to1_1' in GNEEdge destructor
 Debug: Deleting unreferenced connection 'from7_3to2_1' in GNEEdge destructor

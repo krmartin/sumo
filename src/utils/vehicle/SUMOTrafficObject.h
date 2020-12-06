@@ -111,7 +111,13 @@ public:
      */
     virtual const MSEdge* getEdge() const = 0;
 
-    /** @brief Returns the slope of the road at object's position
+    /** @brief Returns the lane the object is currently at
+     *
+     * @return The current lane or nullptr if the object is not on a lane
+     */
+    virtual const MSLane* getLane() const = 0;
+
+    /** @brief Returns the slope of the road at object's position in degrees
      * @return The slope
      */
     virtual double getSlope() const = 0;

@@ -569,6 +569,9 @@ public:
     /// @brief if this edge is an internal edge, return its first normal predecessor, otherwise the edge itself
     const MSEdge* getNormalBefore() const;
 
+    /// @brief if this edge is an internal edge, return its first normal successor, otherwise the edge itself
+    const MSEdge* getNormalSuccessor() const;
+
     /// @brief Returns whether the vehicle (class) is not allowed on the edge
     inline bool prohibits(const SUMOVehicle* const vehicle) const {
         if (vehicle == nullptr) {
@@ -731,6 +734,9 @@ public:
      * @param[in] position The vehicle shall be positioned in the interval [position - t, position + t], where t is some tolerance
      */
     SUMOVehicle* getWaitingVehicle(MSTransportable* transportable, const double position) const;
+
+    /// @brief update meso segment parameters
+    void updateMesoType();
 
     /** @brief Inserts edge into the static dictionary
         Returns true if the key id isn't already in the dictionary. Otherwise

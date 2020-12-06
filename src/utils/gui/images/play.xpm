@@ -1,5 +1,6 @@
 /* XPM */
 static const char *play_xpm[]={
+/* columns rows colors chars-per-pixel */
 "15 16 29 1",
 "# c #000000",
 "v c #5fa400",
@@ -30,6 +31,7 @@ static const char *play_xpm[]={
 "b c #9fff1b",
 "a c #a3ff23",
 ". c None",
+/* pixels */
 "..##...........",
 "..#a##.........",
 "..#bcd#........",
@@ -37,7 +39,7 @@ static const char *play_xpm[]={
 "..#efghi##.....",
 "..#fjkilmn#....",
 "..#jkilopqr#...",
-"..#ksloptruv##.",
+"..#ksloptruv#..",
 "..#slowtxuv#...",
 "..#yoptxzv#....",
 "..#owtxz##.....",
@@ -45,4 +47,5 @@ static const char *play_xpm[]={
 "..#tAz#........",
 "..#A##.........",
 "..##...........",
-"..............."};
+"..............."
+};

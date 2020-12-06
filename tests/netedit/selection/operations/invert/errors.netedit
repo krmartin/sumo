@@ -1,7 +1,5 @@
 Debug: Selected item 'DEFAULT_PEDTYPE' in DemandElementSelector
 Debug: Adding e1Detector 'detector1' in GNEChange_Additional
-Debug: Additionals has to be saved
-Debug: Current saving Status: net saved, additionals unsaved, demand elements saved, data sets saved
 Debug: Adding e1Detector 'detector2' in GNEChange_Additional
 Debug: Adding e1Detector 'detector3' in GNEChange_Additional
 Debug: Adding e1Detector 'detector4' in GNEChange_Additional
@@ -17,8 +15,6 @@ Debug: Adding poi 'POI_2' into viewNet
 Debug: Adding poi 'POI_3' into viewNet
 Debug: Adding poiLane 'POI_4' into viewNet
 Debug: Adding poiLane 'POI_5' into viewNet
-Debug: net has to be saved
-Debug: Current saving Status: net unsaved, additionals unsaved, demand elements saved, data sets saved
 Debug: Key F5 (Compute) pressed
 Debug: Created connection 'from5_1to4_1' in retrieveGNEConnection()
 Debug: Created connection 'from5_1to2_1' in retrieveGNEConnection()
@@ -45,7 +41,6 @@ Debug: Setting new attribute selected '1' into edge '6'
 Debug: Setting new attribute selected '1' into edge '7'
 Debug: Setting new attribute selected '1' into edge '8'
 Debug: Setting new attribute selected '1' into junction 'Center'
-Debug: Setting new attribute selected '1' into poi 'POI_3'
 Debug: Setting new attribute selected '1' into taz 'TAZ'
 Debug: Setting new attribute selected '1' into e1Detector 'detector2'
 Debug: Setting new attribute selected '1' into e1Detector 'detector6'
@@ -92,14 +87,12 @@ Debug: Setting new attribute selected 'false' into taz 'TAZ'
 Debug: Setting new attribute selected 'true' into poi 'POI_0'
 Debug: Setting new attribute selected 'true' into poi 'POI_1'
 Debug: Setting new attribute selected 'true' into poi 'POI_2'
-Debug: Setting new attribute selected 'false' into poi 'POI_3'
+Debug: Setting new attribute selected 'true' into poi 'POI_3'
 Debug: Setting new attribute selected 'true' into poiLane 'POI_4'
 Debug: Setting new attribute selected 'true' into poiLane 'POI_5'
 Debug: Key DEL (delete) pressed
 Debug: Setting new attribute modificationStatusNotForPrinting 'modified' into edge '6'
 Debug: declaring connections of edge '6' as loaded (It will not be removed)
-Debug: net has to be saved
-Debug: Current saving Status: net unsaved, additionals unsaved, demand elements saved, data sets saved
 Debug: Setting new attribute modificationStatusNotForPrinting 'modified' into edge '8'
 Debug: declaring connections of edge '8' as loaded (It will not be removed)
 Debug: Setting new attribute modificationStatusNotForPrinting 'modified' into edge '5'
@@ -335,8 +328,10 @@ Debug: Removing junction 'D' from net
 Debug: Removing poi 'POI_0' from viewNet
 Debug: Removing poi 'POI_1' from viewNet
 Debug: Removing poi 'POI_2' from viewNet
+Debug: Removing poi 'POI_3' from viewNet
 Debug: Keys Ctrl+Z (Undo) pressed
 Debug: Calling GNEUndoList::undo()
+Debug: Adding poi 'POI_3' into viewNet
 Debug: Adding poi 'POI_2' into viewNet
 Debug: Adding poi 'POI_1' into viewNet
 Debug: Adding poi 'POI_0' into viewNet
@@ -845,6 +840,7 @@ Debug: Removing junction 'D' from net
 Debug: Removing poi 'POI_0' from viewNet
 Debug: Removing poi 'POI_1' from viewNet
 Debug: Removing poi 'POI_2' from viewNet
+Debug: Removing poi 'POI_3' from viewNet
 Debug: Keys Ctrl+Y (Redo) pressed
 Debug: Additionals saved
 Debug: Deleting unreferenced junction 'D' in GNEChange_Attribute
@@ -905,9 +901,6 @@ Debug: Deleting unreferenced lane '1_1' in GNEEdge destructor
 Debug: Deleting unreferenced lane '1_2' in GNEEdge destructor
 Debug: delete poiLane 'POI_5' in ~GNEChange_Shape()
 Debug: delete poiLane 'POI_4' in ~GNEChange_Shape()
-Debug: Removing poi 'POI_3' from net in ~GNEChange_Shape()
-Debug: Additionals has to be saved
-Debug: Current saving Status: net saved, additionals unsaved, demand elements saved, data sets saved
 Debug: delete poi 'POI_3' in ~GNEChange_Shape()
 Debug: delete poi 'POI_2' in ~GNEChange_Shape()
 Debug: delete poi 'POI_1' in ~GNEChange_Shape()

@@ -40,7 +40,6 @@
 #define LOOK_FORWARD 10.
 
 #define JAM_FACTOR 1.
-//#define JAM_FACTOR 2. // VARIANT_8 (makes vehicles more focused but also more "selfish")
 
 #define LCA_RIGHT_IMPATIENCE -1.
 #define CUT_IN_LEFT_SPEED_THRESHOLD 27.
@@ -54,11 +53,7 @@
 #define HELP_OVERTAKE  (10.0 / 3.6)
 #define MIN_FALLBEHIND  (7.0 / 3.6)
 
-#define KEEP_RIGHT_HEADWAY 2.0
-
 #define URGENCY 2.0
-
-#define ROUNDABOUT_DIST_BONUS 100.0
 
 #define KEEP_RIGHT_TIME 5.0 // the number of seconds after which a vehicle should move to the right lane
 #define KEEP_RIGHT_ACCEPTANCE 7.0 // calibration factor for determining the desire to keep right
@@ -1023,7 +1018,7 @@ MSLCM_SL2015::_wantsChangeSublane(
     double currentDist = 0;
     double neighDist = 0;
     int currIdx = 0;
-    MSLane* prebLane = myVehicle.getLane();
+    const MSLane* prebLane = myVehicle.getLane();
     if (prebLane->getEdge().isInternal()) {
         // internal edges are not kept inside the bestLanes structure
         prebLane = prebLane->getLinkCont()[0]->getLane();
@@ -1425,6 +1420,7 @@ MSLCM_SL2015::_wantsChangeSublane(
     const double leftMax = MAX2(
                                myVehicle.getLane()->getRightSideOnEdge() + myVehicle.getLane()->getWidth(),
                                neighLane.getRightSideOnEdge() + neighLane.getWidth());
+    const double rightMin = MIN2(myVehicle.getLane()->getRightSideOnEdge(), neighLane.getRightSideOnEdge());
     assert(leftMax <= edge.getWidth());
     int sublaneCompact = MAX2(iMin, rightmostOnEdge - 1); // try to compactify to the right by default
 
@@ -1438,8 +1434,15 @@ MSLCM_SL2015::_wantsChangeSublane(
                 << "\n";
 #endif
     const double laneBoundary = laneOffset < 0 ? myVehicle.getLane()->getRightSideOnEdge() : neighLane.getRightSideOnEdge();
-    for (int i = iMin; i < (int)sublaneSides.size(); ++i) {
-        if (sublaneSides[i] + vehWidth < leftMax) {
+    // if there is a neighboring lane we could change to, check sublanes on all lanes of the edge
+    // but restrict maneuver to the currently visible lanes (current, neigh) to ensure safety
+    // This way we can discover a fast lane beyond the immediate neighbor lane
+    const double maxLatDist = leftMax - leftVehSide;
+    const double minLatDist = rightMin - rightVehSide;
+    const int iStart = laneOffset == 0 ? iMin : 0;
+    const double rightEnd = laneOffset == 0 ? leftMax : edge.getWidth();
+    for (int i = iStart; i < (int)sublaneSides.size(); ++i) {
+        if (sublaneSides[i] + vehWidth < rightEnd) {
             // i is the rightmost sublane and the left side of vehicles still fits on the edge,
             // compute min speed of all sublanes covered by the vehicle in this case
             double vMin = myExpectedSublaneSpeeds[i];
@@ -1455,7 +1458,7 @@ MSLCM_SL2015::_wantsChangeSublane(
                 vMin *= (1 - myLaneDiscipline);
             }
             const double relativeGain = (vMin - defaultNextSpeed) / MAX2(vMin, RELGAIN_NORMALIZATION_MIN_SPEED);
-            const double currentLatDist = sublaneSides[i] - rightVehSide;
+            const double currentLatDist = MIN2(MAX2(sublaneSides[i] - rightVehSide, minLatDist), maxLatDist);
             // @note this is biased for changing to the left since we compare the sublanes in ascending order
             if (relativeGain > maxGain) {
                 maxGain = relativeGain;

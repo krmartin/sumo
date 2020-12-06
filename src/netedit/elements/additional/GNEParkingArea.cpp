@@ -74,6 +74,10 @@ GNEParkingArea::drawGL(const GUIVisualizationSettings& s) const {
     const double parkingAreaExaggeration = s.addSize.getExaggeration(s, this);
     // first check if additional has to be drawn
     if (s.drawAdditionals(parkingAreaExaggeration) && myNet->getViewNet()->getDataViewOptions().showAdditionals()) {
+        // check if boundary has to be drawn
+        if (s.drawBoundaries) {
+            GLHelper::drawBoundary(getCenteringBoundary());
+        }
         // declare colors
         RGBColor baseColor, signColor;
         // set colors
@@ -100,16 +104,16 @@ GNEParkingArea::drawGL(const GUIVisualizationSettings& s) const {
         // draw detail
         if (s.drawDetail(s.detailSettings.stoppingPlaceDetails, parkingAreaExaggeration)) {
             // draw sign
-            drawSign(s, parkingAreaExaggeration, baseColor, signColor, "H");
+            drawSign(s, parkingAreaExaggeration, baseColor, signColor, "P");
             // draw lock icon
             GNEViewNetHelper::LockIcon::drawLockIcon(this, myAdditionalGeometry, parkingAreaExaggeration, 0, 0, true);
         }
         // pop draw matrix
         glPopMatrix();
-        // Draw name if isn't being drawn for selecting
-        drawName(getPositionInView(), s.scale, s.addName);
         // Pop name
         glPopName();
+        // Draw additional ID
+        drawAdditionalID(s);
         // draw additional name
         drawAdditionalName(s);
         // check if dotted contours has to be drawn
@@ -118,6 +122,10 @@ GNEParkingArea::drawGL(const GUIVisualizationSettings& s) const {
         }
         if (s.drawDottedContour() || myNet->getViewNet()->getFrontAttributeCarrier() == this) {
             GNEGeometry::drawDottedContourShape(GNEGeometry::DottedContourType::FRONT, s, myAdditionalGeometry.getShape(), myWidth, parkingAreaExaggeration);
+        }
+        // draw child spaces
+        for (const auto& parkingSpace : getChildAdditionals()) {
+            parkingSpace->drawGL(s);
         }
         // draw child demand elements
         for (const auto& demandElement : getChildDemandElements()) {

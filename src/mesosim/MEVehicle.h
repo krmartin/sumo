@@ -70,7 +70,7 @@ public:
     double getAngle() const;
 
 
-    /** @brief Returns the slope of the road at vehicle's position
+    /** @brief Returns the slope of the road at vehicle's position in degrees
      * @return The slope
      */
     double getSlope() const;
@@ -78,7 +78,7 @@ public:
     /** @brief Returns the lane the vehicle is on
     * @return The vehicle's current lane
     */
-    MSLane* getLane() const {
+    const MSLane* getLane() const {
         return nullptr;
     }
 
@@ -150,10 +150,11 @@ public:
     virtual bool isIdling() const;
 
 
-    /** @brief Returns whether the vehicle is parking
-     * @return whether the vehicle is parking
+    /** @brief registers vehicle with the given link
+     *
+     * @param[in] link the link on which the car shall register its approach
      */
-    bool isParking() const;
+    void setApproaching(MSLink* link);
 
     /// @brief Returns the remaining stop duration for a stopped vehicle or 0
     SUMOTime remainingStopDuration() const {
@@ -163,33 +164,20 @@ public:
     ///@brief ends the current stop and performs loading/unloading
     void processStop();
 
-    /** @brief Returns whether the vehicle is on a triggered stop
-     * @return whether the vehicle is on a triggered stop
-     */
-    bool isStoppedTriggered() const;
-
-    /** @brief return whether the given position is within range of the current stop
-     */
-    bool isStoppedInRange(const double pos, const double tolerance) const;
-
     /** @brief Returns whether the vehicle stops at the given stopping place */
     bool stopsAt(MSStoppingPlace* /*stop*/) const {
         return false;
-    };
+    }
 
     bool stopsAtEdge(const MSEdge* /*edge*/) const {
         return false;
-    };
+    }
 
-    /** @brief Check whether we reached a stop and modify the stop attributes accordingly
-     */
-    bool checkStopped();
-
-    /** @brief Returns until when to stop at the current segment
+    /** @brief Returns until when to stop at the current segment and sets the information that the stop has been reached
      * @param[in] time the current time
      * @return stop time for the segment
      */
-    SUMOTime getStoptime(SUMOTime time) const;
+    SUMOTime checkStop(SUMOTime time);
 
 
     /// @brief get distance for coming to a stop (used for rerouting checks)
@@ -341,7 +329,7 @@ public:
     double getCurrentStoppingTimeSeconds() const;
 
     /// Replaces the current route by the given one
-    bool replaceRoute(const MSRoute* route,  const std::string& info, bool onInit = false, int offset = 0, bool addStops = true, bool removeStops = true);
+    bool replaceRoute(const MSRoute* route,  const std::string& info, bool onInit = false, int offset = 0, bool addRouteStops = true, bool removeStops = true);
 
     /** @brief Returns whether the vehicle is allowed to pass the next junction
      * @return true iff the vehicle may drive over the next junction

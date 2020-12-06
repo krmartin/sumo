@@ -251,6 +251,17 @@ public:
      */
     bool replaceRouteEdges(ConstMSEdgeVector& edges, double cost, double savings, const std::string& info, bool onInit = false, bool check = false, bool removeStops = true);
 
+    /** @brief Replaces the current route by the given one
+     *
+     * It is possible that the new route is not accepted, if it does not
+     *  contain the vehicle's current edge.
+     *
+     * @param[in] route The new route to pass
+     * @param[in] info Information regarding the replacement
+     * @param[in] removeStops Whether stops should be removed if they do not fit onto the new route
+     * @return Whether the new route was accepted
+     */
+    virtual bool replaceRoute(const MSRoute* route, const std::string& info, bool onInit = false, int offset = 0, bool addStops = true, bool removeStops = true);
 
     /** @brief Returns the vehicle's acceleration
      *
@@ -258,13 +269,6 @@ public:
      * @return The acceleration
      */
     virtual double getAcceleration() const;
-
-    /** @brief Returns the slope of the road at vehicle's position
-     *
-     * This default implementation returns always 0.
-     * @return The slope
-     */
-    virtual double getSlope() const;
 
     /** @brief Called when the vehicle is inserted into the network
      *
@@ -285,11 +289,18 @@ public:
         return getDeparture() - getParameter().depart;
     }
 
-    /** @brief Returns the public transport stop delay in seconds
+    /** @brief Returns the estimated public transport stop (departure) delay in seconds
      */
     virtual double getStopDelay() const {
         /// @todo implement for meso
         return -1;
+    }
+
+    /** @brief Returns the estimated public transport stop arrival delay in seconds
+     */
+    virtual double getStopArrivalDelay() const {
+        /// @todo implement for meso
+        return INVALID_DOUBLE;
     }
 
     /** @brief Returns this vehicle's real departure position
@@ -505,6 +516,20 @@ public:
      * @return Whether the vehicle has stopped
      */
     bool isStopped() const;
+
+    /** @brief Returns whether the vehicle is parking
+     * @return whether the vehicle is parking
+     */
+    bool isParking() const;
+
+    /** @brief Returns whether the vehicle is on a triggered stop
+     * @return whether the vehicle is on a triggered stop
+     */
+    bool isStoppedTriggered() const;
+
+    /** @brief return whether the given position is within range of the current stop
+     */
+    bool isStoppedInRange(const double pos, const double tolerance) const;
 
     /** @brief Returns whether the vehicle has to stop somewhere
      * @return Whether the vehicle has to stop somewhere
@@ -750,7 +775,6 @@ public:
         return std::make_pair(nullptr, -1);
     }
 
-protected:
     /** @brief (Re-)Calculates the arrival position and lane from the vehicle parameters
      */
     void calculateArrivalParams();

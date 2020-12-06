@@ -36,6 +36,7 @@
 #include <utils/gui/images/GUITextureSubSys.h>
 #include <utils/gui/windows/GUIAppEnum.h>
 #include <utils/options/OptionsCont.h>
+#include <utils/gui/div/GUIDesigns.h>
 
 #include "GNEConnection.h"
 #include "GNEJunction.h"
@@ -48,15 +49,15 @@
 
 GNEJunction::GNEJunction(GNENet* net, NBNode* nbn, bool loaded) :
     GNENetworkElement(net, nbn->getID(), GLO_JUNCTION, SUMO_TAG_JUNCTION,
-        {}, {}, {}, {}, {}, {}, {}, {}),
-    myNBNode(nbn),
-    myMaxDrawingSize(1),
-    myAmCreateEdgeSource(false),
-    myLogicStatus(loaded ? FEATURE_LOADED : FEATURE_GUESSED),
-    myAmResponsible(false),
-    myHasValidLogic(loaded),
-    myAmTLSSelected(false),
-    myColorForMissingConnections(false) {
+{}, {}, {}, {}, {}, {}, {}, {}),
+myNBNode(nbn),
+myMaxDrawingSize(1),
+myAmCreateEdgeSource(false),
+myLogicStatus(loaded ? FEATURE_LOADED : FEATURE_GUESSED),
+myAmResponsible(false),
+myHasValidLogic(loaded),
+myAmTLSSelected(false),
+myColorForMissingConnections(false) {
     // update centering boundary without updating grid
     updateCenteringBoundary(false);
 }
@@ -108,7 +109,7 @@ GNEJunction::getPositionInView() const {
 }
 
 
-GNEMoveOperation* 
+GNEMoveOperation*
 GNEJunction::getMoveOperation(const double shapeOffset) {
     // edit depending if shape is being edited
     if (isShapeEdited()) {
@@ -140,7 +141,7 @@ GNEJunction::getMoveOperation(const double shapeOffset) {
 }
 
 
-void 
+void
 GNEJunction::removeGeometryPoint(const Position clickedPosition, GNEUndoList* undoList) {
     // edit depending if shape is being edited
     if (isShapeEdited()) {
@@ -242,7 +243,7 @@ GNEJunction::getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) {
     if (myNet->getViewNet()->getEditModes().isCurrentSupermodeNetwork()) {
         //if (parent.getVisualisationSettings()->editMode != GNE_MODE_CONNECT) {
         //    // XXX if joinable
-        //    new FXMenuCommand(ret, "Join adjacent edges", 0, &parent, MID_GNE_JOIN_EDGES);
+        //    GUIDesigns::buildFXMenuCommand(ret, "Join adjacent edges", 0, &parent, MID_GNE_JOIN_EDGES);
         //}
         const int numEndpoints = (int)myNBNode->getEndPoints().size();
         // check if we're handling a selection
@@ -252,20 +253,20 @@ GNEJunction::getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) {
                                (myNet->getViewNet()->getEditModes().networkEditMode == NetworkEditMode::NETWORK_TLS) ||
                                (myNet->getViewNet()->getEditModes().networkEditMode == NetworkEditMode::NETWORK_CREATE_EDGE);
         // create menu commands
-        FXMenuCommand* mcCustomShape = new FXMenuCommand(ret, "Set custom junction shape", nullptr, &parent, MID_GNE_JUNCTION_EDIT_SHAPE);
-        FXMenuCommand* mcResetCustomShape = new FXMenuCommand(ret, "Reset junction shape", nullptr, &parent, MID_GNE_JUNCTION_RESET_SHAPE);
-        FXMenuCommand* mcReplace = new FXMenuCommand(ret, "Replace junction by geometry point", nullptr, &parent, MID_GNE_JUNCTION_REPLACE);
-        FXMenuCommand* mcSplit = new FXMenuCommand(ret, ("Split junction (" + toString(numEndpoints) + " end points)").c_str(), nullptr, &parent, MID_GNE_JUNCTION_SPLIT);
-        FXMenuCommand* mcSplitReconnect = new FXMenuCommand(ret, "Split junction and reconnect", nullptr, &parent, MID_GNE_JUNCTION_SPLIT_RECONNECT);
+        FXMenuCommand* mcCustomShape = GUIDesigns::buildFXMenuCommand(ret, "Set custom junction shape", nullptr, &parent, MID_GNE_JUNCTION_EDIT_SHAPE);
+        FXMenuCommand* mcResetCustomShape = GUIDesigns::buildFXMenuCommand(ret, "Reset junction shape", nullptr, &parent, MID_GNE_JUNCTION_RESET_SHAPE);
+        FXMenuCommand* mcReplace = GUIDesigns::buildFXMenuCommand(ret, "Replace junction by geometry point", nullptr, &parent, MID_GNE_JUNCTION_REPLACE);
+        FXMenuCommand* mcSplit = GUIDesigns::buildFXMenuCommand(ret, "Split junction (" + toString(numEndpoints) + " end points)", nullptr, &parent, MID_GNE_JUNCTION_SPLIT);
+        FXMenuCommand* mcSplitReconnect = GUIDesigns::buildFXMenuCommand(ret, "Split junction and reconnect", nullptr, &parent, MID_GNE_JUNCTION_SPLIT_RECONNECT);
         if (myNBNode->isRoundabout()) {
-            new FXMenuCommand(ret, "Select roundabout", nullptr, &parent, MID_GNE_JUNCTION_SELECT_ROUNDABOUT);
+            GUIDesigns::buildFXMenuCommand(ret, "Select roundabout", nullptr, &parent, MID_GNE_JUNCTION_SELECT_ROUNDABOUT);
         } else {
             double radius = myNBNode->getRadius();
             if (radius == NBNode::UNSPECIFIED_RADIUS) {
                 radius = OptionsCont::getOptions().getFloat("default.junctions.radius");
             }
             const std::string menuEntry = "Convert to roundabout (using junction radius " + toString(radius) + ")";
-            FXMenuCommand* mcRoundabout = new FXMenuCommand(ret, menuEntry.c_str(), nullptr, &parent, MID_GNE_JUNCTION_CONVERT_ROUNDABOUT);
+            FXMenuCommand* mcRoundabout = GUIDesigns::buildFXMenuCommand(ret, menuEntry.c_str(), nullptr, &parent, MID_GNE_JUNCTION_CONVERT_ROUNDABOUT);
             if (getChildEdges().size() < 2 ||
                     (myGNEIncomingEdges.size() == 1
                      && myGNEOutgoingEdges.size() == 1
@@ -273,8 +274,8 @@ GNEJunction::getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) {
                 mcRoundabout->disable();
             }
         }
-        FXMenuCommand* mcClearConnections = new FXMenuCommand(ret, "Clear connections", nullptr, &parent, MID_GNE_JUNCTION_CLEAR_CONNECTIONS);
-        FXMenuCommand* mcResetConnections = new FXMenuCommand(ret, "Reset connections", nullptr, &parent, MID_GNE_JUNCTION_RESET_CONNECTIONS);
+        FXMenuCommand* mcClearConnections = GUIDesigns::buildFXMenuCommand(ret, "Clear connections", nullptr, &parent, MID_GNE_JUNCTION_CLEAR_CONNECTIONS);
+        FXMenuCommand* mcResetConnections = GUIDesigns::buildFXMenuCommand(ret, "Reset connections", nullptr, &parent, MID_GNE_JUNCTION_RESET_CONNECTIONS);
         // check if current mode  is correct
         if (wrongMode) {
             mcCustomShape->disable();
@@ -1045,6 +1046,12 @@ GNEJunction::getAttribute(SumoXMLAttr key) const {
             } else {
                 return "No TLS";
             }
+        case SUMO_ATTR_TLLAYOUT:
+            if (isAttributeEnabled(SUMO_ATTR_TLLAYOUT)) {
+                return toString((*myNBNode->getControllingTLS().begin())->getLayout());
+            } else {
+                return "No TLS";
+            }
         case SUMO_ATTR_TLID:
             if (isAttributeEnabled(SUMO_ATTR_TLID)) {
                 return toString((*myNBNode->getControllingTLS().begin())->getID());
@@ -1163,6 +1170,26 @@ GNEJunction::setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList
             undoList->p_end();
             break;
         }
+        case SUMO_ATTR_TLLAYOUT: {
+            undoList->p_begin("change " + getTagStr() + " tlLayout");
+            const std::set<NBTrafficLightDefinition*> copyOfTls = myNBNode->getControllingTLS();
+            for (const auto& oldTLS : copyOfTls) {
+                std::vector<NBNode*> copyOfNodes = oldTLS->getNodes();
+                NBOwnTLDef* newTLS = new NBOwnTLDef(oldTLS->getID(), oldTLS->getOffset(), oldTLS->getType());
+                newTLS->setLayout(SUMOXMLDefinitions::TrafficLightLayouts.get(value));
+                newTLS->setProgramID(oldTLS->getProgramID());
+                for (const auto& node : copyOfNodes) {
+                    GNEJunction* oldJunction = myNet->retrieveJunction(node->getID());
+                    undoList->add(new GNEChange_TLS(oldJunction, oldTLS, false), true);
+                }
+                for (const auto& node : copyOfNodes) {
+                    GNEJunction* oldJunction = myNet->retrieveJunction(node->getID());
+                    undoList->add(new GNEChange_TLS(oldJunction, newTLS, true), true);
+                }
+            }
+            undoList->p_end();
+            break;
+        }
         case SUMO_ATTR_TLID: {
             undoList->p_begin("change " + toString(SUMO_TAG_TRAFFIC_LIGHT) + " id");
             const std::set<NBTrafficLightDefinition*> copyOfTls = myNBNode->getControllingTLS();
@@ -1247,6 +1274,8 @@ GNEJunction::isValid(SumoXMLAttr key, const std::string& value) {
             return canParse<double>(value) && (parse<double>(value) >= -1);
         case SUMO_ATTR_TLTYPE:
             return myNBNode->isTLControlled() && SUMOXMLDefinitions::TrafficLightTypes.hasString(value);
+        case SUMO_ATTR_TLLAYOUT:
+            return myNBNode->isTLControlled() && SUMOXMLDefinitions::TrafficLightLayouts.hasString(value);
         case SUMO_ATTR_TLID:
             return myNBNode->isTLControlled() && (value != "");
         case SUMO_ATTR_KEEP_CLEAR:
@@ -1271,6 +1300,7 @@ bool
 GNEJunction::isAttributeEnabled(SumoXMLAttr key) const {
     switch (key) {
         case SUMO_ATTR_TLTYPE:
+        case SUMO_ATTR_TLLAYOUT:
         case SUMO_ATTR_TLID:
             return myNBNode->isTLControlled();
         case SUMO_ATTR_KEEP_CLEAR: {
@@ -1285,6 +1315,12 @@ GNEJunction::isAttributeEnabled(SumoXMLAttr key) const {
         default:
             return true;
     }
+}
+
+
+const std::map<std::string, std::string>&
+GNEJunction::getACParametersMap() const {
+    return myNBNode->getParametersMap();
 }
 
 
@@ -1304,7 +1340,7 @@ GNEJunction::drawTLSIcon(const GUIVisualizationSettings& s) const {
             (myNBNode->isTLControlled()) && !myAmTLSSelected && !s.drawForRectangleSelection) {
         glPushMatrix();
         Position pos = myNBNode->getPosition();
-        glTranslated(pos.x(), pos.y(), 0.1);
+        glTranslated(pos.x(), pos.y(), 0.2);
         glColor3d(1, 1, 1);
         const double halfWidth = 32 / s.scale;
         const double halfHeight = 64 / s.scale;
@@ -1412,6 +1448,9 @@ GNEJunction::setAttribute(SumoXMLAttr key, const std::string& value) {
             }
             break;
         }
+        case SUMO_ATTR_TLLAYOUT:
+            // should not be triggered (handled via GNEChange_TLS)
+            break;
         case SUMO_ATTR_RIGHT_OF_WAY:
             myNBNode->setRightOfWay(SUMOXMLDefinitions::RightOfWayValues.get(value));
             break;
@@ -1437,7 +1476,7 @@ GNEJunction::setAttribute(SumoXMLAttr key, const std::string& value) {
 }
 
 
-void 
+void
 GNEJunction::setMoveShape(const GNEMoveResult& moveResult) {
     // set new position in NBNode without updating grid
     if (isShapeEdited()) {
@@ -1450,7 +1489,7 @@ GNEJunction::setMoveShape(const GNEMoveResult& moveResult) {
 }
 
 
-void 
+void
 GNEJunction::commitMoveShape(const GNEMoveResult& moveResult, GNEUndoList* undoList) {
     // make sure that newShape isn't empty
     if (moveResult.shapeToUpdate.size() > 0) {
@@ -1514,6 +1553,9 @@ GNEJunction::getColorValue(const GUIVisualizationSettings& /* s */, int activeSc
                     return 11;
                 case SumoXMLNodeType::RAIL_CROSSING:
                     return 12;
+                default:
+                    assert(false);
+                    return 0;
             }
         case 3:
             return myNBNode->getPosition().z();

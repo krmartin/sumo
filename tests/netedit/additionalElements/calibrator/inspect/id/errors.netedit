@@ -8,25 +8,21 @@ GLDebug: 	Inserted edge:gneE1 into SUMORTree with boundary -10.00,-10.00,60.00,1
 GLDebug: 	Inserted edge:gneE2 into SUMORTree with boundary -10.00,5.20,60.00,30.00
 GLDebug: 	Inserted edge:gneE3 into SUMORTree with boundary -10.00,10.00,60.00,34.80
 Debug: Selected item 'DEFAULT_PEDTYPE' in DemandElementSelector
-Debug: net has to be saved
-Debug: Current saving Status: net unsaved, additionals saved, demand elements saved, data sets saved
 Debug: Selected item 'busStop' in TagSelector
 Debug: Selected item 'calibrator' in TagSelector
 Debug: Format of optional optional string attribute 'routeProbe' of calibrator with ID 'calibrator_gneE3_0' is invalid; RouteProbe ID contains invalid characters; Default value will be used.
 Debug: Adding calibrator 'calibrator_gneE3_0' in GNEChange_Additional
-Debug: Additionals has to be saved
-Debug: Current saving Status: net saved, additionals unsaved, demand elements saved, data sets saved
-Debug: Format of optional optional string attribute 'routeProbe' of calibrator with ID 'calibrator_gneE3_1' is invalid; RouteProbe ID contains invalid characters; Default value will be used.
-Debug: Adding calibrator 'calibrator_gneE3_1' in GNEChange_Additional
+Debug: Format of optional optional string attribute 'routeProbe' of calibrator with ID 'calibrator_gneE2_1' is invalid; RouteProbe ID contains invalid characters; Default value will be used.
+Debug: Adding calibrator 'calibrator_gneE2_1' in GNEChange_Additional
 Debug: Value 'calibrator_gneE3_0' for attribute id of calibrator isn't valid
 Debug: Value 'Id with spaces' for attribute id of calibrator isn't valid
-Debug: Setting new attribute id 'correctID' into calibrator 'calibrator_gneE3_0'
+Debug: Setting new attribute id 'correctID' into calibrator 'calibrator_gneE2_1'
 Debug: Keys Ctrl+Z (Undo) pressed
 Debug: Calling GNEUndoList::undo()
-Debug: Setting previous attribute id 'calibrator_gneE3_0' into calibrator 'correctID'
+Debug: Setting previous attribute id 'calibrator_gneE2_1' into calibrator 'correctID'
 Debug: Keys Ctrl+Z (Undo) pressed
 Debug: Calling GNEUndoList::undo()
-Debug: Removing calibrator 'calibrator_gneE3_1' in GNEChange_Additional
+Debug: Removing calibrator 'calibrator_gneE2_1' in GNEChange_Additional
 Debug: Keys Ctrl+Z (Undo) pressed
 Debug: Calling GNEUndoList::undo()
 Debug: Removing calibrator 'calibrator_gneE3_0' in GNEChange_Additional
@@ -35,10 +31,10 @@ Debug: Calling GNEUndoList::redo()
 Debug: Adding calibrator 'calibrator_gneE3_0' in GNEChange_Additional
 Debug: Keys Ctrl+Y (Redo) pressed
 Debug: Calling GNEUndoList::redo()
-Debug: Adding calibrator 'calibrator_gneE3_1' in GNEChange_Additional
+Debug: Adding calibrator 'calibrator_gneE2_1' in GNEChange_Additional
 Debug: Keys Ctrl+Y (Redo) pressed
 Debug: Calling GNEUndoList::redo()
-Debug: Setting new attribute id 'correctID' into calibrator 'calibrator_gneE3_0'
+Debug: Setting new attribute id 'correctID' into calibrator 'calibrator_gneE2_1'
 Debug: Additionals saved
 GLDebug: Removing junctions during recomputing
 GLDebug: 	Removed object junction:gneJ0 from SUMORTree with boundary -12.00,-12.00,12.00,12.00
@@ -68,10 +64,8 @@ Debug: Created crossing ':gneJ0_c0' in retrieveGNECrossing()
 Debug: Created crossing ':gneJ0_c1' in retrieveGNECrossing()
 Debug: Created crossing ':gneJ1_c0' in retrieveGNECrossing()
 Debug: Created crossing ':gneJ1_c1' in retrieveGNECrossing()
-Debug: Deleting unreferenced calibrator 'calibrator_gneE3_1'
-Debug: Additionals has to be saved
-Debug: Current saving Status: net saved, additionals unsaved, demand elements saved, data sets saved
 Debug: Deleting unreferenced calibrator 'correctID'
+Debug: Deleting unreferenced calibrator 'calibrator_gneE3_0'
 Debug: Deleting unreferenced edge 'gneE0' in AttributeCarriers destructor
 Debug: Deleting unreferenced lane 'gneE0_0' in GNEEdge destructor
 Debug: Deleting unreferenced connection 'fromgneE0_0togneE1_0' in GNEEdge destructor

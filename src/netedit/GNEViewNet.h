@@ -75,7 +75,7 @@ public:
     std::set<std::pair<std::string, GNEAttributeCarrier*> > getAttributeCarriersInBoundary(const Boundary& boundary, bool forceSelectEdges = false);
 
     /// @brief get objects under cursor
-    const GNEViewNetHelper::ObjectsUnderCursor &getObjectsUnderCursor() const;
+    const GNEViewNetHelper::ObjectsUnderCursor& getObjectsUnderCursor() const;
 
     /** @brief Builds an entry which allows to (de)select the object
      * @param ret The popup menu to add the entry to
@@ -275,10 +275,7 @@ public:
     long onCmdToogleChangeAllPhases(FXObject*, FXSelector, void*);
 
     /// @brief toogle show grid
-    long onCmdToogleShowGridNetwork(FXObject*, FXSelector, void*);
-
-    /// @brief toogle show grid
-    long onCmdToogleShowGridDemand(FXObject*, FXSelector, void*);
+    long onCmdToogleShowGrid(FXObject*, FXSelector, void*);
 
     /// @brief toogle draw vehicles in begin position or spread in lane
     long onCmdToogleDrawSpreadVehicles(FXObject*, FXSelector, void*);
@@ -378,7 +375,7 @@ public:
     GNEViewNetHelper::IntervalBar& getIntervalBar();
 
     /// @brief get inspected attribute carriers
-    const std::vector<GNEAttributeCarrier*> &getInspectedAttributeCarriers() const;
+    const std::vector<GNEAttributeCarrier*>& getInspectedAttributeCarriers() const;
 
     /// @brief set inspected attributeCarrier
     void setInspectedAttributeCarriers(const std::vector<GNEAttributeCarrier*> ACs);

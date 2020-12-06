@@ -91,11 +91,6 @@ MSDevice_Bluelight::notifyMove(SUMOTrafficObject& veh, double /* oldPos */,
 #else
     UNUSED_PARAMETER(newSpeed);
 #endif
-    // check whether another device is present on the vehicle:
-    /*MSDevice_Tripinfo* otherDevice = static_cast<MSDevice_Tripinfo*>(veh.getDevice(typeid(MSDevice_Tripinfo)));
-    if (otherDevice != 0) {
-        std::cout << "  veh '" << veh.getID() << " has device '" << otherDevice->getID() << "'\n";
-    }*/
     //violate red lights  this only need to be done once so shift it todo
     MSVehicle& ego = dynamic_cast<MSVehicle&>(veh);
     MSVehicle::Influencer& redLight = ego.getInfluencer();
@@ -107,9 +102,9 @@ MSDevice_Bluelight::notifyMove(SUMOTrafficObject& veh, double /* oldPos */,
     } else {
         // restore defaults
         ego.getLaneChangeModel().setParameter(toString(SUMO_ATTR_LCA_STRATEGIC_PARAM),
-                ego.getVehicleType().getParameter().getLCParamString(SUMO_ATTR_LCA_STRATEGIC_PARAM, "1"));
+                                              ego.getVehicleType().getParameter().getLCParamString(SUMO_ATTR_LCA_STRATEGIC_PARAM, "1"));
         ego.getLaneChangeModel().setParameter(toString(SUMO_ATTR_LCA_SPEEDGAIN_LOOKAHEAD),
-                ego.getVehicleType().getParameter().getLCParamString(SUMO_ATTR_LCA_SPEEDGAIN_LOOKAHEAD, "5"));
+                                              ego.getVehicleType().getParameter().getLCParamString(SUMO_ATTR_LCA_SPEEDGAIN_LOOKAHEAD, "5"));
     }
     // build a rescue lane for all vehicles on the route of the emergency vehicle within the range of the siren
     MSVehicleType* vt = MSNet::getInstance()->getVehicleControl().getVType(veh.getVehicleType().getID());
@@ -119,18 +114,47 @@ MSDevice_Bluelight::notifyMove(SUMOTrafficObject& veh, double /* oldPos */,
     //use edges on the way of the emergency vehicle
     std::vector<const MSLane*> myUpcomingLanes = ego.getUpcomingLanesUntil(myReactionDist);
     std::vector<const MSEdge*> myUpcomingEdges;
+    std::set<std::string> myUpcomingVehicles;
+    std::set<std::string> lastStepInfluencedVehicles = influencedVehicles;
     //get edgeIDs from Lanes
     for (const MSLane* const l :  myUpcomingLanes) {
         myUpcomingEdges.push_back(&l->getEdge());
     }
-    for (MSVehicleControl::constVehIt vit = vc.loadedVehBegin(); vit != vc.loadedVehEnd(); ++vit) {
-        MSVehicle* veh2 = dynamic_cast<MSVehicle*>(vit->second);
+
+    for (const MSEdge* const e : myUpcomingEdges) {
+        //inform all vehicles on myUpcomingEdges
+        for (const SUMOVehicle* v : e->getVehicles()) {
+            myUpcomingVehicles.insert(v->getID());
+            if (lastStepInfluencedVehicles.count(v->getID()) > 0) {
+                lastStepInfluencedVehicles.erase(v->getID());
+            }
+        }
+    }
+    // reset all vehicles that were in influencedVehicles in the previous step but not in the current step todo refactor
+    for (auto elem : lastStepInfluencedVehicles){
+        influencedVehicles.erase(elem);
+        std::map<std::string, std::string>::iterator it = influencedTypes.find(elem);
+        MSVehicle* veh2 = dynamic_cast<MSVehicle*>(vc.getVehicle(elem));
+        if (it != influencedTypes.end()) {
+            // The vehicle gets back its old VehicleType after the emergency vehicle have passed them
+            MSVehicleType* targetType = MSNet::getInstance()->getVehicleControl().getVType(it->second);
+            //targetType is nullptr if the vehicle type has already changed to its old vehicleType
+            if (targetType != nullptr) {
+                veh2->replaceVehicleType(targetType);
+                veh2->getLaneChangeModel().setParameter(toString(SUMO_ATTR_LCA_STRATEGIC_PARAM),
+                    targetType->getParameter().getLCParamString(SUMO_ATTR_LCA_STRATEGIC_PARAM, "1"));
+            }
+        }    
+    }
+
+    for (std::string vehID : myUpcomingVehicles) {
+        MSVehicle* veh2 = dynamic_cast<MSVehicle*>(vc.getVehicle(vehID));
         assert(veh2 != nullptr);
         if (veh2->getLane() == nullptr) {
             continue;
         }
         //Vehicle only from edge should react
-        if (std::find(myUpcomingEdges.begin(), myUpcomingEdges.end(), &veh2->getLane()->getEdge()) != myUpcomingEdges.end()) { //currentEdgeID == veh2->getEdge()->getID()) {
+        if (std::find(myUpcomingEdges.begin(), myUpcomingEdges.end(), &veh2->getLane()->getEdge()) != myUpcomingEdges.end()) { //currentEdgeID == veh2->getEdge()->getID())
             if (veh2->getDevice(typeid(MSDevice_Bluelight)) != nullptr) {
                 // emergency vehicles should not react
                 continue;
@@ -213,6 +237,48 @@ MSDevice_Bluelight::notifyMove(SUMOTrafficObject& veh, double /* oldPos */,
                 }
             }
         }
+    }
+    // ego is at the end of its current lane and cannot continue
+    if (ego.getBestLanesContinuation().size() == 1 && ego.getLane()->getLength() - ego.getPositionOnLane() <= POSITION_EPS
+            // route continues
+            && myUpcomingEdges.size() > 1) {
+        const MSEdge* currentEdge = &ego.getLane()->getEdge();
+        // move onto the intersection as if there was a connection from the current lane
+        const MSEdge* next = currentEdge->getInternalFollowingEdge(myUpcomingEdges[1]);
+        if (next == nullptr) {
+            next = myUpcomingEdges[1];
+        }
+        // pick the lane that causes the minimizes lateral jump
+        const std::vector<MSLane*>* allowed = next->allowedLanes(ego.getVClass());
+        MSLane* nextLane = next->getLanes().front();
+        double bestJump = std::numeric_limits<double>::max();
+        double newPosLat = 0;
+        if (allowed != nullptr) {
+            for (MSLane* nextCand : *allowed) {
+                for (auto ili : nextCand->getIncomingLanes()) {
+                    if (&ili.lane->getEdge() == currentEdge) {
+                        double jump = fabs(ego.getLatOffset(ili.lane) + ego.getLateralPositionOnLane());
+                        if (jump < bestJump) {
+                            //std::cout << SIMTIME << " nextCand=" << nextCand->getID() << " from=" << ili.lane->getID() << " jump=" << jump << "\n";
+                            bestJump = jump;
+                            nextLane = nextCand;
+                            // stay within newLane
+                            const double maxVehOffset = MAX2(0.0, nextLane->getWidth() - ego.getVehicleType().getWidth()) * 0.5;
+                            newPosLat = ego.getLatOffset(ili.lane) + ego.getLateralPositionOnLane();
+                            newPosLat = MAX2(-maxVehOffset, newPosLat);
+                            newPosLat = MIN2(maxVehOffset, newPosLat);
+                        }
+                    }
+                }
+            }
+        }
+        ego.leaveLane(NOTIFICATION_JUNCTION, nextLane);
+        ego.getLaneChangeModel().cleanupShadowLane();
+        ego.getLaneChangeModel().cleanupTargetLane();
+        ego.setTentativeLaneAndPosition(nextLane, 0, newPosLat); // update position
+        ego.enterLaneAtMove(nextLane);
+        // sublane model must adapt state to the new lane
+        ego.getLaneChangeModel().prepareStep();
     }
     return true; // keep the device
 }

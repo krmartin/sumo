@@ -30,6 +30,7 @@
 #include <utils/gui/globjects/GUIGLObjectPopupMenu.h>
 #include <utils/gui/windows/GUIAppEnum.h>
 #include <utils/options/OptionsCont.h>
+#include <utils/gui/div/GUIDesigns.h>
 
 #include "GNEConnection.h"
 #include "GNEInternalLane.h"
@@ -47,12 +48,12 @@ int NUM_POINTS = 5;
 GNEConnection::GNEConnection(GNELane* from, GNELane* to) :
     GNENetworkElement(from->getNet(), "from" + from->getID() + "to" + to->getID(),
                       GLO_CONNECTION, SUMO_TAG_CONNECTION,
-    {}, {}, {}, {}, {}, {}, {}, {}),
-    myFromLane(from),
-    myToLane(to),
-    myLinkState(LINKSTATE_TL_OFF_NOSIGNAL),
-    mySpecialColor(nullptr),
-    myShapeDeprecated(true) {
+{}, {}, {}, {}, {}, {}, {}, {}),
+myFromLane(from),
+myToLane(to),
+myLinkState(LINKSTATE_TL_OFF_NOSIGNAL),
+mySpecialColor(nullptr),
+myShapeDeprecated(true) {
     // update centering boundary without updating grid
     updateCenteringBoundary(false);
 }
@@ -140,14 +141,14 @@ GNEConnection::getPositionInView() const {
 }
 
 
-GNEMoveOperation* 
+GNEMoveOperation*
 GNEConnection::getMoveOperation(const double shapeOffset) {
     // edit depending if shape is being edited
     if (isShapeEdited()) {
         // get connection
-        const auto &connection = getNBEdgeConnection();
+        const auto& connection = getNBEdgeConnection();
         // get original shape
-        const PositionVector originalShape = connection.customShape.size() > 0? connection.customShape : connection.shape;
+        const PositionVector originalShape = connection.customShape.size() > 0 ? connection.customShape : connection.shape;
         // declare shape to move
         PositionVector shapeToMove = originalShape;
         // first check if in the given shapeOffset there is a geometry point
@@ -175,14 +176,14 @@ GNEConnection::getMoveOperation(const double shapeOffset) {
 }
 
 
-void 
+void
 GNEConnection::removeGeometryPoint(const Position clickedPosition, GNEUndoList* undoList) {
     // edit depending if shape is being edited
     if (isShapeEdited()) {
         // get connection
-        const auto &connection = getNBEdgeConnection();
+        const auto& connection = getNBEdgeConnection();
         // get original shape
-        PositionVector shape = connection.customShape.size() > 0? connection.customShape : connection.shape;
+        PositionVector shape = connection.customShape.size() > 0 ? connection.customShape : connection.shape;
         // check shape size
         if (shape.size() > 2) {
             // obtain index
@@ -298,7 +299,7 @@ GNEConnection::getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) {
     // check if we're in supermode network
     if (myNet->getViewNet()->getEditModes().isCurrentSupermodeNetwork()) {
         // create menu commands
-        FXMenuCommand* mcCustomShape = new FXMenuCommand(ret, "Set custom connection shape", nullptr, &parent, MID_GNE_CONNECTION_EDIT_SHAPE);
+        FXMenuCommand* mcCustomShape = GUIDesigns::buildFXMenuCommand(ret, "Set custom connection shape", nullptr, &parent, MID_GNE_CONNECTION_EDIT_SHAPE);
         // check if menu commands has to be disabled
         NetworkEditMode editMode = myNet->getViewNet()->getEditModes().networkEditMode;
         // check if we're in the correct edit mode
@@ -317,7 +318,7 @@ GNEConnection::updateCenteringBoundary(const bool /*updateGrid*/) {
         // we need to use the center of junction parent as boundary if shape is empty
         const Position junctionParentPosition = myFromLane->getParentEdge()->getParentJunctions().back()->getPositionInView();
         myBoundary = Boundary(junctionParentPosition.x() - 0.1, junctionParentPosition.y() - 0.1,
-            junctionParentPosition.x() + 0.1, junctionParentPosition.x() + 0.1);
+                              junctionParentPosition.x() + 0.1, junctionParentPosition.x() + 0.1);
     } else {
         myBoundary = myConnectionGeometry.getShape().getBoxBoundary();
     }
@@ -418,10 +419,18 @@ GNEConnection::drawGL(const GUIVisualizationSettings& s) const {
             // check if dotted contour has to be drawn (not useful at high zoom)
             if (s.drawDottedContour() || myNet->getViewNet()->isAttributeCarrierInspected(this)) {
                 // calculate dotted geometry
-                GNEGeometry::DottedGeometry dottedConnectionGeometry(s, myConnectionGeometry.getShape(), false);
+                GNEGeometry::DottedGeometry dottedConnectionGeometry(s, shapeSuperposed, false);
                 dottedConnectionGeometry.setWidth(0.1);
                 // use drawDottedContourLane to draw it
                 GNEGeometry::drawDottedContourLane(GNEGeometry::DottedContourType::INSPECT, s, dottedConnectionGeometry, s.connectionSettings.connectionWidth * selectionScale, true, true);
+            }
+            // check if front contour has to be drawn (not useful at high zoom)
+            if (s.drawDottedContour() || (myNet->getViewNet()->getFrontAttributeCarrier() == this)) {
+                // calculate dotted geometry
+                GNEGeometry::DottedGeometry dottedConnectionGeometry(s, shapeSuperposed, false);
+                dottedConnectionGeometry.setWidth(0.1);
+                // use drawDottedContourLane to draw it
+                GNEGeometry::drawDottedContourLane(GNEGeometry::DottedContourType::FRONT, s, dottedConnectionGeometry, s.connectionSettings.connectionWidth * selectionScale, true, true);
             }
         }
     }
@@ -656,6 +665,12 @@ GNEConnection::isAttributeEnabled(SumoXMLAttr key) const {
     }
 }
 
+
+const std::map<std::string, std::string>&
+GNEConnection::getACParametersMap() const {
+    return getNBEdgeConnection().getParametersMap();
+}
+
 // ===========================================================================
 // private
 // ===========================================================================
@@ -732,7 +747,7 @@ GNEConnection::setAttribute(SumoXMLAttr key, const std::string& value) {
 }
 
 
-void 
+void
 GNEConnection::setMoveShape(const GNEMoveResult& moveResult) {
     // set custom shape
     getNBEdgeConnection().customShape = moveResult.shapeToUpdate;

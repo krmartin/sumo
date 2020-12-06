@@ -292,7 +292,8 @@ MSPerson::MSPersonStage_Walking::moveToNextEdge(MSTransportable* person, SUMOTim
         const MSLane* nextLane = getSidewalk<MSEdge, MSLane>(getEdge());
         if (nextLane != nullptr) {
             for (MSMoveReminder* rem : nextLane->getMoveReminders()) {
-                if (rem->notifyEnter(*person, MSMoveReminder::NOTIFICATION_JUNCTION, nextLane)) {;
+                if (rem->notifyEnter(*person, MSMoveReminder::NOTIFICATION_JUNCTION, nextLane)) {
+                    ;
                     myMoveReminders.push_back(rem);
                 }
             }
@@ -393,6 +394,8 @@ void
 MSPerson::MSPersonStage_Access::tripInfoOutput(OutputDevice& os, const MSTransportable* const) const {
     os.openTag("access");
     os.writeAttr("stop", getDestinationStop()->getID());
+    os.writeAttr("depart", time2string(myDeparted));
+    os.writeAttr("arrival", myArrived >= 0 ? time2string(myArrived) : "-1");
     os.writeAttr("duration", myArrived > 0 ? time2string(myArrived - myDeparted) : "-1");
     os.writeAttr("routeLength", myDist);
     os.closeTag();

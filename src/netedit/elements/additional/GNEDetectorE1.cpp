@@ -32,8 +32,9 @@
 // ===========================================================================
 
 GNEDetectorE1::GNEDetectorE1(const std::string& id, GNELane* lane, GNENet* net, double pos, SUMOTime freq, const std::string& filename, const std::string& vehicleTypes, const std::string& name, bool friendlyPos, bool blockMovement) :
-    GNEDetector(id, net, GLO_E1DETECTOR, SUMO_TAG_E1DETECTOR, pos, time2string(freq), filename, vehicleTypes, name, friendlyPos, blockMovement, 
-        {lane}) {
+    GNEDetector(id, net, GLO_E1DETECTOR, SUMO_TAG_E1DETECTOR, pos, time2string(freq), filename, vehicleTypes, name, friendlyPos, blockMovement, {
+    lane
+}) {
     // update centering boundary without updating grid
     updateCenteringBoundary(false);
 }
@@ -125,10 +126,10 @@ GNEDetectorE1::drawGL(const GUIVisualizationSettings& s) const {
         }
         // pop layer matrix
         glPopMatrix();
-        // Draw name if isn't being drawn for selecting
-        drawName(getPositionInView(), s.scale, s.addName);
         // Pop name
         glPopName();
+        // Draw additional ID
+        drawAdditionalID(s);
         // draw additional name
         drawAdditionalName(s);
         // check if dotted contours has to be drawn

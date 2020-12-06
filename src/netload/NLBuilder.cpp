@@ -125,8 +125,8 @@ NLBuilder::build() {
         throw ProcessError("Invalid network, no network version declared.");
     }
     // check whether the loaded net agrees with the simulation options
-    if (myOptions.getBool("no-internal-links") && myXMLHandler.haveSeenInternalEdge() && myXMLHandler.haveSeenDefaultLength()) {
-        WRITE_WARNING("Network contains internal links but option --no-internal-links is set. Vehicles will 'jump' across junctions and thus underestimate route lengths and travel times.");
+    if ((myOptions.getBool("no-internal-links") || myOptions.getBool("mesosim")) && myXMLHandler.haveSeenInternalEdge() && myXMLHandler.haveSeenDefaultLength()) {
+        WRITE_WARNING("Network contains internal links which are ignored. Vehicles will 'jump' across junctions and thus underestimate route lengths and travel times.");
     }
     buildNet();
     // @note on loading order constraints:
@@ -145,6 +145,12 @@ NLBuilder::build() {
         }
         if (myXMLHandler.haveSeenAdditionalSpeedRestrictions()) {
             myNet.getEdgeControl().setAdditionalRestrictions();
+        }
+        if (MSGlobals::gUseMesoSim && myXMLHandler.haveSeenMesoEdgeType()) {
+            myNet.getEdgeControl().setMesoTypes();
+            for (MSTrafficLightLogic* tll : myNet.getTLSControl().getAllLogics()) {
+                tll->initMesoTLSPenalties();
+            }
         }
     }
     if (myOptions.getBool("junction-taz")) {

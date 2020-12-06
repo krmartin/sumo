@@ -160,25 +160,9 @@ public:
      * @brief Stores the waiting intervals over the previous seconds (memory is to be specified in ms.).
      */
     class WaitingTimeCollector {
-        friend class MSVehicle;
-
-        typedef std::list<std::pair<SUMOTime, SUMOTime> > waitingIntervalList;
-
     public:
         /// Constructor.
         WaitingTimeCollector(SUMOTime memory = MSGlobals::gWaitingTimeMemory);
-
-        /// Copy constructor.
-        WaitingTimeCollector(const WaitingTimeCollector& wt);
-
-        /// Assignment operator.
-        WaitingTimeCollector& operator=(const WaitingTimeCollector& wt);
-
-        /// Operator !=
-        bool operator!=(const WaitingTimeCollector& wt) const;
-
-        /// Assignment operator (in place!)
-        WaitingTimeCollector& operator=(SUMOTime t);
 
         // return the waiting time within the last memory millisecs
         SUMOTime cumulatedWaitingTime(SUMOTime memory = -1) const;
@@ -186,15 +170,9 @@ public:
         // process time passing for dt millisecs
         void passTime(SUMOTime dt, bool waiting);
 
-        // maximal memory time stored
-        SUMOTime getMemorySize() const {
-            return myMemorySize;
-        }
+        const std::string getState() const;
 
-        // maximal memory time stored
-        const waitingIntervalList& getWaitingIntervals() const {
-            return myWaitingIntervals;
-        }
+        void setState(const std::string& state);
 
     private:
         /// the maximal memory to store
@@ -203,7 +181,7 @@ public:
         /// the stored waiting intervals within the last memory milliseconds
         /// If the current (ongoing) waiting interval has begun at time t - dt (where t is the current time)
         /// then waitingIntervalList[0]->first = 0., waitingIntervalList[0]->second = dt
-        waitingIntervalList myWaitingIntervals;
+        std::deque<std::pair<SUMOTime, SUMOTime> > myWaitingIntervals;
 
         /// append an amount of dt millisecs to the stored waiting times
         void appendWaitingTime(SUMOTime dt);
@@ -493,9 +471,7 @@ public:
     /** @brief Sets the influenced previous speed
      * @param[in] A double value with the speed that overwrites the previous speed
      */
-    void setPreviousSpeed(double prevspeed) {
-        myState.mySpeed = MAX2(0., prevspeed);
-    }
+    void setPreviousSpeed(double prevspeed);
 
 
     /** @brief Returns the vehicle's acceleration in m/s
@@ -540,7 +516,7 @@ public:
     /// @name Other getter methods
     //@{
 
-    /** @brief Returns the slope of the road at vehicle's position
+    /** @brief Returns the slope of the road at vehicle's position in degrees
      * @return The slope
      */
     double getSlope() const;
@@ -569,7 +545,15 @@ public:
     /** @brief Returns the lane the vehicle is on
      * @return The vehicle's current lane
      */
-    MSLane* getLane() const {
+    const MSLane* getLane() const {
+        return myLane;
+    }
+
+    /** @brief Returns the lane the vehicle is on
+     * Non const version indicates that something volatile is going on
+     * @return The vehicle's current lane
+     */
+    MSLane* getMutableLane() const {
         return myLane;
     }
 
@@ -703,6 +687,10 @@ public:
     /** @brief Returns the public transport stop delay in seconds
      */
     double getStopDelay() const;
+
+    /** @brief Returns the estimated public transport stop arrival delay in seconds
+     */
+    double getStopArrivalDelay() const;
 
     /** @brief Returns the vehicle's direction in radians
      * @return The vehicle's current angle
@@ -1004,11 +992,6 @@ public:
      */
     SUMOTime collisionStopTime() const;
 
-    /** @brief Returns whether the vehicle is parking
-     * @return whether the vehicle is parking
-     */
-    bool isParking() const;
-
     /** @brief Returns the information whether the vehicle is fully controlled via TraCI
      * @return Whether the vehicle is remote-controlled
      */
@@ -1023,15 +1006,6 @@ public:
     double nextStopDist() const {
         return myStopDist;
     }
-
-    /** @brief Returns whether the vehicle is on a triggered stop
-     * @return whether the vehicle is on a triggered stop
-     */
-    bool isStoppedTriggered() const;
-
-    /** @brief return whether the given position is within range of the current stop
-     */
-    bool isStoppedInRange(const double pos, const double tolerance) const;
     /// @}
 
     int getLaneIndex() const;
@@ -1558,6 +1532,9 @@ public:
          */
         double getOriginalSpeed() const;
 
+        /** @brief Stores the originally longitudinal speed **/
+        void  setOriginalSpeed(double speed);
+
         void setRemoteControlled(Position xyPos, MSLane* l, double pos, double posLat, double angle, int edgeOffset, const ConstMSEdgeVector& route, SUMOTime t);
 
         SUMOTime getLastAccessTimeStep() const {
@@ -1698,6 +1675,9 @@ public:
     /// @brief whether this vehicle is except from collision checks
     bool ignoreCollision();
 
+    /// @brief update state while parking
+    void updateParkingState();
+
     /// @name state io
     //@{
 
@@ -1755,10 +1735,9 @@ protected:
      *         and adapts the given in/out parameters to the appropriate values.
      *
      *  @param[out] passedLanes Lanes, which the vehicle touched at some moment of the executed simstep
-     *  @param[out] moved Whether the vehicle did move to another lane
      *  @param[out] emergencyReason Reason for a possible emergency stop
      */
-    void processLaneAdvances(std::vector<MSLane*>& passedLanes, bool& moved, std::string& emergencyReason);
+    void processLaneAdvances(std::vector<MSLane*>& passedLanes, std::string& emergencyReason);
 
 
     /** @brief Check for speed advices from the traci client and adjust the speed vNext in
@@ -2072,6 +2051,7 @@ protected:
     /// @brief decide whether a red (or yellow light) may be ignore
     bool ignoreRed(const MSLink* link, bool canBrake) const;
 
+    double estimateTimeToNextStop() const;
 
 private:
     /// @brief The per vehicle variables of the car following model

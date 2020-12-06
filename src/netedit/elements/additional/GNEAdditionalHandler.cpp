@@ -272,6 +272,8 @@ GNEAdditionalHandler::buildAccess(GNENet* net, bool allowUndoRedo, GNEAdditional
         throw ProcessError("Could not build " + toString(SUMO_TAG_ACCESS) + " in netedit; " +  toString(SUMO_TAG_BUS_STOP) + " parent doesn't exist.");
     } else if (!accessCanBeCreated(busStop, lane->getParentEdge())) {
         throw ProcessError("Could not build " + toString(SUMO_TAG_ACCESS) + " in netedit; " +  toString(SUMO_TAG_BUS_STOP) + " parent already owns a Acces in the edge '" + lane->getParentEdge()->getID() + "'");
+    } else if (!lane->allowPedestrians()) {
+        throw ProcessError("Could not build " + toString(SUMO_TAG_ACCESS) + " in netedit; The lane '" + lane->getID() + "' doesn't support pedestrians");
     } else {
         GNEAdditional* access = new GNEAccess(busStop, lane, net, pos, length, friendlyPos, blockMovement);
         if (allowUndoRedo) {
@@ -364,6 +366,8 @@ GNEAdditionalHandler::buildParkingSpace(GNENet* net, bool allowUndoRedo, GNEAddi
         parkingAreaParent->addChildElement(parkingSpace);
         parkingSpace->incRef("buildParkingSpace");
     }
+    // update geometry (due boundaries)
+    parkingSpace->updateGeometry();
     return parkingSpace;
 }
 
@@ -1869,6 +1873,8 @@ GNEAdditionalHandler::parseAndBuildAccess(GNENet* net, bool allowUndoRedo, const
             WRITE_WARNING("Invalid position for " + toString(SUMO_TAG_ACCESS) + ".");
         } else if (!accessCanBeCreated(busStop, lane->getParentEdge())) {
             WRITE_WARNING("Edge '" + lane->getParentEdge()->getID() + "' already has an Access for busStop '" + busStop->getID() + "'");
+        } else if (!lane->allowPedestrians()) {
+            WRITE_WARNING("The lane '" + laneId + "' to use within the " + toString(SUMO_TAG_ACCESS) + " doesn't support pedestrians");
         } else {
             // save ID of last created element
             GNEAdditional* additionalCreated = buildAccess(net, allowUndoRedo, busStop, lane, posDouble, length, friendlyPos, blockMovement);
@@ -2500,7 +2506,6 @@ GNEAdditionalHandler::parseAndBuildPoly(const SUMOSAXAttributes& attrs) {
 void
 GNEAdditionalHandler::parseAndBuildPOI(const SUMOSAXAttributes& attrs) {
     bool abort = false;
-    const SumoXMLTag POITag = attrs.hasAttribute(SUMO_ATTR_LANE) ? SUMO_TAG_POILANE : SUMO_TAG_POI;
     // parse attributes of POIs
     std::string POIID = GNEAttributeCarrier::parseAttributeFromXML<std::string>(attrs, "", SUMO_TAG_POI, SUMO_ATTR_ID, abort);
     // POIs can be defined using a X,Y position,...
@@ -2568,7 +2573,7 @@ GNEAdditionalHandler::parseAndBuildPOI(const SUMOSAXAttributes& attrs) {
             WRITE_WARNING("POI with ID '" + POIID + "' already exists.");
         } else {
             // commit shape element insertion
-            myLastInsertedElement->commitShapeInsertion(myNet->getAttributeCarriers()->getShapes().at(POITag).at(POIID));
+            myLastInsertedElement->commitShapeInsertion(myNet->getAttributeCarriers()->getShapes().at(SUMO_TAG_POI).at(POIID));
         }
     }
 }

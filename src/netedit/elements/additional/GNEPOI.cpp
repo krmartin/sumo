@@ -29,6 +29,7 @@
 #include <netedit/GNEViewNet.h>
 #include <utils/gui/globjects/GLIncludes.h>
 #include <utils/gui/globjects/GUIPointOfInterest.h>
+#include <utils/gui/div/GUIDesigns.h>
 
 #include "GNEPOI.h"
 
@@ -41,8 +42,8 @@ GNEPOI::GNEPOI(GNENet* net, const std::string& id, const std::string& type, cons
                const Position& pos, bool geo, double layer, double angle, const std::string& imgFile,
                bool relativePath, double width, double height, bool movementBlocked) :
     PointOfInterest(id, type, color, pos, geo, "", 0, 0, layer, angle, imgFile, relativePath, width, height),
-    GNEShape(id, net, GLO_POI,SUMO_TAG_POI, movementBlocked,
-        {}, {}, {}, {}, {}, {}, {}, {}) {
+    GNEShape(id, net, GLO_POI, SUMO_TAG_POI, movementBlocked,
+{}, {}, {}, {}, {}, {}, {}, {}) {
     // update centering boundary without updating grid
     updateCenteringBoundary(false);
     // set GEO Position
@@ -56,7 +57,7 @@ GNEPOI::GNEPOI(GNENet* net, const std::string& id, const std::string& type, cons
                double width, double height, bool movementBlocked) :
     PointOfInterest(id, type, color, Position(), false, lane->getID(), posOverLane, posLat, layer, angle, imgFile, relativePath, width, height),
     GNEShape(id, net, GLO_POI, SUMO_TAG_POILANE, movementBlocked,
-        {}, {}, {lane}, {}, {}, {}, {}, {}) {
+{}, {}, {lane}, {}, {}, {}, {}, {}) {
     // update centering boundary without updating grid
     updateCenteringBoundary(false);
 }
@@ -65,14 +66,14 @@ GNEPOI::GNEPOI(GNENet* net, const std::string& id, const std::string& type, cons
 GNEPOI::~GNEPOI() {}
 
 
-GNEMoveOperation* 
+GNEMoveOperation*
 GNEPOI::getMoveOperation(const double /* shapeOffset */) {
     // return move operation for a position
     return new GNEMoveOperation(this, *this);
 }
 
 
-void 
+void
 GNEPOI::removeGeometryPoint(const Position /*clickedPosition*/, GNEUndoList* /*undoList*/) {
     // nothing to remove
 }
@@ -81,8 +82,7 @@ GNEPOI::removeGeometryPoint(const Position /*clickedPosition*/, GNEUndoList* /*u
 std::string
 GNEPOI::generateChildID(SumoXMLTag childTag) {
     int counter = (int)myNet->getAttributeCarriers()->getShapes().at(SUMO_TAG_POI).size();
-    while ((myNet->retrieveShape(SUMO_TAG_POI, getID() + toString(childTag) + toString(counter), false) != nullptr) &&
-            (myNet->retrieveShape(SUMO_TAG_POILANE, getID() + toString(childTag) + toString(counter), false) != nullptr)) {
+    while (myNet->retrieveShape(SUMO_TAG_POI, getID() + toString(childTag) + toString(counter), false) != nullptr) {
         counter++;
     }
     return (getID() + toString(childTag) + toString(counter));
@@ -107,48 +107,6 @@ GNEPOI::writeShape(OutputDevice& device) {
     }
 }
 
-/*
-void
-GNEPOI::movePOIGeometry(const Position& offset) {
-    if (!myBlockMovement) {
-        // Calculate new position using old position
-        Position newPosition = myPositionBeforeMoving;
-        newPosition.add(offset);
-        // filtern position using snap to active grid
-        newPosition = myNet->getViewNet()->snapToActiveGrid(newPosition);
-        // set position depending of POI Type
-        if (getParentLanes().size() > 0) {
-            myPosOverLane = getParentLanes().at(0)->getLaneShape().nearest_offset_to_point2D(newPosition, false);
-        } else {
-            set(newPosition);
-        }
-        // Update geometry
-        updateGeometry();
-    }
-}
-
-
-void
-GNEPOI::commitPOIGeometryMoving(GNEUndoList* undoList) {
-    if (!myBlockMovement) {
-        // restore original Position before moving (to avoid problems in GL Tree)
-        Position myNewPosition(*this);
-        set(myPositionBeforeMoving);
-        // commit new position allowing undo/redo
-        if (getParentLanes().size() > 0) {
-            // restore old position before commit new position
-            double originalPosOverLane = getParentLanes().at(0)->getLaneShape().nearest_offset_to_point2D(myPositionBeforeMoving, false);
-            undoList->p_begin("position of " + getTagStr());
-            undoList->p_add(new GNEChange_Attribute(this, SUMO_ATTR_POSITION, toString(myPosOverLane), toString(originalPosOverLane)));
-            undoList->p_end();
-        } else {
-            undoList->p_begin("position of " + getTagStr());
-            undoList->p_add(new GNEChange_Attribute(this, SUMO_ATTR_POSITION, toString(myNewPosition), toString(myPositionBeforeMoving)));
-            undoList->p_end();
-        }
-    }
-}
-*/
 
 void
 GNEPOI::updateGeometry() {
@@ -161,7 +119,7 @@ GNEPOI::updateGeometry() {
 }
 
 
-void 
+void
 GNEPOI::updateCenteringBoundary(const bool updateGrid) {
     // Remove object from net
     if (updateGrid) {
@@ -209,13 +167,13 @@ GNEPOI::getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) {
         // build shape header
         buildShapePopupOptions(app, ret, getShapeType());
         // add option for convert to GNEPOI
-        new FXMenuCommand(ret, ("Release from " + toString(SUMO_TAG_LANE)).c_str(), GUIIconSubSys::getIcon(GUIIcon::LANE), &parent, MID_GNE_POI_TRANSFORM);
+        GUIDesigns::buildFXMenuCommand(ret, "Release from " + toString(SUMO_TAG_LANE), GUIIconSubSys::getIcon(GUIIcon::LANE), &parent, MID_GNE_POI_TRANSFORM);
         return ret;
     } else {
         // build shape header
         buildShapePopupOptions(app, ret, getShapeType());
         // add option for convert to GNEPOI
-        new FXMenuCommand(ret, ("Attach to nearest " + toString(SUMO_TAG_LANE)).c_str(), GUIIconSubSys::getIcon(GUIIcon::LANE), &parent, MID_GNE_POI_TRANSFORM);
+        GUIDesigns::buildFXMenuCommand(ret, "Attach to nearest " + toString(SUMO_TAG_LANE), GUIIconSubSys::getIcon(GUIIcon::LANE), &parent, MID_GNE_POI_TRANSFORM);
     }
     return ret;
 }
@@ -363,8 +321,7 @@ GNEPOI::isValid(SumoXMLAttr key, const std::string& value) {
     switch (key) {
         case SUMO_ATTR_ID:
             return SUMOXMLDefinitions::isValidTypeID(value) &&
-                   (myNet->retrieveShape(SUMO_TAG_POI, value, false) == nullptr) &&
-                   (myNet->retrieveShape(SUMO_TAG_POILANE, value, false) == nullptr);
+                   (myNet->retrieveShape(SUMO_TAG_POI, value, false) == nullptr);
         case SUMO_ATTR_COLOR:
             return canParse<RGBColor>(value);
         case SUMO_ATTR_LANE:
@@ -427,6 +384,12 @@ GNEPOI::isAttributeEnabled(SumoXMLAttr /* key */) const {
     }
 }
 
+
+const std::map<std::string, std::string>&
+GNEPOI::getACParametersMap() const {
+    return getParametersMap();
+}
+
 // ===========================================================================
 // private
 // ===========================================================================
@@ -450,7 +413,9 @@ GNEPOI::setAttribute(SumoXMLAttr key, const std::string& value) {
             break;
         case SUMO_ATTR_POSITION: {
             if (getParentLanes().size() > 0) {
-                myPosOverLane = parse<double>(value);
+                if (canParse<double>(value)) {
+                    myPosOverLane = parse<double>(value);
+                }
             } else {
                 // set position
                 set(parse<Position>(value));
@@ -538,14 +503,14 @@ GNEPOI::setAttribute(SumoXMLAttr key, const std::string& value) {
 }
 
 
-void 
+void
 GNEPOI::setMoveShape(const GNEMoveResult& moveResult) {
     // set geometry
     set(moveResult.shapeToUpdate.front());
 }
 
 
-void 
+void
 GNEPOI::commitMoveShape(const GNEMoveResult& moveResult, GNEUndoList* undoList) {
     undoList->p_begin("position of " + getTagStr());
     undoList->p_add(new GNEChange_Attribute(this, SUMO_ATTR_POSITION, toString(moveResult.shapeToUpdate.front())));

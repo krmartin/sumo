@@ -289,12 +289,12 @@ NIImporter_VISUM::parse_Types() {
     // try to retrieve the number of lanes
     const int numLanes = myCapacity2Lanes.get(getNamedFloat("Kap-IV", KEYS.getString(VISUM_CAPACITY)));
     // insert the type
-    myNetBuilder.getTypeCont().insert(myCurrentID, numLanes, speed / (double) 3.6, priority, permissions, NBEdge::UNSPECIFIED_WIDTH, false, NBEdge::UNSPECIFIED_WIDTH, NBEdge::UNSPECIFIED_WIDTH, 0, 0, 0);
-    myNetBuilder.getTypeCont().markAsSet(myCurrentID, SUMO_ATTR_NUMLANES);
-    myNetBuilder.getTypeCont().markAsSet(myCurrentID, SUMO_ATTR_SPEED);
-    myNetBuilder.getTypeCont().markAsSet(myCurrentID, SUMO_ATTR_PRIORITY);
-    myNetBuilder.getTypeCont().markAsSet(myCurrentID, SUMO_ATTR_ONEWAY);
-    myNetBuilder.getTypeCont().markAsSet(myCurrentID, SUMO_ATTR_ALLOW);
+    myNetBuilder.getTypeCont().insertEdgeType(myCurrentID, numLanes, speed / (double) 3.6, priority, permissions, NBEdge::UNSPECIFIED_WIDTH, false, NBEdge::UNSPECIFIED_WIDTH, NBEdge::UNSPECIFIED_WIDTH, 0, 0, 0);
+    myNetBuilder.getTypeCont().markEdgeTypeAsSet(myCurrentID, SUMO_ATTR_NUMLANES);
+    myNetBuilder.getTypeCont().markEdgeTypeAsSet(myCurrentID, SUMO_ATTR_SPEED);
+    myNetBuilder.getTypeCont().markEdgeTypeAsSet(myCurrentID, SUMO_ATTR_PRIORITY);
+    myNetBuilder.getTypeCont().markEdgeTypeAsSet(myCurrentID, SUMO_ATTR_ONEWAY);
+    myNetBuilder.getTypeCont().markEdgeTypeAsSet(myCurrentID, SUMO_ATTR_ALLOW);
 }
 
 
@@ -378,7 +378,7 @@ NIImporter_VISUM::parse_Edges() {
     // get the type
     std::string type = myLineParser.know(KEYS.getString(VISUM_TYP)) ? myLineParser.get(KEYS.getString(VISUM_TYP)) : myLineParser.get(KEYS.getString(VISUM_TYPE));
     // get the speed
-    double speed = myNetBuilder.getTypeCont().getSpeed(type);
+    double speed = myNetBuilder.getTypeCont().getEdgeTypeSpeed(type);
     if (!OptionsCont::getOptions().getBool("visum.use-type-speed")) {
         try {
             std::string speedS = myLineParser.know("v0-IV") ? myLineParser.get("v0-IV") : myLineParser.get(KEYS.getString(VISUM_V0));
@@ -389,7 +389,7 @@ NIImporter_VISUM::parse_Edges() {
         } catch (OutOfBoundsException&) {}
     }
     if (speed <= 0) {
-        speed = myNetBuilder.getTypeCont().getSpeed(type);
+        speed = myNetBuilder.getTypeCont().getEdgeTypeSpeed(type);
     }
 
     // get the information whether the edge is a one-way
@@ -397,7 +397,7 @@ NIImporter_VISUM::parse_Edges() {
                   ? StringUtils::toBool(myLineParser.get("Einbahn"))
                   : true;
     // get the number of lanes
-    int nolanes = myNetBuilder.getTypeCont().getNumLanes(type);
+    int nolanes = myNetBuilder.getTypeCont().getEdgeTypeNumLanes(type);
     if (!OptionsCont::getOptions().getBool("visum.recompute-lane-number")) {
         if (!OptionsCont::getOptions().getBool("visum.use-type-laneno")) {
             if (myLineParser.know("Fahrstreifen")) {
@@ -434,8 +434,8 @@ NIImporter_VISUM::parse_Edges() {
         oneway_checked = false;
     }
     // add the edge
-    const SVCPermissions permissions = getPermissions(KEYS.getString(VISUM_TYPES), false, myNetBuilder.getTypeCont().getPermissions(type));
-    int prio = myUseVisumPrio ? myNetBuilder.getTypeCont().getPriority(type) : -1;
+    const SVCPermissions permissions = getPermissions(KEYS.getString(VISUM_TYPES), false, myNetBuilder.getTypeCont().getEdgeTypePermissions(type));
+    int prio = myUseVisumPrio ? myNetBuilder.getTypeCont().getEdgeTypePriority(type) : -1;
     if (nolanes != 0 && speed != 0) {
         LaneSpreadFunction lsf = oneway_checked ? LaneSpreadFunction::CENTER : LaneSpreadFunction::RIGHT;
         // @todo parse name from visum files
@@ -864,12 +864,12 @@ NIImporter_VISUM::parse_Lanes() {
 void
 NIImporter_VISUM::parse_TrafficLights() {
     myCurrentID = NBHelpers::normalIDRepresentation(myLineParser.get(KEYS.getString(VISUM_NO)));
-    SUMOTime cycleTime = (SUMOTime) getWeightedFloat2("Umlaufzeit", "UMLZEIT", "s");
-    SUMOTime intermediateTime = (SUMOTime) getWeightedFloat2("StdZwischenzeit", "STDZWZEIT", "s");
+    const SUMOTime cycleTime = TIME2STEPS(getWeightedFloat2("Umlaufzeit", "UMLZEIT", "s"));
+    const SUMOTime intermediateTime = TIME2STEPS(getWeightedFloat2("StdZwischenzeit", "STDZWZEIT", "s"));
     bool phaseBased = myLineParser.know("PhasenBasiert")
                       ? StringUtils::toBool(myLineParser.get("PhasenBasiert"))
                       : false;
-    SUMOTime offset = myLineParser.know("ZEITVERSATZ") ? TIME2STEPS(getWeightedFloat("ZEITVERSATZ", "s")) : 0;
+    const SUMOTime offset = myLineParser.know("ZEITVERSATZ") ? TIME2STEPS(getWeightedFloat("ZEITVERSATZ", "s")) : 0;
     // add to the list
     myTLS[myCurrentID] = new NIVisumTL(myCurrentID, cycleTime, offset, intermediateTime, phaseBased);
 }
@@ -899,15 +899,15 @@ void
 NIImporter_VISUM::parse_SignalGroups() {
     myCurrentID = NBHelpers::normalIDRepresentation(myLineParser.get(KEYS.getString(VISUM_NO)));
     std::string LSAid = NBHelpers::normalIDRepresentation(myLineParser.get("LsaNr"));
-    double startTime = getNamedFloat("GzStart", "GRUENANF");
-    double endTime = getNamedFloat("GzEnd", "GRUENENDE");
-    double yellowTime = myLineParser.know("GELB") ? getNamedFloat("GELB") : -1;
+    const SUMOTime startTime = TIME2STEPS(getNamedFloat("GzStart", "GRUENANF"));
+    const SUMOTime endTime = TIME2STEPS(getNamedFloat("GzEnd", "GRUENENDE"));
+    const SUMOTime yellowTime = myLineParser.know("GELB") ? TIME2STEPS(getNamedFloat("GELB")) : -1;
     // add to the list
     if (myTLS.find(LSAid) == myTLS.end()) {
         WRITE_ERROR("Could not find TLS '" + LSAid + "' for setting the signal group.");
         return;
     }
-    myTLS.find(LSAid)->second->addSignalGroup(myCurrentID, (SUMOTime) startTime, (SUMOTime) endTime, (SUMOTime) yellowTime);
+    myTLS.find(LSAid)->second->addSignalGroup(myCurrentID, startTime, endTime, yellowTime);
 }
 
 
@@ -1021,12 +1021,12 @@ NIImporter_VISUM::parse_AreaSubPartElement() {
 void
 NIImporter_VISUM::parse_Phases() {
     // get the id
-    std::string phaseid = NBHelpers::normalIDRepresentation(myLineParser.get(KEYS.getString(VISUM_NO)));
-    std::string LSAid = NBHelpers::normalIDRepresentation(myLineParser.get("LsaNr"));
-    double startTime = getNamedFloat("GzStart", "GRUENANF");
-    double endTime = getNamedFloat("GzEnd", "GRUENENDE");
-    double yellowTime = myLineParser.know("GELB") ? getNamedFloat("GELB") : -1;
-    myTLS.find(LSAid)->second->addPhase(phaseid, (SUMOTime) startTime, (SUMOTime) endTime, (SUMOTime) yellowTime);
+    const std::string phaseid = NBHelpers::normalIDRepresentation(myLineParser.get(KEYS.getString(VISUM_NO)));
+    const std::string LSAid = NBHelpers::normalIDRepresentation(myLineParser.get("LsaNr"));
+    const SUMOTime startTime = TIME2STEPS(getNamedFloat("GzStart", "GRUENANF"));
+    const SUMOTime endTime = TIME2STEPS(getNamedFloat("GzEnd", "GRUENENDE"));
+    const SUMOTime yellowTime = myLineParser.know("GELB") ? TIME2STEPS(getNamedFloat("GELB")) : -1;
+    myTLS.find(LSAid)->second->addPhase(phaseid, startTime, endTime, yellowTime);
 }
 
 

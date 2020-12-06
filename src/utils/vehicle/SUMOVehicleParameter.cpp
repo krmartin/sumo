@@ -177,10 +177,10 @@ SUMOVehicleParameter::Stop::write(OutputDevice& dev, bool close) const {
         dev.writeAttr(SUMO_ATTR_PARKING_AREA, parkingarea);
     }
     if ((busstop == "") && (containerstop == "") && (parkingarea == "") && (chargingStation == "")) {
-        if (edge.size() > 0) {
-            dev.writeAttr(SUMO_ATTR_LANE, edge + "_0");
-        } else {
+        if (lane != "") {
             dev.writeAttr(SUMO_ATTR_LANE, lane);
+        } else {
+            dev.writeAttr(SUMO_ATTR_EDGE, edge);
         }
         if ((parametersSet & STOP_START_SET) != 0) {
             dev.writeAttr(SUMO_ATTR_STARTPOS, startPos);
@@ -207,6 +207,9 @@ SUMOVehicleParameter::Stop::write(OutputDevice& dev, bool close) const {
     }
     if ((parametersSet & STOP_EXPECTED_SET) != 0) {
         dev.writeAttr(SUMO_ATTR_EXPECTED, awaitedPersons);
+    }
+    if ((parametersSet & STOP_PERMITTED_SET) != 0) {
+        dev.writeAttr(SUMO_ATTR_PERMITTED, permitted);
     }
     if ((parametersSet & STOP_EXPECTED_CONTAINERS_SET) != 0) {
         dev.writeAttr(SUMO_ATTR_EXPECTED_CONTAINERS, awaitedContainers);
@@ -419,7 +422,7 @@ SUMOVehicleParameter::parseDepartSpeed(const std::string& val, const std::string
 
 bool
 SUMOVehicleParameter::parseDepartEdge(const std::string& val, const std::string& element, const std::string& id,
-                                 int& edgeIndex, DepartEdgeDefinition& ded, std::string& error) {
+                                      int& edgeIndex, DepartEdgeDefinition& ded, std::string& error) {
     bool ok = true;
     edgeIndex = -1;
     ded = DepartEdgeDefinition::GIVEN;

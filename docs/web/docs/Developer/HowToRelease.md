@@ -51,9 +51,8 @@ software (Veins, VSimRTI, flow etc.) at this stage.
   - update the [ChangeLog](../ChangeLog.md)
   - generate options documentation from configuration templates
     using `tools/build/configTemplateToWiki.py`
-  - recheck/rebuild the configuration schemata (if options were
-    added) using `tools/xml/rebuildSchemata.py` (use the internal
-    build to include all options)
+  - recheck/rebuild the configuration xsd schemata (if options were
+    added) using `tools/xml/rebuildSchemata.py` 
 - check the internal tests (same procedure as above), especially the
   (to be) published scenarios
 - GitHub
@@ -80,7 +79,7 @@ All scenarios should be fixed by now.
 
 - patch the version information
   - in src/config.h.cmake, also disable the HAVE_VERSION_H macro
-  - in CMakeLists.txt and build/wix/sumo.wxs
+  - in CMakeLists.txt
   - commit the changes
 - recheck whether submodules changed by doing `git submodule update --remote`
 and committing the changes after careful inspection
@@ -92,7 +91,7 @@ and committing the changes after careful inspection
     to update the [download links](../Downloads.md)
 - update the eclipse.org/sumo website
   - modify the version number (Version) [in config.toml](https://github.com/eclipse/sumo.website/blob/master/config.toml) in the **Default Parameters** section at the beginning
-- create a new Eclipse release at https://projects.eclipse.org/projects/technology.sumo (after login there should be a "Create Release" button)
+- If it is the first release of the year, create a new Eclipse release at https://projects.eclipse.org/projects/technology.sumo (after login there should be a "Create Release" button)
   - add an IP Log to the release
   - send an email to the PMC at technology-pmc@eclipse.org asking for review (include links to the release and the IP log)
 - add a new version tag
@@ -100,7 +99,6 @@ and committing the changes after careful inspection
 > git tag -a v0_13_7 -m "tagging release 0.13.7, refs #563"
 > git push --tags
 ```
-- create new macOS application bundles with the new version number (`build/macos/...`) - can only be done on macOS with platypus installed (see {{Source}}build/macos/README.txt)
 
 ### Release day
 
@@ -123,8 +121,7 @@ If everything is fine:
 - make new sumo.dlr.de-release
   - copy the folder from S:\Sumo\Releases to the releases dir `scp -r /media/S/Releases/x.y.z delphi@ts-sim-front-ba.intra.dlr.de:docs/releases`
 - make new sourceforge-release
-  - make a new release within the sumo package (named "version
-    x.y.z")
+  - make a new release within the sumo package (named "version x.y.z")
   - add files to the release
   - change default download attributes
   - update files at the [opensuse build
@@ -133,8 +130,7 @@ If everything is fine:
 <https://askubuntu.com/questions/642632/how-to-bump-the-version-of-a-package-available-in-another-users-ppa>)
   - this assumes you have the devscripts package as well as all sumo dependencies installed
   - if you try this on Windows Linux Subsystem you will also need to do `sudo update-alternatives --set fakeroot /usr/bin/fakeroot-tcp`
-  - download the source release and rename it to `sumo_{{Version}}+dfsg1.orig.tar.gz`
-  - unzip the source release
+  - unzip the special source release `sumo_{{Version}}+dfsg1.orig.tar.gz`
   - copy the debian dir one level up
   - modify the changelog, using `dch` (enter an email address which has write access to the ppa and a valid gpg key)
   - run `dpkg-buildpackage -S` in the sumo dir and `dput -f ppa:sumo/stable sumo_{{Version}}+dfsg1_source.changes` one level up

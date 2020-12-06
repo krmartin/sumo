@@ -87,6 +87,9 @@ public:
     /// @brief get arent edge
     GNEEdge* getParentEdge() const;
 
+    /// @brief check if current lane allow pedestrians
+    bool allowPedestrians() const;
+
     /// @name Functions related with geometry of element
     /// @{
     /// @brief get elements shape
@@ -210,6 +213,9 @@ public:
      */
     bool isAttributeEnabled(SumoXMLAttr key) const;
     /// @}
+
+    /// @brief get parameters map
+    const std::map<std::string, std::string>& getACParametersMap() const;
 
     /// @brief add path additional element (used by GNEPathElement)
     void addPathAdditionalElement(GNEAdditional* additionalElement);

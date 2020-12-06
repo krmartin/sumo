@@ -137,7 +137,7 @@ randomized process depending on vehicle speeds and density.
 There are 3 basic options for modelling junction control
 
 1. **--meso-junction-control false** (the default): No junction control takes place. This should only be
-    used for motorway scenarios.
+    used for motorway scenarios or in combination with the penalty options below
 
 2. **--meso-junction-control true**: junctions are modeled as in the [simplified microsim model](../Simulation/Intersections.md#internal_links) (**--no-internal-links true**).
 
@@ -187,6 +187,20 @@ junction control is active for that link)
 ### Impatience
 
 Vehicles that reach an [impatience](../Definition_of_Vehicles,_Vehicle_Types,_and_Routes.md#impatience) value of 1 (maximum) can pass an intersection regardless of foe traffic with higher priority. The time to reach maximum impatience can be configured with option **--time-to-impatience** {{DT_TIME}}. 
+
+## Configuration by edge type
+
+The model parameters described above can be customized for each edge type id by loading the following configuration from an additional file:
+```
+<additional>
+    <type id="highway.motorway" ...>
+        <meso tauff="1.13" taufj="1.13" taujf="1.73" taujj="1.4" jamThreshold="-1"
+             multiQueue="true" junctionControl="false" tlsPenalty="0" tlsFlowPenalty="0"
+             minorPenalty="0" overtaking="false"/>
+    </type>
+</additional>
+```
+All attributes are optional and default to the value of the option with the corresponding option name. (i.e. tauff ~ **meso-tauff**, tlsPenalty ~ **meso-tls-penalty**, ...).
 
 ## Outputs
 

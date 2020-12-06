@@ -31,6 +31,9 @@ neteditProcess, referencePosition = netedit.setupAndStart(neteditTestRoot)
 # recompute
 netedit.rebuildNetwork()
 
+# force save additionals
+netedit.forceSaveAdditionals()
+
 # toogle select lanes
 netedit.changeEditMode('4')
 
@@ -38,10 +41,10 @@ netedit.changeEditMode('4')
 netedit.inspectMode()
 
 # inspect edge
-netedit.leftClick(referencePosition, 250, 180)
+netedit.leftClick(referencePosition, 250, 165)
 
 # check parameters
-netedit.checkParameters(referencePosition, 10, True)
+netedit.checkParameters(referencePosition, 11, True)
 
 # save additionals
 netedit.saveAdditionals(referencePosition)

@@ -271,6 +271,9 @@ public:
     virtual std::string getHierarchyName() const = 0;
     /// @}
 
+    /// @brief get parameters map
+    const std::map<std::string, std::string>& getACParametersMap() const;
+
 protected:
     /// @brief Additional Boundary
     Boundary myBoundary;
@@ -303,6 +306,9 @@ protected:
     bool isValidDetectorID(const std::string& newID) const;
 
     /// @}
+
+    /// @brief draw additional ID
+    void drawAdditionalID(const GUIVisualizationSettings& s) const;
 
     /// @brief draw additional name
     void drawAdditionalName(const GUIVisualizationSettings& s) const;

@@ -14,6 +14,9 @@ within_route_onRoad
 # move person within the current route but on the road (off the sidewalk)
 within_route_jaywalk
 
+# move person along it's natural path via crossing and walkingareas
+within_route_walkingarea
+
 # move person outside the road network
 outside_network
 
@@ -28,6 +31,9 @@ keepRoute2_junction_offroad
 
 # move person to an edge not on it's route
 leaveRoute
+
+# move person to an edge not on it's route via walkingareas that only have incoming or outgoing edges
+leaveRoute_walkingarea
 
 # move person accross a busy road between junctions
 leaveRoute_jaywalk

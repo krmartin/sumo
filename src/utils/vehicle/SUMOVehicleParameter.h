@@ -86,6 +86,7 @@ const int STOP_SPEED_SET = 2 << 11;
 const int STOP_SPLIT_SET = 2 << 12;
 const int STOP_JOIN_SET = 2 << 13;
 const int STOP_ARRIVAL_SET = 2 << 14;
+const int STOP_PERMITTED_SET = 2 << 15;
 
 const double MIN_STOP_LENGTH = 2 * POSITION_EPS;
 
@@ -379,6 +380,9 @@ public:
         /// @brief IDs of persons the vehicle has to wait for until departing
         std::set<std::string> awaitedPersons;
 
+        /// @brief IDs of persons or containers that may board/load at this stop
+        std::set<std::string> permitted;
+
         /// @brief IDs of containers the vehicle has to wait for until departing
         std::set<std::string> awaitedContainers;
 
@@ -404,7 +408,7 @@ public:
         double speed = 0.;
 
         /// @brief the time at which this stop was reached
-        SUMOTime actualArrival = -1;
+        mutable SUMOTime actualArrival = -1;
 
         /// @brief the time at which this stop was ended
         SUMOTime depart = -1;
@@ -518,7 +522,7 @@ public:
      * @return Whether the given value is a valid departEdge definition
      */
     static bool parseDepartEdge(const std::string& val, const std::string& element, const std::string& id,
-                                 int& edgeIndex, DepartEdgeDefinition& ded, std::string& error);
+                                int& edgeIndex, DepartEdgeDefinition& ded, std::string& error);
 
     /** @brief Validates a given arrivalLane value
      * @param[in] val The arrivalLane value to parse

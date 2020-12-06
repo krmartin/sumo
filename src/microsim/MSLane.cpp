@@ -261,8 +261,8 @@ MSLane::addNeigh(const std::string& id) {
 void
 MSLane::addMoveReminder(MSMoveReminder* rem) {
     myMoveReminders.push_back(rem);
-    for (VehCont::iterator veh = myVehicles.begin(); veh != myVehicles.end(); ++veh) {
-        (*veh)->addReminder(rem);
+    for (MSVehicle* const veh : myVehicles) {
+        veh->addReminder(rem);
     }
     // XXX: Here, the partial occupators are ignored!? Refs. #3255
 }
@@ -606,7 +606,7 @@ MSLane::insertVehicle(MSVehicle& veh) {
                 // systematically test all positions until a free lateral position is found
                 double posLatMin = -getWidth() * 0.5 + veh.getVehicleType().getWidth() * 0.5;
                 double posLatMax = getWidth() * 0.5 - veh.getVehicleType().getWidth() * 0.5;
-                for (double posLat = posLatMin; posLat < posLatMax; posLat += MSGlobals::gLateralResolution) {
+                for (posLat = posLatMin; posLat < posLatMax; posLat += MSGlobals::gLateralResolution) {
                     if (isInsertionSuccess(&veh, speed, pos, posLat, patchSpeed, MSMoveReminder::NOTIFICATION_DEPARTED)) {
                         return true;
                     }
@@ -749,7 +749,9 @@ MSLane::isInsertionSuccess(MSVehicle* aVehicle,
         }
         if (isRail && !hadRailSignal && MSRailSignal::hasInsertionConstraint(*link, aVehicle)) {
 #ifdef DEBUG_INSERTION
-            if DEBUG_COND2(aVehicle) std::cout << " insertion constraint at link " << (*link)->getDescription() << " not cleared \n";
+            if DEBUG_COND2(aVehicle) {
+                std::cout << " insertion constraint at link " << (*link)->getDescription() << " not cleared \n";
+            }
 #endif
             return false;
         }
@@ -783,7 +785,9 @@ MSLane::isInsertionSuccess(MSVehicle* aVehicle,
             if (currentLane == this && MSRailSignal::hasOncomingRailTraffic(*link)) {
                 // allow guarding bidirectional tracks at the network border with railSignal
 #ifdef DEBUG_INSERTION
-                if DEBUG_COND2(aVehicle) std::cout << " oncoming rail traffic at link " << (*link)->getDescription() << "\n";
+                if DEBUG_COND2(aVehicle) {
+                    std::cout << " oncoming rail traffic at link " << (*link)->getDescription() << "\n";
+                }
 #endif
                 return false;
             }
@@ -911,7 +915,7 @@ MSLane::isInsertionSuccess(MSVehicle* aVehicle,
                                              << std::endl;
 #endif
 
-    MSLeaderDistanceInfo followers = getFollowersOnConsecutive(aVehicle, aVehicle->getBackPositionOnLane(), false);
+    const MSLeaderDistanceInfo& followers = getFollowersOnConsecutive(aVehicle, aVehicle->getBackPositionOnLane(), false);
     for (int i = 0; i < followers.numSublanes(); ++i) {
         const MSVehicle* follower = followers[i].first;
         if (follower != nullptr) {
@@ -948,12 +952,12 @@ MSLane::isInsertionSuccess(MSVehicle* aVehicle,
     }
 #endif
     if (shadowLane != nullptr) {
-        MSLeaderDistanceInfo followers = shadowLane->getFollowersOnConsecutive(aVehicle, aVehicle->getBackPositionOnLane(), false);
-        for (int i = 0; i < followers.numSublanes(); ++i) {
-            const MSVehicle* follower = followers[i].first;
+        const MSLeaderDistanceInfo& shadowFollowers = shadowLane->getFollowersOnConsecutive(aVehicle, aVehicle->getBackPositionOnLane(), false);
+        for (int i = 0; i < shadowFollowers.numSublanes(); ++i) {
+            const MSVehicle* follower = shadowFollowers[i].first;
             if (follower != nullptr) {
                 const double backGapNeeded = follower->getCarFollowModel().getSecureGap(follower, aVehicle, follower->getSpeed(), speed, cfModel.getMaxDecel());
-                if (followers[i].second < backGapNeeded) {
+                if (shadowFollowers[i].second < backGapNeeded) {
                     // too close to the follower on this lane
 #ifdef DEBUG_INSERTION
                     if (DEBUG_COND2(aVehicle)) std::cout << SIMTIME
@@ -966,7 +970,7 @@ MSLane::isInsertionSuccess(MSVehicle* aVehicle,
                                                              << " nspeed=" << nspeed
                                                              << " follower=" << follower->getID()
                                                              << " backGapNeeded=" << backGapNeeded
-                                                             << " gap=" << followers[i].second
+                                                             << " gap=" << shadowFollowers[i].second
                                                              << " failure (@812)!\n";
 #endif
                     return false;
@@ -1037,7 +1041,9 @@ MSLane::isInsertionSuccess(MSVehicle* aVehicle,
         return false;
     }
     // enter
-    incorporateVehicle(aVehicle, pos, speed, posLat, find_if(myVehicles.begin(), myVehicles.end(), [&](MSVehicle* const v) {return v->getPositionOnLane() >= pos;}), notification);
+    incorporateVehicle(aVehicle, pos, speed, posLat, find_if(myVehicles.begin(), myVehicles.end(), [&](MSVehicle * const v) {
+        return v->getPositionOnLane() >= pos;
+    }), notification);
 #ifdef DEBUG_INSERTION
     if (DEBUG_COND2(aVehicle)) std::cout << SIMTIME
                                              << " isInsertionSuccess lane=" << getID()
@@ -1062,7 +1068,9 @@ MSLane::forceVehicleInsertion(MSVehicle* veh, double pos, MSMoveReminder::Notifi
     veh->updateBestLanes(true, this);
     bool dummy;
     const double speed = veh->hasDeparted() ? veh->getSpeed() : getDepartSpeed(*veh, dummy);
-    incorporateVehicle(veh, pos, speed, posLat, find_if(myVehicles.begin(), myVehicles.end(), [&](MSVehicle* const v) {return v->getPositionOnLane() >= pos;}), notification);
+    incorporateVehicle(veh, pos, speed, posLat, find_if(myVehicles.begin(), myVehicles.end(), [&](MSVehicle * const v) {
+        return v->getPositionOnLane() >= pos;
+    }), notification);
 }
 
 
@@ -1113,11 +1121,11 @@ MSLane::getLastVehicleInformation(const MSVehicle* ego, double latOffset, double
             }
 #endif
             if (veh != ego && veh->getPositionOnLane(this) >= minPos) {
-                const double latOffset = veh->getLatOffset(this);
-                freeSublanes = leaderTmp.addLeader(veh, true, latOffset);
+                const double vehLatOffset = veh->getLatOffset(this);
+                freeSublanes = leaderTmp.addLeader(veh, true, vehLatOffset);
 #ifdef DEBUG_PLAN_MOVE
                 if (DEBUG_COND2(ego)) {
-                    std::cout << "         latOffset=" << latOffset << " newLeaders=" << leaderTmp.toString() << "\n";
+                    std::cout << "         latOffset=" << vehLatOffset << " newLeaders=" << leaderTmp.toString() << "\n";
                 }
 #endif
             }
@@ -1170,14 +1178,14 @@ MSLane::getFirstVehicleInformation(const MSVehicle* ego, double latOffset, bool 
 #endif
             if (veh != ego && veh->getPositionOnLane(this) <= maxPos
                     && (!onlyFrontOnLane || veh->isFrontOnLane(this))) {
-                //const double latOffset = veh->getLane()->getRightSideOnEdge() - getRightSideOnEdge();
-                const double latOffset = veh->getLatOffset(this);
+                //const double vehLatOffset = veh->getLane()->getRightSideOnEdge() - getRightSideOnEdge();
+                const double vehLatOffset = veh->getLatOffset(this);
 #ifdef DEBUG_PLAN_MOVE
                 if (DEBUG_COND2(ego)) {
-                    std::cout << "          veh=" << veh->getID() << " latOffset=" << latOffset << "\n";
+                    std::cout << "          veh=" << veh->getID() << " latOffset=" << vehLatOffset << "\n";
                 }
 #endif
-                freeSublanes = followerTmp.addLeader(veh, true, latOffset);
+                freeSublanes = followerTmp.addLeader(veh, true, vehLatOffset);
             }
             veh = *(++first);
         }
@@ -1512,7 +1520,7 @@ MSLane::detectCollisions(SUMOTime timestep, const std::string& stage) {
 
     for (std::set<const MSVehicle*, ComparatorNumericalIdLess>::iterator it = toRemove.begin(); it != toRemove.end(); ++it) {
         MSVehicle* veh = const_cast<MSVehicle*>(*it);
-        MSLane* vehLane = veh->getLane();
+        MSLane* vehLane = veh->getMutableLane();
         vehLane->removeVehicle(veh, MSMoveReminder::NOTIFICATION_TELEPORT, false);
         if (toTeleport.count(veh) > 0) {
             MSVehicleTransfer::getInstance()->add(timestep, veh);
@@ -1651,16 +1659,7 @@ MSLane::handleCollisionBetween(SUMOTime timestep, const std::string& stage, MSVe
         std::string dummyError;
         SUMOVehicleParameter::Stop stop;
         stop.duration = myCollisionStopTime;
-        stop.busstop = "";
-        stop.containerstop = "";
-        stop.chargingStation = "";
-        stop.overheadWireSegment = "";
-        stop.parkingarea = "";
-        stop.until = 0;
-        stop.triggered = false;
-        stop.containerTriggered = false;
-        stop.parking = false;
-        stop.index = 0;
+        stop.parametersSet |= STOP_DURATION_SET;
         const double collisionAngle = RAD2DEG(fabs(GeomHelper::angleDiff(victim->getAngle(), collider->getAngle())));
         // determine new speeds from collision angle (@todo account for vehicle mass)
         double victimSpeed = victim->getSpeed();
@@ -1686,7 +1685,6 @@ MSLane::handleCollisionBetween(SUMOTime timestep, const std::string& stage, MSVe
             // @todo: push victim forward?
             stop.startPos = victimStopPos;
             stop.endPos = stop.startPos;
-            stop.duration = myCollisionStopTime;
             victim->addStop(stop, dummyError, 0, true);
         }
         if (collider->collisionStopTime() < 0) {
@@ -1769,7 +1767,7 @@ MSLane::executeMovements(const SUMOTime t) {
         const double length = veh->getVehicleType().getLengthWithGap();
         const double nettoLength = veh->getVehicleType().getLength();
         const bool moved = veh->executeMove();
-        MSLane* const target = veh->getLane();
+        MSLane* const target = veh->getMutableLane();
         if (veh->hasArrived()) {
             // vehicle has reached its arrival position
 #ifdef DEBUG_EXEC_MOVE
@@ -1827,7 +1825,7 @@ MSLane::executeMovements(const SUMOTime t) {
     }
     if (myVehicles.size() > 0) {
         if (MSGlobals::gTimeToGridlock > 0 || MSGlobals::gTimeToGridlockHighways > 0) {
-            MSVehicle* veh = myVehicles.back(); // the vehice at the front of the queue
+            MSVehicle* const veh = myVehicles.back(); // the vehice at the front of the queue
             if (!veh->isStopped() && veh->getLane() == this) {
                 const bool wrongLane = !veh->getLane()->appropriate(veh);
                 const bool r1 = MSGlobals::gTimeToGridlock > 0 && veh->getWaitingTime() > MSGlobals::gTimeToGridlock;
@@ -1836,7 +1834,6 @@ MSLane::executeMovements(const SUMOTime t) {
                     const std::vector<MSLink*>::const_iterator link = succLinkSec(*veh, 1, *this, veh->getBestLanesContinuation());
                     const bool minorLink = !wrongLane && (link != myLinks.end()) && !((*link)->havePriority());
                     const std::string reason = (wrongLane ? " (wrong lane)" : (minorLink ? " (yield)" : " (jam)"));
-                    MSVehicle* veh = *(myVehicles.end() - 1);
                     myBruttoVehicleLengthSumToRemove += veh->getVehicleType().getLengthWithGap();
                     myNettoVehicleLengthSumToRemove += veh->getVehicleType().getLength();
                     myVehicles.erase(myVehicles.end() - 1);
@@ -1885,11 +1882,7 @@ MSLane::changeLanes(const SUMOTime t) {
 
 const MSEdge*
 MSLane::getNextNormal() const {
-    const MSEdge* e = myEdge;
-    while (e->isInternal()) {
-        e = e->getSuccessors()[0];
-    }
-    return e;
+    return myEdge->getNormalSuccessor();
 }
 
 
@@ -1968,7 +1961,7 @@ template void MSLane::fill<LANE_RTREE_QUAL>(LANE_RTREE_QUAL& into);
 
 // ------   ------
 bool
-MSLane::appropriate(const MSVehicle* veh) {
+MSLane::appropriate(const MSVehicle* veh) const {
     if (myEdge->isInternal()) {
         return true;
     }
@@ -2451,9 +2444,9 @@ MSLane::getLeaderOnConsecutive(double dist, double seen, double speed, const MSV
                 std::cout << "    found leader " << leader->getID() << " on nextLane=" << nextLane->getID() << "\n";
             }
 #endif
-            const double dist = seen + leader->getBackPositionOnLane(nextLane) - veh.getVehicleType().getMinGap();
+            const double leaderDist = seen + leader->getBackPositionOnLane(nextLane) - veh.getVehicleType().getMinGap();
             nextLane->releaseVehicles();
-            return std::make_pair(leader, dist);
+            return std::make_pair(leader, leaderDist);
         }
         nextLane->releaseVehicles();
         if (nextLane->getVehicleMaxSpeed(&veh) < speed) {
