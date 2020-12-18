@@ -193,7 +193,10 @@ NIImporter_SUMO::_loadNetwork(OptionsCont& oc) {
                     continue;
                 }
                 if (nbe->hasConnectionTo(toEdge, c.toLaneIdx)) {
-                    WRITE_WARNINGF("Target lane '%' has multiple connections from '%'.", toEdge->getLaneID(c.toLaneIdx), nbe->getID());
+                    // do not warn if this is a duplicate connection when merging networks
+                    if (!nbe->hasConnectionTo(toEdge, c.toLaneIdx, fromLaneIndex)) {
+                        WRITE_WARNINGF("Target lane '%' has multiple connections from '%'.", toEdge->getLaneID(c.toLaneIdx), nbe->getID());
+                    }
                 }
                 // patch attribute uncontrolled for legacy networks where it is not set explicitly
                 bool uncontrolled = c.uncontrolled;
@@ -427,7 +430,6 @@ NIImporter_SUMO::myStartElement(int element,
             myRectLaneCut = attrs.getOpt<bool>(SUMO_ATTR_RECTANGULAR_LANE_CUT, nullptr, ok, false);
             myWalkingAreas = attrs.getOpt<bool>(SUMO_ATTR_WALKINGAREAS, nullptr, ok, false);
             myLimitTurnSpeed = attrs.getOpt<double>(SUMO_ATTR_LIMIT_TURN_SPEED, nullptr, ok, -1);
-            myWalkingAreas = attrs.getOpt<bool>(SUMO_ATTR_WALKINGAREAS, nullptr, ok, false);
             myCheckLaneFoesAll = attrs.getOpt<bool>(SUMO_ATTR_CHECKLANEFOES_ALL, nullptr, ok, false);
             myCheckLaneFoesRoundabout = attrs.getOpt<bool>(SUMO_ATTR_CHECKLANEFOES_ROUNDABOUT, nullptr, ok, true);
             myTlsIgnoreInternalJunctionJam = attrs.getOpt<bool>(SUMO_ATTR_TLS_IGNORE_INTERNAL_JUNCTION_JAM, nullptr, ok, false);
@@ -501,7 +503,7 @@ NIImporter_SUMO::myEndElement(int element) {
         case SUMO_TAG_EDGE:
             if (myCurrentEdge != nullptr) {
                 if (myEdges.find(myCurrentEdge->id) != myEdges.end()) {
-                    WRITE_ERROR("Edge '" + myCurrentEdge->id + "' occurred at least twice in the input.");
+                    WRITE_WARNINGF("Edge '%' occurred at least twice in the input.", myCurrentEdge->id);
                 } else {
                     myEdges[myCurrentEdge->id] = myCurrentEdge;
                 }
@@ -717,7 +719,7 @@ NIImporter_SUMO::addJunction(const SUMOSAXAttributes& attrs) {
     NBNode* node = new NBNode(id, pos, type);
     myLastParameterised.push_back(node);
     if (!myNodeCont.insert(node)) {
-        WRITE_ERROR("Problems on adding junction '" + id + "'.");
+        WRITE_WARNINGF("Junction '%' occurred at least twice in the input.", id);
         delete node;
         return;
     }

@@ -204,6 +204,9 @@ NBFrame::fillOptions(bool forNetgen) {
         oc.doRegister("railway.topology.repair", new Option_Bool(false));
         oc.addDescription("railway.topology.repair", "Railway", "Repair topology of the railway network");
 
+        oc.doRegister("railway.topology.repair.minimal", new Option_Bool(false));
+        oc.addDescription("railway.topology.repair.minimal", "Railway", "Repair topology of the railway network just enough to let loaded public transport lines to work");
+
         oc.doRegister("railway.topology.repair.connect-straight", new Option_Bool(false));
         oc.addDescription("railway.topology.repair.connect-straight", "Railway", "Allow bidiretional rail use wherever rails with opposite directions meet at a straight angle");
 
@@ -526,6 +529,9 @@ NBFrame::fillOptions(bool forNetgen) {
     oc.doRegister("tls.layout", new Option_String("opposites"));
     oc.addDescription("tls.layout", "TLS Building", "Set phase layout four grouping opposite directions or grouping all movements for one incoming edge ['opposites', 'incoming']");
 
+    oc.doRegister("tls.no-mixed", new Option_Bool(false));
+    oc.addDescription("tls.no-mixed", "TLS Building", "Avoid phases with green and red signals for different connections from the same lane");
+
     oc.doRegister("tls.min-dur", new Option_Integer(5));
     oc.addDescription("tls.min-dur", "TLS Building", "Default minimum phase duration for traffic lights with variable phase length");
 
@@ -570,7 +576,7 @@ NBFrame::fillOptions(bool forNetgen) {
 
     if (!forNetgen) {
         oc.doRegister("keep-edges.by-vclass", new Option_StringVector());
-        oc.addDescription("keep-edges.by-vclass", "Edge Removal", "Only keep edges which allow one of the vclasss in STR[]");
+        oc.addDescription("keep-edges.by-vclass", "Edge Removal", "Only keep edges which allow one of the vclasses in STR[]");
 
         oc.doRegister("remove-edges.by-vclass", new Option_StringVector());
         oc.addDescription("remove-edges.by-vclass", "Edge Removal", "Remove edges which allow only vclasses from STR[]");
@@ -703,6 +709,9 @@ NBFrame::checkOptions() {
         ok = false;
     }
     if (oc.isDefault("railway.topology.repair") && oc.getBool("railway.topology.repair.connect-straight")) {
+        oc.set("railway.topology.repair", "true");
+    }
+    if (oc.isDefault("railway.topology.repair") && oc.getBool("railway.topology.repair.minimal")) {
         oc.set("railway.topology.repair", "true");
     }
     if (oc.isDefault("railway.topology.all-bidi") && !oc.isDefault("railway.topology.all-bidi.input-file")) {

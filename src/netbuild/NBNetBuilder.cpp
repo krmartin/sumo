@@ -263,7 +263,8 @@ NBNetBuilder::compute(OptionsCont& oc, const std::set<std::string>& explicitTurn
     // @note: likewise splitting can destroy similarities so joinSimilarEdges must come before
     if (mayAddOrRemove && oc.getBool("edges.join")) {
         before = PROGRESS_BEGIN_TIME_MESSAGE("Joining similar edges");
-        myNodeCont.joinSimilarEdges(myDistrictCont, myEdgeCont, myTLLCont);
+        const bool removeDuplicates = oc.exists("junctions.join-same") && oc.getBool("junctions.join-same");
+        myNodeCont.joinSimilarEdges(myDistrictCont, myEdgeCont, myTLLCont, removeDuplicates);
         PROGRESS_TIME_MESSAGE(before);
     }
     if (oc.getBool("opposites.guess")) {
@@ -416,12 +417,21 @@ NBNetBuilder::compute(OptionsCont& oc, const std::set<std::string>& explicitTurn
         WRITE_MESSAGE("Guessed " + toString(crossings) + " pedestrian crossings.");
     }
     if (!myNetworkHaveCrossings) {
+        bool haveValidCrossings = false;
         // recheck whether we had crossings in the input
         for (std::map<std::string, NBNode*>::const_iterator i = myNodeCont.begin(); i != myNodeCont.end(); ++i) {
-            if (i->second->getCrossingsIncludingInvalid().size() > 0) {
+            if (i->second->getCrossings().size() > 0) {
                 myNetworkHaveCrossings = true;
+                haveValidCrossings = true;
                 break;
+            } else if (i->second->getCrossingsIncludingInvalid().size() > 0) {
+                myNetworkHaveCrossings = true;
             }
+        }
+        if (myNetworkHaveCrossings && !haveValidCrossings) {
+            // initial crossings removed or invalidated, keep walkingareas
+            oc.resetWritable();
+            oc.set("walkingareas", "true");
         }
     }
 
