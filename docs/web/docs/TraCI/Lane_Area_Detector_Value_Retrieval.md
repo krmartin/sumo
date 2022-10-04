@@ -1,6 +1,5 @@
 ---
-title: TraCI/Lane Area Detector Value Retrieval
-permalink: /TraCI/Lane_Area_Detector_Value_Retrieval/
+title: Lane Area Detector Value Retrieval
 ---
 
 ## Command 0xad: Get LaneAreaDetector Variable
@@ -15,7 +14,7 @@ value returned is the state of the asked variable/value within the last
 simulation step. Please note that for asking values from your detectors
 [you have to define
 them](../Simulation/Output/Lanearea_Detectors_(E2).md) within an {{AdditionalFile}}
-and load them at the start of the simulation. The `freq` and `file` attributes do
+and load them at the start of the simulation. The `period` and `file` attributes do
 not matter for TraCI.
 
 The following variable values can be retrieved, the type of the return

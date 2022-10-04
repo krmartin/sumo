@@ -1,6 +1,5 @@
 ---
-title: Networks/Import/OpenStreetMap
-permalink: /Networks/Import/OpenStreetMap/
+title: OpenStreetMap
 ---
 
 *"[OpenStreetMap](http://www.openstreetmap.org/) is a free editable map
@@ -96,14 +95,35 @@ below.
   \[<https://wiki.openstreetmap.org/wiki/Key:usage> usage information
   for railways (main,branch,industrial,...). This typemap only works
   in combination with other typemaps.
-- **osmBidiRailNetconvert.typ.xml**. Changes the default from
+- **osmNetconvertBidiRail.typ.xml**. Changes the default from
   uni-directional railroads to bi-directional railroads. This may be
   useful in some regions of the world where OSM contributors used
   this style of date representation. The use of this typemap supplants
   the older option **--osm.railway.oneway-default** {{DT_BOOL}}.
+- **osmNetconvertAirport.typ.xml**. Imports aeroways (runway, taxiway, etc.)
 
 !!! caution
-    When specifying a typemap using the option **--type-files**, the defaults are not loaded. To achieve the desired types, the user should load the default typemap along with the desired modification (**--type-files <SUMO_HOME\>/data/typemap/osmNetconvert.typ.de,<SUMO_HOME\>/data/typemap/osmNetconvertUrbanDe.typ.de** or create a fully specified typemap file by himself.
+    When specifying a typemap using the option **--type-files**, the defaults are not loaded. To achieve the desired types, the user should load the default typemap along with the desired modification (**--type-files <SUMO_HOME\>/data/typemap/osmNetconvert.typ.xml,<SUMO_HOME\>/data/typemap/osmNetconvertUrbanDe.typ.xml**) or create a fully specified typemap file by himself.
+
+### Bicycle Traffic
+
+Importing bicycle infrastructure can be achieved using the option **--osm-bike-access** and the bicycle typemap.
+The first will evaluate the [bike=yes/no tags](https://wiki.openstreetmap.org/wiki/Key:bicycle)
+as well as oneway information for bicycles. This usually applies only to the permissions
+for existing lanes and streets. If you want to add further bike lanes use the bicycle
+type map mentioned above.
+
+### Pedestrian Traffic
+
+By default only footpaths (osm ways dedicated for pedestrian use) are imported.
+To import all sidewalk related information, the option **--sidewalks** can be set. Alternatively, sidwalks can be added heuristically via typemaps (see above) or [guessing-options](../../Simulation/Pedestrians.md#generating_a_network_with_sidewalks)
+
+### Lane-To-Lane Connections
+
+By default, lane-to-lane connections are guessed by [netconvert](../../netconvert.md) and only turning restrictions are loaded from OSM to influence connection generation. When setting option **--osm.turn-lanes**, the turn direction road markings form OSM are evaluated to guide connection generation.
+
+!!! caution
+    At roads where some lanes have turn markings and others do not, the unmarked lanes are interpreted as through-lanes. This may not be correct in all cases.
 
 # Importing additional Polygons (Buildings, Water, etc.)
 
@@ -194,7 +214,7 @@ can be imported.
 
 The help script *osmGet.py* allows downloading a large area. The
 resulting file called "<PREFIX\>.osm.xml" can then be imported using the
-script *osmBuild.Py*. Both scripts are located in {{SUMO}}/tools/import/osm.
+script *osmBuild.Py*. Both scripts are located in {{SUMO}}/tools.
 
 The call is:
 
@@ -298,6 +318,8 @@ signals. The actual intersection itself is then not marked as
 controlled. To interpret these structures the option **--tls.guess-signals** and **--tls.guess-signals.dist** {{DT_FLOAT}} may be used.
 To cover the cases where this heuristic fails, the options below may be
 used to computed a joint tls plan for multiple nodes.
+To identify the guessed signals in a network they all start with the prefix *GS_*
+before the node id.
 
 ### Joining traffic lights
 
@@ -311,7 +333,17 @@ junction](#junctions). However, if the junctions should stay
 separate, it is possible to at least generate a joint controller by
 setting the option **--tls.join**. For fine-tuning of joint traffic lights, the
 attribute `tl` can be [customized for individual
-nodes](#node_descriptions).
+nodes](#node_descriptions). The joined traffic lights get the id
+*joinedS_id0_id1* where *id0* and *id1* are the junction ids. If there are
+more nodes in the join than given by **--max-join-ids** (default 4)
+the id will be abbreviated to something like *joinedS_id0_id1_id2_id3_#5more*
+(for a 9 node cluster).
+
+If you want to let netconvert guess joined traffic lights at node clusters
+which were not joined previously (e.g. by using **--junctions.join**) and which do
+not have traffic lights assigned in the input, you can use the option **--tls.guess.joining**.
+This is not recommended in general. The traffic lights joint by this method get the id
+*joinedG_id0_id1* where *id0* and *id1* are the junction ids and the same abbreviation rules as above apply.
 
 ### Debugging missing traffic lights
 
@@ -357,12 +389,6 @@ OSM networks often lack additional lanes for highway on- and off-ramps.
 They can be guessed via [netconvert](../../netconvert.md) using the **--guess-ramps**
 option.
 
-## Roundabouts
-
-To ensure correct right-of-way at roundabouts, the option **--roundabouts.guess** should be
-added. This option is set automatically when using the *osmBuild.py*
-script.
-
 ## Isolated Edges
 
 When dealing with strictly vehicular scenarios it usually helps to add
@@ -376,9 +402,14 @@ To discard edges which have no predecessor and no successor edge.
 However, this often causes the removal of railways or waterways which is
 not desirable for multi-modal scenarios.
 
-## Editing OSM networks
+## Shared Space for Trams and Road Vehicles
 
-### JOSM
+In the OSM database, shared space for tram and road vehicles is often modelled with distinct elements that occupy the same space. When imported directly, this would allow those modes of traffic to ignore each other due to running on different edges.
+To fix this, the option **--edges.join-tram-dist FLOAT** may be used. When this option is set (values between 1 and 2 are recommended), overlapping OSM elements will be converted to road lanes with shared permissions (indicated by a dark purple in [sumo-gui](../../sumo-gui.md#default_coloring)).
+
+# Editing OSM networks
+
+## JOSM
 
 *From George Dita, on 01.07.2009* [JOSM](http://josm.openstreetmap.de/)
 can be used to edit OSM-data (i.e. for trimming a rectangular map and
@@ -395,7 +426,7 @@ xmlstarlet ed -d "/osm/*[@action='delete']" < input.osm > output.osm
 !!! caution
     Up to version 4279 of JOSM, nodes and ways created or modified by JOSM are assigned a negative ID. With each run of JOSM, these IDs are recalculated. Please do not rely on them in your SUMO files. If you decide not to upload your changes to OpenStreetMap, you can remove the minuses in the IDs, assure that IDs are unique and then safely refer to them in SUMO files.
 
-### OSMOSIS
+## OSMOSIS
 
 *From Christian Klotz, on 01.07.2009, tip by Christoph Sommmer*
 
@@ -408,6 +439,15 @@ everything else:
 java -jar osmosis.jar --read-xml file="orginal.osm.xml" --way-key-value \
     keyValueList="highway.motorway,highway.motorway_link" \
     --used-node --write-xml file="filtered.osm.xml"
+```
+## osmfilter / osmconvert
+
+[osmfilter](https://wiki.openstreetmap.org/wiki/Osmfilter) is a command line tool used to filter OpenStreetMap data files.
+It can be used to preprocess the data and can save a lot of work for netconvert.
+With this tool it is possible to import the top-level roads for a whole country within minutes of processing time.
+It is recommended to use the associated tool [osmconvert](https://wiki.openstreetmap.org/wiki/Osmconvert) to convert the data into the '.o5m' format and back to speed up the work on large datasets. The tools can also be used to cut an osm file to a boundary box like this (be aware that the order of coordinates is lon,lat):
+```
+osmconvert -b=10.54,52.257,10.545,52.26 fullnet.osm.xml > myplace.osm.xml
 ```
 
 # netconvert Details
@@ -497,7 +537,7 @@ may be issued during OSM import.
 
 | Message                                        | Explanation                                          | Recommended Action                     |
 | ---------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------- |
-| Warning: Discarding unusable type ...                                      | Lists `<way>` types that are not mentioned in the type file                         | Can be safely ignored in most cases (unless the user edited the type-file)                      |
+| Warning: Discarding unusable type ...  / Discarding unknown compound ... in type ...                  | Lists `<way>` types that are not mentioned in the type file                         | Can be safely ignored in most cases (unless the user edited the type-file)                      |
 | Warning: The referenced geometry information (ref='...') is not known      | Unknown osm node references during import.                                   | Can be safely ignored in most cases (unless the user edited the OSM file)                       |
 | Warning: Discarding way '...' because it has only 1 node(s)                | Incomplete data in the OSM file (typically at the boundary of the data set). | Can be safely ignored in most cases (unless the user edited the OSM file)                       |
 | Warning: Discarding unusable type "...." (first occurence for edge "....") | Unknown edge types are ignored during import.                                | Ignore or provide an [Edge-type file](../../SUMO_edge_type_file.md) which contains that type. |
@@ -547,6 +587,28 @@ Public transport schedules which are needed to make use of the above data
 are generated with a user-defined service period based on a simulation
 of the lines.
 
+# Importing Sidewalks
+
+By default (osmNetconvert.typ.xml), only dedicated edges for pedestrians will be built and all other roads (except motorway) will permit pedestrians on all lanes.
+For a [pedestrian simulation](../../Simulation/Pedestrians.md#building_a_network_for_pedestrian_simulation), sidewalks are needed and pedestrians should be forbidden on most road lanes.
+
+OSM data coverage and definition style for sidewalks varies by region which may require different import options to achieve adequate sidewalk coverage.
+
+## Sidewalks from typemap
+
+By adding a typemap such as {{SUMO_HOME}}/data/osmNetconvertPedestrians.typ.xml, sidewalks of a pre-configured width a added to a specific set of road types and all non-sidewalk lanes are forbidden for pedestrians.
+
+OSM-sidewalk data will only be considered if it explicitly disables sidewalks on an edge.
+This ensures good sidewalk coverage but may lead to double-sidewalks if OSM modellers have added the "sidewalks" as parallel foot paths edges.
+
+## Sidwalks from OSM
+
+By setting option **--osm.sidewalks**, all sidewalk data from OSM will be loaded. When combined with a typemap such as {{SUMO_HOME}}/data/osmNetconvertPedestrians.typ.xml, the typemap will only be used to configure sidewalk widths but no extra sidewalks will be added.
+
+This definition style prevents double-sidewalks but may lead to missing sidewalks wherever OSM modellers did not add sidewalk information.
+
+[osmWebWizard](../../Tutorials/OSMWebWizard.md) uses this style beginning with version 1.11.0. 
+
 # Importing OSM Data via Python/ Overpass API
 
 Another way to get OSM data is to query via the Overpass API, e.g. with
@@ -582,6 +644,10 @@ Caution: If the data volume is too large, the overpass API aborts.
 More information about the query syntax and a GUI for testing the querys
 can be found on the website <https://overpass-turbo.eu/>.
 
+# Importing other formats (pbf, o5m)
+
+To use a [pbf](https://wiki.openstreetmap.org/wiki/PBF_Format) or [o5m](https://wiki.openstreetmap.org/wiki/O5m) network in SUMO, you first need to convert it to the OSM format. This can be done using [Osmconvert](https://wiki.openstreetmap.org/wiki/Osmconvert).
+
 # Missing Descriptions
 
 - TLS computation
@@ -592,7 +658,6 @@ can be found on the website <https://overpass-turbo.eu/>.
 
 # References
 
-- <http://www.openstreetmap.org/> - the home site
-- <http://www.openstreetmap.de/> - the German home site
-- <http://wiki.openstreetmap.org/index.php/Map_Features> - information
-  about database attributes
+- <https://www.openstreetmap.org/> - the home site
+- <https://www.openstreetmap.de/> - the German home site
+- <https://wiki.openstreetmap.org/wiki/Map_features> - information about database attributes

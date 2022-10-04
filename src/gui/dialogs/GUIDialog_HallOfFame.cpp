@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -22,7 +22,7 @@
 #include <config.h>
 
 #include "GUIDialog_HallOfFame.h"
-#include <utils/foxtools/FXLinkLabel.h>
+#include <utils/foxtools/MFXLinkLabel.h>
 #include <utils/common/StdDefs.h>
 #include <utils/gui/images/GUIIconSubSys.h>
 #include <utils/gui/div/GUIDesigns.h>
@@ -41,13 +41,13 @@ GUIDialog_HallOfFame::GUIDialog_HallOfFame(FXWindow* parent) :
     // main text
     FXVerticalFrame* descriptionFrame = new FXVerticalFrame(mainInfoFrame, GUIDesignLabelAboutInfo);
     myHeadlineFont = new FXFont(getApp(), "Arial", 12, FXFont::Bold);
-    (new FXLabel(descriptionFrame, "SUMO User Conference 2020 - Hall of Fame", nullptr, GUIDesignLabelAboutInfo))->setFont(myHeadlineFont);
+    (new FXLabel(descriptionFrame, "SUMO User Conference 2022 - Hall of Fame", nullptr, GUIDesignLabelAboutInfo))->setFont(myHeadlineFont);
     new FXLabel(descriptionFrame, "", GUIIconSubSys::getIcon(GUIIcon::HALL_OF_FAME), GUIDesignLabelIcon);
-    new FXLabel(descriptionFrame, "SUMO guru of the year: m-kro", nullptr, GUIDesignLabelAboutInfo);
-    new FXLabel(descriptionFrame, "Voted best presentation: Georg Merz (AI-based Disposition using a Reinforcement Learning Approach)", nullptr, GUIDesignLabelAboutInfo);
+    new FXLabel(descriptionFrame, "SUMO guru of the year: Dennis Harmann", nullptr, GUIDesignLabelAboutInfo);
+    new FXLabel(descriptionFrame, "Voted best presentation: Vijay Jaisankar (Simulation of traffic scenarios using SUMO)", nullptr, GUIDesignLabelAboutInfo);
 
     // link to conference website
-    (new FXLinkLabel(this, "Visit conference website", nullptr, GUIDesignLabelCenter))->setTipText("https://www.eclipse.org/sumo/conference");
+    (new MFXLinkLabel(this, "Visit conference website", nullptr, GUIDesignLabelCenter))->setTipText("https://www.eclipse.org/sumo/conference");
 
     // centered ok-button
     FXHorizontalFrame* buttonFrame = new FXHorizontalFrame(this, GUIDesignHorizontalFrame);

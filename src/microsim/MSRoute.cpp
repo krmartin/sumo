@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -49,7 +49,9 @@ FXMutex MSRoute::myDictMutex(true);
 MSRoute::MSRoute(const std::string& id,
                  const ConstMSEdgeVector& edges,
                  const bool isPermanent, const RGBColor* const c,
-                 const std::vector<SUMOVehicleParameter::Stop>& stops) :
+                 const std::vector<SUMOVehicleParameter::Stop>& stops,
+                 SUMOTime replacedTime,
+                 int replacedIndex) :
     Named(id), myEdges(edges), myAmPermanent(isPermanent),
     myReferenceCounter(isPermanent ? 1 : 0),
     myColor(c),
@@ -57,7 +59,10 @@ MSRoute::MSRoute(const std::string& id,
     myCosts(-1),
     mySavings(0),
     myReroute(false),
-    myStops(stops) {}
+    myStops(stops),
+    myReplacedTime(replacedTime),
+    myReplacedIndex(replacedIndex)
+{}
 
 
 MSRoute::~MSRoute() {
@@ -86,7 +91,7 @@ MSRoute::size() const {
 const MSEdge*
 MSRoute::getLastEdge() const {
     assert(myEdges.size() > 0);
-    return myEdges[myEdges.size() - 1];
+    return myEdges.back();
 }
 
 
@@ -136,7 +141,7 @@ MSRoute::dictionary(const std::string& id, RandomDistributor<const MSRoute*>* co
 
 
 const MSRoute*
-MSRoute::dictionary(const std::string& id, std::mt19937* rng) {
+MSRoute::dictionary(const std::string& id, SumoRNG* rng) {
 #ifdef HAVE_FOX
     FXMutexLock f(myDictMutex);
 #endif
@@ -223,23 +228,26 @@ MSRoute::insertIDs(std::vector<std::string>& into) {
 
 
 int
-MSRoute::writeEdgeIDs(OutputDevice& os, const MSEdge* const from, const MSEdge* const upTo) const {
-    int numWritten = 0;
-    ConstMSEdgeVector::const_iterator i = myEdges.begin();
-    if (from != nullptr) {
-        i = std::find(myEdges.begin(), myEdges.end(), from);
+MSRoute::writeEdgeIDs(OutputDevice& os, int firstIndex, int lastIndex, bool withInternal, SUMOVehicleClass svc) const {
+    //std::cout << SIMTIME << " writeEdgeIDs " << getID() << " first=" << firstIndex << " lastIndex=" << lastIndex << " edges=" << toString(myEdges) << "\n";
+    if (lastIndex < 0) {
+        lastIndex = (int)myEdges.size();
     }
-    for (; i != myEdges.end(); ++i) {
-        if ((*i) == upTo) {
-            return numWritten;
-        }
-        os << (*i)->getID();
-        numWritten++;
-        if (upTo || i != myEdges.end() - 1) {
-            os << ' ';
+    int internal = 0;
+    for (int i = firstIndex; i < lastIndex; i++) {
+        os << myEdges[i]->getID() << ' ';
+        if (withInternal && i + 1 < lastIndex) {
+            const MSEdge* next = myEdges[i + 1];
+            const MSEdge* edge = myEdges[i]->getInternalFollowingEdge(next, svc);
+            // Take into account non-internal lengths until next non-internal edge
+            while (edge != nullptr && edge->isInternal()) {
+                os << edge->getID() << ' ';
+                internal++;
+                edge = edge->getInternalFollowingEdge(next, svc);
+            }
         }
     }
-    return numWritten;
+    return internal + lastIndex - firstIndex;
 }
 
 
@@ -267,9 +275,18 @@ MSRoute::dict_saveState(OutputDevice& out) {
     FXMutexLock f(myDictMutex);
 #endif
     for (RouteDict::iterator it = myDict.begin(); it != myDict.end(); ++it) {
-        out.openTag(SUMO_TAG_ROUTE).writeAttr(SUMO_ATTR_ID, (*it).second->getID());
-        out.writeAttr(SUMO_ATTR_STATE, (*it).second->myAmPermanent);
-        out.writeAttr(SUMO_ATTR_EDGES, (*it).second->myEdges).closeTag();
+        const MSRoute* r = (*it).second;
+        out.openTag(SUMO_TAG_ROUTE);
+        out.writeAttr(SUMO_ATTR_ID, r->getID());
+        out.writeAttr(SUMO_ATTR_STATE, r->myAmPermanent);
+        out.writeAttr(SUMO_ATTR_EDGES, r->myEdges);
+        if (r->myColor != nullptr) {
+            out.writeAttr(SUMO_ATTR_COLOR, *r->myColor);
+        }
+        for (auto stop : r->getStops()) {
+            stop.write(out);
+        }
+        out.closeTag();
     }
     for (const auto& item : myDistDict) {
         if (item.second.first->getVals().size() > 0) {
@@ -375,7 +392,8 @@ MSRoute::getDistanceBetween(double fromPos, double toPos,
         } else {
             distance += (*it)->getLength();
             if (includeInternal && (it + 1) != end()) {
-                distance += (*it)->getInternalFollowingLengthTo(*(it + 1));
+                // XXX the length may be wrong if there are parallel internal edges for different vClasses
+                distance += (*it)->getInternalFollowingLengthTo(*(it + 1), SVC_IGNORING);
             }
         }
         isFirstIteration = false;

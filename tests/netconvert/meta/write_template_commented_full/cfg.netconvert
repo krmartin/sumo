@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on Fri Dec 18 16:54:36 2020 by Eclipse SUMO netconvert Version v1_8_0+0335-c69039f394
+<!-- generated on 2022-10-04 15:37:06 by Eclipse SUMO netconvert Version v1_14_1+1425-e57389e
 -->
 
 <configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/netconvertConfiguration.xsd">
@@ -11,6 +11,9 @@
 
         <!-- Saves current configuration into FILE -->
         <save-configuration value="" synonymes="C save-config" type="FILE"/>
+
+        <!-- Enforce relative paths when saving the configuration -->
+        <save-configuration.relative value="false" synonymes="save-config.relative" type="BOOL"/>
 
         <!-- Saves a configuration template (empty) into FILE -->
         <save-template value="" type="FILE"/>
@@ -106,7 +109,7 @@
         <output-file value="" synonymes="o output sumo-output" type="FILE"/>
 
         <!-- Prefix of files to write plain xml nodes, edges and connections to -->
-        <plain-output-prefix value="" synonymes="plain plain-output" type="FILE"/>
+        <plain-output-prefix value="" synonymes="p plain plain-output" type="FILE"/>
 
         <!-- Writes information about joined junctions to FILE (can be loaded as additional node-file to reproduce joins -->
         <junctions.join-output value="" type="FILE"/>
@@ -192,7 +195,7 @@
     </projection>
 
     <processing>
-        <!-- vmax is parsed as given in km/h (some) -->
+        <!-- vmax is parsed as given in km/h -->
         <speed-in-kmh value="false" type="BOOL"/>
 
         <!-- Use YYYY-MM-DD date to determine the readiness of features under construction -->
@@ -230,6 +233,9 @@
 
         <!-- Ensure that the edges in FILE are not modified (Each id on a single line. Selection files from sumo-gui are also supported) -->
         <geometry.remove.keep-edges.input-file value="" type="FILE"/>
+
+        <!-- Ensure that edges with public transport stops are not modified -->
+        <geometry.remove.keep-ptstops value="false" type="BOOL"/>
 
         <!-- Allow merging edges with differing attributes when their length is below min-length -->
         <geometry.remove.min-length value="0" type="FLOAT"/>
@@ -307,10 +313,13 @@
         <opposites.guess value="false" type="BOOL"/>
 
         <!-- Ensure that opposite edges have the same length -->
-        <opposites.guess.fix-lengths value="false" type="BOOL"/>
+        <opposites.guess.fix-lengths value="true" type="BOOL"/>
 
         <!-- Enable guessing of network fringe nodes -->
         <fringe.guess value="false" type="BOOL"/>
+
+        <!-- Guess disconnected edges above the given speed as outer fringe -->
+        <fringe.guess.speed-threshold value="13.8889" type="FLOAT"/>
 
         <!-- Assumes left-hand traffic on the network -->
         <lefthand value="false" type="BOOL"/>
@@ -345,6 +354,9 @@
         <!-- The default speed on an edge (in m/s) -->
         <default.speed value="13.89" synonymes="S speed" type="FLOAT"/>
 
+        <!-- The default friction on an edge -->
+        <default.friction value="1" synonymes="friction" type="FLOAT"/>
+
         <!-- The default priority of an edge -->
         <default.priority value="-1" synonymes="P priority" type="INT"/>
 
@@ -359,6 +371,9 @@
 
         <!-- The default width of a pedestrian crossing -->
         <default.crossing-width value="4" type="FLOAT"/>
+
+        <!-- The default for allowed vehicle classes -->
+        <default.allow value="" type="STR"/>
 
         <!-- The default for disallowed vehicle classes -->
         <default.disallow value="" type="STR"/>
@@ -446,6 +461,15 @@
 
         <!-- Use INT as green phase duration for left turns (s). Setting this value to 0 disables additional left-turning phases -->
         <tls.left-green.time value="6" type="INT"/>
+
+        <!-- Set INT as fixed time for intermediate vehext phase after every switch -->
+        <tls.nema.vehExt value="2" type="INT"/>
+
+        <!-- Set INT as fixed time for intermediate NEMA yelow phase after every switch -->
+        <tls.nema.yellow value="3" type="INT"/>
+
+        <!-- Set INT as fixed time for intermediate NEMA red phase after every switch -->
+        <tls.nema.red value="2" type="INT"/>
 
         <!-- Use INT as minimum green duration for pedestrian crossings (s). -->
         <tls.crossing-min.time value="4" type="INT"/>
@@ -612,6 +636,9 @@
         <!-- Joins junctions that have the same coordinates even if not connected -->
         <junctions.join-same value="false" type="BOOL"/>
 
+        <!-- Abbreviate junction or TLS id if it joins more than INT junctions -->
+        <max-join-ids value="4" type="INT"/>
+
         <!-- Generate INT intermediate points to smooth out intersection corners -->
         <junctions.corner-detail value="5" type="INT"/>
 
@@ -641,6 +668,12 @@
 
         <!-- Default radius for junctions that do not require wide vehicle turns -->
         <junctions.small-radius value="1.5" type="FLOAT"/>
+
+        <!-- Use maximum value of incoming and outgoing edge speed on junction instead of average -->
+        <junctions.higher-speed value="false" type="BOOL"/>
+
+        <!-- Assumed vehicle width for computing internal junction positions -->
+        <internal-junctions.vehicle-width value="1.8" type="FLOAT"/>
 
         <!-- Forces rectangular cuts between lanes and intersections -->
         <rectangular-lane-cut value="false" type="BOOL"/>
@@ -711,7 +744,7 @@
         <!-- Repair topology of the railway network just enough to let loaded public transport lines to work -->
         <railway.topology.repair.minimal value="false" type="BOOL"/>
 
-        <!-- Allow bidiretional rail use wherever rails with opposite directions meet at a straight angle -->
+        <!-- Allow bidirectional rail use wherever rails with opposite directions meet at a straight angle -->
         <railway.topology.repair.connect-straight value="false" type="BOOL"/>
 
         <!-- Add turn-around connections at all loaded stops. -->
@@ -726,10 +759,13 @@
         <!-- Set edge priority values based on estimated main direction -->
         <railway.topology.direction-priority value="false" type="BOOL"/>
 
+        <!-- Extend loaded edge priority values based on estimated main direction -->
+        <railway.topology.extend-priority value="false" type="BOOL"/>
+
         <!-- The search radius for finding suitable road accesses for rail stops -->
         <railway.access-distance value="150" synonymes="osm.stop-output.footway-access-distance" type="FLOAT"/>
 
-        <!-- The maximum roud accesses registered per rail stops -->
+        <!-- The maximum road accesses registered per rail stops -->
         <railway.max-accesses value="5" synonymes="osm.stop-output.footway-max-accesses" type="INT"/>
 
         <!-- The walking length of the access is computed as air-line distance multiplied by FLOAT -->
@@ -740,6 +776,9 @@
     <formats>
         <!-- Remove the list of keys from all params -->
         <discard-params value="" type="STR[]"/>
+
+        <!-- List vehicle classes that may ignore lane changing restrictions (&apos;all&apos; discards all restrictions) -->
+        <ignore-change-restrictions value="authority" type="STR[]"/>
 
         <!-- Skips the check for duplicate nodes and edges -->
         <osm.skip-duplicates-check value="false" type="BOOL"/>
@@ -756,6 +795,18 @@
         <!-- Whether one-way roads should be spread to the side instead of centered -->
         <osm.oneway-spread-right value="false" type="BOOL"/>
 
+        <!-- Import lane-specific access restrictions -->
+        <osm.lane-access value="false" type="BOOL"/>
+
+        <!-- Check additional attributes to fix directions and permissions on bike paths -->
+        <osm.bike-access value="false" type="BOOL"/>
+
+        <!-- Import sidewalks -->
+        <osm.sidewalks value="false" type="BOOL"/>
+
+        <!-- Import turning arrows from OSM to help with connection building -->
+        <osm.turn-lanes value="false" type="BOOL"/>
+
         <!-- The default length of a public transport stop in FLOAT m -->
         <osm.stop-output.length value="25" type="FLOAT"/>
 
@@ -770,6 +821,12 @@
 
         <!-- Whether additional attributes shall be imported -->
         <osm.all-attributes value="false" type="BOOL"/>
+
+        <!-- List of additional attributes that shall be imported from OSM via osm.all-attributes (set &apos;all&apos; to import all) -->
+        <osm.extra-attributes value="bridge,tunnel,layer,postal_code" type="STR[]"/>
+
+        <!-- The speed limit to be set when there is no actual speed limit in reality -->
+        <osm.speedlimit-none value="39.4444" type="FLOAT"/>
 
         <!-- The edge lengths given in the MATSIM-file will be kept -->
         <matsim.keep-length value="false" type="BOOL"/>
@@ -882,6 +939,12 @@
         <!-- Import internal lane shapes -->
         <opendrive.internal-shapes value="false" type="BOOL"/>
 
+        <!-- Sets edge-id based on road-id and offset in m (legacy) -->
+        <opendrive.position-ids value="false" type="BOOL"/>
+
+        <!-- Use custom lane shapes to compensate discarded lane types -->
+        <opendrive.lane-shapes value="false" type="BOOL"/>
+
     </formats>
 
     <report>
@@ -897,10 +960,10 @@
         <!-- Prints the current version -->
         <version value="false" synonymes="V" type="BOOL"/>
 
-        <!-- Set schema validation scheme of XML inputs (&quot;never&quot;, &quot;auto&quot; or &quot;always&quot;) -->
-        <xml-validation value="auto" synonymes="X" type="STR"/>
+        <!-- Set schema validation scheme of XML inputs (&quot;never&quot;, &quot;local&quot;, &quot;auto&quot; or &quot;always&quot;) -->
+        <xml-validation value="local" synonymes="X" type="STR"/>
 
-        <!-- Set schema validation scheme of SUMO network inputs (&quot;never&quot;, &quot;auto&quot; or &quot;always&quot;) -->
+        <!-- Set schema validation scheme of SUMO network inputs (&quot;never&quot;, &quot;local&quot;, &quot;auto&quot; or &quot;always&quot;) -->
         <xml-validation.net value="never" type="STR"/>
 
         <!-- Disables output of warnings -->

@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -33,7 +33,7 @@ FXIMPLEMENT_ABSTRACT(GNEChange_Children, GNEChange, nullptr, 0)
 // ===========================================================================
 
 GNEChange_Children::GNEChange_Children(GNEDemandElement* demandElementParent, GNEDemandElement* demandElementChild, const Operation operation) :
-    GNEChange(true, demandElementChild->isAttributeCarrierSelected()),
+    GNEChange(Supermode::DEMAND, true, demandElementChild->isAttributeCarrierSelected()),
     myParentDemandElement(demandElementParent),
     myChildDemandElement(demandElementChild),
     myOperation(operation),
@@ -100,7 +100,7 @@ GNEChange_Children::undo() {
 //          myParentDemandElement->myChildDemandElements = myEditedChildElements;
         }
     }
-    // Requiere always save children
+    // require always save children
     myParentDemandElement->getNet()->requireSaveDemandElements(true);
 }
 
@@ -134,28 +134,28 @@ GNEChange_Children::redo() {
 //          myParentDemandElement->myChildDemandElements = myOriginalChildElements;
         }
     }
-    // Requiere always save children
+    // require always save children
     myParentDemandElement->getNet()->requireSaveDemandElements(true);
 }
 
 
-FXString
+std::string
 GNEChange_Children::undoName() const {
     if (myForward) {
         // check myOperation
         if (myOperation == GNEChange_Children::Operation::MOVE_FRONT) {
-            return ("Undo moving up " + myChildDemandElement->getTagStr()).c_str();
+            return ("Undo moving up " + myChildDemandElement->getTagStr());
         } else if (myOperation == GNEChange_Children::Operation::MOVE_BACK) {
-            return ("Undo moving down " + myChildDemandElement->getTagStr()).c_str();
+            return ("Undo moving down " + myChildDemandElement->getTagStr());
         } else {
             return ("Invalid operation");
         }
     } else {
         // check myOperation
         if (myOperation == GNEChange_Children::Operation::MOVE_FRONT) {
-            return ("Undo moving down " + myChildDemandElement->getTagStr()).c_str();
+            return ("Undo moving down " + myChildDemandElement->getTagStr());
         } else if (myOperation == GNEChange_Children::Operation::MOVE_BACK) {
-            return ("Undo moving up " + myChildDemandElement->getTagStr()).c_str();
+            return ("Undo moving up " + myChildDemandElement->getTagStr());
         } else {
             return ("Invalid operation");
         }
@@ -163,23 +163,23 @@ GNEChange_Children::undoName() const {
 }
 
 
-FXString
+std::string
 GNEChange_Children::redoName() const {
     if (myForward) {
         // check myOperation
         if (myOperation == GNEChange_Children::Operation::MOVE_FRONT) {
-            return ("Redo moving front " + myParentDemandElement->getTagStr()).c_str();
+            return ("Redo moving front " + myParentDemandElement->getTagStr());
         } else if (myOperation == GNEChange_Children::Operation::MOVE_BACK) {
-            return ("Redo moving back " + myParentDemandElement->getTagStr()).c_str();
+            return ("Redo moving back " + myParentDemandElement->getTagStr());
         } else {
             return ("Invalid operation");
         }
     } else {
         // check myOperation
         if (myOperation == GNEChange_Children::Operation::MOVE_FRONT) {
-            return ("Redo moving front " + myParentDemandElement->getTagStr()).c_str();
+            return ("Redo moving front " + myParentDemandElement->getTagStr());
         } else if (myOperation == GNEChange_Children::Operation::MOVE_BACK) {
-            return ("Redo moving back " + myParentDemandElement->getTagStr()).c_str();
+            return ("Redo moving back " + myParentDemandElement->getTagStr());
         } else {
             return ("Invalid operation");
         }

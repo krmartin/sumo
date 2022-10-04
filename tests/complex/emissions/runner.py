@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2013-2020 German Aerospace Center (DLR) and others.
+# Copyright (C) 2013-2022 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -23,8 +23,7 @@ from __future__ import print_function
 import sys
 import os
 import subprocess
-sys.path.append(
-    os.path.join(os.path.dirname(sys.argv[0]), '..', '..', '..', "tools"))  # noqa
+sys.path.append(os.path.join(os.environ["SUMO_HOME"], "tools"))
 from sumolib import checkBinary  # noqa
 
 EDC = checkBinary("emissionsDrivingCycle", os.path.join(
@@ -42,7 +41,13 @@ fd = open("classes.txt")
 emissionClasses = fd.readlines()
 fd.close()
 
-fdo = open("results.csv", "w")
+if emissionClasses[0].startswith("PHEMlight5"):
+    PHEMLIGHTp = os.path.join(PHEMLIGHTp, "V5")
+
+if emissionClasses[0].startswith("HBEFA4"):
+    fdo = open("HBEFAresults.csv", "w")  # just to avoid the pickup of the huge file by texttest
+else:
+    fdo = open("results.csv", "w")
 for i, ec in enumerate(emissionClasses):
     ec = ec.strip()
     if len(ec) == 0:
@@ -55,17 +60,15 @@ for i, ec in enumerate(emissionClasses):
             "--phemlight-path", PHEMLIGHTp, "--kmh", "--compute-a"]
     if drivingCycle[-4:] == ".dri":
         call += ["--timeline-file.skip", "3", "--timeline-file.separator", ","]
+    call += sys.argv[2:]
     retCode = subprocess.call(call)
     sys.stdout.flush()
     sys.stderr.flush()
     if retCode != 0:
         print("Error on building PHEMlight measurements")
         sys.exit(1)
-    fd = open("tmp.csv")
-    out = fd.readlines()
-    fd.close()
     fdo.write("%s\n" % ec)
-    for l in out:
-        fdo.write(l)
+    with open("tmp.csv") as fd:
+        fdo.write(fd.read())
     fdo.write("-----\n\n")
 fdo.close()

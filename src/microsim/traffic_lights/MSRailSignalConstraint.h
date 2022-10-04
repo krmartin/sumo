@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -38,9 +38,17 @@ class SUMOSAXAttributes;
  */
 class MSRailSignalConstraint {
 public:
+
+    enum ConstraintType {
+       PREDECESSOR = 0, // swaps to PREDECESSOR
+       INSERTION_PREDECESSOR = 1, // swaps to FOE_INSERTION
+       FOE_INSERTION = 2, // swaps to INSERTION_PREDECESSOR
+       INSERTION_ORDER = 3 // swaps to INSERTION_ORDER
+    };
+
     /** @brief Constructor
      */
-    MSRailSignalConstraint() {};
+    MSRailSignalConstraint(ConstraintType type) : myType(type) {};
 
     /// @brief Destructor
     virtual ~MSRailSignalConstraint() {};
@@ -48,8 +56,48 @@ public:
     /// @brief whether the constraint has been met
     virtual bool cleared() const = 0;
 
+    virtual void setActive(bool active) = 0;
+
+    virtual bool isActive() const = 0;
+
     virtual std::string getDescription() const {
         return "RailSignalConstraint";
+    }
+
+    virtual void write(OutputDevice& out, const std::string& tripId) const = 0;
+
+    ConstraintType getType() const {
+        return myType;
+    }
+
+    SumoXMLTag getTag() const {
+        switch (myType) {
+            case INSERTION_PREDECESSOR:
+                return SUMO_TAG_INSERTION_PREDECESSOR;
+            case FOE_INSERTION:
+                return SUMO_TAG_FOE_INSERTION;
+            case INSERTION_ORDER:
+                return SUMO_TAG_INSERTION_ORDER;
+            default:
+                return SUMO_TAG_PREDECESSOR;
+        }
+    }
+
+    ConstraintType getSwappedType() const {
+        switch (myType) {
+            case INSERTION_PREDECESSOR:
+                return FOE_INSERTION;
+            case FOE_INSERTION:
+                return INSERTION_PREDECESSOR;
+            case INSERTION_ORDER:
+                return INSERTION_ORDER;
+            default:
+                return PREDECESSOR;
+        }
+    }
+
+    bool isInsertionConstraint() const {
+        return myType == INSERTION_PREDECESSOR || myType == INSERTION_ORDER;
     }
 
     /// @brief clean up state
@@ -61,8 +109,13 @@ public:
     /** @brief Clear all constraint states before quick-loading state */
     static void clearState();
 
+    /** @brief Remove all constraints before quick-loading state */
+    static void clearAll();
+
 protected:
     static std::string getVehID(const std::string& tripID);
+
+    ConstraintType myType;
 };
 
 
@@ -70,10 +123,12 @@ class MSRailSignalConstraint_Predecessor : public MSRailSignalConstraint {
 public:
     /** @brief Constructor
      */
-    MSRailSignalConstraint_Predecessor(const MSRailSignal* signal, const std::string& tripId, int limit);
+    MSRailSignalConstraint_Predecessor(ConstraintType type, const MSRailSignal* signal, const std::string& tripId, int limit, bool active);
 
     /// @brief Destructor
     ~MSRailSignalConstraint_Predecessor() {};
+
+    void write(OutputDevice& out, const std::string& tripId) const;
 
     /// @brief clean up state
     static void cleanup();
@@ -88,6 +143,14 @@ public:
     static void clearState();
 
     bool cleared() const;
+
+    void setActive(bool active) {
+        myAmActive = active;
+    }
+
+    bool isActive() const {
+        return myAmActive;
+    }
 
     std::string getDescription() const;
 
@@ -129,6 +192,12 @@ public:
 
     /// @brief the number of passed vehicles within which tripId must have occured
     const int myLimit;
+
+    /// @brief Whether this constraint is currently active
+    bool myAmActive;
+
+    /// @brief store the foe signal (for TraCI access)
+    const MSRailSignal* myFoeSignal;
 
 
     static std::map<const MSLane*, PassedTracker*> myTrackerLookup;

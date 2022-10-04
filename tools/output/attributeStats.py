@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2014-2020 German Aerospace Center (DLR) and others.
+# Copyright (C) 2014-2022 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -54,16 +54,15 @@ def get_options():
                          default=None, help="output file for histogram (gnuplot compatible)")
     optParser.add_option("-o", "--full-output", type="string",
                          default=None, help="output file for full data dump")
+    optParser.add_option("-x", "--xml-output", type="string",
+                         default=None, help="output statistic to xml file")
     optParser.add_option("-q", "--fast", action="store_true",
                          default=False, help="use fast parser (does not track missing data)")
     optParser.add_option("-p", "--precision", type="int",
                          default=2, help="Set output precision")
     options, args = optParser.parse_args()
 
-    if len(args) != 1:
-        sys.exit(USAGE)
-
-    options.datafile = args[0]
+    options.datafiles = args
     return options
 
 
@@ -72,24 +71,28 @@ def main():
 
     vals = defaultdict(list)
     stats = Statistics("%s %ss" % (options.element, options.attribute),
-                       histogram=options.binwidth > 0, scale=options.binwidth)
+                       histogram=options.binwidth > 0, scale=options.binwidth,
+                       printDev=True)
     missingAttr = set()
     invalidType = set()
 
     if options.fast:
         def elements():
-            for element in parse_fast(options.datafile, options.element, [options.idAttr, options.attribute]):
-                yield getattr(element, options.idAttr), getattr(element, options.attribute)
+            for datafile in options.datafiles:
+                for element in parse_fast(datafile, options.element, [options.idAttr, options.attribute]):
+                    yield getattr(element, options.idAttr), getattr(element, options.attribute)
     else:
         def elements():
-            for element in parse(options.datafile, options.element, heterogeneous=True):
-                elementID = None
-                if element.hasAttribute(options.idAttr):
-                    elementID = element.getAttribute(options.idAttr)
-                stringVal = None
-                if element.hasAttribute(options.attribute):
-                    stringVal = element.getAttribute(options.attribute)
-                yield elementID, stringVal
+            for datafile in options.datafiles:
+                defaultID = str(None) if len(options.datafiles) == 1 else datafile
+                for element in parse(datafile, options.element, heterogeneous=True):
+                    elementID = defaultID
+                    if element.hasAttribute(options.idAttr):
+                        elementID = element.getAttribute(options.idAttr)
+                    stringVal = None
+                    if element.hasAttribute(options.attribute):
+                        stringVal = element.getAttribute(options.attribute)
+                    yield elementID, stringVal
 
     for elementID, stringVal in elements():
         if stringVal is not None:
@@ -104,12 +107,12 @@ def main():
 
     print(stats.toString(options.precision))
     if missingAttr:
-        print("%s elements did not provide attribute '%s' Example ids: %s" %
-              (len(missingAttr), options.attribute, sorted(missingAttr)[:10]))
+        print("%s elements did not provide attribute '%s' Example ids: '%s'" %
+              (len(missingAttr), options.attribute, "', '".join(sorted(missingAttr)[:10])))
     if invalidType:
         print(("%s distinct values of attribute '%s' could not be interpreted " +
-               "as numerical value or time. Example values: %s") %
-              (len(invalidType), options.attribute, sorted(invalidType)[:10]))
+               "as numerical value or time. Example values: '%s'") %
+              (len(invalidType), options.attribute, "', '".join(sorted(invalidType)[:10])))
 
     if options.hist_output is not None:
         with open(options.hist_output, 'w') as f:
@@ -118,9 +121,15 @@ def main():
 
     if options.full_output is not None:
         with open(options.full_output, 'w') as f:
-            for id, data in vals.items():
+            for id, data in sorted(vals.items()):
                 for x in data:
                     f.write(setPrecision("%.2f %s\n", options.precision) % (x, id))
+
+    if options.xml_output is not None:
+        with open(options.xml_output, 'w') as f:
+            sumolib.writeXMLHeader(f, "$Id$", "attributeStats")  # noqa
+            f.write(stats.toXML(options.precision))
+            f.write('</attributeStats>\n')
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -54,9 +54,17 @@
 #include "ROJTRTurnDefLoader.h"
 #include "ROJTRFrame.h"
 
+// ===========================================================================
+// method declaration
+// ===========================================================================
+
+void initNet(RONet& net, ROLoader& loader, const std::vector<double>& turnDefs);
+std::vector<double> getTurningDefaults(OptionsCont& oc);
+void loadJTRDefinitions(RONet& net, OptionsCont& oc);
+void computeRoutes(RONet& net, ROLoader& loader, OptionsCont& oc);
 
 // ===========================================================================
-// functions
+// method implementation
 // ===========================================================================
 /* -------------------------------------------------------------------------
  * data processing methods
@@ -158,15 +166,16 @@ computeRoutes(RONet& net, ROLoader& loader, OptionsCont& oc) {
     RORouteDef::setUsingJTRR();
     RORouterProvider provider(router, new PedestrianRouter<ROEdge, ROLane, RONode, ROVehicle>(),
                               new ROIntermodalRouter(RONet::adaptIntermodalRouter, 0, 0, "dijkstra"), nullptr);
-    loader.processRoutes(string2time(oc.getString("begin")), string2time(oc.getString("end")),
+    const SUMOTime end = oc.isDefault("end") ? SUMOTime_MAX : string2time(oc.getString("end"));
+    loader.processRoutes(string2time(oc.getString("begin")), end,
                          string2time(oc.getString("route-steps")), net, provider);
     net.cleanup();
 }
 
+// -----------------------------------------------------------------------
+// main
+// -----------------------------------------------------------------------
 
-/* -------------------------------------------------------------------------
- * main
- * ----------------------------------------------------------------------- */
 int
 main(int argc, char** argv) {
     OptionsCont& oc = OptionsCont::getOptions();

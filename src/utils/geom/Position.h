@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,6 +21,7 @@
 // A position in the 2D- or 3D-world
 /****************************************************************************/
 #pragma once
+#include <config.h>
 #include <iostream>
 #include <cmath>
 
@@ -162,9 +163,9 @@ public:
 
     /// @brief
     void norm2d() {
-        double val = sqrt(myX * myX + myY * myY);
-        myX = myX / val;
-        myY = myY / val;
+        const double val = sqrt(myX * myX + myY * myY);
+        myX /= val;
+        myY /= val;
     }
 
     /// @brief output operator
@@ -198,6 +199,16 @@ public:
             return *this;
         }
         const double scalar = (length + offset) / length;
+        return Position(myX * scalar, myY * scalar, myZ * scalar);
+    }
+
+    /// @brief keep the direction but modify the length of the (location) vector to length - scalar
+    Position operator-(double offset) const {
+        const double length = distanceTo(Position(0, 0, 0));
+        if (length == 0) {
+            return *this;
+        }
+        const double scalar = (length - offset) / length;
         return Position(myX * scalar, myY * scalar, myZ * scalar);
     }
 

@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -93,7 +93,7 @@ public:
         /// @brief Destructor
         ~ApproachingDivider();
 
-        /// @ get number of avaliable lanes
+        /// @ get number of available lanes
         int numAvailableLanes() const {
             return (int)myAvailableLanes.size();
         }
@@ -182,6 +182,8 @@ public:
         PositionVector shape;
         /// @brief the lane-id of the next crossing(s)
         std::vector<std::string> nextCrossings;
+        /// @brief the lane-id of the previous crossing(s)
+        std::vector<std::string> prevCrossings;
         /// @brief the lane-id of the next sidewalk lane or ""
         std::vector<std::string> nextSidewalks;
         /// @brief the lane-id of the previous sidewalk lane or ""
@@ -197,6 +199,7 @@ public:
     struct WalkingAreaCustomShape {
         std::set<const NBEdge*, ComparatorIdLess> edges;
         PositionVector shape;
+        double width;
     };
 
     /// @brief edge directions (for pedestrian related stuff)
@@ -212,6 +215,7 @@ public:
     static const int FOUR_CONTROL_POINTS;
     static const int AVOID_INTERSECTING_LEFT_TURNS;
     static const int SCURVE_IGNORE;
+    static const int INDIRECT_LEFT;
 
 public:
     /**@brief Constructor
@@ -408,10 +412,10 @@ public:
     NBEdge* getOppositeIncoming(NBEdge* e) const;
 
     /// @brief invalidate incoming connections
-    void invalidateIncomingConnections();
+    void invalidateIncomingConnections(bool reallowSetting = false);
 
     /// @brief invalidate outgoing connections
-    void invalidateOutgoingConnections();
+    void invalidateOutgoingConnections(bool reallowSetting = false);
 
     /// @brief remove duble edges
     void removeDoubleEdges();
@@ -459,6 +463,9 @@ public:
      * @return Whether the described connection must brake (has higher priorised foes)
      */
     bool mustBrakeForCrossing(const NBEdge* const from, const NBEdge* const to, const Crossing& crossing) const;
+
+    /// @brief whether a connection to the given edge must brake for a crossing when leaving the intersection
+    bool brakeForCrossingOnExit(const NBEdge* to) const;
 
     /// @brief return whether the given laneToLane connection is a right turn which must yield to a bicycle crossings
     static bool rightTurnConflict(const NBEdge* from, const NBEdge* to, int fromLane,
@@ -606,6 +613,8 @@ public:
             bool& ok, NBNode* recordError = 0, double straightThresh = DEG2RAD(5),
             int shapeFlag = 0);
 
+    /// @brief compute shape of indirect left turn
+    PositionVector indirectLeftShape(const PositionVector& begShape, const PositionVector& endShape, int numPoints) const;
 
     /// @brief compute the displacement error during s-curve computation
     double getDisplacementError() const {
@@ -637,7 +646,7 @@ public:
     bool checkCrossingDuplicated(EdgeVector edges);
 
     /// @brief build internal lanes, pedestrian crossings and walking areas
-    void buildInnerEdges();
+    double buildInnerEdges();
 
     /**@brief build pedestrian crossings
      * @return The next index for creating internal lanes
@@ -661,6 +670,9 @@ public:
     /// @brief return true if the given pedestrian paths are connected at another junction within dist
     bool alreadyConnectedPaths(const NBEdge* e1, const NBEdge* e2, double dist) const;
 
+    /// @brief return true if the given sidewalks are separated by a fringe road
+    bool crossesFringe(const NBEdge* e1, const NBEdge* e2) const;
+
     /// @brief get prohibitions (BLocked connections)
     const NBConnectionProhibits& getProhibitions() {
         return myBlockedConnections;
@@ -681,7 +693,7 @@ public:
                                   const PositionVector& customShape = PositionVector::EMPTY, bool fromSumoNet = false);
 
     /// @brief add custom shape for walkingArea
-    void addWalkingAreaShape(EdgeVector edges, const PositionVector& shape);
+    void addWalkingAreaShape(EdgeVector edges, const PositionVector& shape, double width);
 
     /// @brief remove a pedestrian crossing from this node (identified by its edges)
     void removeCrossing(const EdgeVector& edges);
@@ -717,6 +729,9 @@ public:
 
     /// @brief return the crossing with the given Edges
     Crossing* getCrossing(const EdgeVector& edges, bool hardFail = true) const;
+
+    /// @brief return the walkingArea with the given ID
+    WalkingArea& getWalkingArea(const std::string& id);
 
     /* @brief set tl indices of this nodes crossing starting at the given index
      * @return Whether a custom index was used
@@ -772,10 +787,6 @@ public:
         NBNode* myNode;
 
     };
-
-    /// @brief returns the node id for internal lanes, crossings and walkingareas
-    static std::string getNodeIDFromInternalLane(const std::string id);
-
 
     /// @brief return whether the given type is a traffic light
     static bool isTrafficLight(SumoXMLNodeType type);
@@ -838,11 +849,17 @@ private:
 
     NBEdge* getNextCompatibleOutgoing(const NBEdge* incoming, SVCPermissions vehPerm, EdgeVector::const_iterator start, bool clockwise) const;
 
+    /// @brief ensure connectivity for all vClasses
+    void recheckVClassConnections(NBEdge* currentOutgoing);
+
     /// @brief get the reduction in driving lanes at this junction
     void getReduction(const NBEdge* in, const NBEdge* out, int& inOffset, int& outOffset, int& reduction) const;
 
     /// @brief check whether this edge has extra lanes on the right side
     int addedLanesRight(NBEdge* out, int addedLanes) const;
+
+    /// @brief check whether the candidate edge is more likely to be the straight continuation
+    bool isStraighter(const NBEdge* const incoming, const double angle, const SVCPermissions vehPerm, const int modeLanes, const NBEdge* const candidate) const;
 
 private:
     /// @brief The position the node lies at

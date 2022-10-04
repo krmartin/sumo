@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -54,6 +54,7 @@ FXDEFMAP(GUIDialog_Breakpoints) GUIDialog_BreakpointsMap[] = {
     FXMAPFUNC(SEL_COMMAND,  MID_CHOOSEN_SAVE,  GUIDialog_Breakpoints::onCmdSave),
     FXMAPFUNC(SEL_COMMAND,  MID_CHOOSEN_CLEAR, GUIDialog_Breakpoints::onCmdClear),
     FXMAPFUNC(SEL_COMMAND,  MID_CANCEL,        GUIDialog_Breakpoints::onCmdClose),
+    FXMAPFUNC(SEL_COMMAND,  MID_TIMELINK_BREAKPOINT,  GUIDialog_Breakpoints::onCmdUpdateBreakpoints),
     FXMAPFUNC(SEL_REPLACED, MID_TABLE,         GUIDialog_Breakpoints::onCmdEditTable),
 };
 
@@ -64,7 +65,7 @@ FXIMPLEMENT(GUIDialog_Breakpoints, FXMainWindow, GUIDialog_BreakpointsMap, ARRAY
 // method definitions
 // ===========================================================================
 
-GUIDialog_Breakpoints::GUIDialog_Breakpoints(GUIMainWindow* parent, std::vector<SUMOTime>& breakpoints, FXMutex& breakpointLock) :
+GUIDialog_Breakpoints::GUIDialog_Breakpoints(GUIApplicationWindow* parent, std::vector<SUMOTime>& breakpoints, FXMutex& breakpointLock) :
     FXMainWindow(parent->getApp(), "Breakpoints Editor", GUIIconSubSys::getIcon(GUIIcon::APP_BREAKPOINTS), nullptr, GUIDesignChooserDialog),
     myParent(parent), myBreakpoints(&breakpoints), myBreakpointLock(&breakpointLock) {
     // build main Frame
@@ -95,12 +96,15 @@ GUIDialog_Breakpoints::GUIDialog_Breakpoints(GUIMainWindow* parent, std::vector<
     new FXButton(layoutRight, "&Close\t\t", GUIIconSubSys::getIcon(GUIIcon::NO), this, MID_CANCEL, GUIDesignChooserButtons);
     // add this dialog as child of GUIMainWindow parent
     myParent->addChild(this);
+    create();
+    show();
 }
 
 
 GUIDialog_Breakpoints::~GUIDialog_Breakpoints() {
     // remove this dialog as child of GUIMainWindow parent
     myParent->removeChild(this);
+    myParent->eraseBreakpointDialog();
 }
 
 
@@ -190,6 +194,13 @@ GUIDialog_Breakpoints::onCmdClear(FXObject*, FXSelector, void*) {
 }
 
 
+long
+GUIDialog_Breakpoints::onCmdUpdateBreakpoints(FXObject*, FXSelector, void*) {
+    FXMutexLock lock(*myBreakpointLock);
+    rebuildList();
+    return 1;
+}
+
 
 long
 GUIDialog_Breakpoints::onCmdClose(FXObject*, FXSelector, void*) {
@@ -206,15 +217,21 @@ GUIDialog_Breakpoints::onCmdEditTable(FXObject*, FXSelector, void* ptr) {
     // check whether the inserted value is empty
     const bool empty = value.find_first_not_of(" ") == std::string::npos;
     try {
+        SUMOTime t = -1;
+        if (!empty) {
+            t = string2time(value);
+            // round down to nearest reachable time step
+            t -= t % DELTA_T;
+        }
         if (i->row == (int)myBreakpoints->size()) {
             if (!empty) {
-                myBreakpoints->push_back(string2time(value));
+                myBreakpoints->push_back(t);
             }
         } else {
             if (empty) {
                 myBreakpoints->erase(myBreakpoints->begin() + i->row);
             } else {
-                (*myBreakpoints)[i->row] = string2time(value);
+                (*myBreakpoints)[i->row] = t;
             }
         }
     } catch (NumberFormatException&) {

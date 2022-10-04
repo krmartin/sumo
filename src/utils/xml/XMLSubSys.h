@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -149,13 +149,13 @@ private:
     static int myNextFreeReader;
 
     /// @brief Information whether built reader/parser shall validate XML-documents against schemata
-    static XERCES_CPP_NAMESPACE::SAX2XMLReader::ValSchemes myValidationScheme;
+    static std::string myValidationScheme;
 
     /// @brief Information whether built reader/parser shall validate SUMO networks against schemata
-    static XERCES_CPP_NAMESPACE::SAX2XMLReader::ValSchemes myNetValidationScheme;
+    static std::string myNetValidationScheme;
 
     /// @brief Information whether built reader/parser shall validate SUMO routes against schemata
-    static XERCES_CPP_NAMESPACE::SAX2XMLReader::ValSchemes myRouteValidationScheme;
+    static std::string myRouteValidationScheme;
 
     /// @brief Schema cache to be used for grammars which are not declared
     static XERCES_CPP_NAMESPACE::XMLGrammarPool* myGrammarPool;

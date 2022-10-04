@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -122,7 +122,7 @@ GUIContainer::GUIContainerPopupMenu::onCmdStopTrack(FXObject*, FXSelector, void*
  * ----------------------------------------------------------------------- */
 GUIContainer::GUIContainer(const SUMOVehicleParameter* pars, MSVehicleType* vtype, MSTransportable::MSTransportablePlan* plan) :
     MSTransportable(pars, vtype, plan, false),
-    GUIGlObject(GLO_CONTAINER, pars->id) {
+    GUIGlObject(GLO_CONTAINER, pars->id, GUIIconSubSys::getIcon(GUIIcon::CONTAINER)) {
 }
 
 
@@ -150,7 +150,7 @@ GUIContainer::getPopUpMenu(GUIMainWindow& app,
     buildShowTypeParamsPopupEntry(ret);
     GUIDesigns::buildFXMenuCommand(ret, "Show Plan", GUIIconSubSys::getIcon(GUIIcon::APP_TABLE), ret, MID_SHOWPLAN);
     new FXMenuSeparator(ret);
-    buildPositionCopyEntry(ret, false);
+    buildPositionCopyEntry(ret, app);
     return ret;
 }
 
@@ -169,7 +169,7 @@ GUIContainer::getParameterWindow(GUIMainWindow& app,
     ret->mkItem("edge [id]", false, getEdge()->getID());
     ret->mkItem("position [m]", true, new FunctionBinding<GUIContainer, double>(this, &GUIContainer::getEdgePos));
     ret->mkItem("speed [m/s]", true, new FunctionBinding<GUIContainer, double>(this, &GUIContainer::getSpeed));
-    ret->mkItem("speed factor", false, getSpeedFactor());
+    ret->mkItem("speed factor", false, getChosenSpeedFactor());
     ret->mkItem("angle [degree]", true, new FunctionBinding<GUIContainer, double>(this, &GUIContainer::getAngle));
     ret->mkItem("waiting time [s]", true, new FunctionBinding<GUIContainer, double>(this, &GUIContainer::getWaitingSeconds));
     ret->mkItem("desired depart [s]", false, time2string(getParameter().depart));
@@ -197,6 +197,12 @@ GUIContainer::getTypeParameterWindow(GUIMainWindow& app,
 }
 
 
+double
+GUIContainer::getExaggeration(const GUIVisualizationSettings& s) const {
+    return s.containerSize.getExaggeration(s, this);
+}
+
+
 Boundary
 GUIContainer::getCenteringBoundary() const {
     Boundary b;
@@ -209,8 +215,8 @@ GUIContainer::getCenteringBoundary() const {
 
 void
 GUIContainer::drawGL(const GUIVisualizationSettings& s) const {
-    glPushName(getGlID());
-    glPushMatrix();
+    GLHelper::pushName(getGlID());
+    GLHelper::pushMatrix();
     Position p1 = getPosition();
     double angle = getAngle();
     if (getCurrentStageType() == MSStageType::DRIVING && !isWaiting4Vehicle()) {
@@ -222,7 +228,7 @@ GUIContainer::drawGL(const GUIVisualizationSettings& s) const {
     // set container color
     setColor(s);
     // scale
-    const double upscale = s.containerSize.getExaggeration(s, this);
+    const double upscale = getExaggeration(s);
     glScaled(upscale, upscale, 1);
     switch (s.containerQuality) {
         case 0:
@@ -235,17 +241,17 @@ GUIContainer::drawGL(const GUIVisualizationSettings& s) const {
             drawAction_drawAsImage(s);
             break;
     }
-    glPopMatrix();
+    GLHelper::popMatrix();
 
     drawName(p1, s.scale, s.containerName, s.angle);
-    glPopName();
+    GLHelper::popName();
 }
 
 
 void
 GUIContainer::drawGLAdditional(GUISUMOAbstractView* const /* parent */, const GUIVisualizationSettings& /* s */) const {
-    glPushName(getGlID());
-    glPushMatrix();
+    GLHelper::pushName(getGlID());
+    GLHelper::pushMatrix();
     /*
     glTranslated(0, 0, getType() - .1); // don't draw on top of other cars
     if (hasActiveAddVisualisation(parent, VO_SHOW_BEST_LANES)) {
@@ -289,8 +295,8 @@ GUIContainer::drawGLAdditional(GUISUMOAbstractView* const /* parent */, const GU
         }
     }
     */
-    glPopMatrix();
-    glPopName();
+    GLHelper::popMatrix();
+    GLHelper::popName();
 }
 
 
@@ -340,7 +346,7 @@ GUIContainer::setFunctionalColor(int activeScheme) const {
         }
         case 9: { // color randomly (by pointer)
             const double hue = (double)((long long int)this % 360); // [0-360]
-            const double sat = (((long long int)this / 360) % 67) / 100.0 + 0.33; // [0.33-1]
+            const double sat = (double)(((long long int)this / 360) % 67) / 100. + 0.33; // [0.33-1]
             GLHelper::setColor(RGBColor::fromHSV(hue, sat, 1.));
             return true;
         }
@@ -374,6 +380,12 @@ double
 GUIContainer::getEdgePos() const {
     FXMutexLock locker(myLock);
     return MSTransportable::getEdgePos();
+}
+
+int
+GUIContainer::getDirection() const {
+    FXMutexLock locker(myLock);
+    return MSTransportable::getDirection();
 }
 
 
@@ -452,5 +464,9 @@ GUIContainer::drawAction_drawAsImage(const GUIVisualizationSettings& s) const {
     }
 }
 
+bool
+GUIContainer::isSelected() const {
+    return gSelected.isSelected(GLO_CONTAINER, getGlID());
+}
 
 /****************************************************************************/

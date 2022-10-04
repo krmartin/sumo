@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -26,7 +26,7 @@
 #include <string>
 #include <algorithm>
 #include <functional>
-#include <fx.h>
+#include <utils/foxtools/fxheader.h>
 #include <utils/common/ValueSource.h>
 #include <utils/common/SUMOTime.h>
 #include "GUIParameterTableItem.h"
@@ -83,6 +83,8 @@ public:
     void closeBuilding(const Parameterised* p = 0);
 
 
+    /// @brief ensure that the font covers the given text
+    void checkFont(const std::string& text);
 
     /** @brief Lets this window know the object shown is being deleted
      * @param[in] o The deleted (shown) object

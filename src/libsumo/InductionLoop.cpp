@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -25,6 +25,7 @@
 #include <microsim/output/MSDetectorControl.h>
 #include <microsim/output/MSInductLoop.h>
 #include <microsim/MSNet.h>
+#include <libsumo/Helper.h>
 #include <libsumo/TraCIDefs.h>
 #include <libsumo/TraCIConstants.h>
 #include "InductionLoop.h"
@@ -104,7 +105,6 @@ InductionLoop::getTimeSinceDetection(const std::string& detID) {
     return getDetector(detID)->getTimeSinceLastDetection();
 }
 
-
 std::vector<libsumo::TraCIVehicleData>
 InductionLoop::getVehicleData(const std::string& detID) {
     const std::vector<MSInductLoop::VehicleData> vd = getDetector(detID)->collectVehiclesOnDet(SIMSTEP - DELTA_T, true, true);
@@ -118,6 +118,12 @@ InductionLoop::getVehicleData(const std::string& detID) {
         tvd.back().typeID = vdi.typeIDM;
     }
     return tvd;
+}
+
+
+void
+InductionLoop::overrideTimeSinceDetection(const std::string& detID, double time) {
+    getDetector(detID)->overrideTimeSinceDetection(time);
 }
 
 
@@ -184,7 +190,7 @@ InductionLoop::makeWrapper() {
 
 
 bool
-InductionLoop::handleVariable(const std::string& objID, const int variable, VariableWrapper* wrapper) {
+InductionLoop::handleVariable(const std::string& objID, const int variable, VariableWrapper* wrapper, tcpip::Storage* paramData) {
     switch (variable) {
         case TRACI_ID_LIST:
             return wrapper->wrapStringList(objID, variable, getIDList());
@@ -206,6 +212,12 @@ InductionLoop::handleVariable(const std::string& objID, const int variable, Vari
             return wrapper->wrapDouble(objID, variable, getLastStepMeanLength(objID));
         case LAST_STEP_TIME_SINCE_DETECTION:
             return wrapper->wrapDouble(objID, variable, getTimeSinceDetection(objID));
+        case libsumo::VAR_PARAMETER:
+            paramData->readUnsignedByte();
+            return wrapper->wrapString(objID, variable, getParameter(objID, paramData->readString()));
+        case libsumo::VAR_PARAMETER_WITH_KEY:
+            paramData->readUnsignedByte();
+            return wrapper->wrapStringPair(objID, variable, getParameterWithKey(objID, paramData->readString()));
         default:
             return false;
     }

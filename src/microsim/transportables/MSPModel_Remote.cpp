@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2014-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2014-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -240,6 +240,9 @@ double MSPModel_Remote::PState::getEdgePos(const MSStageMoving& stage, SUMOTime 
     return 0;
 }
 
+int MSPModel_Remote::PState::getDirection(const MSStageMoving& stage, SUMOTime now) const {
+    return UNDEFINED_DIRECTION;
+}
 
 Position MSPModel_Remote::PState::getPosition(const MSStageMoving& stage, SUMOTime now) const {
     return myPosition;
@@ -291,3 +294,7 @@ MSPModel_Remote::usingInternalLanes() {
     return MSGlobals::gUsingInternalLanes && MSNet::getInstance()->hasInternalLinks();
 }
 
+void
+MSPModel_Remote::clearState() {
+    throw ProcessError("Pedestrian model 'remote' does not support simulation.loadState state\n");
+}

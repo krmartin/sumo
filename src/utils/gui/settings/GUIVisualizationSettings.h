@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -48,7 +48,7 @@ class GUIGlObject;
 struct GUIVisualizationTextSettings {
 
     /// @brief constructor
-    GUIVisualizationTextSettings(bool _show, double _size, RGBColor _color, RGBColor _bgColor = RGBColor(128, 0, 0, 0), bool _constSize = true);
+    GUIVisualizationTextSettings(bool _show, double _size, RGBColor _color, RGBColor _bgColor = RGBColor(128, 0, 0, 0), bool _constSize = true, bool _onlySelected = false);
 
     /// @brief equality comparator
     bool operator==(const GUIVisualizationTextSettings& other);
@@ -62,8 +62,11 @@ struct GUIVisualizationTextSettings {
     /// @brief get scale size
     double scaledSize(double scale, double constFactor = 0.1) const;
 
+    /// @brief whether to show the text
+    bool show(const GUIGlObject* o) const;
+
     /// @brief flag show
-    bool show;
+    bool showText;
 
     /// @brief text size
     double size;
@@ -76,6 +79,9 @@ struct GUIVisualizationTextSettings {
 
     /// @brif flag to avoid size changes
     bool constSize;
+
+    /// @brief whether only selected objects shall have text drawn
+    bool onlySelected;
 };
 
 
@@ -150,50 +156,108 @@ struct GUIVisualizationColorSettings {
     /// @brief vehicle selection color
     RGBColor selectedVehicleColor;
 
-    /// @brief person  selection color
+    /// @brief person selection color
     RGBColor selectedPersonColor;
 
-    /// @brief person plan selection color (Rides, Walks, personStops...)
+    /// @brief person plan selection color (Rides, Walks, stopPersons...)
     RGBColor selectedPersonPlanColor;
+
+    /// @brief container selection color
+    RGBColor selectedContainerColor;
+
+    /// @brief container plan selection color (Rides, Walks, containerStops...)
+    RGBColor selectedContainerPlanColor;
 
     /// @brief edge data selection color
     RGBColor selectedEdgeDataColor;
+
+    /// @brief color for busStops
+    RGBColor busStopColor;
+
+    /// @brief color for busStops signs
+    RGBColor busStopColorSign;
+
+    /// @brief color for trainStops
+    RGBColor trainStopColor;
+
+    /// @brief color for trainStops signs
+    RGBColor trainStopColorSign;
+
+    /// @brief color for containerStops
+    RGBColor containerStopColor;
+
+    /// @brief color for containerStop signs
+    RGBColor containerStopColorSign;
+
+    /// @brief color for chargingStations
+    RGBColor chargingStationColor;
+
+    /// @brief color for chargingStation sign
+    RGBColor chargingStationColorSign;
+
+    /// @brief color for chargingStation during charging
+    RGBColor chargingStationColorCharge;
+
+    /// @brief color for parkingAreas
+    RGBColor parkingAreaColor;
+
+    /// @brief color for parkingArea sign
+    RGBColor parkingAreaColorSign;
+
+    /// @brief color for parkingSpace contour
+    RGBColor parkingSpaceColorContour;
+
+    /// @brief color for parkingSpace innen
+    RGBColor parkingSpaceColor;
+
+    /// @brief color for Stops
+    RGBColor stopColor;
+
+    /// @brief color for Waypoints
+    RGBColor waypointColor;
+
+    /// @brief color for vehicle trips
+    RGBColor vehicleTripColor;
+
+    /// @brief color for stopPersons
+    RGBColor stopPersonColor;
+
+    /// @brief color for stopPersons
+    RGBColor personTripColor;
+
+    /// @brief color for walks
+    RGBColor walkColor;
+
+    /// @brief color for rides
+    RGBColor rideColor;
+
+    /// @brief color for containerStops
+    RGBColor stopContainerColor;
+
+    /// @brief color for transport
+    RGBColor transportColor;
+
+    /// @brief color for tranships
+    RGBColor transhipColor;
 
     /// @brief color for highlighthing deadends
     static const RGBColor SUMO_color_DEADEND_SHOW;
 
     /// @brief color for child connections between parents and child elements
-    static const RGBColor childConnections;
+    static const RGBColor childConnectionColor;
 
     /// @brief color for edited shapes (Junctions, crossings and connections)
-    static const RGBColor editShape;
+    static const RGBColor editShapeColor;
 
     /// @brief color for crossings
-    static const RGBColor crossing;
+    static const RGBColor crossingColor;
 
     /// @brief color for priority crossing
-    static const RGBColor crossingPriority;
+    static const RGBColor crossingPriorityColor;
 
     /// @brief color for invalid crossing
-    static const RGBColor crossingInvalid;
+    static const RGBColor crossingInvalidColor;
 
-    /// @brief color for Stops
-    static const RGBColor stops;
-
-    /// @brief color for vehicle trips
-    static const RGBColor vehicleTrips;
-
-    /// @brief color for personStops
-    static const RGBColor personStops;
-
-    /// @brief color for personStops
-    static const RGBColor personTrip;
-
-    /// @brief color for walks
-    static const RGBColor walk;
-
-    /// @brief color for rides
-    static const RGBColor ride;
 };
 
 
@@ -219,7 +283,7 @@ struct GUIVisualizationCandidateColorSettings {
 /// @brief struct for connection settings
 struct GUIVisualizationNeteditSizeSettings {
 
-    /// @brief junction buuble radius
+    /// @brief junction bubble radius
     static const double junctionBubbleRadius;
 
     /// @brief moving junction geometry point radius
@@ -227,6 +291,9 @@ struct GUIVisualizationNeteditSizeSettings {
 
     /// @brief moving edge geometry point radius
     static const double edgeGeometryPointRadius;
+
+    /// @brief moving lane geometry point radius
+    static const double laneGeometryPointRadius;
 
     /// @brief moving connection geometry point radius
     static const double connectionGeometryPointRadius;
@@ -242,6 +309,9 @@ struct GUIVisualizationNeteditSizeSettings {
 
     /// @brief poly line width
     static const double polylineWidth;
+
+    /// @brief moving additional geometry point radius
+    static const double additionalGeometryPointRadius;
 };
 
 /// @brief struct for connection settings
@@ -287,6 +357,36 @@ struct GUIVisualizationAdditionalSettings {
 
     /// @brief Vaporizer size
     static const double vaporizerSize;
+
+    /// @brief connection color
+    static const RGBColor connectionColor;
+
+    /// @brief connection color selected
+    static const RGBColor connectionColorSelected;
+
+    /// @brief tractionSubstation size
+    static const double tractionSubstationSize;
+
+    /// @brief overhead wire color top
+    static const RGBColor overheadWireColorTop;
+
+    /// @brief overhead wire color bot
+    static const RGBColor overheadWireColorBot;
+
+    /// @brief overhead wire color selected
+    static const RGBColor overheadWireColorSelected;
+
+    /// @brief arrow width
+    static const double arrowWidth;
+
+    /// @brief arrow length
+    static const double arrowLength;
+
+    /// @brief arrow offset
+    static const double arrowOffset;
+
+    /// @brief connection color between E1/junctions and TLS
+    static const RGBColor TLSConnectionColor;
 };
 
 
@@ -336,51 +436,20 @@ struct GUIVisualizationDetectorSettings {
 
 /// @brief struct for stoppingPlace settings
 struct GUIVisualizationStoppingPlaceSettings {
-
     /// @brief busStop offset
     static const double stoppingPlaceSignOffset;
 
     /// @brief busStop width
     static const double busStopWidth;
 
-    /// @brief color for busStops
-    static const RGBColor busStopColor;
-
-    /// @brief color for busStops signs
-    static const RGBColor busStopColorSign;
+    /// @brief trainStop width
+    static const double trainStopWidth;
 
     /// @brief containerStop width
     static const double containerStopWidth;
 
-    /// @brief color for containerStops
-    static const RGBColor containerStopColor;
-
-    /// @brief color for containerStop signs
-    static const RGBColor containerStopColorSign;
-
     /// @brief chargingStation width
     static const double chargingStationWidth;
-
-    /// @brief color for chargingStations
-    static const RGBColor chargingStationColor;
-
-    /// @brief color for chargingStation sign
-    static const RGBColor chargingStationColorSign;
-
-    /// @brief color for chargingStation during charging
-    static const RGBColor chargingStationColorCharge;
-
-    /// @brief color for parkingAreas
-    static const RGBColor parkingAreaColor;
-
-    /// @brief color for parkingArea sign
-    static const RGBColor parkingAreaColorSign;
-
-    /// @brief color for parkingSpace contour
-    static const RGBColor parkingSpaceColorContour;
-
-    /// @brief color for parkingSpace innen
-    static const RGBColor parkingSpaceColor;
 };
 
 
@@ -388,7 +457,10 @@ struct GUIVisualizationStoppingPlaceSettings {
 struct GUIVisualizationDottedContourSettings {
 
     /// @brief width of dotted contour segments
-    static const double segmentWidth;
+    static const double segmentWidthSmall;
+
+    /// @brief width of dotted contour segments
+    static const double segmentWidthLarge;
 
     /// @brief length of dotted contour segments
     static const double segmentLength;
@@ -410,20 +482,38 @@ struct GUIVisualizationDottedContourSettings {
 /// @brief struct for width settings
 struct GUIVisualizationWidthSettings {
 
-    /// @brief width for routes
-    static const double route;
+    /// @brief constructor
+    GUIVisualizationWidthSettings();
+
+    /// @brief equality comparator
+    bool operator==(const GUIVisualizationWidthSettings& other);
+
+    /// @brief inequality comparator
+    bool operator!=(const GUIVisualizationWidthSettings& other);
 
     /// @brief width for trips
-    static const double trip;
+    double tripWidth;
 
     /// @brief width for person trips
-    static const double personTrip;
+    double personTripWidth;
 
     /// @brief width for walks
-    static const double walk;
+    double walkWidth;
 
     /// @brief width for rides
-    static const double ride;
+    double rideWidth;
+
+    /// @brief width for rides
+    double transportWidth;
+
+    /// @brief width for rides
+    double transhipWidth;
+
+    /// @brief width for routes
+    static const double routeWidth;
+
+    /// @brief width for embeddedroutes
+    static const double embeddedRouteWidth;
 };
 
 
@@ -500,7 +590,10 @@ class GUIVisualizationSettings {
 
 public:
     /// @brief constructor
-    GUIVisualizationSettings(bool _netedit = false);
+    GUIVisualizationSettings(const std::string& _name, bool _netedit = false);
+
+    /// @brief copy all content from another GUIVisualizationSettings (note: DON'T USE in DrawGL functions!)
+    void copy(const GUIVisualizationSettings& s);
 
     /// @brief init default settings
     void initNeteditDefaults();
@@ -535,7 +628,7 @@ public:
     bool operator==(const GUIVisualizationSettings& vs2);
 
     /// @brief map from LinkState to color constants
-    static const RGBColor& getLinkColor(const LinkState& ls);
+    static const RGBColor& getLinkColor(const LinkState& ls, bool realistic = false);
 
     /// @brief return an angle that is suitable for reading text aligned with the given angle (degrees)
     double getTextAngle(double objectAngle) const;
@@ -553,7 +646,7 @@ public:
     int getCircleResolution() const;
 
     /// @brief check if dotted contour can be drawn
-    bool drawDottedContour() const;
+    bool drawDottedContour(const double exaggeration) const;
 
     /// @brief check if moving geometry point can be draw
     bool drawMovingGeometryPoint(const double exaggeration, const double radius) const;
@@ -586,7 +679,6 @@ public:
     double gridXSize, gridYSize;
     /// @}
 
-
     /// @name lane visualization settings
     /// @{
 
@@ -614,6 +706,9 @@ public:
     /// @brief Information whether link textures (arrows) shall be drawn
     bool showLinkDecals;
 
+    /// @brief Information whether link rules (colored bars) shall be drawn with a realistic color scheme
+    bool realisticLinkRules;
+
     /// @brief Information whether link rules (colored bars) shall be drawn
     bool showLinkRules;
 
@@ -623,7 +718,7 @@ public:
     // Setting bundles for optional drawing names with size and color
     GUIVisualizationTextSettings edgeName, internalEdgeName, cwaEdgeName, streetName, edgeValue;
 
-    /// @brief flag to show or hidde connectors
+    /// @brief flag to show or hide connectors
     bool hideConnectors;
 
     /// @brief The lane exaggeration (upscale thickness)
@@ -645,6 +740,8 @@ public:
     std::string edgeParam, laneParam;
     /// @brief key for coloring by vehicle parameter
     std::string vehicleParam;
+    /// @brief key for scaling by vehicle parameter
+    std::string vehicleScaleParam;
     /// @brief key for rendering vehicle textual parameter
     std::string vehicleTextParam;
 
@@ -661,6 +758,9 @@ public:
 
     /// @brief The vehicle colorer
     GUIColorer vehicleColorer;
+
+    /// @brief The size scaling settings for vehicles
+    GUIScaler vehicleScaler;
 
     /// @brief The quality of vehicle drawing
     int vehicleQuality;
@@ -683,11 +783,17 @@ public:
     /// @brief Information whether the route index should be shown
     bool showRouteIndex;
 
+    /// @brief Whether vehicle length shall be scaled with length/geometry factor
+    bool scaleLength;
+
+    /// @brief Set whether parking related information should be shown
+    bool showParkingInfo;
+
     // Setting bundles for controling the size of the drawn vehicles
     GUIVisualizationSizeSettings vehicleSize;
 
     // Setting bundles for optional drawing vehicle names or color value
-    GUIVisualizationTextSettings vehicleName, vehicleValue, vehicleText;
+    GUIVisualizationTextSettings vehicleName, vehicleValue, vehicleScaleValue, vehicleText;
 
     /// @}
 
@@ -770,6 +876,9 @@ public:
     // Setting bundles for controling the size of the drawn POIs
     GUIVisualizationSizeSettings poiSize;
 
+    /// @brief The detail level for drawing POIs
+    int poiDetail;
+
     // Setting bundles for optional drawing poi names
     GUIVisualizationTextSettings poiName;
 
@@ -794,6 +903,41 @@ public:
     // Setting bundles for optional drawing polygon types
     GUIVisualizationTextSettings polyType;
     /// @}
+
+
+    /// @name data mode visualization settings
+    /// @{
+    /// @brief the edgeRelation / tazRelation colorer
+    GUIColorer dataColorer;
+    GUIVisualizationTextSettings dataValue;
+
+    /// @brief The tazRelation exaggeration (upscale thickness)
+    double tazRelWidthExaggeration;
+
+    /// @brief The edgeRelation exaggeration (upscale thickness)
+    double edgeRelWidthExaggeration;
+
+    /// @brief key for coloring by edgeRelation / tazRelation attribute
+    std::string relDataAttr;
+
+    /// @brief value below which relation data value should not be rendered
+    bool dataValueHideCheck;
+    double dataValueHideThreshold;
+    /// @}
+
+
+    /// @name 3D visualization settings
+    /// @{
+    /// @brief whether the TLS link markers should be drawn
+    bool show3DTLSLinkMarkers;
+
+    /// @brief whether the semi-transparent domes around 3D TL models should be drawn
+    bool show3DTLSDomes;
+
+    /// @brief whether 3D TLS models should be generated automatically
+    bool generate3DTLSModels;
+    /// @}
+
 
     /// @brief Information whether the size legend shall be drawn
     bool showSizeLegend;
@@ -828,8 +972,8 @@ public:
     /// @brief flag to force draw for rectangle selection (see drawForRectangleSelection)
     bool forceDrawForRectangleSelection;
 
-    /// @brief flag to force draw dotted contour
-    bool forceDrawDottedContour;
+    // Setting bundles for optional drawing geometry point indices
+    GUIVisualizationTextSettings geometryIndices;
 
     /**@brief whether drawing is performed in left-hand networks
      * @note used to avoid calls to OptionsCont::getOptions() in every drawgl(...) function, and
@@ -848,6 +992,7 @@ public:
     static const std::string SCHEME_NAME_LANE_PARAM_NUMERICAL;
     static const std::string SCHEME_NAME_PARAM_NUMERICAL;
     static const std::string SCHEME_NAME_EDGEDATA_NUMERICAL;
+    static const std::string SCHEME_NAME_DATA_ATTRIBUTE_NUMERICAL;
     static const std::string SCHEME_NAME_SELECTION;
     static const std::string SCHEME_NAME_TYPE;
     static const std::string SCHEME_NAME_PERMISSION_CODE;
@@ -883,4 +1028,11 @@ public:
 
     /// @brief detail settings
     GUIVisualizationDetailSettings detailSettings;
+
+private:
+    /// @brief set copy constructor private
+    GUIVisualizationSettings(const GUIVisualizationSettings&) = default;
+
+    /// @brief set assignment operator private
+    GUIVisualizationSettings& operator=(const GUIVisualizationSettings&) = default;
 };

@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -34,7 +34,7 @@ FXIMPLEMENT_ABSTRACT(GNEChange_Connection, GNEChange, nullptr, 0)
 
 
 GNEChange_Connection::GNEChange_Connection(GNEEdge* edge, NBEdge::Connection nbCon, bool selected, bool forward) :
-    GNEChange(forward, selected),
+    GNEChange(Supermode::NETWORK, forward, selected),
     myEdge(edge),
     myNBEdgeConnection(nbCon) {
 }
@@ -90,21 +90,25 @@ GNEChange_Connection::redo() {
 }
 
 
-FXString
+std::string
 GNEChange_Connection::undoName() const {
     if (myForward) {
-        return ("Undo create " + toString(SUMO_TAG_CONNECTION)).c_str();
+        return ("Undo create " + toString(SUMO_TAG_CONNECTION) + " '" + 
+            toString(myNBEdgeConnection.fromLane) + "->" + toString(myNBEdgeConnection.fromLane) + "'");
     } else {
-        return ("Undo delete " + toString(SUMO_TAG_CONNECTION)).c_str();
+        return ("Undo delete " + toString(SUMO_TAG_CONNECTION) + " '" + 
+            toString(myNBEdgeConnection.fromLane) + "->" + toString(myNBEdgeConnection.fromLane) + "'");
     }
 }
 
 
-FXString
+std::string
 GNEChange_Connection::redoName() const {
     if (myForward) {
-        return ("Redo create " + toString(SUMO_TAG_CONNECTION)).c_str();
+        return ("Redo create " + toString(SUMO_TAG_CONNECTION) + " '" + 
+            toString(myNBEdgeConnection.fromLane) + "->" + toString(myNBEdgeConnection.fromLane) + "'");
     } else {
-        return ("Redo delete " + toString(SUMO_TAG_CONNECTION)).c_str();
+        return ("Redo delete " + toString(SUMO_TAG_CONNECTION) + " '" + 
+            toString(myNBEdgeConnection.fromLane) + "->" + toString(myNBEdgeConnection.fromLane) + "'");
     }
 }

@@ -1,10 +1,9 @@
 ---
-title: Tutorials/HighwayDetector
-permalink: /Tutorials/HighwayDetector/
+title: HighwayDetector
 ---
 
 This tutorial describes how to set up a traffic scenario using mainly
-[netedit](../netedit.md), [dfrouter](../dfrouter.md) and some
+[netedit](../Netedit/index.md), [dfrouter](../dfrouter.md) and some
 python tools when you already have a fairly good network source for your
 simulation site and also a good coverage of the network with detectors
 giving you aggregated counts (and maybe speeds) of the vehicles in the
@@ -20,7 +19,7 @@ Selected edges (blue) are of minor priority and will be discarded
 
 Assuming you are already familiar with network extraction from your
 favorite mapping source you can open your net with
-[netedit](../netedit.md) and reduce it to your area of interest.
+[netedit](../Netedit/index.md) and reduce it to your area of interest.
 Assume you have a navteq file you can select (and then delete) all edges
 with a priority of less than -1 to reduce it to a highway network.
 Afterwards one can use rectangle selection (hold shift) to further limit
@@ -66,16 +65,16 @@ positions to the network:
     sumolib.files.additional.write(<DETECTORFILE>, detectors)
 ```
 
-The frequency of data aggregation for data collection is 60 sec as
+The period of data aggregation for data collection is 60 sec as
 default. The default output file name is set as none. Detector type
 (source, sink, between) can also be given if it is available. En example
 of the output file is shown below.
 
 ```
 <additional xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/additional_file.xsd">
-<e1Detector id=""det0"" lane="262667814#2.7_0" pos="80.2550814486" freq="60" file="NUL" friendlyPos="True"/>
-<e1Detector id=""det1"" lane="262667814#2.7_1" pos="90.2522181762" freq="60" file="NUL" friendlyPos="True"/>
-<e1Detector id=""det2"" lane="262667814#2.7_2" pos="91.6879752087" freq="60" file="NUL" friendlyPos="True"/>
+<e1Detector id=""det0"" lane="262667814#2.7_0" pos="80.2550814486" period="60" file="NUL" friendlyPos="True"/>
+<e1Detector id=""det1"" lane="262667814#2.7_1" pos="90.2522181762" period="60" file="NUL" friendlyPos="True"/>
+<e1Detector id=""det2"" lane="262667814#2.7_2" pos="91.6879752087" period="60" file="NUL" friendlyPos="True"/>
 </additional>
 ```
 
@@ -85,7 +84,7 @@ Depending on the quality of your network and detector location data, you
 should probably not always choose the closest lane but also consider
 whether the number of lanes / the speed limit match your expectations.
 After the initial positioning you can load the file for fine tuning as
-an additional file into [netedit](../netedit.md).
+an additional file into [netedit](../Netedit/index.md).
 
 ### Processing input data
 
@@ -124,7 +123,7 @@ This script is based on the maximal flow theory and does flow routing
 similar to the [dfrouter](../dfrouter.md). Three mandatory input
 files are needed, i.e. the SUMO network (.net.xml) and two files, which
 specify detectors and flows respectively. The type of the detectors
-(source, sink, inbetween) can be detected by the script or read from the
+(source, sink, in between) can be detected by the script or read from the
 given detector file. As an example the script can be executed as
 
 ```

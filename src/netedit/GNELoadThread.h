@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -22,8 +22,8 @@
 #include <config.h>
 
 #include <utils/common/MsgHandler.h>
-#include <utils/foxtools/FXSingleEventThread.h>
-#include <utils/foxtools/FXSynchQue.h>
+#include <utils/foxtools/MFXSingleEventThread.h>
+#include <utils/foxtools/MFXSynchQue.h>
 #include <utils/foxtools/MFXInterThreadEventClient.h>
 
 
@@ -40,11 +40,11 @@ class GUIEvent;
 /**
  * @class GNELoadThread
  */
-class GNELoadThread : public FXSingleEventThread {
+class GNELoadThread : public MFXSingleEventThread {
 public:
     /// @brief constructor
-    GNELoadThread(FXApp* app, MFXInterThreadEventClient* mw, FXSynchQue<GUIEvent*>& eq,
-                  FXEX::FXThreadEvent& ev);
+    GNELoadThread(FXApp* app, MFXInterThreadEventClient* mw, MFXSynchQue<GUIEvent*>& eq,
+                  FXEX::MFXThreadEvent& ev);
 
     /// @brief destructor
     virtual ~GNELoadThread();
@@ -57,7 +57,7 @@ public:
      * @param[in] isNet whether file is a network file
      * @param[in] useStartupOptions whether the initial startup options shall be used
      */
-    void loadConfigOrNet(const std::string& file, bool isNet, bool useStartupOptions, bool newNet = false);
+    void loadConfigOrNet(const std::string& file, const bool isNet, const bool useStartupOptions, const bool newNet = false);
 
     /// @brief Retrieves messages from the loading module
     void retrieveMessage(const MsgHandler::MsgType type, const std::string& msg);
@@ -77,7 +77,7 @@ protected:
      * This method is called both on success and failure.
      * All message callbacks to this instance are removed and the parent
      * application is informed about the loading */
-    void submitEndAndCleanup(GNENet* net, const std::string& guiSettingsFile = "", const bool viewportFromRegistry = false);
+    void submitEndAndCleanup(GNENet* net, const bool newNet = false, const std::string& guiSettingsFile = "", const bool viewportFromRegistry = false);
 
 protected:
     /// @brief the parent window to inform about the loading
@@ -90,14 +90,14 @@ protected:
     OutputDevice* myErrorRetriever, *myMessageRetriever, *myWarningRetriever, *myDebugRetriever, *myGLDebugRetriever;
 
     /// @brief event Queue
-    FXSynchQue<GUIEvent*>& myEventQue;
+    MFXSynchQue<GUIEvent*>& myEventQue;
 
     /// @brief event throw
-    FXEX::FXThreadEvent& myEventThrow;
+    FXEX::MFXThreadEvent& myEventThrow;
 
     /// @brief Information whether only the network shall be loaded
-    bool myLoadNet;
+    bool myLoadNet = false;
 
     /// @brief if true, a new net is created
-    bool myNewNet;
+    bool myNewNet = false;
 };

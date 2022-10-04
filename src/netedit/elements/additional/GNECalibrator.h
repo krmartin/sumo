@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -18,6 +18,7 @@
 //
 /****************************************************************************/
 #pragma once
+#include <config.h>
 #include "GNEAdditional.h"
 
 // ===========================================================================
@@ -33,47 +34,88 @@ class GNERoute;
 // ===========================================================================
 /**
  * @class GNECalibrator
- * class for represent Calibratos in netedit
+ * class for represent Calibrators in netedit
  */
-class GNECalibrator : public GNEAdditional {
+class GNECalibrator : public GNEAdditional, public Parameterised {
 
 public:
+    /// @brief Default constructor
+    GNECalibrator(SumoXMLTag tag, GNENet* net);
 
     /**@brief Constructor using edge
-    * @param[in] id The storage of gl-ids to get the one for this lane representation from
-    * @param[in] net pointer to GNENet of this additional element belongs
-    * @param[in] edge Edge of this calibrator belongs
-    * @param[in] pos position of the calibrator on the edge (Currently not used)
-    * @param[in] frequency the aggregation interval in which to calibrate the flows
-    * @param[in] name Calibrator name
-    * @param[in] output The output file for writing calibrator information
-    * @param[in] routeprobe route probe vinculated with this calibrator
-    * @param[in] calibratorRoutes vector with the calibratorRoutes of calibrator
-    * @param[in] calibratorFlows vector with the calibratorFlows of calibrator
-    */
-    GNECalibrator(const std::string& id, GNENet* net, GNEEdge* edge, double pos, SUMOTime frequency, const std::string& name, const std::string& output, const std::string& routeprobe);
+     * @param[in] id The storage of gl-ids to get the one for this lane representation from
+     * @param[in] net pointer to GNENet of this additional element belongs
+     * @param[in] edge Edge of this calibrator belongs
+     * @param[in] pos position of the calibrator on the edge (Currently not used)
+     * @param[in] frequency the aggregation interval in which to calibrate the flows
+     * @param[in] name Calibrator name
+     * @param[in] output The output file for writing calibrator information
+     * @param[in] jamThreshold A threshold value to detect and clear unexpected jamming
+     * @param[in] vTypes space separated list of vehicle type ids to consider
+     * @param[in] parameters generic parameters
+     */
+    GNECalibrator(const std::string& id, GNENet* net, GNEEdge* edge, double pos, SUMOTime frequency, const std::string& name, const std::string& output,
+                  const double jamThreshold, const std::vector<std::string>& vTypes, const Parameterised::Map& parameters);
+
+    /**@brief Constructor using edge and routeProbe
+     * @param[in] id The storage of gl-ids to get the one for this lane representation from
+     * @param[in] net pointer to GNENet of this additional element belongs
+     * @param[in] edge Edge of this calibrator belongs
+     * @param[in] pos position of the calibrator on the edge (Currently not used)
+     * @param[in] frequency the aggregation interval in which to calibrate the flows
+     * @param[in] name Calibrator name
+     * @param[in] output The output file for writing calibrator information
+     * @param[in] routeProbe route probe vinculated with this calibrator
+     * @param[in] jamThreshold A threshold value to detect and clear unexpected jamming
+     * @param[in] vTypes space separated list of vehicle type ids to consider
+     * @param[in] parameters generic parameters
+     */
+    GNECalibrator(const std::string& id, GNENet* net, GNEEdge* edge, double pos, SUMOTime frequency, const std::string& name, const std::string& output,
+                  GNEAdditional* routeProbe, const double jamThreshold, const std::vector<std::string>& vTypes, const Parameterised::Map& parameters);
 
     /**@brief Constructor using lane
-    * @param[in] id The storage of gl-ids to get the one for this lane representation from
-    * @param[in] net pointer to GNENet of this additional element belongs
-    * @param[in] lane Lane of this calibrator belongs
-    * @param[in] pos position of the calibrator on the edge (Currently not used)
-    * @param[in] frequency the aggregation interval in which to calibrate the flows
-    * @param[in] name Calibrator name
-    * @param[in] routeprobe route probe vinculated with this calibrator
-    * @param[in] output The output file for writing calibrator information
-    * @param[in] calibratorRoutes vector with the calibratorRoutes of calibrator
-    * @param[in] calibratorFlows vector with the calibratorFlows of calibrator
-    */
-    GNECalibrator(const std::string& id, GNENet* net, GNELane* lane, double pos, SUMOTime frequency, const std::string& name, const std::string& output, const std::string& routeprobe);
+     * @param[in] id The storage of gl-ids to get the one for this lane representation from
+     * @param[in] net pointer to GNENet of this additional element belongs
+     * @param[in] lane Lane of this calibrator belongs
+     * @param[in] pos position of the calibrator on the edge (Currently not used)
+     * @param[in] frequency the aggregation interval in which to calibrate the flows
+     * @param[in] name Calibrator name
+     * @param[in] output The output file for writing calibrator information
+     * @param[in] jamThreshold A threshold value to detect and clear unexpected jamming
+     * @param[in] vTypes space separated list of vehicle type ids to consider
+     * @param[in] parameters generic parameters
+     */
+    GNECalibrator(const std::string& id, GNENet* net, GNELane* lane, double pos, SUMOTime frequency, const std::string& name, const std::string& output,
+                  const double jamThreshold, const std::vector<std::string>& vTypes, const Parameterised::Map& parameters);
+
+    /**@brief Constructor using lane and routeProbe
+     * @param[in] id The storage of gl-ids to get the one for this lane representation from
+     * @param[in] net pointer to GNENet of this additional element belongs
+     * @param[in] lane Lane of this calibrator belongs
+     * @param[in] pos position of the calibrator on the edge (Currently not used)
+     * @param[in] frequency the aggregation interval in which to calibrate the flows
+     * @param[in] name Calibrator name
+     * @param[in] routeProbe route probe vinculated with this calibrator
+     * @param[in] output The output file for writing calibrator information
+     * @param[in] jamThreshold A threshold value to detect and clear unexpected jamming
+     * @param[in] vTypes space separated list of vehicle type ids to consider
+     * @param[in] parameters generic parameters
+     */
+    GNECalibrator(const std::string& id, GNENet* net, GNELane* lane, double pos, SUMOTime frequency, const std::string& name, const std::string& output,
+                  GNEAdditional* routeProbe, const double jamThreshold, const std::vector<std::string>& vTypes, const Parameterised::Map& parameters);
 
     /// @brief Destructor
     ~GNECalibrator();
 
-    /**@brief get move operation for the given shapeOffset
+    /**@brief write additional element into a xml file
+     * @param[in] device device in which write parameters of additional element
+     */
+    void writeAdditional(OutputDevice& device) const;
+
+    /**@brief get move operation
     * @note returned GNEMoveOperation can be nullptr
     */
-    GNEMoveOperation* getMoveOperation(const double shapeOffset);
+    GNEMoveOperation* getMoveOperation();
 
     /// @brief open Calibrator Dialog
     void openAdditionalDialog();
@@ -82,6 +124,9 @@ public:
     /// @{
     /// @brief update pre-computed geometry information
     void updateGeometry();
+
+    /// @brief Returns position of additional in view
+    Position getPositionInView() const;
 
     /// @brief update centering boundary (implies change in RTREE)
     void updateCenteringBoundary(const bool updateGrid);
@@ -118,6 +163,9 @@ public:
      */
     double getAttributeDouble(SumoXMLAttr key) const;
 
+    /// @brief get parameters map
+    const Parameterised::Map& getACParametersMap() const;
+
     /* @brief method for setting the attribute and letting the object perform additional changes
      * @param[in] key The attribute key
      * @param[in] value The new value
@@ -127,15 +175,10 @@ public:
 
     /* @brief method for checking if the key and their correspond attribute are valids
      * @param[in] key The attribute key
-     * @param[in] value The value asociated to key key
+     * @param[in] value The value associated to key key
      * @return true if the value is valid, false in other case
      */
     bool isValid(SumoXMLAttr key, const std::string& value);
-
-    /* @brief method for check if the value for certain attribute is set
-     * @param[in] key The attribute key
-     */
-    bool isAttributeEnabled(SumoXMLAttr key) const;
 
     /// @brief get PopPup ID (Used in AC Hierarchy)
     std::string getPopUpID() const;
@@ -154,11 +197,14 @@ protected:
     /// @brief output of calibrator
     std::string myOutput;
 
-    /// @brief ID to current RouteProbe
-    std::string myRouteProbe;
+    /// @brief jamThreshold
+    double myJamThreshold;
+
+    /// @brief vTypes
+    std::vector<std::string> myVTypes;
 
     /// @brief extra calibrator geometries
-    std::vector<GNEGeometry::Geometry> myEdgeCalibratorGeometries;
+    std::vector<GUIGeometry> myEdgeCalibratorGeometries;
 
 private:
     /// @brief draw calibrator symbol

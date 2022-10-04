@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -61,6 +61,7 @@ class NBVehicle;
  */
 class NBRouterEdge {
 public:
+    virtual ~NBRouterEdge() {}
     virtual const std::string& getID() const = 0;
     virtual double getSpeed() const = 0;
     virtual double getLength() const = 0;
@@ -149,18 +150,27 @@ public:
         /// @brief The speed allowed on this lane
         double speed;
 
+        /// @brief The friction on this lane
+        double friction;
+
         /// @brief List of vehicle types that are allowed on this lane
         SVCPermissions permissions;
 
         /// @brief List of vehicle types that are preferred on this lane
         SVCPermissions preferred;
 
+        /// @brief List of vehicle types that are allowed to change Left from this lane
+        SVCPermissions changeLeft;
+
+        /// @brief List of vehicle types that are allowed to change right from this lane
+        SVCPermissions changeRight;
+
         /// @brief This lane's offset to the intersection begin
         double endOffset;
 
         /// @brief stopOffsets.second - The stop offset for vehicles stopping at the lane's end.
         ///        Applies if vClass is in in stopOffset.first bitset
-        std::map<int, double> stopOffsets;
+        StopOffset laneStopOffset;
 
         /// @brief This lane's width
         double width;
@@ -180,6 +190,9 @@ public:
 
         /// @brief the type of this lane
         std::string type;
+
+        /// @brief turning signs printed on the road, bitset of LinkDirection (imported from OSM)
+        int turnSigns = 0;
     };
 
     /** @struct Connection
@@ -199,11 +212,16 @@ public:
                    double contPos_ = UNSPECIFIED_CONTPOS,
                    double visibility_ = UNSPECIFIED_VISIBILITY_DISTANCE,
                    double speed_ = UNSPECIFIED_SPEED,
+                   double friction_ = UNSPECIFIED_FRICTION,
                    double length_ = myDefaultConnectionLength,
                    bool haveVia_ = false,
                    bool uncontrolled_ = false,
                    const PositionVector& customShape_ = PositionVector::EMPTY,
-                   SVCPermissions permissions = SVC_UNSPECIFIED);
+                   SVCPermissions permissions = SVC_UNSPECIFIED,
+                   bool indirectLeft = false,
+                   const std::string& edgeType = "",
+                   SVCPermissions changeLeft_ = SVC_UNSPECIFIED,
+                   SVCPermissions changeRight_ = SVC_UNSPECIFIED);
 
         /// @brief The lane the connections starts at
         int fromLane;
@@ -238,6 +256,9 @@ public:
         /// @brief custom speed for connection
         double speed;
 
+        // @brief custom friction for connection
+        double friction;
+
         /// @brief custom length for connection
         double customLength;
 
@@ -246,6 +267,18 @@ public:
 
         /// @brief List of vehicle types that are allowed on this connection
         SVCPermissions permissions;
+
+        /// @brief List of vehicle types that are allowed to change Left from this connections internal lane(s)
+        SVCPermissions changeLeft;
+
+        /// @brief List of vehicle types that are allowed to change right from this connections internal lane(s)
+        SVCPermissions changeRight;
+
+        /// @brief Whether this connection is an indirect left turn
+        bool indirectLeft;
+
+        /// @brief optional type of Connection
+        std::string edgeType;
 
         /// @brief id of Connection
         std::string id;
@@ -329,6 +362,9 @@ public:
     /// @brief unspecified lane speed
     static const double UNSPECIFIED_SPEED;
 
+    /// @brief unspecified lane friction
+    static const double UNSPECIFIED_FRICTION;
+
     /// @brief unspecified internal junction position
     static const double UNSPECIFIED_CONTPOS;
 
@@ -371,22 +407,22 @@ public:
      * @param[in] to The node the edge ends at
      * @param[in] type The type of the edge (my be =="")
      * @param[in] speed The maximum velocity allowed on this edge
+     * @param[in] friction The current friction coefficient on this edge
      * @param[in] nolanes The number of lanes this edge has
      * @param[in] priority This edge's priority
      * @param[in] width This edge's lane width
      * @param[in] endOffset Additional offset to the destination node
-     * @param[in] streetName The street name (need not be unique)
      * @param[in] spread How the lateral offset of the lanes shall be computed
+     * @param[in] streetName The street name (need not be unique)
      * @see init
      * @see LaneSpreadFunction
      */
     NBEdge(const std::string& id,
            NBNode* from, NBNode* to, std::string type,
-           double speed, int nolanes, int priority,
+           double speed, double friction, int nolanes, int priority,
            double width, double endOffset,
-           const std::string& streetName = "",
-           LaneSpreadFunction spread = LaneSpreadFunction::RIGHT);
-
+           LaneSpreadFunction spread,
+           const std::string& streetName = "");
 
     /** @brief Constructor
      *
@@ -397,31 +433,32 @@ public:
      * @param[in] to The node the edge ends at
      * @param[in] type The type of the edge (may be =="")
      * @param[in] speed The maximum velocity allowed on this edge
+     * @param[in] friction The current friction coefficient on this edge
      * @param[in] nolanes The number of lanes this edge has
      * @param[in] priority This edge's priority
      * @param[in] width This edge's lane width
      * @param[in] endOffset Additional offset to the destination node
      * @param[in] geom The edge's geomatry
+     * @param[in] spread How the lateral offset of the lanes shall be computed
      * @param[in] streetName The street name (need not be unique)
      * @param[in] origID The original ID in the source network (need not be unique)
      * @param[in] spread How the lateral offset of the lanes shall be computed
      * @param[in] tryIgnoreNodePositions Does not add node geometries if geom.size()>=2
      * @see init
-     * @see LaneSpreadFunction
      */
     NBEdge(const std::string& id,
            NBNode* from, NBNode* to, std::string type,
-           double speed, int nolanes, int priority,
+           double speed, double friction, int nolanes, int priority,
            double width, double endOffset,
            PositionVector geom,
+           LaneSpreadFunction spread,
            const std::string& streetName = "",
            const std::string& origID = "",
-           LaneSpreadFunction spread = LaneSpreadFunction::RIGHT,
            bool tryIgnoreNodePositions = false);
 
     /** @brief Constructor
      *
-     * Use this to copy attribuets from another edge
+     * Use this to copy attributes from another edge
      *
      * @param[in] id The id of the edge
      * @param[in] from The node the edge starts at
@@ -435,7 +472,6 @@ public:
            const NBEdge* tpl,
            const PositionVector& geom = PositionVector(),
            int numLanes = -1);
-
 
     /// @brief Destructor
     ~NBEdge();
@@ -457,10 +493,10 @@ public:
      * @param[in] tryIgnoreNodePositions Does not add node geometries if geom.size()>=2
      */
     void reinit(NBNode* from, NBNode* to, const std::string& type,
-                double speed, int nolanes, int priority,
+                double speed, double friction, int nolanes, int priority,
                 PositionVector geom, double width, double endOffset,
                 const std::string& streetName,
-                LaneSpreadFunction spread = LaneSpreadFunction::RIGHT,
+                LaneSpreadFunction spread,
                 bool tryIgnoreNodePositions = false);
 
     /** @brief Resets nodes but keeps all other values the same (used when joining)
@@ -590,6 +626,13 @@ public:
         return mySpeed;
     }
 
+    /** @brief Returns the friction on this edge
+    * @return The friction on this edge
+    */
+    double getFriction() const {
+        return myFriction;
+    }
+
     /** @brief The building step of this edge
      * @return The current building step for this edge
      * @todo Recheck usage!
@@ -611,6 +654,20 @@ public:
      */
     double getLaneWidth(int lane) const;
 
+    /** @brief Returns the width of the internal lane associated with the connection
+     * @param[in] node The node for which this edge is an incoming one
+     * @param[in] connection The connection from this edge to the successor lane
+     * @param[in] successor The outgoing lane of the connection
+     * @param[in] isVia Whether it is computing the Via stage
+     * @return The width of the internal lane
+     * @todo validity checks
+     */
+    double getInternalLaneWidth(
+        const NBNode& node,
+        const NBEdge::Connection& connection,
+        const NBEdge::Lane& successor,
+        bool isVia) const;
+
     /// @brief Returns the combined width of all lanes of this edge
     double getTotalWidth() const;
 
@@ -624,6 +681,11 @@ public:
         myStreetName = name;
     }
 
+    /// @brief get distance
+    double getDistance() const {
+        return myDistance;
+    }
+
     /** @brief Returns the offset to the destination node
      * @return The offset to the destination node
      */
@@ -631,26 +693,20 @@ public:
         return myEndOffset;
     }
 
-    double getDistance() const {
-        return myDistance;
-    }
-
-    /** @brief Returns the stopOffset to the end of the edge
-     * @return The offset to the end of the edge
-     */
-    const std::map<int, double>& getStopOffsets() const {
-        return myStopOffsets;
-    }
-
     /** @brief Returns the offset to the destination node a the specified lane
      * @return The offset to the destination node
      */
     double getEndOffset(int lane) const;
 
+    /** @brief Returns the stopOffset to the end of the edge
+     * @return The offset to the end of the edge
+     */
+    const StopOffset& getEdgeStopOffset() const;
+
     /** @brief Returns the stop offset to the specified lane's end
      * @return The stop offset to the specified lane's end
      */
-    const std::map<int, double>& getStopOffsets(int lane) const;
+    const StopOffset& getLaneStopOffset(int lane) const;
 
     /// @brief Returns the offset of a traffic signal from the end of this edge
     double getSignalOffset() const;
@@ -685,6 +741,12 @@ public:
      */
     int getFirstNonPedestrianLaneIndex(int direction, bool exclusive = false) const;
 
+    /** @brief return the first lane with permissions other than SVC_PEDESTRIAN, SVC_BICYCLE and 0
+     * @param[in] direction The direction in which the lanes shall be checked
+     * @param[in] exclusive Whether lanes that allow pedestrians along with other classes shall be counted as non-pedestrian
+     */
+    int getFirstNonPedestrianNonBicycleLaneIndex(int direction, bool exclusive = false) const;
+
     /// @brief return index of the first lane that allows the given permissions
     int getSpecialLane(SVCPermissions permissions) const;
 
@@ -701,6 +763,12 @@ public:
 
     /// @brief get lane indices that allow the given permissions
     int getNumLanesThatAllow(SVCPermissions permissions) const;
+
+    /** @brief Returns whether the given vehicle class may change left from this lane */
+    bool allowsChangingLeft(int lane, SUMOVehicleClass vclass) const;
+
+    /** @brief Returns whether the given vehicle class may change left from this lane */
+    bool allowsChangingRight(int lane, SUMOVehicleClass vclass) const;
 
     /// @brief return the angle for computing pedestrian crossings at the given node
     double getCrossingAngle(NBNode* node);
@@ -800,9 +868,7 @@ public:
      * @return The type of lateral offset that is applied on this edge
      * @see LaneSpreadFunction
      */
-    LaneSpreadFunction getLaneSpreadFunction() const {
-        return myLaneSpreadFunction;
-    }
+    LaneSpreadFunction getLaneSpreadFunction() const;
 
     /** @brief Removes points with a distance lesser than the given
      * @param[in] minDist The minimum distance between two position to keep the second
@@ -863,10 +929,15 @@ public:
                                 double contPos = UNSPECIFIED_CONTPOS,
                                 double visibility = UNSPECIFIED_VISIBILITY_DISTANCE,
                                 double speed = UNSPECIFIED_SPEED,
+                                double friction = UNSPECIFIED_FRICTION,
                                 double length = myDefaultConnectionLength,
                                 const PositionVector& customShape = PositionVector::EMPTY,
                                 const bool uncontrolled = UNSPECIFIED_CONNECTION_UNCONTROLLED,
-                                SVCPermissions = SVC_UNSPECIFIED,
+                                SVCPermissions permissions = SVC_UNSPECIFIED,
+                                const bool indirectLeft = false,
+                                const std::string& edgeType = "",
+                                SVCPermissions changeLeft = SVC_UNSPECIFIED,
+                                SVCPermissions changeRight = SVC_UNSPECIFIED,
                                 bool postProcess = false);
 
     /** @brief Builds no connections starting at the given lanes
@@ -910,10 +981,15 @@ public:
                        double contPos = UNSPECIFIED_CONTPOS,
                        double visibility = UNSPECIFIED_VISIBILITY_DISTANCE,
                        double speed = UNSPECIFIED_SPEED,
+                       double friction = UNSPECIFIED_FRICTION,
                        double length = myDefaultConnectionLength,
                        const PositionVector& customShape = PositionVector::EMPTY,
                        const bool uncontrolled = UNSPECIFIED_CONNECTION_UNCONTROLLED,
                        SVCPermissions permissions = SVC_UNSPECIFIED,
+                       bool indirectLeft = false,
+                       const std::string& edgeType = "",
+                       SVCPermissions changeLeft = SVC_UNSPECIFIED,
+                       SVCPermissions changeRight = SVC_UNSPECIFIED,
                        bool postProcess = false);
 
     /** @brief Returns connections from a given lane
@@ -928,11 +1004,11 @@ public:
      */
     std::vector<Connection> getConnectionsFromLane(int lane, NBEdge* to = nullptr, int toLane = -1) const;
 
-    /** @brief Returns the specified connection
+    /** @brief Returns the specified connection (unmodifiable)
      * This method goes through "myConnections" and returns the specified one
      * @see NBEdge::Connection
      */
-    Connection getConnection(int fromLane, const NBEdge* to, int toLane) const;
+    const Connection& getConnection(int fromLane, const NBEdge* to, int toLane) const;
 
     /** @brief Returns reference to the specified connection
      * This method goes through "myConnections" and returns the specified one
@@ -1117,6 +1193,9 @@ public:
     /// @brief whether lanes differ in speed
     bool hasLaneSpecificSpeed() const;
 
+    /// @brief whether lanes differ in friction
+    bool hasLaneSpecificFriction() const;
+
     /// @brief whether lanes differ in width
     bool hasLaneSpecificWidth() const;
 
@@ -1137,6 +1216,9 @@ public:
 
     /// @brief whether one of the lanes has parameters set
     bool hasLaneParams() const;
+
+    /// @brief whether one of the lanes prohibits lane changing
+    bool prohibitsChanging() const;
 
     /// @brief computes the edge (step1: computation of approached edges)
     bool computeEdge2Edges(bool noLeftMovers);
@@ -1177,9 +1259,6 @@ public:
     /// @brief clears tlID for all connections
     void clearControllingTLInformation();
 
-    /// @brief add crossing points as incoming with given outgoing
-    void addCrossingPointsAsIncomingWithGivenOutgoing(NBEdge* o, PositionVector& into);
-
     /// @brief get the outer boundary of this edge when going clock-wise around the given node
     PositionVector getCWBoundaryLine(const NBNode& n) const;
 
@@ -1210,6 +1289,9 @@ public:
     /// @brief get lane speed
     double getLaneSpeed(int lane) const;
 
+    /// @brief get lane friction of specified lane
+    double getLaneFriction(int lane) const;
+
     /// @brief Check if edge is near enought to be joined to another edge
     bool isNearEnough2BeJoined2(NBEdge* e, double threshold) const;
 
@@ -1221,6 +1303,13 @@ public:
      * @return This edge's angle at the given node
      */
     double getAngleAtNode(const NBNode* const node) const;
+
+    /** @brief Returns the angle of the edge's geometry at the given node
+     * and disregards edge direction
+     * @param[in] node The node for which the edge's angle shall be returned
+     * @return This edge's angle at the given node (normalized to point towards the node)
+     */
+    double getAngleAtNodeNormalized(const NBNode* const node) const;
 
     /** @brief Returns the angle of from the node shape center to where the edge meets
      * the node shape
@@ -1268,6 +1357,9 @@ public:
     /// @brief set preferred Vehicle Class
     void setPreferredVehicleClass(SVCPermissions permissions, int lane = -1);
 
+    /// @brief set allowed classes for changing to the left and right from the given lane
+    void setPermittedChanging(int lane, SVCPermissions changeLeft, SVCPermissions changeRight);
+
     /// @brief set allowed class for the given lane or for all lanes if -1 is given
     void allowVehicleClass(int lane, SUMOVehicleClass vclass);
 
@@ -1289,9 +1381,12 @@ public:
     /// @brief set lane specific speed (negative lane implies set for all lanes)
     void setSpeed(int lane, double speed);
 
+    /// @brief set lane specific friction (negative lane implies set for all lanes)
+    void setFriction(int lane, double friction);
+
     /// @brief set lane and vehicle class specific stopOffset (negative lane implies set for all lanes)
     /// @return Whether given stop offset was applied.
-    bool setStopOffsets(int lane, std::map<int, double> offsets, bool overwrite = false);
+    bool setEdgeStopOffset(int lane, const StopOffset& offset, bool overwrite = false);
 
     /// @brief marks one lane as acceleration lane
     void setAcceleration(int lane, bool accelRamp);
@@ -1311,16 +1406,18 @@ public:
     /// @brief get the union of allowed classes over all lanes or for a specific lane
     SVCPermissions getPermissions(int lane = -1) const;
 
-    /// @brief set origID for all lanes
-    void setOrigID(const std::string origID);
+    /// @brief set origID for all lanes or for a specific lane
+    void setOrigID(const std::string origID, const bool append, const int laneIdx = -1);
 
-    /// @brief set lane specific speed (negative lane implies set for all lanes)
+    /// @brief set kilometrage at start of edge (negative value implies couting down along the edge)
     void setDistance(double distance) {
         myDistance = distance;
     }
 
-    /// @brief disable connections for TLS
-    void disableConnection4TLS(int fromLane, NBEdge* toEdge, int toLane);
+    /// @brief mark this edge as a bidi edge
+    void setBidi(bool isBidi) {
+        myIsBidi = isBidi;
+    }
 
     // @brief returns a reference to the internal structure for the convenience of NETEDIT
     Lane& getLaneStruct(int lane) {
@@ -1347,7 +1444,7 @@ public:
      * @param[in,out] splitIndex The number of via edges already built
      * @param[in] tryIgnoreNodePositions Does not add node geometries if geom.size()>=2
      */
-    void buildInnerEdges(const NBNode& n, int noInternalNoSplits, int& linkIndex, int& splitIndex);
+    double buildInnerEdges(const NBNode& n, int noInternalNoSplits, int& linkIndex, int& splitIndex);
 
     /// @brief get Signs
     inline const std::vector<NBSign>& getSigns() const {
@@ -1370,6 +1467,9 @@ public:
     /// @brief whether this edge is part of a bidirectional railway
     bool isBidiRail(bool ignoreSpread = false) const;
 
+    /// @brief whether this edge is part of a bidirectional edge pair
+    bool isBidiEdge(bool checkPotential = false) const;
+
     /// @brief whether this edge is a railway edge that does not continue
     bool isRailDeadEnd() const;
 
@@ -1377,7 +1477,7 @@ public:
     void debugPrintConnections(bool outgoing = true, bool incoming = false) const;
 
     /// @brief compute the first intersection point between the given lane geometries considering their rspective widths
-    static double firstIntersection(const PositionVector& v1, const PositionVector& v2, double width2, const std::string& error = "");
+    static double firstIntersection(const PositionVector& v1, const PositionVector& v2, double width1, double width2, const std::string& error = "", bool secondIntersection = false);
 
     /** returns a modified version of laneShape which starts at the outside of startNode. laneShape may be shorted or extended
      * @note see [wiki:Developer/Network_Building_Process]
@@ -1407,7 +1507,7 @@ public:
     }
 
     const NBEdge* getBidiEdge() const {
-        return isBidiRail() ? myPossibleTurnDestination : nullptr;
+        return isBidiRail() || isBidiEdge() ? myPossibleTurnDestination : nullptr;
     }
 
     /** @brief Returns the following edges for the given vClass
@@ -1430,6 +1530,9 @@ public:
     /// @brief reset lane shapes to what they would be before cutting with the junction shapes
     void resetLaneShapes();
 
+    /// @brief modify all existing restrictions on lane changing
+    void updateChangeRestrictions(SVCPermissions ignoring);
+
     /// @brief return the straightest follower edge for the given permissions or nullptr (never returns turn-arounds)
     /// @note: this method is called before connections are built and simply goes by node graph topology
     NBEdge* getStraightContinuation(SVCPermissions permissions) const;
@@ -1437,6 +1540,18 @@ public:
     /// @brief return the straightest predecessor edge for the given permissions or nullptr (never returns turn-arounds)
     /// @note: this method is called before connections are built and simply goes by node graph topology
     NBEdge* getStraightPredecessor(SVCPermissions permissions) const;
+
+    /// @brief set oppositeID and return opposite edge if found
+    NBEdge* guessOpposite(bool reguess = false);
+
+
+    const std::string& getTurnSignTarget() const {
+        return myTurnSignTarget;
+    }
+
+    void setTurnSignTarget(const std::string& target) {
+        myTurnSignTarget = target;
+    }
 
     /// @brief return only those edges that permit at least one of the give permissions
     static EdgeVector filterByPermissions(const EdgeVector& edges, SVCPermissions permissions);
@@ -1471,10 +1586,10 @@ private:
 
     private:
         /// @brief Invalidated copy constructor.
-        ToEdgeConnectionsAdder(const ToEdgeConnectionsAdder&);
+        ToEdgeConnectionsAdder(const ToEdgeConnectionsAdder&) = delete;
 
         /// @brief Invalidated assignment operator.
-        ToEdgeConnectionsAdder& operator=(const ToEdgeConnectionsAdder&);
+        ToEdgeConnectionsAdder& operator=(const ToEdgeConnectionsAdder&) = delete;
     };
 
 
@@ -1520,10 +1635,10 @@ private:
         std::vector<Direction> myDirs;
 
         /// @brief Invalidated copy constructor.
-        MainDirections(const MainDirections&);
+        MainDirections(const MainDirections&) = delete;
 
         /// @brief Invalidated assignment operator.
-        MainDirections& operator=(const MainDirections&);
+        MainDirections& operator=(const MainDirections&) = delete;
     };
 
     /// @brief Computes the shape for the given lane
@@ -1583,9 +1698,9 @@ private:
     void computeAngle();
 
     /// @brief determine conflict between opposite left turns
-    bool bothLeftTurns(const NBNode& n, LinkDirection dir, const NBEdge* otherFrom, const NBEdge::Connection& otherCon) const;
+    bool bothLeftTurns(LinkDirection dir, const NBEdge* otherFrom, LinkDirection dir2) const;
     bool haveIntersection(const NBNode& n, const PositionVector& shape, const NBEdge* otherFrom, const NBEdge::Connection& otherCon,
-                          int numPoints, double width2, int shapeFlag = 0) const;
+                          int numPoints, double width1, double width2, int shapeFlag = 0) const;
 
     /// @brief returns whether any lane already allows the given vclass exclusively
     bool hasRestrictedLane(SUMOVehicleClass vclass) const;
@@ -1595,6 +1710,12 @@ private:
 
     /// @brief assign length to all lanes of an internal edge
     void assignInternalLaneLength(std::vector<Connection>::iterator i, int numLanes, double lengthSum, bool averageLength);
+
+    /// @brief decode bitset
+    std::vector<LinkDirection> decodeTurnSigns(int turnSigns);
+
+    /// @brief apply loaded turn sign information
+    bool applyTurnSigns();
 
 private:
     /** @brief The building step
@@ -1607,6 +1728,9 @@ private:
 
     /// @brief The source and the destination node
     NBNode* myFrom, *myTo;
+
+    /// @brief node for which turnSign information applies
+    std::string myTurnSignTarget;
 
     /// @brief The length of the edge
     double myLength;
@@ -1623,6 +1747,9 @@ private:
 
     /// @brief The maximal speed
     double mySpeed;
+
+    /// @brief The current friction
+    double myFriction;
 
     /// @brief The mileage/kilometrage at the start of this edge in a linear coordination system
     double myDistance;
@@ -1660,7 +1787,7 @@ private:
     ///        For the latter case the int is a bit set specifying the vClasses,
     ///        the offset applies to (see SUMOVehicleClass.h), and the double is the
     ///        stopping offset in meters from the lane end
-    std::map<int, double> myStopOffsets;
+    StopOffset myEdgeStopOffset;
 
     /// @brief This width of this edge's lanes
     double myLaneWidth;
@@ -1698,6 +1825,9 @@ private:
     /// @brief whether this edge is an Off-Ramp or leads to one
     bool myIsOffRamp;
 
+    /// @brief whether this edge is part of a non-rail bidi edge pair
+    bool myIsBidi;
+
     /// @brief the index of the edge in the list of all edges. Set by NBEdgeCont and requires re-set whenever the list of edges changes
     int myIndex;
 
@@ -1731,10 +1861,6 @@ public:
 
         /// @brief edge to find
         const NBEdge* const myEdge2Find;
-
-    private:
-        /// @brief invalidated assignment operator
-        connections_toedge_finder& operator=(const connections_toedge_finder& s);
     };
 
     /// @class connections_toedgelane_finder
@@ -1760,11 +1886,6 @@ public:
 
         /// @brief from lane to find
         int myFromLane2Find;
-
-    private:
-        /// @brief invalidated assignment operator
-        connections_toedgelane_finder& operator=(const connections_toedgelane_finder& s);
-
     };
 
     /// @class connections_finder
@@ -1793,11 +1914,6 @@ public:
 
         /// @brief invert edge to find
         bool myInvertEdge2find;
-
-    private:
-        /// @brief invalidated assignment operator
-        connections_finder& operator=(const connections_finder& s);
-
     };
 
     /// @class connections_conflict_finder
@@ -1823,11 +1939,6 @@ public:
 
         /// @brief check if is right
         bool myCheckRight;
-
-    private:
-        /// @brief invalidated assignment operator
-        connections_conflict_finder& operator=(const connections_conflict_finder& s);
-
     };
 
     /// @class connections_fromlane_finder
@@ -1847,8 +1958,7 @@ public:
 
     private:
         /// @brief invalidated assignment operator
-        connections_fromlane_finder& operator=(const connections_fromlane_finder& s);
-
+        connections_fromlane_finder& operator=(const connections_fromlane_finder& s) = delete;
     };
 
     /// @brief connections_sorter sort by fromLane, toEdge and toLane
@@ -1874,12 +1984,11 @@ public:
 
 private:
     /// @brief invalidated copy constructor
-    NBEdge(const NBEdge& s);
+    NBEdge(const NBEdge& s) = delete;
 
     /// @brief invalidated assignment operator
-    NBEdge& operator=(const NBEdge& s);
+    NBEdge& operator=(const NBEdge& s) = delete;
 
     /// @brief constructor for dummy edge
     NBEdge();
-
 };

@@ -1,6 +1,5 @@
 ---
-title: Car-Following-Models/CACC
-permalink: /Car-Following-Models/CACC/
+title: CACC
 ---
 
 ## Overview
@@ -12,6 +11,8 @@ algorithm is explicitly divided into three modes: (i) speed (or
 cruising) control, (ii) gap-closing control and (iii) gap control. A
 fourth mode (i.e. collision avoidance mode) has been introduced within
 the project [TransAID](https://www.transaid.eu).
+
+see also [ACC model](ACC.md).
 
 ## Speed control mode
 
@@ -42,6 +43,8 @@ The collision avoidance mode prevents rear-end collisions when safety
 critical conditions prevail. This mode is activated when the time-gap is
 less than 1.5 s and the gap deviation is negative.
 
+Also, If the followSpeed computed by the CACC model grows higher than the safe followSpeed as computed by the default Krauss model by a given margin (configured by collisionAvoidanceOverride), the speed is limited to the value of Krauss-speed + margin. The override margin defaults to 2m/s.
+
 ## Notes
 
 - The implemented model can be found in [{{SUMO}}/src/microsim/cfmodels/MSCFModel_CACC.cpp]({{Source}}src/microsim/cfmodels/MSCFModel_CACC.cpp).
@@ -49,6 +52,7 @@ less than 1.5 s and the gap deviation is negative.
   [TransAID](https://www.transaid.eu).
 - The model is primarily intended for use in specific traffic
   situations.  
+- When there is no leader vehicle, the model uses the same speed as the Krauss model to approach junctions and speed limits
   
 !!! caution
     The model is known to produce collisions at the default step-length of 1s. Better results can be achieved by setting a lower step length.

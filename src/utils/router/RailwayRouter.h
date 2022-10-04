@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -25,7 +25,7 @@
 #include <algorithm>
 #include <assert.h>
 #ifdef HAVE_FOX
-#include <fx.h>
+#include <utils/foxtools/fxheader.h>
 #endif
 #include <utils/common/MsgHandler.h>
 #include <utils/common/SUMOTime.h>
@@ -112,7 +112,7 @@ public:
         while (backDist > 0) {
             const E* prev = getStraightPredecessor(start);
             if (prev == nullptr) {
-                //WRITE_WARNING("Could not determine back edge for vehicle '" + vehicle->getID() + "' when routing from edge '" + from->getID() + "' at time " + time2string(msTime));
+                //WRITE_WARNING("Could not determine back edge for vehicle '" + vehicle->getID() + "' when routing from edge '" + from->getID() + "' at time=" + time2string(msTime));
                 break;
             }
             backDist -= prev->getLength();
@@ -127,7 +127,7 @@ public:
 #endif
         if (success) {
             const size_t intoSize = into.size();
-            const int backIndex = (int)backLengths.size() - 1;;
+            const int backIndex = (int)backLengths.size() - 1;
             for (const _RailEdge* railEdge : intoTmp) {
                 // prevent premature reversal on back edge (extend train length)
                 const double length = backIndex >= 0 ? backLengths[backIndex] : vehicle->getLength();

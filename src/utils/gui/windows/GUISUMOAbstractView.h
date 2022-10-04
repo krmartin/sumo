@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <fx.h>
+#include <utils/foxtools/fxheader.h>
 // fx3d includes windows.h so we need to guard against macro pollution
 #ifdef WIN32
 #define NOMINMAX
@@ -56,7 +56,7 @@ class GUIGlObject;
 class GUIDialog_EditViewport;
 class GUIDialog_ViewSettings;
 class GUIVisualizationSettings;
-
+class GUILane;
 
 // ===========================================================================
 // class definitions
@@ -76,6 +76,9 @@ public:
 
     /// @brief destructor
     virtual ~GUISUMOAbstractView();
+
+    /// @brief recalculate boundaries
+    virtual void recalculateBoundaries() = 0;
 
     /// @brief builds the view toolbars
     virtual void buildViewToolBars(GUIGlChildWindow*) { }
@@ -114,9 +117,8 @@ public:
     /// @brief pixels-to-meters conversion method
     double p2m(double pixel) const;
 
-    /// @brief Returns the information whether rotation is allowd
-    ///@note disabled
-    //bool allowRotation() const;
+    /// @brief get main window
+    GUIMainWindow* getMainWindow() const;
 
     /// @brief return windows cursor position
     Position getWindowCursorPosition() const;
@@ -135,6 +137,12 @@ public:
 
     /// @brief get visible boundary
     Boundary getVisibleBoundary() const;
+
+    /// @brief return whether this is a 3D view
+    virtual bool is3DView() const;
+
+    /// @brief zoom interface for 3D view
+    virtual void zoom2Pos(Position& camera, Position& lookAt, double zoom);
 
     /// @brief mouse functions
     //@{
@@ -158,8 +166,19 @@ public:
     virtual long onKeyRelease(FXObject* o, FXSelector sel, void* data);
     //@}
 
-    //@brief open object dialog
-    virtual void openObjectDialog();
+    /// @brief interaction with the simulation
+    virtual long onCmdCloseLane(FXObject*, FXSelector, void*);
+    virtual long onCmdCloseEdge(FXObject*, FXSelector, void*);
+    virtual long onCmdAddRerouter(FXObject*, FXSelector, void*);
+
+    /// @brief highlight edges according to reachability
+    virtual long onCmdShowReachability(FXObject*, FXSelector, void*);
+
+    /// @brief open object dialog at the cursor position
+    virtual void openObjectDialogAtCursor(const FXEvent* ev);
+
+    /// @brief open object dialog for the given object
+    void openObjectDialog(const std::vector<GUIGlObject*> &objects);
 
     /// @brief A method that updates the tooltip
     void updateToolTip();
@@ -180,11 +199,11 @@ public:
      * @param[in] destFile The name of the file to write the snapshot into
      * @param[in] w The snapshot image width
      * @param[in] w The snapshot image height
-     * @return The error message, if an error occcured; "" otherwise
+     * @return The error message, if an error occurred; "" otherwise
      */
     std::string makeSnapshot(const std::string& destFile, const int w = -1, const int h = -1);
 
-    /// @brief Adds a frame to a video snapshot which will be initialized if neccessary
+    /// @brief Adds a frame to a video snapshot which will be initialized if necessary
     virtual void saveFrame(const std::string& destFile, FXColor* buf);
 
     /// @brief Ends a video snapshot
@@ -202,20 +221,23 @@ public:
     /// @brief get the viewport and create it on first access
     GUIDialog_EditViewport* getViewportEditor();
 
+    /// @brief update the viewport chooser with the current view values
+    virtual void updateViewportValues();
+
     /// @brief show viewport editor
     virtual void showViewportEditor();
 
     /// @brief show viewsscheme editor
     void showViewschemeEditor();
 
-    /// @brief show tool tips
-    void showToolTips(bool val);
-
     /// @brief set color scheme
     virtual bool setColorScheme(const std::string&);
 
-    /// @brief get visualization settings
-    GUIVisualizationSettings& getVisualisationSettings() const;
+    /// @brief get visualization settings (read only)
+    const GUIVisualizationSettings& getVisualisationSettings() const;
+
+    /// @brief edit visualization settings (allow modify VisualizationSetings, use carefully)
+    GUIVisualizationSettings* editVisualisationSettings() const;
 
     /// @brief recalibrate color scheme according to the current value range
     virtual void buildColorRainbow(const GUIVisualizationSettings& /*s*/, GUIColorScheme& /*scheme*/, int /*active*/, GUIGlObjectType /*objectType*/,
@@ -226,6 +248,11 @@ public:
 
     /// @brief return list of loaded edgeData attributes
     virtual std::vector<std::string> getEdgeDataAttrs() const {
+        return std::vector<std::string>();
+    }
+
+    /// @brief return list of loaded edgeRelation and tazRelation attributes
+    virtual std::vector<std::string> getRelDataAttrs() const {
         return std::vector<std::string>();
     }
 
@@ -281,7 +308,7 @@ public:
     bool addAdditionalGLVisualisation(GUIGlObject* const which);
 
     /** @brief Removes an object from the list of objects that show additional things
-     * @param[in] which The object to remoe
+     * @param[in] which The object to remove
      * @return True if the object was known, false otherwise
      * @see GUIGlObject::drawGLAdditional
      */
@@ -297,10 +324,12 @@ public:
     /// @brief get position of current popup
     const Position& getPopupPosition() const;
 
-    /// @brief destoys the popup
+    /// @brief destroys the popup
     void destroyPopup();
 
-public:
+    /// @brief replace PopUp
+    void replacePopup(GUIGLObjectPopupMenu* popUp);
+
     ///@struct Decal
     /// @brief A decal (an image) that can be shown
     struct Decal {
@@ -341,12 +370,11 @@ public:
         FXImage* image;
     };
 
-public:
     /// @brief get coloring schemes combo
     FXComboBox* getColoringSchemesCombo();
 
     /// @brief Returns the cursor's x/y position within the network
-    Position getPositionInformation() const;
+    virtual Position getPositionInformation() const;
 
     /**@brief Returns a position that is mapped to the closest grid point if the grid is active
      * @brief note: formats are pos(x,y,0) por pos(0,0,z)
@@ -377,11 +405,14 @@ public:
     double getFPS() const;
 
 protected:
+    /// @brief FOX needs this
+    FOX_CONSTRUCTOR(GUISUMOAbstractView)
+
     /// @brief performs the painting of the simulation
     void paintGL();
 
     /// @brief update position information
-    void updatePositionInformation() const;
+    virtual void updatePositionInformation() const;
 
     /// @brief paint GL
     virtual int doPaintGL(int /*mode*/, const Boundary& /*boundary*/);
@@ -403,6 +434,9 @@ protected:
 
     /// @brief Draws frames-per-second indicator
     void drawFPS();
+
+    /// @brief returns the GUILane at cursor position (implementation depends on view)
+    virtual GUILane* getLaneUnderCursor();
 
     /// @brief returns the id of the front object under the cursor using GL_SELECT
     GUIGlID getObjectUnderCursor();
@@ -429,23 +463,22 @@ protected:
     std::vector<GUIGlID> getObjectsInBoundary(Boundary bound, bool singlePosition);
 
     /// @brief invokes the tooltip for the given object
-    void showToolTipFor(const GUIGlID id);
-
-protected:
-    FOX_CONSTRUCTOR(GUISUMOAbstractView)
-
-    /// @brief check whether we can read image data or position with gdal
-    FXImage* checkGDALImage(Decal& d);
+    bool showToolTipFor(const GUIGlID idToolTip);
 
     /// @brief Draws the stored decals
     void drawDecals();
+
+    /// @brief open popup dialog
+    void openPopupDialog();
 
     /// @brief applies gl-transformations to fit the Boundary given by myChanger onto the canvas.
     /// If fixRatio is true, this boundary will be enlarged to prevent anisotropic stretching.
     /// (this should be set to false when doing selections)
     Boundary applyGLTransform(bool fixRatio = true);
 
-protected:
+    /// @brief check whether we can read image data or position with gdal
+    FXImage* checkGDALImage(Decal& d);
+
     /// @brief The application
     GUIMainWindow* myApp;
 
@@ -458,8 +491,11 @@ protected:
     /// @brief The perspective changer
     GUIPerspectiveChanger* myChanger;
 
+    /// @brief Panning flag
+    bool myPanning = false;
+
     /// @brief Information whether too-tip informations shall be generated
-    bool myInEditMode;
+    bool myInEditMode = false;
 
     /// @brief Offset to the mouse-hotspot from the mouse position
     int myMouseHotspotX, myMouseHotspotY;
@@ -467,14 +503,14 @@ protected:
     /// @brief The current popup-menu
     GUIGLObjectPopupMenu* myPopup;
 
+    /// @brief vector with current objects dialog 
+    std::vector<GUIGlObject*> myCurrentObjectsDialog;
+
     /// @brief The current popup-menu position
     Position myPopupPosition;
 
     /// @brief visualization settings
     GUIVisualizationSettings* myVisualizationSettings;
-
-    /// @brief use tool tips
-    bool myUseToolTips;
 
     /// @brief Internal information whether doInit() was called
     bool myAmInitialised;

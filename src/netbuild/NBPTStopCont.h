@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -19,6 +19,7 @@
 /****************************************************************************/
 
 #pragma once
+#include <config.h>
 
 #include <string>
 #include <map>
@@ -35,12 +36,13 @@ public:
 
     /** @brief Inserts a node into the map
     * @param[in] stop The pt stop to insert
+    * @param[in] floating whether the stop is not referenced by a way or relation
     * @return Whether the pt stop could be added
     */
-    bool insert(NBPTStop* ptStop);
+    bool insert(NBPTStop* ptStop, bool floating = false);
 
     /// @brief Retrieve a previously inserted pt stop
-    NBPTStop* get(std::string id);
+    NBPTStop* get(std::string id) const;
 
     /// @brief Returns the number of pt stops stored in this container
     int size() const {
@@ -79,6 +81,8 @@ public:
 
     void localizePTStops(NBEdgeCont& cont);
 
+    void assignEdgeForFloatingStops(NBEdgeCont& cont, double maxRadius);
+
     void findAccessEdgesForRailStops(NBEdgeCont& cont, double maxRadius, int maxCount, double accessFactor);
 
     void postprocess(std::set<std::string>& usedStops);
@@ -86,7 +90,13 @@ public:
     /// @brief add edges that must be kept
     void addEdges2Keep(const OptionsCont& oc, std::set<std::string>& into);
 
+    /// @brief replace the edge with the closes edge on the given edge list in all stops
+    void replaceEdge(const std::string& edgeID, const EdgeVector& replacement);
+
+
     NBPTStop* findStop(const std::string& origEdgeID, Position pos, double threshold = 1) const;
+
+    NBPTStop* getReverseStop(NBPTStop* pStop, const NBEdgeCont& ec);
 
 private:
     /// @brief Definition of the map of names to pt stops
@@ -95,7 +105,10 @@ private:
     /// @brief The map of names to pt stops
     PTStopsCont myPTStops;
 
-    NBPTStop* getReverseStop(NBPTStop* pStop, NBEdgeCont& cont);
+    /// @brief The map of edge ids to stops
+    std::map<std::string, std::vector<NBPTStop*> > myPTStopLookup;
+
+    std::vector<NBPTStop*> myFloatingStops;
 
 
     void assignPTStopToEdgeOfClosestPlatform(NBPTStop* pStop, NBEdgeCont& cont);
@@ -105,9 +118,19 @@ private:
 
     static std::string getReverseID(const std::string& id);
 
+    static std::set<std::string> myIgnoredStops;
+
+
 public:
     static NBEdge* getReverseEdge(NBEdge* edge);
 
+    static void addIgnored(const std::string& stopID) {
+        myIgnoredStops.insert(stopID);
+    }
+
+    static bool wasIgnored(const std::string& stopID) {
+        return myIgnoredStops.count(stopID) > 0;
+    }
 
     void alignIdSigns();
 };

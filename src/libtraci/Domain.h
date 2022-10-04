@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,8 +21,8 @@
 // C++ TraCI client API implementation
 /****************************************************************************/
 #pragma once
-// we do not include config.h here, since we should be independent of a special sumo build
-#include <cassert>
+#include <config.h>
+
 #include <vector>
 #include <limits>
 #include <map>
@@ -32,11 +32,13 @@
 #include <memory>
 #include <foreign/tcpip/storage.h>
 #include <libtraci/Connection.h>
+#include <libsumo/StorageHelper.h>
 
 
 #define LIBTRACI_SUBSCRIPTION_IMPLEMENTATION(CLASS, DOMAIN) \
+const int CLASS::DOMAIN_ID(libsumo::CMD_GET_##DOMAIN##_VARIABLE); \
 void CLASS::subscribe(const std::string& objectID, const std::vector<int>& varIDs, double begin, double end, const libsumo::TraCIResults& params) { \
-    libtraci::Connection::getActive().subscribeObjectVariable(libsumo::CMD_SUBSCRIBE_##DOMAIN##_VARIABLE, objectID, begin, end, varIDs, params); \
+    libtraci::Connection::getActive().subscribe(libsumo::CMD_SUBSCRIBE_##DOMAIN##_VARIABLE, objectID, begin, end, -1, -1, varIDs, params); \
 } \
 \
 void CLASS::unsubscribe(const std::string& objectID) { \
@@ -44,7 +46,7 @@ void CLASS::unsubscribe(const std::string& objectID) { \
 } \
 \
 void CLASS::subscribeContext(const std::string& objectID, int domain, double dist, const std::vector<int>& varIDs, double begin, double end, const libsumo::TraCIResults& params) { \
-    libtraci::Connection::getActive().subscribeObjectContext(libsumo::CMD_SUBSCRIBE_##DOMAIN##_CONTEXT, objectID, begin, end, domain, dist, varIDs, params); \
+    libtraci::Connection::getActive().subscribe(libsumo::CMD_SUBSCRIBE_##DOMAIN##_CONTEXT, objectID, begin, end, domain, dist, varIDs, params); \
 } \
 \
 void CLASS::unsubscribeContext(const std::string& objectID, int domain, double dist) { \
@@ -64,7 +66,7 @@ const libsumo::ContextSubscriptionResults CLASS::getAllContextSubscriptionResult
 } \
 \
 const libsumo::SubscriptionResults CLASS::getContextSubscriptionResults(const std::string& objectID) { \
-    return libtraci::Connection::getActive().getAllContextSubscriptionResults(libsumo::RESPONSE_SUBSCRIBE_##DOMAIN##_VARIABLE)[objectID]; \
+    return libtraci::Connection::getActive().getAllContextSubscriptionResults(libsumo::RESPONSE_SUBSCRIBE_##DOMAIN##_CONTEXT)[objectID]; \
 } \
 \
 void CLASS::subscribeParameterWithKey(const std::string& objectID, const std::string& key, double beginTime, double endTime) { \
@@ -106,84 +108,6 @@ namespace libtraci {
 template<int GET, int SET>
 class Domain {
 public:
-    static int readTypedInt(tcpip::Storage& ret) {
-        const int type = ret.readUnsignedByte();
-        assert(type == libsumo::TYPE_INTEGER);
-        return ret.readInt();
-    }
-
-    static double readTypedDouble(tcpip::Storage& ret) {
-        const int type = ret.readUnsignedByte();
-        assert(type == libsumo::TYPE_DOUBLE);
-        return ret.readDouble();
-    }
-
-    static std::string readTypedString(tcpip::Storage& ret) {
-        const int type = ret.readUnsignedByte();
-        assert(type == libsumo::TYPE_STRING);
-        return ret.readString();
-    }
-
-    static std::vector<std::string> readTypedStringList(tcpip::Storage& ret) {
-        const int type = ret.readUnsignedByte();
-        assert(type == libsumo::TYPE_STRINGLIST);
-        return ret.readStringList();
-    }
-
-    static int readCompound(tcpip::Storage& ret, int expectedSize = -1) {
-        const int type = ret.readUnsignedByte();
-        assert(type == libsumo::TYPE_COMPOUND);
-        const int size = ret.readInt();
-        assert(expectedSize == -1 || size == expectedSize);
-        return size;
-    }
-
-
-    static void writeTypedByte(tcpip::Storage& content, int value) {
-        content.writeUnsignedByte(libsumo::TYPE_BYTE);
-        content.writeByte(value);
-    }
-
-    static void writeTypedInt(tcpip::Storage& content, int value) {
-        content.writeUnsignedByte(libsumo::TYPE_INTEGER);
-        content.writeInt(value);
-    }
-
-    static void writeTypedDouble(tcpip::Storage& content, double value) {
-        content.writeUnsignedByte(libsumo::TYPE_DOUBLE);
-        content.writeDouble(value);
-    }
-
-    static void writeTypedString(tcpip::Storage& content, const std::string& value) {
-        content.writeUnsignedByte(libsumo::TYPE_STRING);
-        content.writeString(value);
-    }
-
-    static void writeTypedStringList(tcpip::Storage& content, const std::vector<std::string>& value) {
-        content.writeUnsignedByte(libsumo::TYPE_STRINGLIST);
-        content.writeStringList(value);
-    }
-
-    static void writeCompound(tcpip::Storage& content, int size) {
-        content.writeUnsignedByte(libsumo::TYPE_COMPOUND);
-        content.writeInt(size);
-    }
-
-    static void writePolygon(tcpip::Storage& content, const libsumo::TraCIPositionVector& shape) {
-        content.writeUnsignedByte(libsumo::TYPE_POLYGON);
-        if (shape.size() <= 255) {
-            content.writeUnsignedByte((int)shape.size());
-        } else {
-            content.writeUnsignedByte(0);
-            content.writeInt((int)shape.size());
-        }
-        for (const libsumo::TraCIPosition& pos : shape) {
-            content.writeDouble(pos.x);
-            content.writeDouble(pos.y);
-        }
-    }
-
-
     static tcpip::Storage& get(int var, const std::string& id, tcpip::Storage* add = nullptr, int expectedType = libsumo::TYPE_COMPOUND) {
         tcpip::Storage& result = libtraci::Connection::getActive().doCommand(GET, var, id, add);
         libtraci::Connection::getActive().check_commandGetResult(result, GET, expectedType);
@@ -218,12 +142,12 @@ public:
             p.x = result.readDouble();
             p.y = result.readDouble();
             p.z = 0.;
-            ret.push_back(p);
+            ret.value.push_back(p);
         }
         return ret;
     }
 
-    static libsumo::TraCIPosition getPos(int var, const std::string& id, tcpip::Storage* add = nullptr, const bool isGeo=false) {
+    static libsumo::TraCIPosition getPos(int var, const std::string& id, tcpip::Storage* add = nullptr, const bool isGeo = false) {
         tcpip::Storage& result = get(var, id, add, isGeo ? libsumo::POSITION_LON_LAT : libsumo::POSITION_2D);
         libsumo::TraCIPosition p;
         p.x = result.readDouble();
@@ -248,6 +172,10 @@ public:
         return get(var, id, add, libsumo::TYPE_STRINGLIST).readStringList();
     }
 
+    static std::vector<double> getDoubleVector(int var, const std::string& id, tcpip::Storage* add = nullptr) {
+        return get(var, id, add, libsumo::TYPE_DOUBLELIST).readDoubleList();
+    }
+
     static libsumo::TraCIColor getCol(int var, const std::string& id, tcpip::Storage* add = nullptr) {
         tcpip::Storage& result = get(var, id, add, libsumo::TYPE_COLOR);
         libsumo::TraCIColor c;
@@ -262,19 +190,19 @@ public:
         tcpip::Storage& result = get(var, id, add);
         libsumo::TraCIStage s;
         result.readInt(); // components
-        s.type = readTypedInt(result);
-        s.vType = readTypedString(result);
-        s.line = readTypedString(result);
-        s.destStop = readTypedString(result);
-        s.edges = readTypedStringList(result);
-        s.travelTime = readTypedDouble(result);
-        s.cost = readTypedDouble(result);
-        s.length = readTypedDouble(result);
-        s.intended = readTypedString(result);
-        s.depart = readTypedDouble(result);
-        s.departPos = readTypedDouble(result);
-        s.arrivalPos = readTypedDouble(result);
-        s.description = readTypedString(result);
+        s.type = StoHelp::readTypedInt(result);
+        s.vType = StoHelp::readTypedString(result);
+        s.line = StoHelp::readTypedString(result);
+        s.destStop = StoHelp::readTypedString(result);
+        s.edges = StoHelp::readTypedStringList(result);
+        s.travelTime = StoHelp::readTypedDouble(result);
+        s.cost = StoHelp::readTypedDouble(result);
+        s.length = StoHelp::readTypedDouble(result);
+        s.intended = StoHelp::readTypedString(result);
+        s.depart = StoHelp::readTypedDouble(result);
+        s.departPos = StoHelp::readTypedDouble(result);
+        s.arrivalPos = StoHelp::readTypedDouble(result);
+        s.description = StoHelp::readTypedString(result);
         return s;
     }
 

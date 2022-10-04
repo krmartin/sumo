@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -64,7 +64,7 @@ main(int argc, char** argv) {
             return 0;
         }
         // Make application
-        FXApp application("SUMO netedit", "Eclipse");
+        FXApp application("SUMO netedit", "netedit");
         // Open display
         application.init(argc, argv);
         int minor, major;

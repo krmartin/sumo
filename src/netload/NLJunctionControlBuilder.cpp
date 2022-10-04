@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -55,6 +55,7 @@
 #include <microsim/traffic_lights/MSTLLogicControl.h>
 #include "NLBuilder.h"
 #include "NLJunctionControlBuilder.h"
+#include "microsim/traffic_lights/NEMAController.h"
 
 
 // ===========================================================================
@@ -216,38 +217,48 @@ NLJunctionControlBuilder::closeTrafficLightLogic(const std::string& basePath) {
     }
     SUMOTime firstEventOffset = 0;
     int step = 0;
-    MSTrafficLightLogic* existing = nullptr;
     MSSimpleTrafficLightLogic::Phases::const_iterator i = myActivePhases.begin();
-    if (myLogicType != TrafficLightType::RAIL_SIGNAL && myLogicType != TrafficLightType::RAIL_CROSSING) {
-        if (myAbsDuration == 0) {
-            existing = getTLLogicControlToUse().get(myActiveKey, myActiveProgram);
-            if (existing == nullptr) {
-                throw InvalidArgument("TLS program '" + myActiveProgram + "' for TLS '" + myActiveKey + "' has a duration of 0.");
-            } else {
-                // only modify the offset of an existing logic
-                myAbsDuration = existing->getDefaultCycleTime();
-                i = existing->getPhases().begin();
+    MSTrafficLightLogic* existing = getTLLogicControlToUse().get(myActiveKey, myActiveProgram);
+    if (existing != nullptr && (existing->getLogicType() == TrafficLightType::RAIL_SIGNAL || existing->getLogicType() == TrafficLightType::RAIL_CROSSING)) {
+        existing->updateParameters(myAdditionalParameter);
+        return;
+    } else {
+        if (myLogicType != TrafficLightType::RAIL_SIGNAL && myLogicType != TrafficLightType::RAIL_CROSSING) {
+            if (myAbsDuration == 0) {
+                if (existing == nullptr) {
+                    throw InvalidArgument("TLS program '" + myActiveProgram + "' for TLS '" + myActiveKey + "' has a duration of 0.");
+                } else {
+                    // only modify the offset of an existing logic
+                    myAbsDuration = existing->getDefaultCycleTime();
+                    i = existing->getPhases().begin();
+                }
+            } else if (existing != nullptr) {
+                throw InvalidArgument("Another logic with id '" + myActiveKey + "' and programID '" + myActiveProgram + "' exists.");
             }
-        }
-        // compute the initial step and first switch time of the tls-logic
-        // a positive offset delays all phases by x (advance by absDuration - x) while a negative offset advances all phases by x seconds
-        // @note The implementation of % for negative values is implementation defined in ISO1998
-        SUMOTime offset; // the time to run the traffic light in advance
-        if (myOffset >= 0) {
-            offset = (myNet.getCurrentTimeStep() + myAbsDuration - (myOffset % myAbsDuration)) % myAbsDuration;
-        } else {
-            offset = (myNet.getCurrentTimeStep() + ((-myOffset) % myAbsDuration)) % myAbsDuration;
-        }
-        while (offset >= (*i)->duration) {
-            step++;
-            offset -= (*i)->duration;
-            ++i;
-        }
-        firstEventOffset = (*i)->duration - offset + myNet.getCurrentTimeStep();
-        if (existing != nullptr) {
-            existing->changeStepAndDuration(getTLLogicControlToUse(),
-                                            myNet.getCurrentTimeStep(), step, (*i)->duration - offset);
-            return;
+            // compute the initial step and first switch time of the tls-logic
+            // a positive offset delays all phases by x (advance by absDuration - x) while a negative offset advances all phases by x seconds
+            // @note The implementation of % for negative values is implementation defined in ISO1998
+            SUMOTime offset; // the time to run the traffic light in advance
+            if (myOffset >= 0) {
+                offset = (myNet.getCurrentTimeStep() + myAbsDuration - (myOffset % myAbsDuration)) % myAbsDuration;
+            } else {
+                offset = (myNet.getCurrentTimeStep() + ((-myOffset) % myAbsDuration)) % myAbsDuration;
+            }
+            while (offset >= (*i)->duration) {
+                step++;
+                offset -= (*i)->duration;
+                ++i;
+            }
+            firstEventOffset = (*i)->duration - offset + myNet.getCurrentTimeStep();
+            if (existing != nullptr) {
+                existing->changeStepAndDuration(getTLLogicControlToUse(),
+                                                myNet.getCurrentTimeStep(), step, (*i)->duration - offset);
+                // parameters that are used when initializing a logic will not take
+                // effect but parameters that are checked at runtime can be used
+                // here (i.e. device.glosa.range)
+                existing->updateParameters(myAdditionalParameter);
+                return;
+            }
         }
     }
 
@@ -283,19 +294,26 @@ NLJunctionControlBuilder::closeTrafficLightLogic(const std::string& basePath) {
             // @note it is unclear how to apply the given offset in the context
             // of variable-length phases
             tlLogic = new MSActuatedTrafficLightLogic(getTLLogicControlToUse(),
-                    myActiveKey, myActiveProgram,
+                    myActiveKey, myActiveProgram, myOffset,
                     myActivePhases, step, (*i)->minDuration + myNet.getCurrentTimeStep(),
-                    myAdditionalParameter, basePath);
+                    myAdditionalParameter, basePath, myActiveConditions, myActiveAssignments, myActiveFunctions);
+            break;
+        case TrafficLightType::NEMA:
+            tlLogic = new NEMALogic(getTLLogicControlToUse(),
+                                    myActiveKey, myActiveProgram, myOffset,
+                                    myActivePhases, step, (*i)->minDuration + myNet.getCurrentTimeStep(),
+                                    myAdditionalParameter, basePath);
             break;
         case TrafficLightType::DELAYBASED:
             tlLogic = new MSDelayBasedTrafficLightLogic(getTLLogicControlToUse(),
-                    myActiveKey, myActiveProgram,
+                    myActiveKey, myActiveProgram, myOffset,
                     myActivePhases, step, (*i)->minDuration + myNet.getCurrentTimeStep(),
                     myAdditionalParameter, basePath);
             break;
         case TrafficLightType::STATIC:
             tlLogic = new MSSimpleTrafficLightLogic(getTLLogicControlToUse(),
-                                                    myActiveKey, myActiveProgram, TrafficLightType::STATIC,
+                                                    myActiveKey, myActiveProgram, myOffset,
+                                                    TrafficLightType::STATIC,
                                                     myActivePhases, step, firstEventOffset,
                                                     myAdditionalParameter);
             break;
@@ -392,6 +410,9 @@ NLJunctionControlBuilder::initTrafficLightLogic(const std::string& id, const std
     myActiveKey = id;
     myActiveProgram = programID;
     myActivePhases.clear();
+    myActiveConditions.clear();
+    myActiveAssignments.clear();
+    myActiveFunctions.clear();
     myAbsDuration = 0;
     myRequestSize = NO_REQUEST_SIZE;
     myLogicType = type;
@@ -401,23 +422,47 @@ NLJunctionControlBuilder::initTrafficLightLogic(const std::string& id, const std
 
 
 void
-NLJunctionControlBuilder::addPhase(SUMOTime duration, const std::string& state, const std::vector<int>& nextPhases, SUMOTime minDuration, SUMOTime maxDuration, const std::string& name, bool transient_notdecisional, bool commit, MSPhaseDefinition::LaneIdVector* targetLanes) {
+NLJunctionControlBuilder::addPhase(MSPhaseDefinition* phase) {
     // build and add the phase definition to the list
-    myActivePhases.push_back(new MSPhaseDefinition(duration, state, minDuration, maxDuration, nextPhases, name, transient_notdecisional, commit, targetLanes));
+    myActivePhases.push_back(phase);
     // add phase duration to the absolute duration
-    myAbsDuration += duration;
+    myAbsDuration += phase->duration;
+}
+
+
+bool
+NLJunctionControlBuilder::addCondition(const std::string& id, const std::string& value) {
+    if (myActiveConditions.count(id) == 0) {
+        myActiveConditions[id] = value;
+        return true;
+    } else {
+        return false;
+    }
 }
 
 
 void
-NLJunctionControlBuilder::addPhase(SUMOTime duration, const std::string& state, const std::vector<int>& nextPhases,
-                                   SUMOTime minDuration, SUMOTime maxDuration, const std::string& name) {
-    // build and add the phase definition to the list
-    myActivePhases.push_back(new MSPhaseDefinition(duration, state, minDuration, maxDuration, nextPhases, name));
-    // add phase duration to the absolute duration
-    myAbsDuration += duration;
+NLJunctionControlBuilder::addAssignment(const std::string& id, const std::string& check, const std::string& value) {
+    if (myActiveFunction.id == "") {
+        myActiveAssignments.push_back(std::make_tuple(id, check, value));
+    } else {
+        myActiveFunction.assignments.push_back(std::make_tuple(id, check, value));
+    }
 }
 
+
+void
+NLJunctionControlBuilder::addFunction(const std::string& id, int nArgs) {
+    myActiveFunction.id = id;
+    myActiveFunction.nArgs = nArgs;
+}
+
+void
+NLJunctionControlBuilder::closeFunction() {
+    myActiveFunctions[myActiveFunction.id] = myActiveFunction;
+    myActiveFunction.id = "";
+    myActiveFunction.assignments.clear();
+}
 
 void
 NLJunctionControlBuilder::closeJunctionLogic() {

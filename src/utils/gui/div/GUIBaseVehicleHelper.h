@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -38,8 +38,8 @@ class GUIGlObject;
  * @brief A MSVehicle extended by some values for usage within the gui
  */
 class GUIBaseVehicleHelper {
-public:
 
+public:
     /// @brief draw poly
     static void drawPoly(const double* poses, const double offset);
 
@@ -49,13 +49,16 @@ public:
     /// @brief draw vehicle as a triangle
     static void drawAction_drawVehicleAsTrianglePlus(const double width, const double length);
 
+    /// @brief draw vehicle as a circle
+    static void drawAction_drawVehicleAsCircle(const double width, double detail);
+
     /// @brief draw vehicle as a polygon
     static void drawAction_drawVehicleAsPoly(const GUIVisualizationSettings& s, const SUMOVehicleShape shape, const double width, const double length,
-            int carriageIndex = -1);
+            int carriageIndex = -1, bool isStopped = false);
 
-    /**@brief try to draw vehicle as raster image and return true if sucessful
+    /**@brief try to draw vehicle as raster image and return true if successful
      * @param[in] length The custom length of the vehicle
-    */
+     */
     static bool drawAction_drawVehicleAsImage(const GUIVisualizationSettings& s, const std::string& file,
             const GUIGlObject* o, const double width, double length);
 };

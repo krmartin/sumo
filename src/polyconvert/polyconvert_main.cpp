@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2005-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2005-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -91,6 +91,9 @@ fillOptions() {
     oc.addSynonyme("visum-files", "visum");
     oc.addDescription("visum-files", "Input", "Reads polygons from FILE assuming it's a Visum-net");
 
+    oc.doRegister("visum.language-file", new Option_FileName());
+    oc.addDescription("visum.language-file", "Input", "Load language mappings from FILE");
+
     // xml import
     oc.doRegister("xml-files", new Option_FileName());
     oc.addSynonyme("xml-files", "xml");
@@ -163,7 +166,7 @@ fillOptions() {
 
     oc.doRegister("prune.in-net.offsets", new Option_String("0,0,0,0"));
     oc.addSynonyme("prune.in-net.offsets", "prune.on-net.offsets", true);
-    oc.addDescription("prune.in-net.offsets", "Pruning", "Uses STR as offset definition added to the net boundaries");
+    oc.addDescription("prune.in-net.offsets", "Pruning", "Uses FLOAT,FLOAT,FLOAT,FLOAT as offset definition added to the net boundary. Positive values grow the boundary on all sides while negative values shrink it.");
 
     oc.doRegister("prune.boundary", new Option_String());
     oc.addDescription("prune.boundary", "Pruning", "Uses STR as pruning boundary");
@@ -208,7 +211,7 @@ fillOptions() {
     oc.doRegister("type", new Option_String("unknown"));
     oc.addDescription("type", "Building Defaults", "Sets STR as default type");
 
-    oc.doRegister("fill", new Option_Bool("false"));
+    oc.doRegister("fill", new Option_Bool(true));
     oc.addDescription("fill", "Building Defaults", "Fills polygons by default");
 
     oc.doRegister("layer", new Option_Float(-1));
@@ -241,6 +244,9 @@ main(int argc, char** argv) {
         }
         SystemFrame::checkOptions();
         XMLSubSys::setValidation(oc.getString("xml-validation"), oc.getString("xml-validation.net"), "never");
+        if (oc.isDefault("aggregate-warnings")) {
+            oc.setDefault("aggregate-warnings", "5");
+        }
         MsgHandler::initOutputOptions();
         // build the projection
         double scale = 1.0;
@@ -251,8 +257,13 @@ main(int argc, char** argv) {
             // from the given options
 #ifdef PROJ_API_FILE
             const int numProjections = oc.getBool("simple-projection") + oc.getBool("proj.utm") + oc.getBool("proj.dhdn") + (oc.getString("proj").length() > 1);
-            if ((oc.isSet("osm-files") || oc.isSet("dlr-navteq-poly-files") || oc.isSet("dlr-navteq-poi-files")) && numProjections == 0) {
+            if ((oc.isSet("osm-files") || oc.isSet("dlr-navteq-poly-files") || oc.isSet("dlr-navteq-poi-files") || oc.isSet("shapefile-prefixes")) && numProjections == 0) {
+                // input is lon,lat and projecting it to UTM ensures accurate handling of geometry
                 oc.set("proj.utm", "true");
+                if (oc.isDefault("proj.plain-geo")) {
+                    // without reference to a network, raw UTM isn't helpful so we better write the data out as lon,lat
+                    oc.set("proj.plain-geo", "true");
+                }
             }
             if (oc.isDefault("proj.scale")) {
                 oc.set("proj.scale", toString(scale, 5));
@@ -275,10 +286,11 @@ main(int argc, char** argv) {
             }
             bool ok = true;
             // !!! no proper error handling
-            Boundary offsets = GeomConvHelper::parseBoundaryReporting(oc.getString("prune.in-net.offsets"), "--prune.on-net.offsets", nullptr, ok);
-            pruningBoundary = Boundary(
-                                  pruningBoundary.xmin() + offsets.xmin(),
-                                  pruningBoundary.ymin() + offsets.ymin(),
+            Boundary offsets = GeomConvHelper::parseBoundaryReporting(
+                    oc.getString("prune.in-net.offsets"), "--prune.on-net.offsets", nullptr, ok, true, true);
+            pruningBoundary.setOffsets(
+                                  pruningBoundary.xmin() - offsets.xmin(),
+                                  pruningBoundary.ymin() - offsets.ymin(),
                                   pruningBoundary.xmax() + offsets.xmax(),
                                   pruningBoundary.ymax() + offsets.ymax());
             prune = true;
@@ -290,7 +302,7 @@ main(int argc, char** argv) {
             prune = true;
         }
         if (oc.isSet("osm-files") && oc.isDefault("poi-layer-offset")) {
-            oc.set("poi-layer-offset", "5"); // sufficient when using the default typemap
+            oc.setDefault("poi-layer-offset", "5"); // sufficient when using the default typemap
         }
 
         PCPolyContainer toFill(prune, pruningBoundary, oc.getStringVector("remove"));

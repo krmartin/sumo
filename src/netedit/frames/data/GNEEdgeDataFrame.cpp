@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -32,8 +32,8 @@
 // method definitions
 // ===========================================================================
 
-GNEEdgeDataFrame::GNEEdgeDataFrame(FXHorizontalFrame* horizontalFrameParent, GNEViewNet* viewNet) :
-    GNEGenericDataFrame(horizontalFrameParent, viewNet, SUMO_TAG_MEANDATA_EDGE, false) {
+GNEEdgeDataFrame::GNEEdgeDataFrame(GNEViewParent *viewParent, GNEViewNet* viewNet) :
+    GNEGenericDataFrame(viewParent, viewNet, SUMO_TAG_MEANDATA_EDGE, false) {
 }
 
 
@@ -53,10 +53,25 @@ GNEEdgeDataFrame::addEdgeData(const GNEViewNetHelper::ObjectsUnderCursor& object
                 return false;
             }
         }
-        // finally create edgeData
-        GNEDataHandler::buildEdgeData(myViewNet->getNet(), true, myIntervalSelector->getDataInterval(), objectsUnderCursor.getEdgeFront(), myParametersEditorCreator->getParametersMap());
-        // edgeData created, then return true
-        return true;
+        // check if parameters are valid
+        if (myGenericDataAttributes->areAttributesValid()) {
+            // create interval base object
+            CommonXMLStructure::SumoBaseObject* intervalBaseObject = new CommonXMLStructure::SumoBaseObject(nullptr);
+            intervalBaseObject->addStringAttribute(SUMO_ATTR_ID, myIntervalSelector->getDataInterval()->getID());
+            intervalBaseObject->addDoubleAttribute(SUMO_ATTR_BEGIN, myIntervalSelector->getDataInterval()->getAttributeDouble(SUMO_ATTR_BEGIN));
+            intervalBaseObject->addDoubleAttribute(SUMO_ATTR_END, myIntervalSelector->getDataInterval()->getAttributeDouble(SUMO_ATTR_END));
+            // create genericData base object
+            CommonXMLStructure::SumoBaseObject* genericDataBaseObject = new CommonXMLStructure::SumoBaseObject(intervalBaseObject);
+            // finally create edgeData
+            GNEDataHandler dataHandler(myViewNet->getNet(), "", true);
+            dataHandler.buildEdgeData(genericDataBaseObject, objectsUnderCursor.getEdgeFront()->getID(), myGenericDataAttributes->getParametersMap());
+            // delete intervalBaseObject (and genericDataBaseObject)
+            delete intervalBaseObject;
+            // edgeData created, then return true
+            return true;
+        } else {
+            return false;
+        }
     } else {
         // invalid parent parameters
         return false;

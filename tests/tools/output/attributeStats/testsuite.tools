@@ -1,11 +1,17 @@
 # analyze tripinfo timeloss
 default
 
+# analyze tripinfo timeloss from two output files
+2_files
+
 # analyze tripinfo timeloss
 histogram_output
 
 # analyze tripinfo timeloss
 full_output
+
+# analyze tripinfo timeloss
+xml_output
 
 # analyze tripinfo 
 attribute

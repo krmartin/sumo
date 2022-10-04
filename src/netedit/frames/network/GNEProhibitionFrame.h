@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -18,6 +18,7 @@
 // The Widget for remove network-elements
 /****************************************************************************/
 #pragma once
+#include <config.h>
 #include <netedit/frames/GNEFrame.h>
 
 // ===========================================================================
@@ -50,7 +51,7 @@ public:
     // class RelativeToConnection
     // ===========================================================================
 
-    class RelativeToConnection : protected FXGroupBox {
+    class RelativeToConnection : public MFXGroupBoxModule {
 
     public:
         /// @brief constructor
@@ -71,17 +72,17 @@ public:
     };
 
     // ===========================================================================
-    // class ProhibitionLegend
+    // class Legend
     // ===========================================================================
 
-    class ProhibitionLegend : protected FXGroupBox {
+    class Legend : public MFXGroupBoxModule {
 
     public:
         /// @brief constructor
-        ProhibitionLegend(GNEProhibitionFrame* prohibitionFrameParent);
+        Legend(GNEProhibitionFrame* prohibitionFrameParent);
 
         /// @brief destructor
-        ~ProhibitionLegend();
+        ~Legend();
 
         /// @brief get color for non-conflicting pairs of connections
         const RGBColor& getUndefinedColor() const;
@@ -119,7 +120,7 @@ public:
     // class Modifications
     // ===========================================================================
 
-    class Modifications : protected FXGroupBox {
+    class Modifications : public MFXGroupBoxModule {
 
     public:
         /// @brief constructor
@@ -137,10 +138,10 @@ public:
     };
 
     /**@brief Constructor
-     * @brief parent FXHorizontalFrame in which this GNEFrame is placed
+     * @brief viewParent GNEViewParent in which this GNEFrame is placed
      * @brief viewNet viewNet that uses this GNEFrame
      */
-    GNEProhibitionFrame(FXHorizontalFrame* horizontalFrameParent, GNEViewNet* viewNet);
+    GNEProhibitionFrame(GNEViewParent *viewParent, GNEViewNet* viewNet);
 
     /// @brief Destructor
     ~GNEProhibitionFrame();
@@ -177,13 +178,13 @@ private:
     RelativeToConnection* myRelativeToConnection;
 
     /// @brief prohibition legend
-    ProhibitionLegend* myProhibitionLegend;
+    GNEProhibitionFrame::Legend* myLegend = nullptr;
 
     /// @brief Modifications
-    Modifications* myModifications;
+    GNEProhibitionFrame::Modifications* myModifications = nullptr;
 
     /// @brief the connection which prohibits
-    GNEConnection* myCurrentConn;
+    GNEConnection* myCurrentConn = nullptr;
 
     /// @brief the set of connections which
     std::set<GNEConnection*> myConcernedConns;

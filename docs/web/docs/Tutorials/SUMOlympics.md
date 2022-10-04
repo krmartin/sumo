@@ -1,6 +1,5 @@
 ---
-title: Tutorials/SUMOlympics
-permalink: /Tutorials/SUMOlympics/
+title: SUMOlympics
 ---
 
 This tutorial sets up a competition (a collective 100 meter sprint) for
@@ -16,14 +15,14 @@ by the PTV Group](https://www.youtube.com/watch?v=IpaNLxrtHOs).
 # Building the Net
 
 ![editEdgeAttr.png](../images/EditEdgeAttr.png "Editing the location of the edge's startpoint")Open
-[netedit](../netedit.md) and create a new network and add a single
+[netedit](../Netedit/index.md) and create a new network and add a single
 edge by pressing `e` for entering the edge creation mode and clicking on
 two different locations in the editing area. Change to inspection mode
 (press `i`) and click on the starting point of the edge (at the location
 of your first click). Now enter `0,0` in the textfield labeled `pos` in
 the inspector panel on the left (see figure). Do the same for the edge's
 endpoint, setting its position to `1000,0`. Now save your network under
-the name `sumolypics.net.xml` (press `Ctrl+Shift-S`).
+the name `sumolympics.net.xml` (press `Ctrl+Shift-S`).
 
 Now we have a long road, which will be the stage of our competition. The
 participants in the competition will be transportation modes, i.e.,
@@ -150,8 +149,8 @@ basic consistency and missing yellow phases may lead to crashes if you
 have intersecting flows. However, this is a special situation and we
 don't need to care about this, obviously. If you want to learn more
 about traffic light control, see the TraCI-Tutorials
-[TraCIPedCrossing](../Tutorials/TraCIPedCrossing.md) and
-[TraCI4Traffic_Lights](../Tutorials/TraCI4Traffic_Lights.md) or
+[TraCIPedCrossing](TraCIPedCrossing.md) and
+[TraCI4Traffic_Lights](TraCI4Traffic_Lights.md) or
 the main section on [traffic
 lights](../Simulation/Traffic_Lights.md).
 
@@ -211,4 +210,4 @@ Get the popcorn and start the simulation\!
 
 1.  <https://www.forschungsinformationssystem.de/servlet/is/79638/>
 
-Back to [Tutorials](../Tutorials.md).
+Back to [Tutorials](index.md).

@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,6 +21,7 @@
 #include <config.h>
 
 #include <netedit/elements/GNECandidateElement.h>
+#include <netedit/GNELane2laneConnection.h>
 
 #include "GNENetworkElement.h"
 
@@ -51,8 +52,8 @@ public:
     class LaneDrawingConstants {
 
     public:
-        /// @brief parameter constructor
-        LaneDrawingConstants(const GUIVisualizationSettings& s, const GNELane* lane);
+        /// @brief parameter constructor (reference)
+        LaneDrawingConstants(const GUIVisualizationSettings&  s, const GNELane* lane);
 
         /// @brief selection scale
         const double selectionScale;
@@ -69,9 +70,6 @@ public:
     private:
         /// @brief default constructor
         LaneDrawingConstants();
-
-        /// @brief Invalidated assignment operator.
-        LaneDrawingConstants& operator=(const LaneDrawingConstants&) = delete;
     };
 
     /**@brief Constructor
@@ -84,7 +82,7 @@ public:
     /// @brief Destructor
     ~GNELane();
 
-    /// @brief get arent edge
+    /// @brief get parent edge
     GNEEdge* getParentEdge() const;
 
     /// @brief check if current lane allow pedestrians
@@ -92,6 +90,9 @@ public:
 
     /// @name Functions related with geometry of element
     /// @{
+    /// @brief get lane geometry
+    const GUIGeometry& getLaneGeometry() const;
+
     /// @brief get elements shape
     const PositionVector& getLaneShape() const;
 
@@ -100,9 +101,6 @@ public:
 
     /// @brief get lengths of the single shape parts
     const std::vector<double>& getShapeLengths() const;
-
-    /// @brief get dotted lane geometry
-    const GNEGeometry::DottedGeometry& getDottedLaneGeometry() const;
 
     /// @brief update pre-computed geometry information
     void updateGeometry();
@@ -114,7 +112,7 @@ public:
     /// @name Functions related with move elements
     /// @{
     /// @brief get move operation for the given shapeOffset (can be nullptr)
-    GNEMoveOperation* getMoveOperation(const double shapeOffset);
+    GNEMoveOperation* getMoveOperation();
 
     /// @brief remove geometry point in the clicked position
     void removeGeometryPoint(const Position clickedPosition, GNEUndoList* undoList);
@@ -150,6 +148,9 @@ public:
     /// @brief multiplexes message to two targets
     long onDefault(FXObject*, FXSelector, void*);
 
+    /// @brief return exaggeration associated with this GLObject
+    double getExaggeration(const GUIVisualizationSettings& s) const;
+
     /// @brief update centering boundary (implies change in RTREE)
     void updateCenteringBoundary(const bool updateGrid);
 
@@ -158,6 +159,12 @@ public:
      * @see GUIGlObject::drawGL
      */
     void drawGL(const GUIVisualizationSettings& s) const;
+
+    /// @brief delete element
+    void deleteGLObject();
+
+    /// @brief update GLObject (geometry, ID, etc.)
+    void updateGLObject();
     /// @}
 
     /// @brief returns the index of the lane
@@ -183,7 +190,7 @@ public:
     bool isRestricted(SUMOVehicleClass vclass) const;
 
     /// @brief get Lane2laneConnection struct
-    const GNEGeometry::Lane2laneConnection& getLane2laneConnections() const;
+    const GNELane2laneConnection& getLane2laneConnections() const;
 
     /// @name inherited from GNEAttributeCarrier
     /// @{
@@ -203,7 +210,7 @@ public:
 
     /* @brief method for checking if the key and their correspond attribute are valids
      * @param[in] key The attribute key
-     * @param[in] value The value asociated to key key
+     * @param[in] value The value associated to key key
      * @return true if the value is valid, false in other case
      */
     bool isValid(SumoXMLAttr key, const std::string& value);
@@ -212,31 +219,15 @@ public:
      * @param[in] key The attribute key
      */
     bool isAttributeEnabled(SumoXMLAttr key) const;
+
+    /* @brief method for check if the value for certain attribute is computed (for example, due a network recomputing)
+     * @param[in] key The attribute key
+     */
+    bool isAttributeComputed(SumoXMLAttr key) const;
     /// @}
 
     /// @brief get parameters map
-    const std::map<std::string, std::string>& getACParametersMap() const;
-
-    /// @brief add path additional element (used by GNEPathElement)
-    void addPathAdditionalElement(GNEAdditional* additionalElement);
-
-    /// @brief remove path additional element (used by GNEPathElement)
-    void removePathAdditionalElement(GNEAdditional* additionalElement);
-
-    /// @brief add path demand element (used by GNEPathElement)
-    void addPathDemandElement(GNEDemandElement* demandElement);
-
-    /// @brief remove path demand element (used by GNEPathElement)
-    void removePathDemandElement(GNEDemandElement* demandElement);
-
-    /// @brief add path demand element (used by GNEPathElement)
-    void addPathGenericData(GNEGenericData* genericData);
-
-    /// @brief remove path demand element (used by GNEPathElement)
-    void removePathGenericData(GNEGenericData* genericData);
-
-    /// @brief invalidate path element childs
-    void invalidatePathElements();
+    const Parameterised::Map& getACParametersMap() const;
 
     /* @brief method for setting the special color of the lane
      * @param[in] color Pointer to new special color
@@ -248,6 +239,12 @@ public:
 
     /// @brief whether to draw this lane as a railway
     bool drawAsRailway(const GUIVisualizationSettings& s) const;
+
+    /// @brief draw overlapped routes
+    void drawOverlappedRoutes(const int numRoutes) const;
+
+    /// @brief draw laneStopOffset
+    void drawLaneStopOffset(const GUIVisualizationSettings& s, const double offset) const;
 
 protected:
     /// @brief FOX needs this
@@ -261,10 +258,7 @@ private:
     int myIndex;
 
     /// @brief lane geometry
-    GNEGeometry::Geometry myLaneGeometry;
-
-    /// @brief dotted lane geometry
-    GNEGeometry::DottedGeometry myDottedLaneGeometry;
+    GUIGeometry myLaneGeometry;
 
     /// @name computed only once (for performance) in updateGeometry()
     /// @{
@@ -286,16 +280,7 @@ private:
     mutable std::vector<RGBColor> myShapeColors;
 
     /// @brief lane2lane connections
-    GNEGeometry::Lane2laneConnection myLane2laneConnections;
-
-    /// @brief map with references to path additional elements
-    std::map<SumoXMLTag, std::vector<GNEAdditional*> > myPathAdditionalElements;
-
-    /// @brief map with references to path demand elements
-    std::map<SumoXMLTag, std::vector<GNEDemandElement*> > myPathDemandElements;
-
-    /// @brief map with references to path generic data elements
-    std::map<SumoXMLTag, std::vector<GNEGenericData*> > myPathGenericDatas;
+    GNELane2laneConnection myLane2laneConnections;
 
     /// @brief set attribute after validation
     void setAttribute(SumoXMLAttr key, const std::string& value);
@@ -308,15 +293,6 @@ private:
 
     /// @brief draw children
     void drawChildren(const GUIVisualizationSettings& s) const;
-
-    /// @brief path additional elements
-    void drawPathAdditionalElements(const GUIVisualizationSettings& s) const;
-
-    /// @brief path demand elements
-    void drawPathDemandElements(const GUIVisualizationSettings& s) const;
-
-    /// @brief path generic data elements
-    void drawPathGenericDataElements(const GUIVisualizationSettings& s) const;
 
     /// @brief draw lane markings
     void drawMarkings(const GUIVisualizationSettings& s, const double exaggeration, const bool drawRailway) const;
@@ -331,7 +307,7 @@ private:
     void drawLinkRules(const GUIVisualizationSettings& s) const;
 
     /// @brief draw arrows
-    void drawArrows(const GUIVisualizationSettings& s) const;
+    void drawArrows(const GUIVisualizationSettings& s, const bool spreadSuperposed) const;
 
     /// @brief draw lane to lane connections
     void drawLane2LaneConnections() const;
@@ -365,6 +341,9 @@ private:
 
     /// @brief build lane operations contextual menu
     void buildLaneOperations(GUISUMOAbstractView& parent, GUIGLObjectPopupMenu* ret);
+
+    /// @brief build template oerations contextual menu
+    void buildTemplateOperations(GUISUMOAbstractView& parent, GUIGLObjectPopupMenu* ret);
 
     /// @brief build rechable operations contextual menu
     void buildRechableOperations(GUISUMOAbstractView& parent, GUIGLObjectPopupMenu* ret);

@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -34,7 +34,7 @@
 #include <utils/vehicle/SUMOVehicleParameter.h>
 #include <utils/common/Parameterised.h>
 #ifdef HAVE_FOX
-#include <fx.h>
+#include <utils/foxtools/fxheader.h>
 #include <FXThread.h>
 #endif
 
@@ -65,7 +65,9 @@ public:
     /// Constructor
     MSRoute(const std::string& id, const ConstMSEdgeVector& edges,
             const bool isPermanent, const RGBColor* const c,
-            const std::vector<SUMOVehicleParameter::Stop>& stops);
+            const std::vector<SUMOVehicleParameter::Stop>& stops,
+            SUMOTime replacedTime = -1,
+            int replacedIndex = 0);
 
     /// Destructor
     virtual ~MSRoute();
@@ -90,11 +92,13 @@ public:
 
     /** @brief Output the edge ids up to but not including the id of the given edge
      * @param[in] os The stream to write the routes into (binary)
-     * @param[in] from The first edge to be written
-     * @param[in] upTo The first edge that shall not be written
+     * @param[in] firstIndex index of the first edge to be written
+     * @param[in] lastIndex index of the first edge that shall not be written (-1 writes all remaining)
+     * @param[in] withInternal Whether internal edges shall be included
+     * @param[in] svc The vClass for determining internal edges
      * @return The number of edges written
      */
-    int writeEdgeIDs(OutputDevice& os, const MSEdge* const from, const MSEdge* const upTo = 0) const;
+    int writeEdgeIDs(OutputDevice& os, int firstIndex = 0, int lastIndex = -1, bool withInternal = false, SUMOVehicleClass svc = SVC_IGNORING) const;
 
     bool contains(const MSEdge* const edge) const {
         return std::find(myEdges.begin(), myEdges.end(), edge) != myEdges.end();
@@ -173,6 +177,16 @@ public:
         return mySavings;
     }
 
+    /// @brief Returns the time at which this route was replaced (or -1)
+    SUMOTime getReplacedTime() const {
+        return myReplacedTime;
+    }
+
+    /// @brief Returns the index at which this route was replaced
+    int getReplacedIndex() const {
+        return myReplacedIndex;
+    }
+
     /// @brief sets the period
     void setPeriod(SUMOTime period) {
         myPeriod = period;
@@ -236,7 +250,7 @@ public:
      * @param[in] id    the id of the route or the distribution
      * @return          the route (sample)
      */
-    static const MSRoute* dictionary(const std::string& id, std::mt19937* rng = 0);
+    static const MSRoute* dictionary(const std::string& id, SumoRNG* rng = 0);
 
     /// @brief returns whether a route with the given id exists
     static bool hasRoute(const std::string& id);
@@ -285,6 +299,12 @@ private:
 
     /// @brief List of the stops on the parsed route
     std::vector<SUMOVehicleParameter::Stop> myStops;
+
+    /// The time where this route was replaced with an alternative route (or -1)
+    SUMOTime myReplacedTime;
+
+    /// The index where this route was replaced with an alternative route
+    int myReplacedIndex;
 
 private:
     /// Definition of the dictionary container

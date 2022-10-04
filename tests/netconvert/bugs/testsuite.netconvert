@@ -31,7 +31,8 @@ ticket267
 # Test for false foe determination (on inner-continuation-intersections) yielding in a teleport
 ticket19_falseFoe
 ticket606
-#geometry-remove option
+
+# geometry-remove option
 ticket637
 ticket727
 
@@ -103,9 +104,6 @@ ticket5817
 # scurve-stretch with changed default radius
 ticket5881
 
-# osm import left handed traffic and pedestrians
-ticket6115
-
 # invalid network with option geometry.remove.min-length
 ticket6333
 
@@ -120,3 +118,42 @@ ticket7016
 
 # wrong internal junction position
 ticket7761
+
+# traffic light corruption when using option --geometry.remove
+ticket8413
+
+# turnaround in input ignored
+ticket8796
+
+# connectivity on bike lane start
+ticket8899
+
+# duplicated roundabout
+ticket9810
+
+# junction shape
+ticket10589
+
+# regression on clipping curved shapes
+ticket10727
+
+# strange connections
+ticket10771
+
+# invalid rail crossing
+ticket10777
+
+# join looses tram connection
+ticket10826
+
+# doubly linked edge with hybrid tram
+ticket10978
+
+# right of way rules at side road with custom internal junction
+ticket11146
+
+# invalid rail internal junction
+ticket11558
+
+# glitched walkingarea shape
+ticket11590

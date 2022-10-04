@@ -1,13 +1,12 @@
-<a href="https://sumo.dlr.de/docs"><p align="center"><img width=50% src="https://github.com/eclipse/sumo/blob/master/docs/web/docs/images/sumo-logo.svg"></p></a>
+<a href="https://sumo.dlr.de/docs"><p align="center"><img width=50% src="https://raw.githubusercontent.com/eclipse/sumo/main/docs/web/docs/images/sumo-logo.svg"></p></a>
 
 Eclipse SUMO - Simulation of Urban MObility 
 ===========================================
-![Windows](https://github.com/eclipse/sumo/workflows/windows/badge.svg)
-![Linux](https://github.com/eclipse/sumo/workflows/linux/badge.svg)
-![macOS](https://github.com/eclipse/sumo/workflows/macos/badge.svg)
+[![Windows](https://github.com/eclipse/sumo/actions/workflows/build-windows.yml/badge.svg)](https://github.com/eclipse/sumo/actions/workflows/build-windows.yml)
+[![Linux](https://github.com/eclipse/sumo/actions/workflows/build-linux.yml/badge.svg)](https://github.com/eclipse/sumo/actions/workflows/build-linux.yml)
+[![macOS](https://github.com/eclipse/sumo/actions/workflows/build-macos.yml/badge.svg)](https://github.com/eclipse/sumo/actions/workflows/build-macos.yml)
+[![sonarcloud security](https://sonarcloud.io/api/project_badges/measure?project=org.eclipse.sumo&metric=security_rating)](https://sonarcloud.io/summary/overall?id=org.eclipse.sumo)
 ![Repo Size](https://img.shields.io/github/repo-size/eclipse/sumo.svg)
-
-<!-- [![Windows Build status](https://ci.appveyor.com/api/projects/status/github/eclipse/sumo?svg=true)](https://ci.appveyor.com/project/eclipsewebmaster/sumo) -->
 
 What is SUMO
 ------------

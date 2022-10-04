@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2004-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2004-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -23,22 +23,24 @@
 
 
 FXDEFMAP(MFXCheckableButton) MFXCheckableButtonMap[] = {
-    FXMAPFUNC(SEL_PAINT, 0, MFXCheckableButton::onPaint),
-    FXMAPFUNC(SEL_UPDATE, 0, MFXCheckableButton::onUpdate),
+    FXMAPFUNC(SEL_PAINT,    0,  MFXCheckableButton::onPaint),
+    FXMAPFUNC(SEL_UPDATE,   0,  MFXCheckableButton::onUpdate),
+    FXMAPFUNC(SEL_ENTER,    0,  MFXCheckableButton::onEnter),
+    FXMAPFUNC(SEL_LEAVE,    0,  MFXCheckableButton::onLeave),
+    FXMAPFUNC(SEL_MOTION,   0,  MFXCheckableButton::onMotion),
 };
 
 
 // Object implementation
 FXIMPLEMENT(MFXCheckableButton, FXButton, MFXCheckableButtonMap, ARRAYNUMBER(MFXCheckableButtonMap))
 
-MFXCheckableButton::MFXCheckableButton(bool amChecked, FXComposite* p,
-                                       const FXString& text, FXIcon* ic,
-                                       FXObject* tgt, FXSelector sel,
-                                       FXuint opts,
-                                       FXint x, FXint y, FXint w, FXint h,
+MFXCheckableButton::MFXCheckableButton(bool amChecked, FXComposite* p, MFXStaticToolTip* staticToolTip, 
+                                       const FXString& text, FXIcon* ic, FXObject* tgt, FXSelector sel,
+                                       FXuint opts, FXint x, FXint y, FXint w, FXint h,
                                        FXint pl, FXint pr, FXint pt, FXint pb) :
     FXButton(p, text, ic, tgt, sel, opts, x, y, w, h, pl, pr, pt, pb),
-    myAmChecked(amChecked), myAmInitialised(false) {
+    myAmChecked(amChecked), myAmInitialised(false),
+    myStaticToolTip(staticToolTip) {
     border = 0;
 }
 
@@ -59,23 +61,47 @@ MFXCheckableButton::setChecked(bool val) {
 
 
 long
-MFXCheckableButton::onPaint(FXObject* sender, FXSelector sel, void* data) {
+MFXCheckableButton::onPaint(FXObject* sender, FXSelector sel, void* ptr) {
     if (!myAmInitialised) {
         buildColors();
     }
     setColors();
-    return FXButton::onPaint(sender, sel, data);
+    return FXButton::onPaint(sender, sel, ptr);
 }
 
 
 long
-MFXCheckableButton::onUpdate(FXObject* sender, FXSelector sel, void* data) {
+MFXCheckableButton::onUpdate(FXObject* sender, FXSelector sel, void* ptr) {
     if (!myAmInitialised) {
         buildColors();
     }
     setColors();
-    long ret = FXButton::onUpdate(sender, sel, data);
+    long ret = FXButton::onUpdate(sender, sel, ptr);
     return ret;
+}
+
+
+long
+MFXCheckableButton::onEnter(FXObject* sender, FXSelector sel, void* ptr) {
+    // show tip show
+    myStaticToolTip->showStaticToolTip(getTipText());
+    return FXButton::onEnter(sender, sel, ptr);
+}
+
+
+long
+MFXCheckableButton::onLeave(FXObject* sender, FXSelector sel, void* ptr) {
+    // hide static toolTip
+    myStaticToolTip->hideStaticToolTip();
+    return FXButton::onLeave(sender, sel, ptr);
+}
+
+
+long
+MFXCheckableButton::onMotion(FXObject* sender, FXSelector sel, void* ptr) {
+    // update static toolTip
+    myStaticToolTip->onUpdate(sender, sel, ptr);
+    return FXButton::onMotion(sender, sel, ptr);
 }
 
 

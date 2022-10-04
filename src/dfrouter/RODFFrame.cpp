@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2006-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2006-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -154,6 +154,9 @@ RODFFrame::fillOptions() {
 
     oc.doRegister("disallowed-edges", new Option_StringVector(StringVector({ "" })));
     oc.addDescription("disallowed-edges", "Processing", "Do not route on these edges");
+
+    oc.doRegister("vclass", new Option_String("ignoring"));
+    oc.addDescription("vclass", "Processing", "Only route on edges allowing the given vclass");
 
     oc.doRegister("keep-turnarounds", new Option_Bool(false));
     oc.addDescription("keep-turnarounds", "Processing", "Allow turnarounds as route continuations");

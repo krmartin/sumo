@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -37,7 +37,7 @@ NIXMLShapeHandler::NIXMLShapeHandler(ShapeContainer& sc, const NBEdgeCont& ec) :
 {}
 
 Position
-NIXMLShapeHandler::getLanePos(const std::string& poiID, const std::string& laneID, double lanePos, double lanePosLat) {
+NIXMLShapeHandler::getLanePos(const std::string& poiID, const std::string& laneID, double lanePos, bool friendlyPos, double lanePosLat) {
     std::string edgeID;
     int laneIndex;
     NBHelpers::interpretLaneID(laneID, edgeID, laneIndex);
@@ -48,6 +48,12 @@ NIXMLShapeHandler::getLanePos(const std::string& poiID, const std::string& laneI
     }
     if (lanePos < 0) {
         lanePos = edge->getLength() + lanePos;
+    }
+    if ((lanePos < 0) && friendlyPos) {
+        lanePos = 0;
+    }
+    if ((lanePos > edge->getLength()) && friendlyPos) {
+        lanePos = edge->getLength();
     }
     if (lanePos < 0 || lanePos > edge->getLength()) {
         WRITE_WARNING("lane position " + toString(lanePos) + " for poi '" + poiID + "' is not valid.");

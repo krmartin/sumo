@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -208,14 +208,16 @@ NWWriter_DlrNavteq::writeLinksUnsplitted(const OptionsCont& oc, NBEdgeCont& ec, 
             const std::string& name = e->getStreetName();
             if (name != "") {
                 if (nameIDs.count(name) == 0) {
-                    nameIDs[name] = toString(nameIDs.size());
+                    const int tmp = (int)nameIDs.size();
+                    nameIDs[name] = toString(tmp);
                 }
                 nameID = nameIDs[name];
             }
             const std::string& name2 = e->getParameter("ref", "");
             if (name2 != "") {
                 if (nameIDs.count(name2) == 0) {
-                    nameIDs[name2] = toString(nameIDs.size());
+                    const int tmp = (int)nameIDs.size();
+                    nameIDs[name2] = toString(tmp);
                 }
                 nameIDRegional = nameIDs[name2];
             }

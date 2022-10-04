@@ -1,16 +1,15 @@
 ---
-title: Z/Changes from Version 0.27.1 to Version 0.28.0
-permalink: /Z/Changes_from_Version_0.27.1_to_Version_0.28.0/
+title: Changes from Version 0.27.1 to Version 0.28.0
 ---
 
-## Version 0.28.0 (01.11.2016)
+**Release date: 01.11.2016**
 
 ### Bugfixes
 
 - Simulation
   - Fixed bug that was causing insufficient overtaking on a
     single-lane road when using sublane simulation (most noticeable
-    with small step-lenghts). #2518
+    with small step-lengths). #2518
   - Fixed invalid count of insertion-backlog for flows. #2535
   - Added check for possibility to stop at scheduled stops during
     insertion. #2543
@@ -186,7 +185,7 @@ permalink: /Z/Changes_from_Version_0.27.1_to_Version_0.28.0/
   - Added Tutorial for using [the OSM-Web-Wizard](../Tutorials/OSMWebWizard.md).
   - More details on [loading and inserting vehicles](../Simulation/VehicleInsertion.md)
   - Added new overview page on [vehicle permissions](../Simulation/VehiclePermissions.md)
-  - The [netedit](../netedit.md) documentation on old and novel
+  - The [netedit](../Netedit/index.md) documentation on old and novel
     features has been expanded.
   - The tool
     [showDepartsAndArrivalsPerEdge.py](../Tools/Routes.md#showdepartsandarrivalsperedge)

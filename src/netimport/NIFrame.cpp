@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -154,7 +154,7 @@ NIFrame::fillOptions(bool forNetedit) {
     oc.addDescription("ignore-errors.edge-type", "Report", "Continue on unknown edge types");
 
     oc.doRegister("speed-in-kmh", new Option_Bool(false));
-    oc.addDescription("speed-in-kmh", "Processing", "vmax is parsed as given in km/h (some)");
+    oc.addDescription("speed-in-kmh", "Processing", "vmax is parsed as given in km/h");
 
     oc.doRegister("construction-date", new Option_String());
     oc.addDescription("construction-date", "Processing", "Use YYYY-MM-DD date to determine the readiness of features under construction");
@@ -164,6 +164,9 @@ NIFrame::fillOptions(bool forNetedit) {
 
     oc.doRegister("discard-params", new Option_StringVector());
     oc.addDescription("discard-params", "Formats", "Remove the list of keys from all params");
+
+    oc.doRegister("ignore-change-restrictions", new Option_StringVector(StringVector({"authority"})));
+    oc.addDescription("ignore-change-restrictions", "Formats", "List vehicle classes that may ignore lane changing restrictions ('all' discards all restrictions)");
 
     // register xml options
     oc.doRegister("plain.extend-edge-shape", new Option_Bool(false));
@@ -186,6 +189,18 @@ NIFrame::fillOptions(bool forNetedit) {
     oc.doRegister("osm.oneway-spread-right", new Option_Bool(false));
     oc.addDescription("osm.oneway-spread-right", "Formats", "Whether one-way roads should be spread to the side instead of centered");
 
+    oc.doRegister("osm.lane-access", new Option_Bool(false));
+    oc.addDescription("osm.lane-access", "Formats", "Import lane-specific access restrictions");
+
+    oc.doRegister("osm.bike-access", new Option_Bool(false));
+    oc.addDescription("osm.bike-access", "Formats", "Check additional attributes to fix directions and permissions on bike paths");
+
+    oc.doRegister("osm.sidewalks", new Option_Bool(false));
+    oc.addDescription("osm.sidewalks", "Formats", "Import sidewalks");
+
+    oc.doRegister("osm.turn-lanes", new Option_Bool(false));
+    oc.addDescription("osm.turn-lanes", "Formats", "Import turning arrows from OSM to help with connection building");
+
     oc.doRegister("osm.stop-output.length", new Option_Float(25));
     oc.addDescription("osm.stop-output.length", "Formats", "The default length of a public transport stop in FLOAT m");
     oc.doRegister("osm.stop-output.length.bus", new Option_Float(15));
@@ -198,6 +213,11 @@ NIFrame::fillOptions(bool forNetedit) {
     oc.doRegister("osm.all-attributes", new Option_Bool(false));
     oc.addDescription("osm.all-attributes", "Formats", "Whether additional attributes shall be imported");
 
+    oc.doRegister("osm.extra-attributes", new Option_StringVector(StringVector({ "bridge", "tunnel", "layer", "postal_code" })));
+    oc.addDescription("osm.extra-attributes", "Formats", "List of additional attributes that shall be imported from OSM via osm.all-attributes (set 'all' to import all)");
+
+    oc.doRegister("osm.speedlimit-none", new Option_Float(39.4444));
+    oc.addDescription("osm.speedlimit-none", "Formats", "The speed limit to be set when there is no actual speed limit in reality");
 
     // register matsim options
     oc.doRegister("matsim.keep-length", new Option_Bool(false));
@@ -328,6 +348,10 @@ NIFrame::fillOptions(bool forNetedit) {
     oc.addDescription("opendrive.min-width", "Formats", "The minimum lane width for determining start or end of variable-width lanes");
     oc.doRegister("opendrive.internal-shapes", new Option_Bool(false));
     oc.addDescription("opendrive.internal-shapes", "Formats", "Import internal lane shapes");
+    oc.doRegister("opendrive.position-ids", new Option_Bool(false));
+    oc.addDescription("opendrive.position-ids", "Formats", "Sets edge-id based on road-id and offset in m (legacy)");
+    oc.doRegister("opendrive.lane-shapes", new Option_Bool(false));
+    oc.addDescription("opendrive.lane-shapes", "Formats", "Use custom lane shapes to compensate discarded lane types");
 
     // register some additional options
     oc.doRegister("tls.discard-loaded", new Option_Bool(false));
@@ -356,7 +380,7 @@ NIFrame::checkOptions() {
         }
     }
     if (oc.isSet("dlr-navteq-prefix") && oc.isDefault("proj.scale")) {
-        oc.set("proj.scale", NIImporter_DlrNavteq::GEO_SCALE);
+        oc.setDefault("proj.scale", NIImporter_DlrNavteq::GEO_SCALE);
     }
 #else
     if ((oc.isSet("osm-files") || oc.isSet("dlr-navteq-prefix") || oc.isSet("shapefile-prefix")) && !oc.getBool("simple-projection")) {
@@ -399,16 +423,19 @@ NIFrame::checkOptions() {
     if (oc.isSet("opendrive-files")) {
         if (oc.isDefault("tls.left-green.time")) {
             // legacy behavior. see #2114
-            oc.set("tls.left-green.time", "0");
+            oc.setDefault("tls.left-green.time", "0");
         }
         if (oc.isDefault("rectangular-lane-cut")) {
             // a better interpretation of imported geometries
-            oc.set("rectangular-lane-cut", "true");
+            oc.setDefault("rectangular-lane-cut", "true");
         }
         if (oc.isDefault("geometry.max-grade.fix")) {
             // a better interpretation of imported geometries
-            oc.set("geometry.max-grade.fix", "false");
+            oc.setDefault("geometry.max-grade.fix", "false");
         }
+    }
+    if (!oc.isDefault("osm.extra-attributes") && oc.isDefault("osm.all-attributes")) {
+        oc.setDefault("osm.all-attributes", "true");
     }
     return ok;
 }

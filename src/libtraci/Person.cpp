@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2017-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2017-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -22,6 +22,7 @@
 #define LIBTRACI 1
 #include "Domain.h"
 #include <libsumo/Person.h>
+#include <libsumo/StorageHelper.h>
 
 namespace libtraci {
 
@@ -93,26 +94,34 @@ Person::getLanePosition(const std::string& personID) {
 std::vector<libsumo::TraCIReservation>
 Person::getTaxiReservations(int onlyNew) {
     tcpip::Storage content;
-    content.writeUnsignedByte(libsumo::TYPE_INTEGER);
-    content.writeInt(onlyNew);
-    tcpip::Storage ret = Dom::get(libsumo::VAR_TAXI_RESERVATIONS, "", &content);
+    StoHelp::writeTypedInt(content, onlyNew);
+    tcpip::Storage& ret = Dom::get(libsumo::VAR_TAXI_RESERVATIONS, "", &content);
     std::vector<libsumo::TraCIReservation> result;
     int numReservations = ret.readInt();
     while (numReservations-- > 0) {
         libsumo::TraCIReservation r;
-        Dom::readCompound(ret, 9);
-        r.id = Dom::readTypedString(ret);
-        r.persons = Dom::readTypedStringList(ret);
-        r.group = Dom::readTypedString(ret);
-        r.fromEdge = Dom::readTypedString(ret);
-        r.toEdge = Dom::readTypedString(ret);
-        r.departPos = Dom::readTypedDouble(ret);
-        r.arrivalPos = Dom::readTypedDouble(ret);
-        r.depart = Dom::readTypedDouble(ret);
-        r.reservationTime = Dom::readTypedDouble(ret);
+        StoHelp::readCompound(ret, 10);
+        r.id = StoHelp::readTypedString(ret);
+        r.persons = StoHelp::readTypedStringList(ret);
+        r.group = StoHelp::readTypedString(ret);
+        r.fromEdge = StoHelp::readTypedString(ret);
+        r.toEdge = StoHelp::readTypedString(ret);
+        r.departPos = StoHelp::readTypedDouble(ret);
+        r.arrivalPos = StoHelp::readTypedDouble(ret);
+        r.depart = StoHelp::readTypedDouble(ret);
+        r.reservationTime = StoHelp::readTypedDouble(ret);
+        r.state = StoHelp::readTypedInt(ret);
         result.emplace_back(r);
     }
     return result;
+}
+
+
+std::string
+Person::splitTaxiReservation(std::string reservationID, const std::vector<std::string>& personIDs) {
+    tcpip::Storage content;
+    StoHelp::writeTypedStringList(content, personIDs);
+    return Dom::getString(libsumo::SPLIT_TAXI_RESERVATIONS, reservationID, &content);
 }
 
 
@@ -449,23 +458,25 @@ Person::rerouteTraveltime(const std::string& personID) {
 
 
 void
-Person::moveTo(const std::string& personID, const std::string& edgeID, double position) {
+Person::moveTo(const std::string& personID, const std::string& laneID, double pos, double posLat) {
     tcpip::Storage content;
     content.writeUnsignedByte(libsumo::TYPE_COMPOUND);
-    content.writeInt(2);
+    content.writeInt(3);
     content.writeUnsignedByte(libsumo::TYPE_STRING);
-    content.writeString(edgeID);
+    content.writeString(laneID);
     content.writeUnsignedByte(libsumo::TYPE_DOUBLE);
-    content.writeDouble(position);
+    content.writeDouble(pos);
+    content.writeUnsignedByte(libsumo::TYPE_DOUBLE);
+    content.writeDouble(posLat);
     Dom::set(libsumo::VAR_MOVE_TO, personID, &content);
 }
 
 
 void
-Person::moveToXY(const std::string& personID, const std::string& edgeID, const double x, const double y, double angle, const int keepRoute) {
+Person::moveToXY(const std::string& personID, const std::string& edgeID, const double x, const double y, double angle, const int keepRoute, double matchThreshold) {
     tcpip::Storage content;
     content.writeUnsignedByte(libsumo::TYPE_COMPOUND);
-    content.writeInt(5);
+    content.writeInt(6);
     content.writeUnsignedByte(libsumo::TYPE_STRING);
     content.writeString(edgeID);
     content.writeUnsignedByte(libsumo::TYPE_DOUBLE);
@@ -476,6 +487,7 @@ Person::moveToXY(const std::string& personID, const std::string& edgeID, const d
     content.writeDouble(angle);
     content.writeUnsignedByte(libsumo::TYPE_BYTE);
     content.writeByte(keepRoute);
+    StoHelp::writeTypedDouble(content, matchThreshold);
     Dom::set(libsumo::MOVE_TO_XY, personID, &content);
 }
 
@@ -596,6 +608,14 @@ Person::setActionStepLength(const std::string& personID, double actionStepLength
         actionStepLength *= -1;
     }
     Dom::setDouble(libsumo::VAR_ACTIONSTEPLENGTH, personID, actionStepLength);
+}
+
+void
+Person::remove(const std::string& personID, char reason) {
+    tcpip::Storage content;
+    content.writeUnsignedByte(libsumo::TYPE_BYTE);
+    content.writeUnsignedByte(reason);
+    Dom::set(libsumo::REMOVE, personID, &content);
 }
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2020 German Aerospace Center (DLR) and others.
+# Copyright (C) 2008-2022 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -22,8 +22,8 @@ from __future__ import absolute_import
 import os
 import sys
 
-SUMO_HOME = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..")
-sys.path.append(os.path.join(os.environ.get("SUMO_HOME", SUMO_HOME), "tools"))
+if "SUMO_HOME" in os.environ:
+    sys.path.append(os.path.join(os.environ["SUMO_HOME"], "tools"))
 import traci  # noqa
 import sumolib  # noqa
 
@@ -42,7 +42,7 @@ print("allowed", traci.lane.getAllowed(laneID))
 print("disallowed", traci.lane.getDisallowed(laneID))
 print("linkNum", traci.lane.getLinkNumber(laneID))
 if traci.isLibsumo() or traci.isLibtraci():
-    print("links", [l[:4] for l in traci.lane.getLinks(laneID)])
+    print("links", [link[:4] for link in traci.lane.getLinks(laneID)])
     print("linksExtended", traci.lane.getLinks(laneID))
 else:
     print("links", traci.lane.getLinks(laneID, extended=False))
@@ -83,6 +83,7 @@ traci.lane.subscribe(laneID)
 print(traci.lane.getSubscriptionResults(laneID))
 for step in range(3, 6):
     print("step", step)
+    print("pending 2fi_0:", traci.lane.getPendingVehicles("2fi_0"))
     traci.simulationStep()
     print(traci.lane.getSubscriptionResults(laneID))
 traci.close()

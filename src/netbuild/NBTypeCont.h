@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -52,16 +52,29 @@ class OutputDevice;
 class NBTypeCont {
 
 public:
+    /// @name struct declaration
+    struct EdgeTypeDefinition;
+
     /// @brief laneType definition
     struct LaneTypeDefinition {
-        /// @brief Constructor
+
+        /// @brief default Constructor
         LaneTypeDefinition();
 
-        /// @brief parameter Constructor
-        LaneTypeDefinition(double speed, double width, SVCPermissions permissions);
+        /// @brief constructor (using parameters of EdgeTypeDefinition)
+        LaneTypeDefinition(const EdgeTypeDefinition* edgeTypeDefinition);
+
+        /// @brief parameter constructor
+        LaneTypeDefinition(const double speed, const double friction, const double width, SVCPermissions permissions, const std::set<SumoXMLAttr>& attrs);
+
+        /// @brief copy constructor
+        LaneTypeDefinition(const LaneTypeDefinition* laneTypeDefinition);
 
         /// @brief The maximal velocity on a lane in m/s
         double speed;
+
+        /// @brief The default friction on a lane
+        double friction;
 
         /// @brief List of vehicle edgeTypes that are allowed on this lane
         SVCPermissions permissions;
@@ -86,10 +99,10 @@ public:
         EdgeTypeDefinition(const EdgeTypeDefinition* edgeType);
 
         /// @brief parameter Constructor
-        EdgeTypeDefinition(int numLanes, double speed, int priority,
-            double width, SVCPermissions permissions, bool oneWay,
-            double sideWalkWidth, double bikeLaneWidth,
-            double widthResolution, double maxWidth, double minWidth);
+        EdgeTypeDefinition(int numLanes, double speed, double friction, int priority,
+                           double width, SVCPermissions permissions, LaneSpreadFunction spreadType,
+                           bool oneWay, double sideWalkWidth, double bikeLaneWidth,
+                           double widthResolution, double maxWidth, double minWidth);
 
         /// @brief whether any lane attributes deviate from the edge attributes
         bool needsLaneType() const;
@@ -97,11 +110,17 @@ public:
         /// @brief The maximal velocity on an edge in m/s
         double speed;
 
+        /// @brief The default friction on an edge
+        double friction;
+
         /// @brief The priority of an edge
         int priority;
 
         /// @brief List of vehicle edgeTypes that are allowed on this edge
         SVCPermissions permissions;
+
+        /// @brief lane spread type
+        LaneSpreadFunction spreadType;
 
         /// @brief Whether one-way traffic is mostly common for this edgeType (mostly unused)
         bool oneWay;
@@ -155,12 +174,15 @@ public:
      * @param[in] defaultNumLanes The default number of lanes an edge has
      * @param[in] defaultLaneWidth The default width of lanes
      * @param[in] defaultSpeed The default speed allowed on an edge
+     * @param[in] defaultFriction The default friction on an edge
      * @param[in] defaultPriority The default priority of an edge
      * @param[in] defaultPermissions The default permissions of an edge
+     * @param[in] defaultSpreadType The default lane spread type of an edge
      */
     void setEdgeTypeDefaults(int defaultNumLanes, double defaultLaneWidth,
-                             double defaultSpeed, int defaultPriority,
-                             SVCPermissions defaultPermissions);
+                             double defaultSpeed, double defaultFriction, int defaultPriority,
+                             SVCPermissions defaultPermissions,
+                             LaneSpreadFunction defaultSpreadType);
 
     /**@brief Adds a edgeType into the list
      * @param[in] id The id of the edgeType
@@ -168,6 +190,7 @@ public:
      * @param[in] maxSpeed The speed allowed on an edge of this edgeType
      * @param[in] prio The priority of an edge of this edgeType
      * @param[in] permissions The encoding of vehicle classes allowed on an edge of this edgeType
+     * @param[in] spreadType Defines how to compute the lane geometry from the edge geometry (right, center or roadCenter)
      * @param[in] width The width of lanes of edgesof this edgeType
      * @param[in] oneWayIsDefault Whether edges of this edgeType are one-way per default
      * @return Whether the edgeType could be added (no edgeType with the same id existed)
@@ -175,7 +198,9 @@ public:
     void insertEdgeType(const std::string& id, int numLanes,
                         double maxSpeed, int prio,
                         SVCPermissions permissions,
-                        double width, bool oneWayIsDefault,
+                        LaneSpreadFunction spreadType,
+                        double width,
+                        bool oneWayIsDefault,
                         double sidewalkWidth,
                         double bikeLaneWidth,
                         double widthResolution,
@@ -200,7 +225,7 @@ public:
                         double maxSpeed,
                         SVCPermissions permissions,
                         double width,
-                        const std::set<SumoXMLAttr> &attrs);
+                        const std::set<SumoXMLAttr>& attrs);
 
     /**@brief Returns the number of known edgeTypes
      * @return The number of known edge edgeTypes (excluding the default)
@@ -298,6 +323,14 @@ public:
      */
     double getEdgeTypeSpeed(const std::string& edgeType) const;
 
+    /**@brief Returns the default friction for the given edgeType [-]
+     *
+     * If the named edgeType is not known, the default is returned
+     * @param[in] edgeType The name of the edgeType to return the speed for
+     * @return The friction on edges of this edgeType
+     */
+    double getEdgeTypeFriction(const std::string& edgeType) const;
+
     /**@brief Returns the priority for the given edgeType
      *
      * If the named edgeType is not known, the default is returned
@@ -365,6 +398,14 @@ public:
      */
     SVCPermissions getEdgeTypePermissions(const std::string& edgeType) const;
 
+    /**@brief Returns spreadType for the given edgeType
+     *
+     * If the named edgeType is not known, the default is returned
+     * @param[in] edgeType The name of the edgeType to return the spread type
+     * @return spread type which may use edges of the given edgeType
+     */
+    LaneSpreadFunction getEdgeTypeSpreadType(const std::string& edgeType) const;
+
     /**@brief Returns the lane width for the given edgeType [m]
      *
      * If the named edgeType is not known, the default is returned
@@ -393,7 +434,7 @@ public:
 
 protected:
     /// @brief The default edgeType
-    EdgeTypeDefinition *myDefaultType;
+    EdgeTypeDefinition* myDefaultType;
 
     /// @brief The container of edgeTypes
     TypesCont myEdgeTypes;

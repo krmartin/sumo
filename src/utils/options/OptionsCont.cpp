@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -34,15 +34,16 @@
 #include <cstring>
 #include <cerrno>
 #include <iterator>
-#include "Option.h"
-#include "OptionsCont.h"
+#include <sstream>
 #include <utils/common/UtilExceptions.h>
 #include <utils/common/FileHelpers.h>
 #include <utils/common/MsgHandler.h>
 #include <utils/common/StringTokenizer.h>
 #include <utils/common/StringUtils.h>
 #include <utils/xml/SUMOSAXAttributes.h>
-#include <sstream>
+#include "Option.h"
+#include "OptionsIO.h"
+#include "OptionsCont.h"
 
 
 // ===========================================================================
@@ -62,7 +63,7 @@ OptionsCont::getOptions() {
 
 OptionsCont::OptionsCont()
     : myAddresses(), myValues(), myDeprecatedSynonymes() {
-    myCopyrightNotices.push_back("Copyright (C) 2001-2020 German Aerospace Center (DLR) and others; https://sumo.dlr.de");
+    myCopyrightNotices.push_back("Copyright (C) 2001-2022 German Aerospace Center (DLR) and others; https://sumo.dlr.de");
 }
 
 
@@ -143,20 +144,6 @@ OptionsCont::isSet(const std::string& name, bool failOnNonExistant) const {
         }
     }
     return (*i).second->isSet();
-}
-
-
-void
-OptionsCont::unSet(const std::string& name, bool failOnNonExistant) const {
-    KnownContType::const_iterator i = myValues.find(name);
-    if (i == myValues.end()) {
-        if (failOnNonExistant) {
-            throw ProcessError("Internal request for unknown option '" + name + "'!");
-        } else {
-            return;
-        }
-    }
-    (*i).second->unSet();
 }
 
 
@@ -245,15 +232,17 @@ OptionsCont::getStringVector(const std::string& name) const {
     return o->getStringVector();
 }
 
+
 bool
-OptionsCont::set(const std::string& name, const std::string& value) {
+OptionsCont::set(const std::string& name, const std::string& value, const bool append) {
     Option* o = getSecure(name);
     if (!o->isWriteable()) {
         reportDoubleSetting(name);
         return false;
     }
     try {
-        if (!o->set(value)) {
+        // Substitute environment variables defined by ${NAME} with their value
+        if (!o->set(StringUtils::substituteEnvironment(value, &OptionsIO::getLoadTime()), value, append)) {
             return false;
         }
     } catch (ProcessError& e) {
@@ -266,8 +255,9 @@ OptionsCont::set(const std::string& name, const std::string& value) {
 
 bool
 OptionsCont::setDefault(const std::string& name, const std::string& value) {
-    if (set(name, value)) {
-        getSecure(name)->resetDefault();
+    Option* const o = getSecure(name);
+    if (o->isWriteable() && set(name, value)) {
+        o->resetDefault();
         return true;
     }
     return false;
@@ -352,10 +342,14 @@ OptionsCont::relocateFiles(const std::string& configuration) const {
                     WRITE_WARNING(toString(e.what()) + " when trying to decode filename '" + f + "'.");
                 }
             }
+            StringVector rawList = StringTokenizer(option->getValueString(), ",").getVector();
+            for (std::string& f : rawList) {
+                f = FileHelpers::checkForRelativity(f, configuration);
+            }
             const std::string conv = joinToString(fileList, ',');
             if (conv != joinToString(option->getStringVector(), ',')) {
                 const bool hadDefault = option->isDefault();
-                option->set(conv);
+                option->set(conv, joinToString(rawList, ','), false);
                 if (hadDefault) {
                     option->resetDefault();
                 }
@@ -367,9 +361,7 @@ OptionsCont::relocateFiles(const std::string& configuration) const {
 
 bool
 OptionsCont::isUsableFileList(const std::string& name) const {
-    Option* o = getSecure(name);
-    // check whether the option is set
-    //  return false i not
+    Option* const o = getSecure(name);
     if (!o->isSet()) {
         return false;
     }
@@ -605,7 +597,12 @@ OptionsCont::processMetaOptions(bool missingOptions) {
         std::cout << "are made available under the terms of the Eclipse Public License v2.0\n";
         std::cout << "which accompanies this distribution, and is available at\n";
         std::cout << "http://www.eclipse.org/legal/epl-v20.html\n";
-        std::cout << "SPDX-License-Identifier: EPL-2.0" << std::endl;
+        std::cout << "This program may also be made available under the following Secondary\n";
+        std::cout << "Licenses when the conditions for such availability set forth in the Eclipse\n";
+        std::cout << "Public License 2.0 are satisfied: GNU General Public License, version 2\n";
+        std::cout << "or later which is available at\n";
+        std::cout << "https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html\n";
+        std::cout << "SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later" << std::endl;
         return true;
     }
     // check whether the settings shall be printed
@@ -615,17 +612,18 @@ OptionsCont::processMetaOptions(bool missingOptions) {
     // check whether something has to be done with options
     // whether the current options shall be saved
     if (isSet("save-configuration", false)) { // sumo-gui does not register these
-        if (getString("save-configuration") == "-" || getString("save-configuration") == "stdout") {
+        const std::string& configPath = getString("save-configuration");
+        if (configPath == "-" || configPath == "stdout") {
             writeConfiguration(std::cout, true, false, getBool("save-commented"));
             return true;
         }
-        std::ofstream out(getString("save-configuration").c_str());
+        std::ofstream out(StringUtils::transcodeToLocal(configPath).c_str());
         if (!out.good()) {
-            throw ProcessError("Could not save configuration to '" + getString("save-configuration") + "'");
+            throw ProcessError("Could not save configuration to '" + configPath + "'");
         } else {
-            writeConfiguration(out, true, false, getBool("save-commented"));
+            writeConfiguration(out, true, false, getBool("save-commented"), configPath);
             if (getBool("verbose")) {
-                WRITE_MESSAGE("Written configuration to '" + getString("save-configuration") + "'");
+                WRITE_MESSAGE("Written configuration to '" + configPath + "'");
             }
             return true;
         }
@@ -636,7 +634,7 @@ OptionsCont::processMetaOptions(bool missingOptions) {
             writeConfiguration(std::cout, false, true, getBool("save-commented"));
             return true;
         }
-        std::ofstream out(getString("save-template").c_str());
+        std::ofstream out(StringUtils::transcodeToLocal(getString("save-template")).c_str());
         if (!out.good()) {
             throw ProcessError("Could not save template to '" + getString("save-template") + "'");
         } else {
@@ -652,7 +650,7 @@ OptionsCont::processMetaOptions(bool missingOptions) {
             writeSchema(std::cout);
             return true;
         }
-        std::ofstream out(getString("save-schema").c_str());
+        std::ofstream out(StringUtils::transcodeToLocal(getString("save-schema")).c_str());
         if (!out.good()) {
             throw ProcessError("Could not save schema to '" + getString("save-schema") + "'");
         } else {
@@ -665,6 +663,7 @@ OptionsCont::processMetaOptions(bool missingOptions) {
     }
     return false;
 }
+
 
 void
 OptionsCont::printHelp(std::ostream& os) {
@@ -745,6 +744,7 @@ OptionsCont::printHelp(std::ostream& os) {
     os << "Get in contact via <sumo@dlr.de>." << std::endl;
 }
 
+
 void
 OptionsCont::printHelpOnTopic(const std::string& topic, int tooLarge, int maxSize, std::ostream& os) {
     os << topic << " Options:" << std::endl;
@@ -784,10 +784,11 @@ OptionsCont::printHelpOnTopic(const std::string& topic, int tooLarge, int maxSiz
     os << std::endl;
 }
 
+
 void
 OptionsCont::writeConfiguration(std::ostream& os, const bool filled,
-                                const bool complete, const bool addComments,
-                                const bool inComment) const {
+                                const bool complete, const bool addComments, const std::string& relativeTo,
+                                const bool forceRelative, const bool inComment) const {
     if (!inComment) {
         writeXMLHeader(os, false);
     }
@@ -800,14 +801,13 @@ OptionsCont::writeConfiguration(std::ostream& os, const bool filled,
         os << myAppName;
     }
     os << "Configuration.xsd\">" << std::endl << std::endl;
-    for (std::vector<std::string>::const_iterator i = mySubTopics.begin(); i != mySubTopics.end(); ++i) {
-        std::string subtopic = *i;
+    for (std::string subtopic : mySubTopics) {
         if (subtopic == "Configuration" && !complete) {
             continue;
         }
+        const std::vector<std::string>& entries = mySubTopicEntries.find(subtopic)->second;
         std::replace(subtopic.begin(), subtopic.end(), ' ', '_');
-        std::transform(subtopic.begin(), subtopic.end(), subtopic.begin(), tolower);
-        const std::vector<std::string>& entries = mySubTopicEntries.find(*i)->second;
+        subtopic = StringUtils::to_lower_case(subtopic);
         bool hadOne = false;
         for (const std::string& name : entries) {
             Option* o = getSecure(name);
@@ -828,7 +828,16 @@ OptionsCont::writeConfiguration(std::ostream& os, const bool filled,
             // write the option and the value (if given)
             os << "        <" << name << " value=\"";
             if (o->isSet() && (filled || o->isDefault())) {
-                os << StringUtils::escapeXML(o->getValueString(), inComment);
+                if (o->isFileName() && relativeTo != "") {
+                    StringVector fileList = StringTokenizer(o->getValueString(), ",").getVector();
+                    for (std::string& f : fileList) {
+                        f = FileHelpers::fixRelative(StringUtils::urlEncode(f, " ;%"), relativeTo,
+                                                     forceRelative || getBool("save-configuration.relative"));
+                    }
+                    os << StringUtils::escapeXML(joinToString(fileList, ','), inComment);
+                } else {
+                    os << StringUtils::escapeXML(o->getValueString(), inComment);
+                }
             }
             if (complete) {
                 std::vector<std::string> synonymes = getSynonymes(name);
@@ -875,7 +884,7 @@ OptionsCont::writeSchema(std::ostream& os) {
             continue;
         }
         std::replace(subtopic.begin(), subtopic.end(), ' ', '_');
-        std::transform(subtopic.begin(), subtopic.end(), subtopic.begin(), tolower);
+        subtopic = StringUtils::to_lower_case(subtopic);
         os << "            <xsd:element name=\"" << subtopic << "\" type=\"" << subtopic << "TopicType\" minOccurs=\"0\"/>\n";
     }
     os << "        </xsd:all>\n";
@@ -886,14 +895,14 @@ OptionsCont::writeSchema(std::ostream& os) {
             continue;
         }
         std::replace(subtopic.begin(), subtopic.end(), ' ', '_');
-        std::transform(subtopic.begin(), subtopic.end(), subtopic.begin(), tolower);
+        subtopic = StringUtils::to_lower_case(subtopic);
         os << "    <xsd:complexType name=\"" << subtopic << "TopicType\">\n";
         os << "        <xsd:all>\n";
         const std::vector<std::string>& entries = mySubTopicEntries[*i];
         for (std::vector<std::string>::const_iterator j = entries.begin(); j != entries.end(); ++j) {
             Option* o = getSecure(*j);
             std::string type = o->getTypeName();
-            std::transform(type.begin(), type.end(), type.begin(), tolower);
+            type = StringUtils::to_lower_case(type);
             if (type == "int[]") {
                 type = "intArray";
             }
@@ -916,17 +925,22 @@ OptionsCont::writeXMLHeader(std::ostream& os, const bool includeConfig) const {
 
     os << "<?xml version=\"1.0\"" << SUMOSAXAttributes::ENCODING << "?>\n\n";
     time(&rawtime);
-    strftime(buffer, 80, "<!-- generated on %c by ", localtime(&rawtime));
+    strftime(buffer, 80, "<!-- generated on %F %T by ", localtime(&rawtime));
     os << buffer << myFullName << "\n";
     if (myWriteLicense) {
-        os << "This data file and the accompanying materials\n";
-        os << "are made available under the terms of the Eclipse Public License v2.0\n";
-        os << "which accompanies this distribution, and is available at\n";
-        os << "http://www.eclipse.org/legal/epl-v20.html\n";
-        os << "SPDX-License-Identifier: EPL-2.0\n";
+        os << "This data file and the accompanying materials\n"
+           "are made available under the terms of the Eclipse Public License v2.0\n"
+           "which accompanies this distribution, and is available at\n"
+           "http://www.eclipse.org/legal/epl-v20.html\n"
+           "This file may also be made available under the following Secondary\n"
+           "Licenses when the conditions for such availability set forth in the Eclipse\n"
+           "Public License 2.0 are satisfied: GNU General Public License, version 2\n"
+           "or later which is available at\n"
+           "https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html\n"
+           "SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later\n";
     }
     if (includeConfig) {
-        writeConfiguration(os, true, false, false, true);
+        writeConfiguration(os, true, false, false, "", false, true);
     }
     os << "-->\n\n";
 }

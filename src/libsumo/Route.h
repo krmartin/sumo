@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -20,8 +20,6 @@
 // C++ TraCI client API implementation
 /****************************************************************************/
 #pragma once
-#include <config.h>
-
 #include <vector>
 #include <libsumo/TraCIDefs.h>
 
@@ -31,9 +29,6 @@
 // ===========================================================================
 #ifndef LIBTRACI
 class MSRoute;
-namespace libsumo {
-class VariableWrapper;
-}
 #endif
 
 
@@ -56,9 +51,10 @@ public:
     static void add(const std::string& routeID, const std::vector<std::string>& edges);
 
 #ifndef LIBTRACI
+#ifndef SWIG
     static std::shared_ptr<VariableWrapper> makeWrapper();
 
-    static bool handleVariable(const std::string& objID, const int variable, VariableWrapper* wrapper);
+    static bool handleVariable(const std::string& objID, const int variable, VariableWrapper* wrapper, tcpip::Storage* paramData);
 
 private:
     static const MSRoute* getRoute(const std::string& id);
@@ -66,6 +62,7 @@ private:
 private:
     static SubscriptionResults mySubscriptionResults;
     static ContextSubscriptionResults myContextSubscriptionResults;
+#endif
 #endif
 
     /// @brief invalidated standard constructor

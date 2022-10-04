@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -52,7 +52,9 @@ NIXMLPTHandler::NIXMLPTHandler(NBEdgeCont& ec, NBPTStopCont& sc, NBPTLineCont& l
     myEdgeCont(ec),
     myStopCont(sc),
     myLineCont(lc),
+    myCurrentStop(nullptr),
     myCurrentLine(nullptr),
+    myCurrentCompletion(0),
     myCurrentStopWasIgnored(false)
 { }
 
@@ -92,17 +94,21 @@ NIXMLPTHandler::myStartElement(int element,
         case SUMO_TAG_TRIP:
             addPTLineFromFlow(attrs);
             break;
-        case SUMO_TAG_PARAM:
+        case SUMO_TAG_PARAM: {
+            bool ok = true;
+            const std::string key = attrs.get<std::string>(SUMO_ATTR_KEY, nullptr, ok);
             if (myCurrentLine != nullptr) {
-                bool ok = true;
-                const std::string key = attrs.get<std::string>(SUMO_ATTR_KEY, nullptr, ok);
                 if (key == "completeness") {
                     myCurrentCompletion = attrs.get<double>(SUMO_ATTR_VALUE, nullptr, ok);
                 } else if (key == "name") {
                     myCurrentLine->setName(attrs.get<std::string>(SUMO_ATTR_VALUE, nullptr, ok));
                 }
+            } else if (myCurrentStop != nullptr) {
+                const std::string val = attrs.hasAttribute(SUMO_ATTR_VALUE) ? attrs.getString(SUMO_ATTR_VALUE) : "";
+                myCurrentStop->setParameter(key, val);
             }
-            break;
+        }
+        break;
         default:
             break;
     }
@@ -119,7 +125,7 @@ NIXMLPTHandler::myEndElement(int element) {
         case SUMO_TAG_PT_LINE:
         case SUMO_TAG_FLOW:
         case SUMO_TAG_TRIP:
-            myCurrentLine->setMyNumOfStops((int)(myCurrentLine->getStops().size() / myCurrentCompletion));
+            myCurrentLine->setMyNumOfStops((int)((double)myCurrentLine->getStops().size() / myCurrentCompletion));
             myCurrentLine = nullptr;
             break;
         case SUMO_TAG_ROUTE:
@@ -140,6 +146,7 @@ NIXMLPTHandler::addPTStop(const SUMOSAXAttributes& attrs) {
     const double startPos = attrs.get<double>(SUMO_ATTR_STARTPOS, id.c_str(), ok);
     const double endPos = attrs.get<double>(SUMO_ATTR_ENDPOS, id.c_str(), ok);
     const double parkingLength = attrs.getOpt<double>(SUMO_ATTR_PARKING_LENGTH, id.c_str(), ok, 0);
+    const RGBColor color = attrs.getOpt<RGBColor>(SUMO_ATTR_COLOR, id.c_str(), ok, RGBColor(false));
     //const std::string lines = attrs.get<std::string>(SUMO_ATTR_LINES, id.c_str(), ok);
     const int laneIndex = NBEdge::getLaneIndexFromLaneID(laneID);
     const std::string edgeID = SUMOXMLDefinitions::getEdgeIDFromLane(laneID);
@@ -149,6 +156,7 @@ NIXMLPTHandler::addPTStop(const SUMOSAXAttributes& attrs) {
             WRITE_ERROR("Edge '" + edgeID + "' for stop '" + id + "' not found");
         } else {
             myCurrentStopWasIgnored = true;
+            NBPTStopCont::addIgnored(id);
         }
         return;
     }
@@ -163,7 +171,7 @@ NIXMLPTHandler::addPTStop(const SUMOSAXAttributes& attrs) {
     }
     if (ok) {
         Position pos = edge->geometryPositionAtOffset((startPos + endPos) / 2);
-        myCurrentStop = new NBPTStop(id, pos, edgeID, edgeID, endPos - startPos, name, permissions, parkingLength);
+        myCurrentStop = new NBPTStop(id, pos, edgeID, edgeID, endPos - startPos, name, permissions, parkingLength, color, startPos);
         if (!myStopCont.insert(myCurrentStop)) {
             WRITE_ERROR("Could not add public transport stop '" + id + "' (already exists)");
         }
@@ -198,11 +206,12 @@ NIXMLPTHandler::addPTLine(const SUMOSAXAttributes& attrs) {
     if (attrs.hasAttribute(SUMO_ATTR_VCLASS)) {
         vClass = getVehicleClassID(attrs.get<std::string>(SUMO_ATTR_VCLASS, id.c_str(), ok));
     }
+    RGBColor color = attrs.getOpt<RGBColor>(SUMO_ATTR_COLOR, id.c_str(), ok, RGBColor(false));
     const int intervalS = attrs.getOpt<int>(SUMO_ATTR_PERIOD, id.c_str(), ok, -1);
     const std::string nightService = attrs.getStringSecure("nightService", "");
     myCurrentCompletion = StringUtils::toDouble(attrs.getStringSecure("completeness", "1"));
     if (ok) {
-        myCurrentLine = new NBPTLine(id, name, type, line, intervalS / 60, nightService, vClass);
+        myCurrentLine = new NBPTLine(id, name, type, line, intervalS / 60, nightService, vClass, color);
         myLineCont.insert(myCurrentLine);
     }
 }
@@ -217,8 +226,9 @@ NIXMLPTHandler::addPTLineFromFlow(const SUMOSAXAttributes& attrs) {
     const std::string route = attrs.get<std::string>(SUMO_ATTR_ROUTE, id.c_str(), ok);
     SUMOVehicleClass vClass = NIImporter_OpenStreetMap::interpretTransportType(type);
     const int intervalS = attrs.getOpt<int>(SUMO_ATTR_PERIOD, id.c_str(), ok, -1);
+    RGBColor color = attrs.getOpt<RGBColor>(SUMO_ATTR_COLOR, id.c_str(), ok, RGBColor(false));
     if (ok) {
-        myCurrentLine = new NBPTLine(id, "", type, line, intervalS / 60, "", vClass);
+        myCurrentLine = new NBPTLine(id, "", type, line, intervalS / 60, "", vClass, color);
         myCurrentLine->setEdges(myRouteEdges[route]);
         for (NBPTStop* stop : myRouteStops[route]) {
             myCurrentLine->addPTStop(stop);
@@ -234,7 +244,8 @@ NIXMLPTHandler::addPTLineRoute(const SUMOSAXAttributes& attrs) {
         WRITE_ERROR("Found route outside line definition");
         return;
     }
-    const std::vector<std::string>& edgeIDs = attrs.getStringVector(SUMO_ATTR_EDGES);
+    bool ok = true;
+    const std::vector<std::string>& edgeIDs = attrs.get<std::vector<std::string> >(SUMO_ATTR_EDGES, nullptr, ok);
     EdgeVector edges;
     for (const std::string& edgeID : edgeIDs) {
         NBEdge* edge = myEdgeCont.retrieve(edgeID);
@@ -249,11 +260,12 @@ NIXMLPTHandler::addPTLineRoute(const SUMOSAXAttributes& attrs) {
     myCurrentLine->setEdges(edges);
 }
 
+
 void
 NIXMLPTHandler::addRoute(const SUMOSAXAttributes& attrs) {
     bool ok = true;
     myCurrentRouteID = attrs.get<std::string>(SUMO_ATTR_ID, "route", ok);
-    const std::vector<std::string>& edgeIDs = attrs.getStringVector(SUMO_ATTR_EDGES);
+    const std::vector<std::string>& edgeIDs = attrs.get<std::vector<std::string> >(SUMO_ATTR_EDGES, myCurrentRouteID.c_str(), ok);
     EdgeVector edges;
     for (const std::string& edgeID : edgeIDs) {
         NBEdge* edge = myEdgeCont.retrieve(edgeID);
@@ -277,7 +289,9 @@ NIXMLPTHandler::addPTLineStop(const SUMOSAXAttributes& attrs) {
                            : attrs.get<std::string>(SUMO_ATTR_BUS_STOP, "ptline", ok);
     NBPTStop* stop = myStopCont.get(id);
     if (stop == nullptr) {
-        WRITE_ERROR("Stop '" + id + "' within line '" + toString(myCurrentLine->getLineID()) + "' not found");
+        if (!NBPTStopCont::wasIgnored(id)) {
+            WRITE_ERROR("Stop '" + id + "' within line '" + toString(myCurrentLine->getLineID()) + "' not found");
+        }
         return;
     }
     myCurrentLine->addPTStop(stop);

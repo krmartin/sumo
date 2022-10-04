@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2013-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2013-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -73,7 +73,7 @@ public:
     }
 
 
-    static std::mt19937* getRNG() {
+    static SumoRNG* getRNG() {
         return &sRecognitionRNG;
     }
 
@@ -215,6 +215,9 @@ public:
      */
     static void cleanUp(std::map<std::string, SeenDevice*>& c, std::map<std::string, std::vector<SeenDevice*> >& s);
 
+    static SumoRNG* getRecognitionRNG() {
+        return &sRecognitionRNG;
+    }
 
 
 protected:
@@ -363,7 +366,7 @@ private:
     static double inquiryDelaySlots(const int backoffLimit);
 
     /// @brief A random number generator used to determine whether the opposite was recognized
-    static std::mt19937 sRecognitionRNG;
+    static SumoRNG sRecognitionRNG;
 
     /// @brief The list of arrived receivers
     static std::map<std::string, VehicleInformation*> sVehicles;

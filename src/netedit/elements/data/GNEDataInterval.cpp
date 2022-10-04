@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -43,7 +43,7 @@
 // ---------------------------------------------------------------------------
 
 GNEDataInterval::GNEDataInterval(GNEDataSet* dataSetParent, const double begin, const double end) :
-    GNEHierarchicalElement(dataSetParent->getNet(), SUMO_TAG_DATAINTERVAL, {}, {}, {}, {}, {}, {}, {}, {}),
+    GNEHierarchicalElement(dataSetParent->getNet(), SUMO_TAG_DATAINTERVAL, {}, {}, {}, {}, {}, {}),
                        myDataSetParent(dataSetParent),
                        myBegin(begin),
 myEnd(end) {
@@ -107,12 +107,6 @@ GNEDataInterval::getSpecificAttributeColors() const {
 }
 
 
-const std::string&
-GNEDataInterval::getID() const {
-    return myDataSetParent->getID();
-}
-
-
 GUIGlObject*
 GNEDataInterval::getGUIGlObject() {
     return nullptr;
@@ -162,11 +156,17 @@ GNEDataInterval::addGenericDataChild(GNEGenericData* genericData) {
         myGenericDataChildren.push_back(genericData);
         // update generic data IDs
         updateGenericDataIDs();
+        // check if add to boundary
+        if (genericData->getTagProperty().isPlacedInRTree()) {
+            myNet->getGrid().addAdditionalGLObject(genericData->getGUIGlObject());
+        }
         // update geometry after insertion if myUpdateGeometryEnabled is enabled
         if (myNet->isUpdateGeometryEnabled()) {
-            // update generic data geometry
+            // update generic data RTREE
             genericData->updateGeometry();
         }
+        // add reference in attributeCarriers
+        myNet->getAttributeCarriers()->insertGenericData(genericData);
         // update colors
         genericData->getDataIntervalParent()->getDataSetParent()->updateAttributeColors();
     } else {
@@ -182,11 +182,19 @@ GNEDataInterval::removeGenericDataChild(GNEGenericData* genericData) {
     if (it != myGenericDataChildren.end()) {
         // remove generic data child
         myGenericDataChildren.erase(it);
-        // remove it from inspected ACs and HierarchicalElementTree
+        // remove it from inspected ACs and GNEElementTree
         myDataSetParent->getNet()->getViewNet()->removeFromAttributeCarrierInspected(genericData);
         myDataSetParent->getNet()->getViewNet()->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(genericData);
         // update colors
         genericData->getDataIntervalParent()->getDataSetParent()->updateAttributeColors();
+        // delete path element
+        myNet->getPathManager()->removePath(genericData);
+        // check if remove from RTREE
+        if (genericData->getTagProperty().isPlacedInRTree()) {
+            myNet->getGrid().removeAdditionalGLObject(genericData->getGUIGlObject());
+        }
+        // remove reference from attributeCarriers
+        myNet->getAttributeCarriers()->deleteGenericData(genericData);
     } else {
         throw ProcessError("GenericData wasn't previously inserted");
     }
@@ -202,6 +210,35 @@ GNEDataInterval::hasGenericDataChild(GNEGenericData* genericData) const {
 const std::vector<GNEGenericData*>&
 GNEDataInterval::getGenericDataChildren() const {
     return myGenericDataChildren;
+}
+
+
+bool
+GNEDataInterval::TAZRelExists(const GNEAdditional* TAZ) const {
+    // interate over all generic datas and check TAZ parents
+    for (const auto& genericData : myGenericDataChildren) {
+        if ((genericData->getTagProperty().getTag() == SUMO_TAG_TAZREL) &&
+                (genericData->getParentAdditionals().size() == 1) &&
+                (genericData->getParentAdditionals().front() == TAZ)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool
+GNEDataInterval::TAZRelExists(const GNEAdditional* fromTAZ, const GNEAdditional* toTAZ) const {
+    // interate over all generic datas and check TAZ parents
+    for (const auto& genericData : myGenericDataChildren) {
+        if ((genericData->getTagProperty().getTag() == SUMO_TAG_TAZREL) &&
+                (genericData->getParentAdditionals().size() == 2) &&
+                (genericData->getParentAdditionals().front() == fromTAZ) &&
+                (genericData->getParentAdditionals().back() == toTAZ)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 
@@ -238,7 +275,7 @@ GNEDataInterval::setAttribute(SumoXMLAttr key, const std::string& value, GNEUndo
     switch (key) {
         case SUMO_ATTR_BEGIN:
         case SUMO_ATTR_END:
-            undoList->p_add(new GNEChange_Attribute(this, key, value));
+            undoList->changeAttribute(new GNEChange_Attribute(this, key, value));
             break;
         default:
             throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
@@ -256,18 +293,6 @@ GNEDataInterval::isValid(SumoXMLAttr key, const std::string& value) {
         default:
             throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
     }
-}
-
-
-void
-GNEDataInterval::enableAttribute(SumoXMLAttr /*key*/, GNEUndoList* /*undoList*/) {
-    // Nothing to enable
-}
-
-
-void
-GNEDataInterval::disableAttribute(SumoXMLAttr /*key*/, GNEUndoList* /*undoList*/) {
-    // Nothing to disable
 }
 
 
@@ -294,7 +319,7 @@ GNEDataInterval::getHierarchyName() const {
 }
 
 
-const std::map<std::string, std::string>&
+const Parameterised::Map&
 GNEDataInterval::getACParametersMap() const {
     return getParametersMap();
 }
@@ -316,12 +341,8 @@ GNEDataInterval::setAttribute(SumoXMLAttr key, const std::string& value) {
         default:
             throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
     }
-}
-
-
-void
-GNEDataInterval::setEnabledAttribute(const int /*enabledAttributes*/) {
-    throw InvalidArgument("Nothing to enable");
+    // mark interval toolbar for update
+    myNet->getViewNet()->getIntervalBar().markForUpdate();
 }
 
 /****************************************************************************/

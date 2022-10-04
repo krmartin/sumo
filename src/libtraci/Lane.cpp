@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2017-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2017-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -68,6 +68,11 @@ Lane::getMaxSpeed(std::string laneID) {
     return Dom::getDouble(libsumo::VAR_MAXSPEED, laneID);
 }
 
+double
+Lane::getFriction(std::string laneID) {
+    return Dom::getDouble(libsumo::VAR_FRICTION, laneID);
+}
+
 
 int
 Lane::getLinkNumber(std::string laneID) {
@@ -110,13 +115,13 @@ Lane::getLinks(std::string laneID) {
         double length = sto.readDouble();
 
         ret.push_back(libsumo::TraCIConnection(approachedLane,
-                                                hasPrio,
-                                                isOpen,
-                                                hasFoe,
-                                                approachedLaneInternal,
-                                                state,
-                                                direction,
-                                                length));
+                                               hasPrio,
+                                               isOpen,
+                                               hasFoe,
+                                               approachedLaneInternal,
+                                               state,
+                                               direction,
+                                               length));
 
     }
     return ret;
@@ -260,6 +265,10 @@ Lane::getInternalFoes(const std::string& laneID) {
     //return Dom::getFoes(laneID, "");
 }
 
+const std::vector<std::string>
+Lane::getPendingVehicles(const std::string& laneID) {
+    return Dom::getStringVector(libsumo::VAR_PENDING_VEHICLES, laneID);
+}
 
 void
 Lane::setAllowed(std::string laneID, std::string allowedClass) {
@@ -282,6 +291,11 @@ Lane::setDisallowed(std::string laneID, std::vector<std::string> disallowedClass
 void
 Lane::setMaxSpeed(std::string laneID, double speed) {
     Dom::setDouble(libsumo::VAR_MAXSPEED, laneID, speed);
+}
+
+void
+Lane::setFriction(std::string laneID, double friction) {
+    Dom::setDouble(libsumo::VAR_FRICTION, laneID, friction);
 }
 
 

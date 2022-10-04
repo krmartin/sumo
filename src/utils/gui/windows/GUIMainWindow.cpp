@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -23,7 +23,7 @@
 
 #include <string>
 #include <algorithm>
-#include <fx.h>
+#include <utils/foxtools/fxheader.h>
 // fx3d includes windows.h so we need to guard against macro pollution
 #ifdef WIN32
 #define NOMINMAX
@@ -35,9 +35,9 @@
 #include <utils/common/MsgHandler.h>
 #include <utils/common/StringUtils.h>
 #include <utils/foxtools/MFXImageHelper.h>
+#include <utils/foxtools/MFXStaticToolTip.h>
 #include <utils/gui/images/GUITexturesHelper.h>
 #include <utils/options/OptionsCont.h>
-#include "GUIAppEnum.h"
 #include "GUIMainWindow.h"
 #include "GUIGlChildWindow.h"
 
@@ -50,25 +50,31 @@ GUIMainWindow* GUIMainWindow::myInstance = nullptr;
 // ===========================================================================
 // member method definitions
 // ===========================================================================
-GUIMainWindow::GUIMainWindow(FXApp* a) :
-    FXMainWindow(a, "sumo-gui main window", nullptr, nullptr, DECOR_ALL, 20, 20, 600, 400),
+GUIMainWindow::GUIMainWindow(FXApp* app) :
+    FXMainWindow(app, "sumo-gui main window", nullptr, nullptr, DECOR_ALL, 20, 20, 600, 400),
     myAmFullScreen(false),
     myTrackerLock(true),
-    myGLVisual(new FXGLVisual(a, VISUAL_DOUBLEBUFFER)),
+    myGLVisual(new FXGLVisual(app, VISUAL_DOUBLEBUFFER)),
     myAmGaming(false),
     myListInternal(false),
     myListParking(true),
     myListTeleporting(false) {
-
+    // build static tooltips
+    myStaticTooltipMenu = new MFXStaticToolTip(app);
+    myStaticTooltipView = new MFXStaticToolTip(app);
+    // build bold font
     FXFontDesc fdesc;
-    getApp()->getNormalFont()->getFontDesc(fdesc);
+    app->getNormalFont()->getFontDesc(fdesc);
     fdesc.weight = FXFont::Bold;
-    myBoldFont = new FXFont(getApp(), fdesc);
-
+    myBoldFont = new FXFont(app, fdesc);
+    // https://en.wikipedia.org/wiki/Noto_fonts should be widely available
+    myFallbackFont = new FXFont(app, "Noto Sans CJK JP");
+    // build docks
     myTopDock = new FXDockSite(this, LAYOUT_SIDE_TOP | LAYOUT_FILL_X);
     myBottomDock = new FXDockSite(this, LAYOUT_SIDE_BOTTOM | LAYOUT_FILL_X);
     myLeftDock = new FXDockSite(this, LAYOUT_SIDE_LEFT | LAYOUT_FILL_Y);
     myRightDock = new FXDockSite(this, LAYOUT_SIDE_RIGHT | LAYOUT_FILL_Y);
+    // avoid instance Windows twice
     if (myInstance != nullptr) {
         throw ProcessError("MainWindow initialized twice");
     }
@@ -78,7 +84,10 @@ GUIMainWindow::GUIMainWindow(FXApp* a) :
 
 
 GUIMainWindow::~GUIMainWindow() {
+    delete myStaticTooltipMenu;
+    delete myStaticTooltipView;
     delete myBoldFont;
+    delete myFallbackFont;
     delete myTopDock;
     delete myBottomDock;
     delete myLeftDock;
@@ -146,11 +155,27 @@ GUIMainWindow::getViewByID(const std::string& id) const {
 }
 
 
+void
+GUIMainWindow::removeViewByID(const std::string& id) {
+    for (GUIGlChildWindow* const window : myGLWindows) {
+        if (std::string(window->getTitle().text()) == id) {
+            window->close();
+            removeGLChild(window);
+            return;
+        }
+    }
+}
+
+
 FXFont*
 GUIMainWindow::getBoldFont() {
     return myBoldFont;
 }
 
+FXFont*
+GUIMainWindow::getFallbackFont() {
+    return myFallbackFont;
+}
 
 const std::vector<GUIGlChildWindow*>&
 GUIMainWindow::getViews() const {
@@ -159,13 +184,13 @@ GUIMainWindow::getViews() const {
 
 
 void
-GUIMainWindow::updateChildren() {
+GUIMainWindow::updateChildren(int msg) {
     // inform views
-    myMDIClient->forallWindows(this, FXSEL(SEL_COMMAND, MID_SIMSTEP), nullptr);
+    myMDIClient->forallWindows(this, FXSEL(SEL_COMMAND, msg), nullptr);
     // inform other windows
     myTrackerLock.lock();
     for (int i = 0; i < (int)myTrackerWindows.size(); i++) {
-        myTrackerWindows[i]->handle(this, FXSEL(SEL_COMMAND, MID_SIMSTEP), nullptr);
+        myTrackerWindows[i]->handle(this, FXSEL(SEL_COMMAND, msg), nullptr);
     }
     myTrackerLock.unlock();
 }
@@ -177,15 +202,33 @@ GUIMainWindow::getGLVisual() const {
 }
 
 
-FXLabel&
-GUIMainWindow::getCartesianLabel() {
-    return *myCartesianCoordinate;
+MFXStaticToolTip*
+GUIMainWindow::getStaticTooltipMenu() const {
+    return myStaticTooltipMenu;
 }
 
 
-FXLabel&
+MFXStaticToolTip*
+GUIMainWindow::getStaticTooltipView() const {
+    return myStaticTooltipView;
+}
+
+
+FXLabel*
+GUIMainWindow::getCartesianLabel() {
+    return myCartesianCoordinate;
+}
+
+
+FXLabel*
 GUIMainWindow::getGeoLabel() {
-    return *myGeoCoordinate;
+    return myGeoCoordinate;
+}
+
+
+FXLabel*
+GUIMainWindow::getTestLabel() {
+    return myTestCoordinate;
 }
 
 

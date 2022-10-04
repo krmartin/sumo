@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -47,6 +47,7 @@
 #include <microsim/traffic_lights/MSTrafficLightLogic.h>
 #include <microsim/traffic_lights/MSTLLogicControl.h>
 #include <microsim/MSJunctionControl.h>
+#include <guisim/Command_Hotkey_TrafficLight.h>
 #include <guisim/GUIEdge.h>
 #include <guisim/GUILane.h>
 #include <guisim/GUITransportableControl.h>
@@ -57,6 +58,7 @@
 #include <guisim/GUIJunctionWrapper.h>
 #include <guisim/GUIVehicleControl.h>
 #include <gui/GUIGlobals.h>
+#include <gui/GUIApplicationWindow.h>
 #include "GUINet.h"
 
 #include <mesogui/GUIMEVehicleControl.h>
@@ -79,7 +81,7 @@ GUINet::GUINet(MSVehicleControl* vc, MSEventControl* beginOfTimestepEvents,
                MSEventControl* endOfTimestepEvents,
                MSEventControl* insertionEvents) :
     MSNet(vc, beginOfTimestepEvents, endOfTimestepEvents, insertionEvents, new GUIShapeContainer(myGrid)),
-    GUIGlObject(GLO_NETWORK, ""),
+    GUIGlObject(GLO_NETWORK, "", nullptr),
     myLastSimDuration(0), /*myLastVisDuration(0),*/ myLastIdleDuration(0),
     myLastVehicleMovementCount(0), myOverallVehicleCount(0), myOverallSimDuration(0) {
     GUIGlObjectStorage::gIDStorage.setNetObject(this);
@@ -141,11 +143,9 @@ GUINet::getContainerControl() {
 
 void
 GUINet::initTLMap() {
-    // get the list of loaded tl-logics
-    const std::vector<MSTrafficLightLogic*>& logics = getTLSControl().getAllLogics();
-    // go through the logics
-    for (std::vector<MSTrafficLightLogic*>::const_iterator i = logics.begin(); i != logics.end(); ++i) {
-        createTLWrapper(*i);
+    // go through the loaded tl-logics
+    for (MSTrafficLightLogic* const tll : getTLSControl().getAllLogics()) {
+        createTLWrapper(tll);
     }
 }
 
@@ -161,8 +161,10 @@ GUINet::createTLWrapper(MSTrafficLightLogic* tll) {
         return;
     }
     // build the wrapper
-    GUITrafficLightLogicWrapper* tllw =
-        new GUITrafficLightLogicWrapper(*myLogics, *tll);
+    GUITrafficLightLogicWrapper* tllw = new GUITrafficLightLogicWrapper(*myLogics, *tll);
+    if (tll->knowsParameter("hotkeyAbort")) {
+        Command_Hotkey_TrafficLight::registerHotkey(tll->getParameter("hotkeyAbort"), *tll);
+    }
     // build the association link->wrapper
     MSTrafficLightLogic::LinkVectorVector::const_iterator j;
     for (j = links.begin(); j != links.end(); ++j) {
@@ -173,7 +175,6 @@ GUINet::createTLWrapper(MSTrafficLightLogic* tll) {
     }
     myGrid.addAdditionalGLObject(tllw);
     myLogics2Wrapper[tll] = tllw;
-    return;
 }
 
 
@@ -272,6 +273,8 @@ GUINet::initGUIStructures() {
             }
         }
     }
+    // let's always track emission parameters for the GUI
+    MSGlobals::gHaveEmissions = true;
     // initialise calibrators
     for (auto& item : MSCalibrator::getInstances()) {
         GUICalibrator* wrapper = new GUICalibrator(item.second);
@@ -425,7 +428,7 @@ GUINet::getPopUpMenu(GUIMainWindow& app,
     buildPopupHeader(ret, app);
     buildCenterPopupEntry(ret);
     buildShowParamsPopupEntry(ret);
-    buildPositionCopyEntry(ret, false);
+    buildPositionCopyEntry(ret, app);
     return ret;
 }
 
@@ -453,6 +456,8 @@ GUINet::getParameterWindow(GUIMainWindow& app,
                 new FunctionBinding<MSVehicleControl, int>(&getVehicleControl(), &MSVehicleControl::getTeleportCount));
     ret->mkItem("halting [#]", true,
                 new FunctionBinding<MSVehicleControl, int>(&getVehicleControl(), &MSVehicleControl::getHaltingVehicleNo));
+    ret->mkItem("stopped [#]", true,
+                new FunctionBinding<MSVehicleControl, int>(&getVehicleControl(), &MSVehicleControl::getStoppedVehiclesCount));
     ret->mkItem("avg. speed [m/s]", true,
                 new FunctionBinding<MSVehicleControl, double>(&getVehicleControl(), &MSVehicleControl::getVehicleMeanSpeed));
     ret->mkItem("avg. relative speed", true,
@@ -516,9 +521,16 @@ void
 GUINet::drawGL(const GUIVisualizationSettings& /*s*/) const {
 }
 
+
 Boundary
 GUINet::getCenteringBoundary() const {
     return getBoundary();
+}
+
+
+double
+GUINet::getExaggeration(const GUIVisualizationSettings& /*s*/) const {
+    return 1;
 }
 
 
@@ -585,9 +597,12 @@ GUINet::DiscoverAttributes::myStartElement(int element, const SUMOSAXAttributes&
         }
     } else if (element == SUMO_TAG_INTERVAL) {
         bool ok;
+        numIntervals++;
+        firstIntervalBegin = MIN2(firstIntervalBegin, attrs.getSUMOTimeReporting(SUMO_ATTR_BEGIN, nullptr, ok));
         lastIntervalEnd = MAX2(lastIntervalEnd, attrs.getSUMOTimeReporting(SUMO_ATTR_END, nullptr, ok));
     }
 }
+
 
 std::vector<std::string>
 GUINet::DiscoverAttributes::getEdgeAttrs() {
@@ -595,22 +610,25 @@ GUINet::DiscoverAttributes::getEdgeAttrs() {
     return std::vector<std::string>(edgeAttrs.begin(), edgeAttrs.end());
 }
 
+
 void
 GUINet::EdgeFloatTimeLineRetriever_GUI::addEdgeWeight(const std::string& id,
         double value, double begTime, double endTime) const {
-    MSEdge* edge = MSEdge::dictionary(id);
+    MSEdge* const edge = MSEdge::dictionary(id);
     if (edge != nullptr) {
         myWeightStorage->addEffort(edge, begTime, endTime, value);
     } else {
-        WRITE_ERROR("Trying to set the effort for the unknown edge '" + id + "'.");
+        WRITE_WARNINGF("Trying to set data value for the unknown edge '%'.", id);
     }
 }
+
 
 void
 GUINet::EdgeFloatTimeLineRetriever_GUI::addEdgeRelWeight(const std::string& from, const std::string& to,
         double val, double beg, double end) const {
-    MSEdge* fromEdge = MSEdge::dictionary(from);
-    MSEdge* toEdge = MSEdge::dictionary(to);
+    MSEdge* const fromEdge = MSEdge::dictionary(from);
+    MSEdge* const toEdge = MSEdge::dictionary(to);
+    bool haveRel = false;
     if (fromEdge != nullptr && toEdge != nullptr) {
         for (auto item : fromEdge->getViaSuccessors()) {
             if (item.first == toEdge) {
@@ -618,15 +636,16 @@ GUINet::EdgeFloatTimeLineRetriever_GUI::addEdgeRelWeight(const std::string& from
                 while (edge != nullptr && edge->isInternal()) {
                     myWeightStorage->addEffort(edge, beg, end, val);
                     edge = edge->getViaSuccessors().front().second;
+                    haveRel = true;
                 }
             }
         }
-    } else if (fromEdge == nullptr) {
-        WRITE_ERROR("Trying to set the effort for the unknown edge '" + from + "'.");
-    } else {
-        WRITE_ERROR("Trying to set the effort for the unknown edge '" + to + "'.");
+    }
+    if (!haveRel) {
+        WRITE_WARNINGF("Trying to set data value for the unknown relation from edge '%' to edge '%'.", from, to);
     }
 }
+
 
 bool
 GUINet::loadEdgeData(const std::string& file) {
@@ -634,9 +653,15 @@ GUINet::loadEdgeData(const std::string& file) {
     DiscoverAttributes discoveryHandler(file);
     XMLSubSys::runParser(discoveryHandler, file);
     std::vector<std::string> attrs = discoveryHandler.getEdgeAttrs();
-    WRITE_MESSAGE("Loading edgedata from '" + file
-                  + "' Found " + toString(attrs.size())
+    WRITE_MESSAGE("Loading edgedata from '" + file + "':"
+                  + "\n    " + toString(discoveryHandler.numIntervals) + " intervals between"
+                  + " " + time2string(discoveryHandler.firstIntervalBegin) + " and"
+                  + " " + time2string(discoveryHandler.lastIntervalEnd)
+                  + ".\n    Found " + toString(attrs.size())
                   + " attributes: " + toString(attrs));
+    if (discoveryHandler.lastIntervalEnd < string2time(OptionsCont::getOptions().getString("begin"))) {
+        WRITE_WARNING("No data defined after simulation begin time.");
+    }
     myEdgeDataEndTime = MAX2(myEdgeDataEndTime, discoveryHandler.lastIntervalEnd);
     // create a retriever for each attribute
     std::vector<EdgeFloatTimeLineRetriever_GUI> retrieverDefsInternal;
@@ -667,6 +692,27 @@ GUINet::isSelected(const MSTrafficLightLogic* tll) const {
     const auto it = myLogics2Wrapper.find(const_cast<MSTrafficLightLogic*>(tll));
     return it != myLogics2Wrapper.end() && gSelected.isSelected(GLO_TLLOGIC, it->second->getGlID());
 }
+
+void
+GUINet::updateGUI() const {
+    try {
+        // gui only
+        GUIApplicationWindow* aw = static_cast<GUIApplicationWindow*>(GUIMainWindow::getInstance());
+        // update the view
+        aw->handleEvent_SimulationStep(nullptr);
+    } catch (ProcessError&) { }
+}
+
+void
+GUINet::addHotkey(int key, Command* press, Command* release) {
+    try {
+        // gui only
+        GUIApplicationWindow* aw = static_cast<GUIApplicationWindow*>(GUIMainWindow::getInstance());
+        // update the view
+        aw->addHotkey(key, press, release);
+    } catch (ProcessError&) { }
+}
+
 
 #ifdef HAVE_OSG
 void

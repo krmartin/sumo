@@ -13,14 +13,22 @@ steplistener
 # test client-side command tracing
 tracing
 
+# run two subsequent simulations with tracing
+tracing_repeat
+
+# test client-side command tracing when calling commands via the connection
+tracing_connection
+
 # test client-side command tracing (including getters)
 tracing_noGetters
 
+# test client-side command tracing
+tracing_close_start
+
+# test some output
+verbose
+libsumo_option_list_append
+
 # test various functions and options for influencing the behavior of rerouting functions
 rerouting
-
-# Tests for lateral collisions
-lateralCollision
-
-# test accessing the ssm device
-ssm
+parkingSearch

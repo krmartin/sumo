@@ -1,11 +1,13 @@
-Eclipse SUMO dfrouter Version v1_6_0+2016-faf1994207
- Copyright (C) 2001-2020 German Aerospace Center (DLR) and others; https://sumo.dlr.de
+Eclipse SUMO dfrouter Version v1_14_1+1294-35e14935ffb
+ Copyright (C) 2001-2022 German Aerospace Center (DLR) and others; https://sumo.dlr.de
 Builds vehicle routes for SUMO using detector values.
 
 Usage: dfrouter [OPTION]*
 Configuration Options:
   -c, --configuration-file FILE        Loads the named config on startup
   -C, --save-configuration FILE        Saves current configuration into FILE
+  --save-configuration.relative        Enforce relative paths when saving the
+                                        configuration
   --save-template FILE                 Saves a configuration template (empty)
                                         into FILE
   --save-schema FILE                   Saves the configuration schema into FILE
@@ -65,6 +67,8 @@ Processing Options:
                                         without passing a detector
   --emissions-only                     Writes only emission times
   --disallowed-edges STR[]             Do not route on these edges
+  --vclass STR                         Only route on edges allowing the given
+                                        vclass
   --keep-turnarounds                   Allow turnarounds as route continuations
   --min-route-length FLOAT             Minimum distance in meters between start
                                         and end node of every route
@@ -108,10 +112,11 @@ Report Options:
   -?, --help                           Prints this screen or selected topics
   -V, --version                        Prints the current version
   -X, --xml-validation STR             Set schema validation scheme of XML
-                                        inputs ("never", "auto" or "always")
-  --xml-validation.net STR             Set schema validation scheme of SUMO
-                                        network inputs ("never", "auto" or
+                                        inputs ("never", "local", "auto" or
                                         "always")
+  --xml-validation.net STR             Set schema validation scheme of SUMO
+                                        network inputs ("never", "local", "auto"
+                                        or "always")
   -W, --no-warnings                    Disables output of warnings
   --aggregate-warnings INT             Aggregate warnings of the same type
                                         whenever more than INT occur

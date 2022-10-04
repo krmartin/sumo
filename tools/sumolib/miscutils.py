@@ -1,5 +1,5 @@
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+# Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -93,20 +93,15 @@ class Colorgen:
     def get_value(self, opt, index):
         if opt == 'random':
             return random.random()
-        elif opt == 'cycle':
+        if opt == 'cycle':
             # the 255 below is intentional to get all color values when cycling long enough
             self.cycle[index] = (self.cycle[index] + self.cycleOffset) % 255
             return self.cycle[index] / 255.0
-        elif opt == 'cycle':
-            # the 255 below is intentional to get all color values when cycling long enough
-            self.cycle[index] = (self.cycle[index] + self.cycleOffset) % 255
-            return self.cycle[index] / 255.0
-        elif opt == 'distinct':
+        if opt == 'distinct':
             if index == 0:
                 self.distinctIndex = (self.distinctIndex + 1) % len(self.DISTINCT)
             return self.DISTINCT[self.distinctIndex][index]
-        else:
-            return float(opt)
+        return float(opt)
 
     def floatTuple(self):
         """return color as a tuple of floats each in [0,1]"""
@@ -119,6 +114,74 @@ class Colorgen:
     def __call__(self):
         """return constant or randomized rgb-color string"""
         return ','.join(map(str, self.byteTuple()))
+
+
+class priorityDictionary(dict):
+
+    def __init__(self):
+        '''Initialize priorityDictionary by creating binary heap
+            of pairs (value,key).  Note that changing or removing a dict entry will
+            not remove the old pair from the heap until it is found by smallest() or
+            until the heap is rebuilt.'''
+        self.__heap = []
+        dict.__init__(self)
+
+    def smallest(self):
+        '''Find smallest item after removing deleted items from heap.'''
+        if len(self) == 0:
+            raise IndexError("smallest of empty priorityDictionary")
+        heap = self.__heap
+        while heap[0][1] not in self or self[heap[0][1]] != heap[0][0]:
+            lastItem = heap.pop()
+            insertionPoint = 0
+            while 1:
+                smallChild = 2 * insertionPoint + 1
+                if smallChild + 1 < len(heap) and \
+                        heap[smallChild][0] > heap[smallChild + 1][0]:
+                    smallChild += 1
+                if smallChild >= len(heap) or lastItem <= heap[smallChild]:
+                    heap[insertionPoint] = lastItem
+                    break
+                heap[insertionPoint] = heap[smallChild]
+                insertionPoint = smallChild
+        return heap[0][1]
+
+    def __iter__(self):
+        '''Create destructive sorted iterator of priorityDictionary.'''
+        def iterfn():
+            while len(self) > 0:
+                x = self.smallest()
+                yield x
+                del self[x]
+        return iterfn()
+
+    def __setitem__(self, key, val):
+        '''Change value stored in dictionary and add corresponding
+            pair to heap.  Rebuilds the heap if the number of deleted items grows
+            too large, to avoid memory leakage.'''
+        dict.__setitem__(self, key, val)
+        heap = self.__heap
+        if len(heap) > 2 * len(self):
+            self.__heap = [(v, k) for k, v in self.iteritems()]
+            self.__heap.sort()  # builtin sort likely faster than O(n) heapify
+        else:
+            newPair = (val, key)
+            insertionPoint = len(heap)
+            heap.append(None)
+            while insertionPoint > 0 and val < heap[(insertionPoint - 1) // 2][0]:
+                heap[insertionPoint] = heap[(insertionPoint - 1) // 2]
+                insertionPoint = (insertionPoint - 1) // 2
+            heap[insertionPoint] = newPair
+
+    def setdefault(self, key, val):
+        '''Reimplement setdefault to call our customized __setitem__.'''
+        if key not in self:
+            self[key] = val
+        return self[key]
+
+    def update(self, other):
+        for key in other.keys():
+            self[key] = other[key]
 
 
 def getFreeSocketPort(numTries=10):
@@ -176,3 +239,32 @@ def parseTime(t, factor=1):
 def parseBool(val):
     # see data/xsd/baseTypes:boolType
     return val in ["true", "True", "x", "1", "yes", "on"]
+
+
+def getFlowNumber(flow):
+    """interpret number of vehicles from a flow parsed by sumolib.xml.parse"""
+    if flow.number is not None:
+        return int(flow.number)
+    if flow.end is not None:
+        duration = parseTime(flow.end) - parseTime(flow.begin)
+        period = 0
+        if flow.period is not None:
+            if 'exp' in flow.period:
+                # use expecte value
+                period = 1 / float(flow.period[4:-2])
+            else:
+                period = float(flow.period)
+        for attr in ['perHour', 'vehsPerHour']:
+            if flow.hasAttribute(attr):
+                period = 3600 / float(flow.getAttributes(attr))
+        if period > 0:
+            return math.ceil(duration / period)
+        else:
+            return 1
+
+
+def intIfPossible(val):
+    if int(val) == val:
+        return int(val)
+    else:
+        return val

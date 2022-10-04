@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -56,11 +56,11 @@ MSTLLogicControl::TLSLogicVariants::TLSLogicVariants() :
 
 MSTLLogicControl::TLSLogicVariants::~TLSLogicVariants() {
     std::map<std::string, MSTrafficLightLogic*>::const_iterator j;
-    for (std::map<std::string, MSTrafficLightLogic*>::iterator j = myVariants.begin(); j != myVariants.end(); ++j) {
-        delete (*j).second;
+    for (const auto& var : myVariants) {
+        delete var.second;
     }
-    for (std::vector<OnSwitchAction*>::iterator i = mySwitchActions.begin(); i != mySwitchActions.end(); ++i) {
-        delete *i;
+    for (OnSwitchAction* osa : mySwitchActions) {
+        delete osa;
     }
 }
 
@@ -89,6 +89,14 @@ MSTLLogicControl::TLSLogicVariants::checkOriginalTLS() const {
 void
 MSTLLogicControl::TLSLogicVariants::saveInitialStates() {
     myOriginalLinkStates = myCurrentProgram->collectLinkStates();
+}
+
+
+void
+MSTLLogicControl::TLSLogicVariants::saveState(OutputDevice& out) {
+    for (const auto& item : myVariants) {
+        item.second->saveState(out);
+    }
 }
 
 
@@ -164,16 +172,16 @@ MSTLLogicControl::TLSLogicVariants::setStateInstantiatingOnline(MSTLLogicControl
     // build only once...
     MSTrafficLightLogic* logic = getLogic(TRACI_PROGRAM);
     if (logic == nullptr) {
-        MSPhaseDefinition* phase = new MSPhaseDefinition(DELTA_T, state, -1);
+        MSPhaseDefinition* phase = new MSPhaseDefinition(DELTA_T, state);
         std::vector<MSPhaseDefinition*> phases;
         phases.push_back(phase);
-        logic = new MSSimpleTrafficLightLogic(tlc, myCurrentProgram->getID(), TRACI_PROGRAM, TrafficLightType::STATIC, phases, 0,
+        logic = new MSSimpleTrafficLightLogic(tlc, myCurrentProgram->getID(), TRACI_PROGRAM, 0, TrafficLightType::STATIC, phases, 0,
                                               MSNet::getInstance()->getCurrentTimeStep() + DELTA_T,
-                                              std::map<std::string, std::string>());
+                                              Parameterised::Map());
         addLogic(TRACI_PROGRAM, logic, true, true);
         MSNet::getInstance()->createTLWrapper(logic);
     } else {
-        MSPhaseDefinition nphase(DELTA_T, state, -1);
+        MSPhaseDefinition nphase(DELTA_T, state);
         *(dynamic_cast<MSSimpleTrafficLightLogic*>(logic)->getPhases()[0]) = nphase;
         switchTo(tlc, TRACI_PROGRAM);
     }
@@ -812,19 +820,51 @@ MSTLLogicControl::getPhaseDef(const std::string& tlid) const {
 
 void
 MSTLLogicControl::switchOffAll() {
-    for (std::map<std::string, TLSLogicVariants*>::const_iterator i = myLogics.begin(); i != myLogics.end(); ++i) {
-        (*i).second->addLogic("off",  new MSOffTrafficLightLogic(*this, (*i).first), true, true);
+    for (const auto& logic : myLogics) {
+        logic.second->addLogic("off",  new MSOffTrafficLightLogic(*this, logic.first), true, true);
     }
 }
 
-void
-MSTLLogicControl::saveState(OutputDevice& out) {
-    MSRailSignalConstraint::saveState(out);
-}
 
 void
-MSTLLogicControl::clearState() {
-    MSRailSignalConstraint::clearState();
+MSTLLogicControl::saveState(OutputDevice& out) {
+    MSRailSignalConstraint::saveState(out); // always saves vehicle tracker states
+    for (const auto& logic : myLogics) {
+        logic.second->saveState(out);
+    }
 }
+
+
+void
+MSTLLogicControl::clearState(SUMOTime time, bool quickReload) {
+    MSRailSignalConstraint::clearState();
+    if (quickReload) {
+        for (const auto& variants : myLogics) {
+            for (auto& logic : variants.second->getAllLogics()) {
+                if (logic->getLogicType() == TrafficLightType::OFF
+                        || logic->getLogicType() == TrafficLightType::RAIL_SIGNAL
+                        || logic->getLogicType() == TrafficLightType::RAIL_CROSSING) {
+                    continue;
+                }
+                int step = 0;
+                const SUMOTime cycleTime = logic->getDefaultCycleTime();
+                auto& phases = logic->getPhases();
+                SUMOTime offset = logic->getOffset();
+                if (offset >= 0) {
+                    offset = (time + cycleTime - (offset % cycleTime)) % cycleTime;
+                } else {
+                    offset = (time + ((-offset) % cycleTime)) % cycleTime;
+                }
+
+                while (offset >= phases[step]->duration) {
+                    offset -= phases[step]->duration;
+                    step++;
+                }
+                logic->loadState(*this, time, step, offset);
+            }
+        }
+    }
+}
+
 
 /****************************************************************************/

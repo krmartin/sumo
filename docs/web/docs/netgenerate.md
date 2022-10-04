@@ -1,6 +1,5 @@
 ---
 title: netgenerate
-permalink: /netgenerate/
 ---
 
 # From 30.000 feet
@@ -37,6 +36,7 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 |--------|-------------|
 | **-c** {{DT_FILE}}<br> **--configuration-file** {{DT_FILE}} | Loads the named config on startup |
 | **-C** {{DT_FILE}}<br> **--save-configuration** {{DT_FILE}} | Saves current configuration into FILE |
+| **--save-configuration.relative** {{DT_BOOL}} | Enforce relative paths when saving the configuration; *default:* **false** |
 | **--save-template** {{DT_FILE}} | Saves a configuration template (empty) into FILE |
 | **--save-schema** {{DT_FILE}} | Saves the configuration schema into FILE |
 | **--save-commented** {{DT_BOOL}} | Adds comments to saved template, configuration, or schema; *default:* **false** |
@@ -53,6 +53,8 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 | **--grid.x-length** {{DT_FLOAT}} | The length of horizontal streets; Overrides --grid-length; *default:* **100** |
 | **--grid.y-length** {{DT_FLOAT}} | The length of vertical streets; Overrides --grid-length; *default:* **100** |
 | **--grid.attach-length** {{DT_FLOAT}} | The length of streets attached at the boundary; 0 means no streets are attached; *default:* **0** |
+| **--grid.x-attach-length** {{DT_FLOAT}} | The length of streets attached at the boundary in x direction; 0 means no streets are attached; *default:* **0** |
+| **--grid.y-attach-length** {{DT_FLOAT}} | The length of streets attached at the boundary in y direction; 0 means no streets are attached; *default:* **0** |
 
 ### Spider Network
 
@@ -73,7 +75,7 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 |--------|-------------|
 | **-r** {{DT_BOOL}}<br> **--rand** {{DT_BOOL}} | Forces NETGEN to build a random network; *default:* **false** |
 | **--rand.iterations** {{DT_INT}} | Describes how many times an edge shall be added to the net; *default:* **2000** |
-| **--rand.bidi-probability** {{DT_FLOAT}} | Defines the probability to build a reverse edge; *default:* **1** |
+| **--bidi-probability** {{DT_FLOAT}} | Defines the probability to build a reverse edge; *default:* **1** |
 | **--rand.max-distance** {{DT_FLOAT}} | The maximum distance for each edge; *default:* **250** |
 | **--rand.min-distance** {{DT_FLOAT}} | The minimum distance for each edge; *default:* **100** |
 | **--rand.min-angle** {{DT_FLOAT}} | The minimum angle for each pair of (bidirectional) roads in DEGREES; *default:* **45** |
@@ -85,8 +87,9 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 | **--rand.neighbor-dist4** {{DT_FLOAT}} | Probability for a node having exactly 4 neighbors; *default:* **10** |
 | **--rand.neighbor-dist5** {{DT_FLOAT}} | Probability for a node having exactly 5 neighbors; *default:* **2** |
 | **--rand.neighbor-dist6** {{DT_FLOAT}} | Probability for a node having exactly 6 neighbors; *default:* **1** |
-| **--rand.random-lanenumber** {{DT_BOOL}} | Draw lane numbers randomly from [1,default.lanenumber]; *default:* **false** |
-| **--rand.random-priority** {{DT_BOOL}} | Draw edge priority randomly from [1,default.priority]; *default:* **false** |
+| **--random-lanenumber** {{DT_BOOL}} | Draw lane numbers randomly from [1,default.lanenumber]; *default:* **false** |
+| **--random-priority** {{DT_BOOL}} | Draw edge priority randomly from [1,default.priority]; *default:* **false** |
+| **--random-type** {{DT_BOOL}} | Draw edge type randomly from all loaded types; *default:* **false** |
 | **--rand.grid** {{DT_BOOL}} | Place nodes on a regular grid with spacing rand.min-distance; *default:* **false** |
 
 ### Input
@@ -105,7 +108,7 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 | **-H** {{DT_BOOL}}<br> **--human-readable-time** {{DT_BOOL}} | Write time values as hour:minute:second or day:hour:minute:second rather than seconds; *default:* **false** |
 | **--alphanumerical-ids** {{DT_BOOL}} | The Ids of generated nodes use an alphanumerical code for easier readability when possible; *default:* **true** |
 | **-o** {{DT_FILE}}<br> **--output-file** {{DT_FILE}} | The generated net will be written to FILE |
-| **--plain-output-prefix** {{DT_FILE}} | Prefix of files to write plain xml nodes, edges and connections to |
+| **-p** {{DT_FILE}}<br> **--plain-output-prefix** {{DT_FILE}} | Prefix of files to write plain xml nodes, edges and connections to |
 | **--junctions.join-output** {{DT_FILE}} | Writes information about joined junctions to FILE (can be loaded as additional node-file to reproduce joins |
 | **--prefix** {{DT_STR}} | Defines a prefix for edge and junction names |
 | **--amitran-output** {{DT_FILE}} | The generated net will be written to FILE using Amitran format |
@@ -140,6 +143,13 @@ the offsets given).
 | **--numerical-ids.node-start** {{DT_INT}} | Remaps IDs of nodes to integers starting at INT; *default:* **2147483647** |
 | **--numerical-ids.edge-start** {{DT_INT}} | Remaps IDs of edges to integers starting at INT; *default:* **2147483647** |
 | **--reserved-ids** {{DT_FILE}} | Ensures that generated ids do not included any of the typed IDs from FILE (sumo-gui selection file format) |
+| **--geometry.split** {{DT_BOOL}} | Splits edges across geometry nodes; *default:* **false** |
+| **-R** {{DT_BOOL}}<br> **--geometry.remove** {{DT_BOOL}} | Replace nodes which only define edge geometry by geometry points (joins edges); *default:* **false** |
+| **--geometry.remove.keep-edges.explicit** {{DT_STR[]}} | Ensure that the given list of edges is not modified |
+| **--geometry.remove.keep-edges.input-file** {{DT_FILE}} | Ensure that the edges in FILE are not modified (Each id on a single line. Selection files from sumo-gui are also supported) |
+| **--geometry.remove.min-length** {{DT_FLOAT}} | Allow merging edges with differing attributes when their length is below min-length; *default:* **0** |
+| **--geometry.remove.width-tolerance** {{DT_FLOAT}} | Allow merging edges with differing lane widths if the difference is below FLOAT; *default:* **0** |
+| **--geometry.max-segment-length** {{DT_FLOAT}} | splits geometry to restrict segment length; *default:* **0** |
 | **--geometry.max-grade** {{DT_FLOAT}} | Warn about edge geometries with a grade in % above FLOAT.; *default:* **10** |
 | **--geometry.max-grade.fix** {{DT_BOOL}} | Smooth edge edge geometries with a grade in above the warning threshold.; *default:* **true** |
 | **--offset.disable-normalization** {{DT_BOOL}} | Turn off normalizing node positions; *default:* **false** |
@@ -150,7 +160,7 @@ the offsets given).
 | **--roundabouts.guess** {{DT_BOOL}} | Enable roundabout-guessing; *default:* **true** |
 | **--roundabouts.visibility-distance** {{DT_FLOAT}} | Default visibility when approaching a roundabout; *default:* **9** |
 | **--opposites.guess** {{DT_BOOL}} | Enable guessing of opposite direction lanes usable for overtaking; *default:* **false** |
-| **--opposites.guess.fix-lengths** {{DT_BOOL}} | Ensure that opposite edges have the same length; *default:* **false** |
+| **--opposites.guess.fix-lengths** {{DT_BOOL}} | Ensure that opposite edges have the same length; *default:* **true** |
 | **--fringe.guess** {{DT_BOOL}} | Enable guessing of network fringe nodes; *default:* **false** |
 | **--lefthand** {{DT_BOOL}} | Assumes left-hand traffic on the network; *default:* **false** |
 | **--edges.join** {{DT_BOOL}} | Merges edges which connect the same nodes and are close to each other (recommended for VISSIM import); *default:* **false** |
@@ -163,11 +173,13 @@ the offsets given).
 | **--default.lanewidth** {{DT_FLOAT}} | The default width of lanes; *default:* **-1** |
 | **--default.spreadtype** {{DT_STR}} | The default method for computing lane shapes from edge shapes; *default:* **right** |
 | **-S** {{DT_FLOAT}}<br> **--default.speed** {{DT_FLOAT}} | The default speed on an edge (in m/s); *default:* **13.89** |
+| **--default.friction** {{DT_FLOAT}} | The default friction on an edge; *default:* **1** |
 | **-P** {{DT_INT}}<br> **--default.priority** {{DT_INT}} | The default priority of an edge; *default:* **-1** |
 | **--default.type** {{DT_STR}} | The default edge type |
 | **--default.sidewalk-width** {{DT_FLOAT}} | The default width of added sidewalks; *default:* **2** |
 | **--default.bikelane-width** {{DT_FLOAT}} | The default width of added bike lanes; *default:* **1** |
 | **--default.crossing-width** {{DT_FLOAT}} | The default width of a pedestrian crossing; *default:* **4** |
+| **--default.allow** {{DT_STR}} | The default for allowed vehicle classes |
 | **--default.disallow** {{DT_STR}} | The default for disallowed vehicle classes |
 | **--default.junctions.keep-clear** {{DT_BOOL}} | Whether junctions should be kept clear by default; *default:* **true** |
 | **--default.junctions.radius** {{DT_FLOAT}} | The default turning radius of intersections; *default:* **4** |
@@ -197,6 +209,9 @@ the offsets given).
 | **--tls.allred.time** {{DT_INT}} | Set INT as fixed time for intermediate red phase after every switch; *default:* **0** |
 | **--tls.minor-left.max-speed** {{DT_FLOAT}} | Use FLOAT as threshold for allowing left-turning vehicles to move in the same phase as oncoming straight-going vehicles; *default:* **19.44** |
 | **--tls.left-green.time** {{DT_INT}} | Use INT as green phase duration for left turns (s). Setting this value to 0 disables additional left-turning phases; *default:* **6** |
+| **--tls.nema.vehExt** {{DT_INT}} | Set INT as fixed time for intermediate vehext phase after every switch; *default:* **2** |
+| **--tls.nema.yellow** {{DT_INT}} | Set INT as fixed time for intermediate NEMA yelow phase after every switch; *default:* **3** |
+| **--tls.nema.red** {{DT_INT}} | Set INT as fixed time for intermediate NEMA red phase after every switch; *default:* **2** |
 | **--tls.crossing-min.time** {{DT_INT}} | Use INT as minimum green duration for pedestrian crossings (s).; *default:* **4** |
 | **--tls.crossing-clearance.time** {{DT_INT}} | Use INT as clearance time for pedestrian crossings (s).; *default:* **5** |
 | **--tls.scramble.time** {{DT_INT}} | Use INT as green phase duration for pedestrian scramble phase (s).; *default:* **5** |
@@ -209,6 +224,7 @@ the offsets given).
 | **--tls.max-dur** {{DT_INT}} | Default maximum phase duration for traffic lights with variable phase length; *default:* **50** |
 | **--tls.group-signals** {{DT_BOOL}} | Assign the same tls link index to connections that share the same states; *default:* **false** |
 | **--tls.ungroup-signals** {{DT_BOOL}} | Assign a distinct tls link index to every connection; *default:* **false** |
+| **--tls.discard-simple** {{DT_BOOL}} | Does not instatiate traffic lights at geometry-like nodes; *default:* **false** |
 
 ### Edge Removal
 
@@ -245,6 +261,8 @@ the offsets given).
 | **--no-left-connections** {{DT_BOOL}} | Disables building connections to left; *default:* **false** |
 | **--junctions.join** {{DT_BOOL}} | Joins junctions that are close to each other (recommended for OSM import); *default:* **false** |
 | **--junctions.join-dist** {{DT_FLOAT}} | Determines the maximal distance for joining junctions (defaults to 10); *default:* **10** |
+| **--junctions.join-same** {{DT_BOOL}} | Joins junctions that have the same coordinates even if not connected; *default:* **false** |
+| **--max-join-ids** {{DT_INT}} | Abbreviate junction or TLS id if it joins more than INT junctions; *default:* **4** |
 | **--junctions.corner-detail** {{DT_INT}} | Generate INT intermediate points to smooth out intersection corners; *default:* **5** |
 | **--junctions.internal-link-detail** {{DT_INT}} | Generate INT intermediate points to smooth out lanes within the intersection; *default:* **5** |
 | **--junctions.scurve-stretch** {{DT_FLOAT}} | Generate longer intersections to allow for smooth s-curves when the number of lanes changes; *default:* **0** |
@@ -255,6 +273,8 @@ the offsets given).
 | **--junctions.limit-turn-speed.warn.straight** {{DT_FLOAT}} | Warn about turn speed limits that reduce the speed of straight connections by more than FLOAT; *default:* **5** |
 | **--junctions.limit-turn-speed.warn.turn** {{DT_FLOAT}} | Warn about turn speed limits that reduce the speed of turning connections (no u-turns) by more than FLOAT; *default:* **22** |
 | **--junctions.small-radius** {{DT_FLOAT}} | Default radius for junctions that do not require wide vehicle turns; *default:* **1.5** |
+| **--junctions.higher-speed** {{DT_BOOL}} | Use maximum value of incoming and outgoing edge speed on junction instead of average; *default:* **false** |
+| **--internal-junctions.vehicle-width** {{DT_FLOAT}} | Assumed vehicle width for computing internal junction positions; *default:* **1.8** |
 | **--rectangular-lane-cut** {{DT_BOOL}} | Forces rectangular cuts between lanes and intersections; *default:* **false** |
 | **--check-lane-foes.roundabout** {{DT_BOOL}} | Allow driving onto a multi-lane road if there are foes on other lanes (at roundabouts); *default:* **true** |
 | **--check-lane-foes.all** {{DT_BOOL}} | Allow driving onto a multi-lane road if there are foes on other lanes (everywhere); *default:* **false** |
@@ -296,7 +316,7 @@ Options](Basics/Using_the_Command_Line_Applications.md#reporting_options).
 | **--print-options** {{DT_BOOL}} | Prints option values before processing; *default:* **false** |
 | **-?** {{DT_BOOL}}<br> **--help** {{DT_BOOL}} | Prints this screen or selected topics; *default:* **false** |
 | **-V** {{DT_BOOL}}<br> **--version** {{DT_BOOL}} | Prints the current version; *default:* **false** |
-| **-X** {{DT_STR}}<br> **--xml-validation** {{DT_STR}} | Set schema validation scheme of XML inputs ("never", "auto" or "always"); *default:* **auto** |
+| **-X** {{DT_STR}}<br> **--xml-validation** {{DT_STR}} | Set schema validation scheme of XML inputs ("never", "local", "auto" or "always"); *default:* **local** |
 | **-W** {{DT_BOOL}}<br> **--no-warnings** {{DT_BOOL}} | Disables output of warnings; *default:* **false** |
 | **--aggregate-warnings** {{DT_INT}} | Aggregate warnings of the same type whenever more than INT occur; *default:* **-1** |
 | **-l** {{DT_FILE}}<br> **--log** {{DT_FILE}} | Writes all messages to FILE (implies verbose) |

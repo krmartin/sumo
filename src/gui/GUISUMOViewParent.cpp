@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -31,6 +31,7 @@
 #include <utils/geom/Boundary.h>
 #include <utils/foxtools/MFXUtils.h>
 #include <utils/foxtools/MFXCheckableButton.h>
+#include <utils/foxtools/MFXMenuButtonTooltip.h>
 #include <utils/foxtools/MFXImageHelper.h>
 #include <utils/gui/globjects/GUIGlObjectTypes.h>
 #include <utils/gui/globjects/GUIGlObjectStorage.h>
@@ -41,7 +42,7 @@
 #include <utils/gui/div/GUIIOGlobals.h>
 #include <utils/gui/div/GUIDesigns.h>
 #include <utils/gui/windows/GUIAppEnum.h>
-#include <utils/gui/windows/GUIDialog_GLObjChooser.h>
+#include <gui/dialogs/GUIDialog_GLObjChooser.h>
 #include <guisim/GUIVehicle.h>
 #include <guisim/GUIPerson.h>
 #include <guisim/GUIEdge.h>
@@ -59,9 +60,7 @@
 
 #include <mesogui/GUIMEVehicleControl.h>
 
-#ifdef HAVE_OSG
 #include <osgview/GUIOSGView.h>
-#endif
 
 #define SPEEDFACTOR_SCALE 100.0
 
@@ -109,11 +108,11 @@ GUISUMOViewParent::init(FXGLCanvas* share, GUINet& net, GUISUMOViewParent::ViewT
     switch (type) {
         default:
         case VIEW_2D_OPENGL:
-            myView = new GUIViewTraffic(myContentFrame, *myParent, this, net, myParent->getGLVisual(), share);
+            myView = new GUIViewTraffic(myChildWindowContentFrame, *myParent, this, net, myParent->getGLVisual(), share);
             break;
 #ifdef HAVE_OSG
         case VIEW_3D_OSG:
-            myView = new GUIOSGView(myContentFrame, *myParent, this, net, myParent->getGLVisual(), share);
+            myView = new GUIOSGView(myChildWindowContentFrame, *myParent, this, net, myParent->getGLVisual(), share);
             break;
 #endif
     }
@@ -149,7 +148,7 @@ GUISUMOViewParent::eraseGLObjChooser(GUIDialog_GLObjChooser* GLObjChooser) {
 long
 GUISUMOViewParent::onCmdMakeSnapshot(FXObject* sender, FXSelector, void*) {
     MFXCheckableButton* button = dynamic_cast<MFXCheckableButton*>(sender);
-    // check if cast was sucesfully
+    // check if cast was successfully
     if (button) {
         if (button->amChecked()) {
             myView->endSnapshot();
@@ -161,8 +160,8 @@ GUISUMOViewParent::onCmdMakeSnapshot(FXObject* sender, FXSelector, void*) {
         opendialog.setIcon(GUIIconSubSys::getIcon(GUIIcon::CAMERA));
         opendialog.setSelectMode(SELECTFILE_ANY);
 #ifdef HAVE_FFMPEG
-        opendialog.setPatternList("All Image and Video Files (*.gif,*.bmp,*.xpm,*.pcx,*.ico,*.rgb,*.xbm,*.tga,*.png,*.jpg,*.jpeg,*.tif,*.tiff,*.ps,*.eps,*.pdf,*.svg,*.tex,*.pgf,*.h264,*.hevc)\n"
-                                  "All Video Files (*.h264,*.hevc)\n"
+        opendialog.setPatternList("All Image and Video Files (*.gif,*.bmp,*.xpm,*.pcx,*.ico,*.rgb,*.xbm,*.tga,*.png,*.jpg,*.jpeg,*.tif,*.tiff,*.ps,*.eps,*.pdf,*.svg,*.tex,*.pgf,*.h264,*.hevc,*.mp4)\n"
+                                  "All Video Files (*.h264,*.hevc,*.mp4)\n"
 #else
         opendialog.setPatternList("All Image Files (*.gif,*.bmp,*.xpm,*.pcx,*.ico,*.rgb,*.xbm,*.tga,*.png,*.jpg,*.jpeg,*.tif,*.tiff,*.ps,*.eps,*.pdf,*.svg,*.tex,*.pgf)\n"
 #endif
@@ -180,11 +179,17 @@ GUISUMOViewParent::onCmdMakeSnapshot(FXObject* sender, FXSelector, void*) {
         }
         gCurrentFolder = opendialog.getDirectory();
         std::string file = opendialog.getFilename().text();
+        if (file.find(".") == std::string::npos) {
+            file.append(".png");
+            WRITE_MESSAGE("No file extension was specified - saving Snapshot as PNG.");
+        }
         std::string error = myView->makeSnapshot(file);
         if (error == "video") {
             button->setChecked(!button->amChecked());
         } else if (error != "") {
             FXMessageBox::error(this, MBOX_OK, "Saving failed.", "%s", error.c_str());
+        } else {
+            WRITE_MESSAGE("Snapshot successfully saved!");
         }
     }
     return 1;
@@ -204,7 +209,7 @@ GUISUMOViewParent::getObjectIDs(int messageId) const {
                 static_cast<GUIMEVehicleControl*>(static_cast<GUINet*>(MSNet::getInstance())->getGUIMEVehicleControl())->insertVehicleIDs(vehicles);
             } else {
                 static_cast<GUIVehicleControl&>(MSNet::getInstance()->getVehicleControl()).insertVehicleIDs(
-                        vehicles, myParent->listParking(), myParent->listTeleporting());
+                    vehicles, myParent->listParking(), myParent->listTeleporting());
             }
             return vehicles;
         }
@@ -238,53 +243,54 @@ GUISUMOViewParent::onCmdLocate(FXObject*, FXSelector sel, void*) {
     int messageId = FXSELID(sel);
     if (myGLObjChooser.count(messageId) == 0 || myGLObjChooser[messageId] == nullptr) {
         FXIcon* icon = nullptr;
-        std::string title = "";
+        std::string titleString = "";
         switch (messageId) {
             case MID_LOCATEJUNCTION:
                 icon = GUIIconSubSys::getIcon(GUIIcon::LOCATEJUNCTION);
-                title = "Junction Chooser";
+                titleString = "Junction Chooser";
                 break;
             case MID_LOCATEEDGE:
                 icon = GUIIconSubSys::getIcon(GUIIcon::LOCATEEDGE);
-                title = "Edge Chooser";
+                titleString = "Edge Chooser";
                 break;
             case MID_LOCATEVEHICLE:
                 icon = GUIIconSubSys::getIcon(GUIIcon::LOCATEVEHICLE);
-                title = "Vehicle Chooser";
+                titleString = "Vehicle Chooser";
                 break;
             case MID_LOCATEPERSON:
                 icon = GUIIconSubSys::getIcon(GUIIcon::LOCATEPERSON);
-                title = "Person Chooser";
+                titleString = "Person Chooser";
                 break;
             case MID_LOCATECONTAINER:
                 icon = GUIIconSubSys::getIcon(GUIIcon::LOCATECONTAINER);
-                title = "Container Chooser";
+                titleString = "Container Chooser";
                 break;
             case MID_LOCATETLS:
                 icon = GUIIconSubSys::getIcon(GUIIcon::LOCATETLS);
-                title = "Traffic Lights Chooser";
+                titleString = "Traffic Lights Chooser";
                 break;
             case MID_LOCATEADD:
                 icon = GUIIconSubSys::getIcon(GUIIcon::LOCATEADD);
-                title = "Additional Objects Chooser";
+                titleString = "Additional Objects Chooser";
                 break;
             case MID_LOCATEPOI:
                 icon = GUIIconSubSys::getIcon(GUIIcon::LOCATEPOI);
-                title = "POI Chooser";
+                titleString = "POI Chooser";
                 break;
             case MID_LOCATEPOLY:
                 icon = GUIIconSubSys::getIcon(GUIIcon::LOCATEPOLY);
-                title = "Polygon Chooser";
+                titleString = "Polygon Chooser";
                 break;
             default:
                 throw ProcessError("Unknown Message ID in onCmdLocate");
         }
 
-        myGLObjChooser[messageId] = new GUIDialog_GLObjChooser(this, messageId, icon, title.c_str(), getObjectIDs(messageId), GUIGlObjectStorage::gIDStorage);
+        myGLObjChooser[messageId] = new GUIDialog_GLObjChooser(this, messageId, icon, titleString.c_str(), getObjectIDs(messageId), GUIGlObjectStorage::gIDStorage);
 
     } else {
         myGLObjChooser[messageId]->restore();
         myGLObjChooser[messageId]->setFocus();
+        myGLObjChooser[messageId]->raise();
     }
     myLocatorPopup->popdown();
     myLocatorButton->killFocus();

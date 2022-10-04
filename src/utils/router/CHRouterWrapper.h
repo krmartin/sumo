@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -37,7 +37,7 @@
 #include "CHRouter.h"
 
 #ifdef HAVE_FOX
-#include <utils/foxtools/FXWorkerThread.h>
+#include <utils/foxtools/MFXWorkerThread.h>
 #endif
 
 
@@ -64,8 +64,8 @@ public:
     /** @brief Constructor
      */
     CHRouterWrapper(const std::vector<E*>& edges, const bool ignoreErrors, typename SUMOAbstractRouter<E, V>::Operation operation,
-                    const SUMOTime begin, const SUMOTime end, const SUMOTime weightPeriod, const int numThreads) :
-        SUMOAbstractRouter<E, V>("CHRouterWrapper", ignoreErrors, operation, nullptr, false, false),
+                    const SUMOTime begin, const SUMOTime end, const SUMOTime weightPeriod, bool havePermissions, const int numThreads) :
+        SUMOAbstractRouter<E, V>("CHRouterWrapper", ignoreErrors, operation, nullptr, havePermissions, false),
         myEdges(edges),
         myIgnoreErrors(ignoreErrors),
         myBegin(begin),
@@ -80,9 +80,14 @@ public:
         }
     }
 
+    virtual void prohibit(const std::vector<E*>& toProhibit) {
+        if (toProhibit.size() > 0) {
+            WRITE_WARNINGF("Routing algorith CHWrapper does not support dynamic closing of edges%", "");
+        }
+    }
 
     virtual SUMOAbstractRouter<E, V>* clone() {
-        CHRouterWrapper<E, V>* clone = new CHRouterWrapper<E, V>(myEdges, myIgnoreErrors, this->myOperation, myBegin, myEnd, myWeightPeriod, myMaxNumInstances);
+        CHRouterWrapper<E, V>* clone = new CHRouterWrapper<E, V>(myEdges, myIgnoreErrors, this->myOperation, myBegin, myEnd, myWeightPeriod, this->myHavePermissions, myMaxNumInstances);
         for (const auto& item : myRouters) {
             clone->myRouters[item.first] = static_cast<CHRouterType*>(item.second->clone());
         }

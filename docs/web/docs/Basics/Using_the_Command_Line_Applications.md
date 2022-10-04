@@ -1,10 +1,9 @@
 ---
-title: Basics/Using the Command Line Applications
-permalink: /Basics/Using_the_Command_Line_Applications/
+title: Using the Command Line Applications
 ---
 
 Most of the applications from the SUMO package are command line tools.
-Currently, only [sumo-gui](../sumo-gui.md) and [netedit](../netedit.md) are not. If you do not
+Currently, only [sumo-gui](../sumo-gui.md) and [netedit](../Netedit/index.md) are not. If you do not
 know what a "command line" is, we refer you to the page about [basic computer skills](../Basics/Basic_Computer_Skills.md#running_programs_from_the_command_line).
 
 The following presents some peculiarities of the SUMO-suite
@@ -44,7 +43,7 @@ Eclipse SUMO netgenerate Version {{Version}}
 # Options
 
 Each application has a set of options which define which files shall be
-processed or generated, or which define the application's behaviour.
+processed or generated, or which define the application's behavior.
 Normally, an application needs at least two parameter - an input file
 and an output file - but almost always more parameter are used for a
 fine-grained control. Each application's options are described within
@@ -86,6 +85,16 @@ Please note that an abbreviation is indicated using a single '-'.
 !!! note
     Not all abbreviations have the same meaning across the applications from the SUMO-suite.
 
+If you want to append options to a list of values given in a 
+[configuration file](#configuration_files_vs_command_line_parameter) you will use the following syntax:
+
+```
++a myAdditional.add.xml
+```
+
+Please note that you can use the abbreviated or the non-abbreviated name here but always a single '+'.
+This will only work for lists of strings or numbers.
+
 ## Option Value Types
 
 The SUMO applications know what kind of a value they expect to be set.
@@ -120,7 +129,7 @@ configuration file. For the boolean options the value should be either
 For the example above, the configuration file (let's save it under
 "test.sumocfg", see below) would look like:
 
-```
+```xml
 <configuration>
     <input>
         <net-file value="test.net.xml"/>
@@ -135,7 +144,7 @@ documentation purposes and no functional meaning.
 
 A less verbose but equivalent version would look like:
 
-```
+```xml
 <configuration>
     <n v="test.net.xml"/>
     <r v="test.rou.xml"/>
@@ -177,7 +186,8 @@ In addition to a configuration file, further command line parameter can
 also be given on the command line. If a parameter is set within the
 named configuration file as well as given on the command line, the value
 given on the command line is used (overwrites the one within the
-configuration file). If you want to disable a boolean option which was
+configuration file) unless you use the '+' syntax described above.
+If you want to disable a boolean option which was
 enabled in the configuration file, you need to give the "false" value on
 the command line explicitly, like **--verbose false**
 
@@ -207,20 +217,43 @@ are generated.
 
 ## Environment variables in Configuration Files
 
-It is possible to refer to environment variables in configuration files. The syntax to refer to an environment variable is **${VARNAME}**. For example, your configuration file may reference a variable called **NETFILENAME**, containing the name of a network file, with the following configuration settings.
+It is possible to refer to environment variables in configuration files. The syntax to refer to an environment variable is **${VARNAME}**.
+For example, your configuration file may reference a variable called **NETFILENAME**, containing the name of a network file, with the following configuration settings.
 
 ```
-<configuration >
+<configuration>
     <input>
         <net-file value="${NETFILENAME}.net.xml"/>
     </input>
 </configuration>
 ```
 
+There are also some special values you can use here which aren't environment variables:
+
+- **${LOCALTIME}** refers to the local time when the configuration has been loaded
+- **${UTC}** same as **${LOCALTIME}** but in universal coordinated time
+- **${PID}** process id of the running application
+- **${SUMO_LOGO}** will be replaced ${SUMO_HOME}/data/logo/sumo-128x138.png (only if it is not set, useful for background images)
+- **~** will be replaced by ${HOME} (also see next item)
+- **${HOME}** on Windows will be replaced by ${USERPROFILE} (only if it is not set)
+
+The expansion of environment variables will not happen if you are only writing a new configuration.
+
 # Common Options
 
 The applications from the SUMO suite share several options. They are
 given in the following.
+
+## Configuration Options
+
+| Option | Description |
+|--------|-------------|
+| **-c** {{DT_FILE}}<br> **--configuration-file** {{DT_FILE}} | Loads the named config on startup |
+| **-C** {{DT_FILE}}<br> **--save-configuration** {{DT_FILE}} | Saves current configuration into FILE |
+| **--save-configuration.relative** {{DT_BOOL}} | Enforce relative paths when saving the configuration; *default:* **false** |
+| **--save-template** {{DT_FILE}} | Saves a configuration template (empty) into FILE |
+| **--save-schema** {{DT_FILE}} | Saves the configuration schema into FILE |
+| **--save-commented** {{DT_BOOL}} | Adds comments to saved template, configuration, or schema; *default:* **false** |
 
 ## Reporting Options
 
@@ -326,11 +359,21 @@ application.
 !!! note
     Multiple date sources (i.e. detector definitions) are permitted to write to the same output file.
 
+# Time values
+
+## Output
+By default, all time values written by sumo are in seconds. All applications and some python tools support the option **--human-readable-time** (short **-H**) which causes times in the output to be written as "HH:MM:SS" (hours, minutes second). Subsecond times will be written as "HH:MM:SS.SS". If the written time exceeds 24 hours, it will be written as "DD:HH:MM:SS" where DD is the number of days.
+
+Setting the option **--human-readable-time** also affects how some time values are formatted in sumo-gui dialogs (i.e. breakpoints).
+
+## Input
+All time values in options and xml input may always be given as seconds or in "HH:MM:SS" or "DD:HH:MM:SS" format.
+
 # Using Python tools from the Command Line
 
-Many [tools](../Tools.md) that are distributed by SUMO (in the
+Many [tools](../Tools/index.md) that are distributed by SUMO (in the
 {{SUMO}}/tools folder are written in the [python](https://www.python.org/)
-programming language. To use them, **python 2.7** must be [installed on your computer](https://www.python.org/downloads/).
+programming language. To use them, **Python 3.7 or later** must be [installed on your computer](https://www.python.org/downloads/).
 
 Then you need to make sure that the [environment variable *SUMO_HOME*](#additional_environment_variables) is set. The
 easiest way is to open the command-line window using

@@ -1,6 +1,5 @@
 ---
-title: Tools/Output
-permalink: /Tools/Output/
+title: Output
 ---
 
 All of the tools described below exist in *tools/output* directory.
@@ -186,6 +185,17 @@ Other attributes can be selected using option **--attribute** (e.g. 'routeLength
 Output is given as plain text on the command line or in xml format if
 option **--output** is set.
 
+## tripinfoByType.py
+
+Aggregates tripinfo data by vType and person stage type for the given attribute
+
+```
+python tripinfoByType.py -t tripinfos.xml -a timeLoss
+
+```
+
+Output is given as plain text on the command line or in xml format if option **--output** is set.
+
 ## attributeStats.py
 
 Computes statistics on an arbitrary numerical attribute in a flat xml
@@ -194,11 +204,13 @@ document. (eg. attribute *timeLoss* for element *tripinfo* in
 results to standard output. When the attribute contains time data in HH:MM:SS format, the values will automatically be converted to seconds.
 
 ```
-python tools/output/attributeStats --element tripinfo --attribute timeLoss
+python tools/output/attributeStats --element tripinfo --attribute timeLoss input.xml
 ```
 
 With option **--hist-output** {{DT_FILE}} a histogram data file (e.g. for plotting with gnuplot) is
 generated.
+
+It is also possible to give multiple files as input as a space separated list or via shell expenasion (i.e. `*.input.xml`)
 
 ## computeCoordination.py
 
@@ -211,3 +223,81 @@ python tools/output/computeCoordination.py --fcd-file fcd.xml --filter-route B
 This computes the fraction of vehicles that passed the edges *B,C,D,E* in order (possibly with gaps) and were delayed after passing edge *C* to less then 5m/s.
 
 With option **--full-output** {{DT_FILE}} Each vehicle that passed the corridor is recorded with entry time and the time at which it was delayed (-1 it it was not delayed).
+
+## tripStatistics.py
+
+This script is to calculate the global performance indices according to
+**SUMO-based** simulation results. The calculation functions are
+directly defined in this script. Basic statistics are delivered, such
+as:
+
+- average travel time (s)
+- average travel length (m)
+- average travel speed (m/s)
+- average departure delay (s)
+- average waiting time (s)
+
+Besides, this script is also to execute a significance test for
+evaluating the results from different assignment methods. The t test and
+the Kruskal-Wallis test are available in this script. If not specified,
+the Kruskal-Wallis test will be applied with the assumption that data
+are not normally distributed.
+
+In order to execute this script, the other two scripts, i.e.
+statisticsElements.py and tables.py, are required. They all should be in
+the same directory.
+
+In the statisticsElements.py, classes regarding vehicles, their
+performance measures, t values, H values as well as functions for
+outputs are defined. The chi-square table and the t table are defined in
+the tables.py.
+
+An exemplary command is shown below.
+
+```
+python tools/output/tripStatistics.py -t <tripinfo files> -o <output file> -e
+
+where -t: name of output files containing vehicle information, generated by SUMO
+      -o: define the output file name
+      -e: set true for applying the t test (default: false)
+      -k: set true for applying the Kruskal-Wallis test (default: false)
+```
+
+## computeStoppingPlaceUsage.py
+This tool reads stop-output and generates occupancy-over-time for stopping places (i.e. parkingArea).
+A distinct output file will be created for each stopping place.
+
+Example:
+```
+python tools/output/computeStoppingPlaceUsage.py -s stopinfos.xml
+```
+
+## computePassengerCounts.py
+This tool reads stop-output and generates occupancy-over-time for vehicles
+A distinct output file will be created for each vehicle.
+
+Example:
+```
+python tools/output/computePassengerCounts.py -s stopinfos.xml
+```
+
+## parkingSearchTraffic.py
+This tool reads [vehroute-output](../Simulation/Output/VehRoutes.md) with [exit-times](../Simulation/Output/VehRoutes.md#further_options) and generates statistics for the time and the distance vehicles
+spent on searching parking locations as well as the length of the walking way back.
+It evaluates the time and distance between the first reroute and the arrival at the final stop.
+It currently outputs only basic statistics (mean, avg, quartiles etc.).
+
+Example:
+```
+python tools/output/parkingSearchTraffic.py net.net.xml vehroutes.xml
+```
+
+
+## aggregateBatteryOutput.py
+
+Script for aggregate battery outputs in intervals.
+
+Example usage:
+```
+python tools\output\aggregateBatteryOutput.py -i battery.xml -o batteryAggregatedx.xml -t 60 -v veh0')
+```

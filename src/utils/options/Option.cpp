@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -43,24 +43,7 @@ Option::Option(bool set)
     : myAmSet(set), myHaveTheDefaultValue(true), myAmWritable(true) {}
 
 
-Option::Option(const Option& s)
-    : myAmSet(s.myAmSet), myHaveTheDefaultValue(s.myHaveTheDefaultValue),
-      myAmWritable(s.myAmWritable) {}
-
-
 Option::~Option() {}
-
-
-Option&
-Option::operator=(const Option& s) {
-    if (this == &s) {
-        return *this;
-    }
-    myAmSet = s.myAmSet;
-    myHaveTheDefaultValue = s.myHaveTheDefaultValue;
-    myAmWritable = s.myAmWritable;
-    return *this;
-}
 
 
 bool
@@ -98,25 +81,21 @@ Option::getIntVector() const {
     throw InvalidArgument("This is not an int vector-option");
 }
 
+
 const StringVector&
 Option::getStringVector() const {
     throw InvalidArgument("This is not a string vector-option");
 }
 
+
 bool
-Option::markSet() {
+Option::markSet(const std::string& orig) {
     bool ret = myAmWritable;
     myHaveTheDefaultValue = false;
     myAmSet = true;
     myAmWritable = false;
+    myValueString = orig;
     return ret;
-}
-
-
-void
-Option::unSet() {
-    myAmSet = false;
-    myAmWritable = true;
 }
 
 
@@ -174,34 +153,13 @@ Option::getTypeName() const {
 }
 
 
-
-
 /* -------------------------------------------------------------------------
  * Option_Integer - methods
  * ----------------------------------------------------------------------- */
 Option_Integer::Option_Integer(int value)
     : Option(true), myValue(value) {
     myTypeName = "INT";
-}
-
-
-Option_Integer::~Option_Integer() {}
-
-
-Option_Integer::Option_Integer(const Option_Integer& s)
-    : Option(s) {
-    myValue = s.myValue;
-}
-
-
-Option_Integer&
-Option_Integer::operator=(const Option_Integer& s) {
-    if (this == &s) {
-        return *this;
-    }
-    Option::operator=(s);
-    myValue = s.myValue;
-    return *this;
+    myValueString = toString(value);
 }
 
 
@@ -212,24 +170,15 @@ Option_Integer::getInt() const {
 
 
 bool
-Option_Integer::set(const std::string& v) {
+Option_Integer::set(const std::string& v, const std::string& orig, const bool /* append */) {
     try {
         myValue = StringUtils::toInt(v);
-        return markSet();
+        return markSet(orig);
     } catch (...) {
         std::string s = "'" + v + "' is not a valid integer.";
         throw ProcessError(s);
     }
 }
-
-
-std::string
-Option_Integer::getValueString() const {
-    std::ostringstream s;
-    s << myValue;
-    return s.str();
-}
-
 
 
 /* -------------------------------------------------------------------------
@@ -244,26 +193,7 @@ Option_String::Option_String()
 Option_String::Option_String(const std::string& value, std::string typeName)
     : Option(true), myValue(value) {
     myTypeName = typeName;
-}
-
-
-Option_String::~Option_String() {}
-
-
-Option_String::Option_String(const Option_String& s)
-    : Option(s) {
-    myValue = s.myValue;
-}
-
-
-Option_String&
-Option_String::operator=(const Option_String& s) {
-    if (this == &s) {
-        return *this;
-    }
-    Option::operator=(s);
-    myValue = s.myValue;
-    return *this;
+    myValueString = value;
 }
 
 
@@ -274,17 +204,10 @@ Option_String::getString() const {
 
 
 bool
-Option_String::set(const std::string& v) {
+Option_String::set(const std::string& v, const std::string& orig, const bool /* append */) {
     myValue = v;
-    return markSet();
+    return markSet(orig);
 }
-
-
-std::string
-Option_String::getValueString() const {
-    return myValue;
-}
-
 
 
 /* -------------------------------------------------------------------------
@@ -293,26 +216,9 @@ Option_String::getValueString() const {
 Option_Float::Option_Float(double value)
     : Option(true), myValue(value) {
     myTypeName = "FLOAT";
-}
-
-
-Option_Float::~Option_Float() {}
-
-
-Option_Float::Option_Float(const Option_Float& s)
-    : Option(s) {
-    myValue = s.myValue;
-}
-
-
-Option_Float&
-Option_Float::operator=(const Option_Float& s) {
-    if (this == &s) {
-        return *this;
-    }
-    Option::operator=(s);
-    myValue = s.myValue;
-    return *this;
+    std::ostringstream oss;
+    oss << value;
+    myValueString = oss.str();
 }
 
 
@@ -323,23 +229,14 @@ Option_Float::getFloat() const {
 
 
 bool
-Option_Float::set(const std::string& v) {
+Option_Float::set(const std::string& v, const std::string& orig, const bool /* append */) {
     try {
         myValue = StringUtils::toDouble(v);
-        return markSet();
+        return markSet(orig);
     } catch (...) {
         throw ProcessError("'" + v + "' is not a valid float.");
     }
 }
-
-
-std::string
-Option_Float::getValueString() const {
-    std::ostringstream s;
-    s << myValue;
-    return s.str();
-}
-
 
 
 /* -------------------------------------------------------------------------
@@ -348,26 +245,7 @@ Option_Float::getValueString() const {
 Option_Bool::Option_Bool(bool value)
     : Option(true), myValue(value) {
     myTypeName = "BOOL";
-}
-
-
-Option_Bool::~Option_Bool() {}
-
-
-Option_Bool::Option_Bool(const Option_Bool& s)
-    : Option(s) {
-    myValue = s.myValue;
-}
-
-
-Option_Bool&
-Option_Bool::operator=(const Option_Bool& s) {
-    if (this == &s) {
-        return *this;
-    }
-    Option::operator=(s);
-    myValue = s.myValue;
-    return *this;
+    myValueString = value ? "true" : "false";
 }
 
 
@@ -378,22 +256,13 @@ Option_Bool::getBool() const {
 
 
 bool
-Option_Bool::set(const std::string& v) {
+Option_Bool::set(const std::string& v, const std::string& orig, const bool /* append */) {
     try {
         myValue = StringUtils::toBool(v);
-        return markSet();
+        return markSet(orig);
     } catch (...) {
         throw ProcessError("'" + v + "' is not a valid bool.");
     }
-}
-
-
-std::string
-Option_Bool::getValueString() const {
-    if (myValue) {
-        return "true";
-    }
-    return "false";
 }
 
 
@@ -403,57 +272,28 @@ Option_Bool::isBool() const {
 }
 
 
-
 /* -------------------------------------------------------------------------
  * Option_BoolExtended - methods
  * ----------------------------------------------------------------------- */
 Option_BoolExtended::Option_BoolExtended(bool value)
-    : Option_Bool(value), myValueString(value ? "true" : "false") {
-}
-
-
-Option_BoolExtended::~Option_BoolExtended() {}
-
-
-Option_BoolExtended::Option_BoolExtended(const Option_BoolExtended& s)
-    : Option_Bool(s.myValue) {
-    myValueString = s.myValueString;
-}
-
-
-Option_BoolExtended&
-Option_BoolExtended::operator=(const Option_BoolExtended& s) {
-    if (this == &s) {
-        return *this;
-    }
-    Option::operator=(s);
-    myValue = s.myValue;
-    myValueString = s.myValueString;
-    return *this;
+    : Option_Bool(value) {
 }
 
 
 bool
-Option_BoolExtended::set(const std::string& v) {
+Option_BoolExtended::set(const std::string& v, const std::string& orig, const bool /* append */) {
     try {
         myValue = StringUtils::toBool(v);
-        myValueString = "";
+        return markSet("");
     } catch (...) {
         myValue = true;
-        myValueString = v;
     }
-    return markSet();
-}
-
-
-std::string
-Option_BoolExtended::getValueString() const {
-    return myValueString;
+    return markSet(orig);
 }
 
 
 /* -------------------------------------------------------------------------
- * Option_UIntVector - methods
+ * Option_IntVector - methods
  * ----------------------------------------------------------------------- */
 Option_IntVector::Option_IntVector()
     : Option() {
@@ -464,21 +304,7 @@ Option_IntVector::Option_IntVector()
 Option_IntVector::Option_IntVector(const IntVector& value)
     : Option(true), myValue(value) {
     myTypeName = "INT[]";
-}
-
-
-Option_IntVector::Option_IntVector(const Option_IntVector& s)
-    : Option(s), myValue(s.myValue) {}
-
-
-Option_IntVector::~Option_IntVector() {}
-
-
-Option_IntVector&
-Option_IntVector::operator=(const Option_IntVector& s) {
-    Option::operator=(s);
-    myValue = s.myValue;
-    return (*this);
+    myValueString = joinToString(value, ",");
 }
 
 
@@ -489,8 +315,10 @@ Option_IntVector::getIntVector() const {
 
 
 bool
-Option_IntVector::set(const std::string& v) {
-    myValue.clear();
+Option_IntVector::set(const std::string& v, const std::string& orig, const bool append) {
+    if (!append) {
+        myValue.clear();
+    }
     try {
         if (v.find(';') != std::string::npos) {
             WRITE_WARNING("Please note that using ';' as list separator is deprecated and not accepted anymore.");
@@ -499,18 +327,12 @@ Option_IntVector::set(const std::string& v) {
         while (st.hasNext()) {
             myValue.push_back(StringUtils::toInt(st.next()));
         }
-        return markSet();
+        return markSet(orig);
     } catch (EmptyData&) {
         throw ProcessError("Empty element occurred in " + v);
     } catch (...) {
         throw ProcessError("'" + v + "' is not a valid integer vector.");
     }
-}
-
-
-std::string
-Option_IntVector::getValueString() const {
-    return joinToString(myValue, ',');
 }
 
 
@@ -521,50 +343,30 @@ Option_StringVector::Option_StringVector() : Option() {
     myTypeName = "STR[]";
 }
 
+
 Option_StringVector::Option_StringVector(const StringVector& value)
     : Option(true), myValue(value) {
     myTypeName = "STR[]";
+    myValueString = joinToString(value, ",");
 }
 
-Option_StringVector::Option_StringVector(const Option_StringVector& s)
-    : Option(s), myValue(s.myValue) {}
-
-Option_StringVector::~Option_StringVector() {}
-
-Option_StringVector&
-Option_StringVector::operator=(const Option_StringVector& s) {
-    Option::operator=(s);
-    myValue = s.myValue;
-    return (*this);
-}
 
 const StringVector&
 Option_StringVector::getStringVector() const {
     return myValue;
 }
 
-bool
-Option_StringVector::set(const std::string& v) {
-    myValue.clear();
-    try {
-        if (v.find(';') != std::string::npos) {
-            WRITE_WARNING("Please note that using ';' as list separator is deprecated and not accepted anymore.");
-        }
-        StringTokenizer st(v, ",", true);
-        while (st.hasNext()) {
-            myValue.push_back(StringUtils::prune(st.next()));
-        }
-        return markSet();
-    } catch (EmptyData&) {
-        throw ProcessError("Empty element occurred in " + v);
-    } catch (...) {
-        throw ProcessError("'" + v + "' is not a valid string vector.");
-    }
-}
 
-std::string
-Option_StringVector::getValueString() const {
-    return joinToString(myValue, ',');
+bool
+Option_StringVector::set(const std::string& v, const std::string& orig, const bool append) {
+    if (!append) {
+        myValue.clear();
+    }
+    StringTokenizer st(v, ",");
+    while (st.hasNext()) {
+        myValue.push_back(StringUtils::prune(st.next()));
+    }
+    return markSet(append && getValueString() != "" ? getValueString() + "," + orig : orig);
 }
 
 
@@ -575,32 +377,21 @@ Option_FileName::Option_FileName() : Option_StringVector() {
     myTypeName = "FILE";
 }
 
+
 Option_FileName::Option_FileName(const StringVector& value)
     : Option_StringVector(value) {
     myTypeName = "FILE";
 }
 
-Option_FileName::Option_FileName(const Option_FileName& s)
-    : Option_StringVector(s) {}
-
-Option_FileName::~Option_FileName() {}
-
-Option_FileName& Option_FileName::operator=(const Option_FileName& s) {
-    Option_StringVector::operator=(s);
-    return (*this);
-}
 
 bool Option_FileName::isFileName() const {
     return true;
 }
 
+
 std::string
 Option_FileName::getString() const {
-    return Option_StringVector::getValueString();
-}
-
-std::string Option_FileName::getValueString() const {
-    return StringUtils::urlEncode(Option_StringVector::getValueString(), " ;%");
+    return joinToString(getStringVector(), ",");
 }
 
 

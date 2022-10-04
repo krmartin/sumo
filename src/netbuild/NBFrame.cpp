@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -62,6 +62,10 @@ NBFrame::fillOptions(bool forNetgen) {
     oc.addSynonyme("default.speed", "speed", true);
     oc.addDescription("default.speed", "Building Defaults", "The default speed on an edge (in m/s)");
 
+    oc.doRegister("default.friction", new Option_Float(NBEdge::UNSPECIFIED_FRICTION));
+    oc.addSynonyme("default.friction", "friction", true);
+    oc.addDescription("default.friction", "Building Defaults", "The default friction on an edge");
+
     oc.doRegister("default.priority", 'P', new Option_Integer(-1));
     oc.addSynonyme("default.priority", "priority", true);
     oc.addDescription("default.priority", "Building Defaults", "The default priority of an edge");
@@ -77,6 +81,9 @@ NBFrame::fillOptions(bool forNetgen) {
 
     oc.doRegister("default.crossing-width", new Option_Float((double) 4.0));
     oc.addDescription("default.crossing-width", "Building Defaults", "The default width of a pedestrian crossing");
+
+    oc.doRegister("default.allow", new Option_String());
+    oc.addDescription("default.allow", "Building Defaults", "The default for allowed vehicle classes");
 
     oc.doRegister("default.disallow", new Option_String());
     oc.addDescription("default.disallow", "Building Defaults", "The default for disallowed vehicle classes");
@@ -140,33 +147,38 @@ NBFrame::fillOptions(bool forNetgen) {
     oc.doRegister("no-left-connections", new Option_Bool(false));
     oc.addDescription("no-left-connections", "Junctions", "Disables building connections to left");
 
+    oc.doRegister("geometry.split", new Option_Bool(false)); // !!!not described
+    oc.addSynonyme("geometry.split", "split-geometry", true);
+    oc.addDescription("geometry.split", "Processing", "Splits edges across geometry nodes");
+
+    oc.doRegister("geometry.remove", 'R', new Option_Bool(false));
+    oc.addSynonyme("geometry.remove", "remove-geometry", true);
+    oc.addDescription("geometry.remove", "Processing", "Replace nodes which only define edge geometry by geometry points (joins edges)");
+
+    oc.doRegister("geometry.remove.keep-edges.explicit", new Option_StringVector());
+    oc.addDescription("geometry.remove.keep-edges.explicit", "Processing", "Ensure that the given list of edges is not modified");
+
+    oc.doRegister("geometry.remove.keep-edges.input-file", new Option_FileName());
+    oc.addDescription("geometry.remove.keep-edges.input-file", "Processing",
+            "Ensure that the edges in FILE are not modified (Each id on a single line. Selection files from sumo-gui are also supported)");
+
     if (!forNetgen) {
-        oc.doRegister("geometry.split", new Option_Bool(false)); // !!!not described
-        oc.addSynonyme("geometry.split", "split-geometry", true);
-        oc.addDescription("geometry.split", "Processing", "Splits edges across geometry nodes");
+        oc.doRegister("geometry.remove.keep-ptstops", new Option_Bool(false));
+        oc.addDescription("geometry.remove.keep-ptstops", "Processing", "Ensure that edges with public transport stops are not modified");
+    }
 
-        oc.doRegister("geometry.remove", 'R', new Option_Bool(false));
-        oc.addSynonyme("geometry.remove", "remove-geometry", true);
-        oc.addDescription("geometry.remove", "Processing", "Replace nodes which only define edge geometry by geometry points (joins edges)");
+    oc.doRegister("geometry.remove.min-length", new Option_Float(0));
+    oc.addDescription("geometry.remove.min-length", "Processing",
+            "Allow merging edges with differing attributes when their length is below min-length");
 
-        oc.doRegister("geometry.remove.keep-edges.explicit", new Option_StringVector());
-        oc.addDescription("geometry.remove.keep-edges.explicit", "Processing", "Ensure that the given list of edges is not modified");
+    oc.doRegister("geometry.remove.width-tolerance", new Option_Float(0));
+    oc.addDescription("geometry.remove.width-tolerance", "Processing",
+            "Allow merging edges with differing lane widths if the difference is below FLOAT");
 
-        oc.doRegister("geometry.remove.keep-edges.input-file", new Option_FileName());
-        oc.addDescription("geometry.remove.keep-edges.input-file", "Processing",
-                          "Ensure that the edges in FILE are not modified (Each id on a single line. Selection files from sumo-gui are also supported)");
+    oc.doRegister("geometry.max-segment-length", new Option_Float(0));
+    oc.addDescription("geometry.max-segment-length", "Processing", "splits geometry to restrict segment length");
 
-        oc.doRegister("geometry.remove.min-length", new Option_Float(0));
-        oc.addDescription("geometry.remove.min-length", "Processing",
-                          "Allow merging edges with differing attributes when their length is below min-length");
-
-        oc.doRegister("geometry.remove.width-tolerance", new Option_Float(0));
-        oc.addDescription("geometry.remove.width-tolerance", "Processing",
-                          "Allow merging edges with differing lane widths if the difference is below FLOAT");
-
-        oc.doRegister("geometry.max-segment-length", new Option_Float(0));
-        oc.addDescription("geometry.max-segment-length", "Processing", "splits geometry to restrict segment length");
-
+    if (!forNetgen) {
         oc.doRegister("geometry.min-dist", new Option_Float(-1));
         oc.addDescription("geometry.min-dist", "Processing", "reduces too similar geometry points");
 
@@ -208,7 +220,7 @@ NBFrame::fillOptions(bool forNetgen) {
         oc.addDescription("railway.topology.repair.minimal", "Railway", "Repair topology of the railway network just enough to let loaded public transport lines to work");
 
         oc.doRegister("railway.topology.repair.connect-straight", new Option_Bool(false));
-        oc.addDescription("railway.topology.repair.connect-straight", "Railway", "Allow bidiretional rail use wherever rails with opposite directions meet at a straight angle");
+        oc.addDescription("railway.topology.repair.connect-straight", "Railway", "Allow bidirectional rail use wherever rails with opposite directions meet at a straight angle");
 
         oc.doRegister("railway.topology.repair.stop-turn", new Option_Bool(false));
         oc.addDescription("railway.topology.repair.stop-turn", "Railway", "Add turn-around connections at all loaded stops.");
@@ -222,12 +234,15 @@ NBFrame::fillOptions(bool forNetgen) {
         oc.doRegister("railway.topology.direction-priority", new Option_Bool(false));
         oc.addDescription("railway.topology.direction-priority", "Railway", "Set edge priority values based on estimated main direction");
 
+        oc.doRegister("railway.topology.extend-priority", new Option_Bool(false));
+        oc.addDescription("railway.topology.extend-priority", "Railway", "Extend loaded edge priority values based on estimated main direction");
+
         oc.doRegister("railway.access-distance", new Option_Float(150.f));
         oc.addDescription("railway.access-distance", "Railway", "The search radius for finding suitable road accesses for rail stops");
         oc.addSynonyme("railway.access-distance", "osm.stop-output.footway-access-distance", true);
 
         oc.doRegister("railway.max-accesses", new Option_Integer(5));
-        oc.addDescription("railway.max-accesses", "Railway", "The maximum roud accesses registered per rail stops");
+        oc.addDescription("railway.max-accesses", "Railway", "The maximum road accesses registered per rail stops");
         oc.addSynonyme("railway.max-accesses", "osm.stop-output.footway-max-accesses", true);
 
         oc.doRegister("railway.access-factor", new Option_Float(1.5));
@@ -273,11 +288,14 @@ NBFrame::fillOptions(bool forNetgen) {
     oc.doRegister("opposites.guess", new Option_Bool(false));
     oc.addDescription("opposites.guess", "Processing", "Enable guessing of opposite direction lanes usable for overtaking");
 
-    oc.doRegister("opposites.guess.fix-lengths", new Option_Bool(false));
+    oc.doRegister("opposites.guess.fix-lengths", new Option_Bool(true));
     oc.addDescription("opposites.guess.fix-lengths", "Processing", "Ensure that opposite edges have the same length");
 
     oc.doRegister("fringe.guess", new Option_Bool(false));
     oc.addDescription("fringe.guess", "Processing", "Enable guessing of network fringe nodes");
+
+    oc.doRegister("fringe.guess.speed-threshold", new Option_Float(50 / 3.6));
+    oc.addDescription("fringe.guess.speed-threshold", "Processing", "Guess disconnected edges above the given speed as outer fringe");
 
     oc.doRegister("lefthand", new Option_Bool(false));
     oc.addDescription("lefthand", "Processing", "Assumes left-hand traffic on the network");
@@ -297,11 +315,16 @@ NBFrame::fillOptions(bool forNetgen) {
     if (!forNetgen) {
         oc.doRegister("junctions.join-exclude", new Option_StringVector());
         oc.addDescription("junctions.join-exclude", "Junctions", "Interprets STR[] as list of junctions to exclude from joining");
+    }
 
-        oc.doRegister("junctions.join-same", new Option_Bool(false));
-        oc.addDescription("junctions.join-same", "Junctions",
-                          "Joins junctions that have the same coordinates even if not connected");
+    oc.doRegister("junctions.join-same", new Option_Bool(false));
+    oc.addDescription("junctions.join-same", "Junctions",
+                      "Joins junctions that have the same coordinates even if not connected");
 
+    oc.doRegister("max-join-ids", new Option_Integer(4));
+    oc.addDescription("max-join-ids", "Junctions", "Abbreviate junction or TLS id if it joins more than INT junctions");
+
+    if (!forNetgen) {
         oc.doRegister("speed.offset", new Option_Float(0));
         oc.addDescription("speed.offset", "Processing", "Modifies all edge speeds by adding FLOAT");
 
@@ -353,6 +376,14 @@ NBFrame::fillOptions(bool forNetgen) {
     oc.doRegister("junctions.small-radius", new Option_Float(1.5));
     oc.addDescription("junctions.small-radius", "Junctions",
                       "Default radius for junctions that do not require wide vehicle turns");
+
+    oc.doRegister("junctions.higher-speed", new Option_Bool(false));
+    oc.addDescription("junctions.higher-speed", "Junctions",
+                      "Use maximum value of incoming and outgoing edge speed on junction instead of average");
+
+    oc.doRegister("internal-junctions.vehicle-width", new Option_Float(1.8));
+    oc.addDescription("internal-junctions.vehicle-width", "Junctions",
+                      "Assumed vehicle width for computing internal junction positions");
 
     oc.doRegister("rectangular-lane-cut", new Option_Bool(false));
     oc.addDescription("rectangular-lane-cut", "Junctions", "Forces rectangular cuts between lanes and intersections");
@@ -503,6 +534,15 @@ NBFrame::fillOptions(bool forNetgen) {
 
     oc.doRegister("tls.left-green.time", new Option_Integer(6));
     oc.addDescription("tls.left-green.time", "TLS Building", "Use INT as green phase duration for left turns (s). Setting this value to 0 disables additional left-turning phases");
+
+    oc.doRegister("tls.nema.vehExt", new Option_Integer(2));
+    oc.addDescription("tls.nema.vehExt", "TLS Building", "Set INT as fixed time for intermediate vehext phase after every switch");
+
+    oc.doRegister("tls.nema.yellow", new Option_Integer(3));
+    oc.addDescription("tls.nema.yellow", "TLS Building", "Set INT as fixed time for intermediate NEMA yelow phase after every switch");
+
+    oc.doRegister("tls.nema.red", new Option_Integer(2));
+    oc.addDescription("tls.nema.red", "TLS Building", "Set INT as fixed time for intermediate NEMA red phase after every switch");
 
     oc.doRegister("tls.crossing-min.time", new Option_Integer(4));
     oc.addDescription("tls.crossing-min.time", "TLS Building", "Use INT as minimum green duration for pedestrian crossings (s).");
@@ -674,23 +714,34 @@ NBFrame::checkOptions() {
         WRITE_ERROR("only one of the options 'tls.green.time' or 'tls.cycle.time' may be given");
         ok = false;
     }
+    if (oc.getInt("default.lanenumber") < 1) {
+        WRITE_ERROR("default.lanenumber must be at least 1");
+        ok = false;
+    }
+    if (!oc.isDefault("default.lanewidth") && oc.getFloat("default.lanewidth") < POSITION_EPS) {
+        WRITE_ERROR("default.lanewidth must be at least " + toString(POSITION_EPS));
+        ok = false;
+    }
+    if (!oc.isDefault("default.disallow") && !oc.isDefault("default.allow")) {
+        WRITE_ERROR("only one of the options 'default.disallow' or 'default.allow' may be given");
+        ok = false;
+    }
     if (oc.getInt("junctions.internal-link-detail") < 2) {
         WRITE_ERROR("junctions.internal-link-detail must >= 2");
         ok = false;
     }
     if (oc.getFloat("junctions.scurve-stretch") > 0) {
         if (oc.getBool("no-internal-links")) {
-            WRITE_WARNING("option 'junctions.scurve-stretch' requires internal lanes to work. Option '--no-internal-links' was disabled.");
+            WRITE_WARNING("Option 'junctions.scurve-stretch' requires internal lanes to work. Option '--no-internal-links' will be disabled.");
         }
         // make sure the option is set so heuristics cannot ignore it
         oc.set("no-internal-links", "false");
     }
     if (oc.getFloat("junctions.small-radius") > oc.getFloat("default.junctions.radius") && oc.getFloat("default.junctions.radius") >= 0) {
         if (!oc.isDefault("junctions.small-radius")) {
-            WRITE_ERROR("option 'default.junctions.radius' cannot be smaller than option 'junctions.small-radius'");
-            ok = false;
+            WRITE_WARNING("option 'default.junctions.radius' is smaller than option 'junctions.small-radius'");
         } else {
-            oc.set("junctions.small-radius", oc.getValueString("default.junctions.radius"));
+            oc.setDefault("junctions.small-radius", oc.getValueString("default.junctions.radius"));
         }
     }
     if (oc.getString("tls.layout") != "opposites"
@@ -709,16 +760,16 @@ NBFrame::checkOptions() {
         ok = false;
     }
     if (oc.isDefault("railway.topology.repair") && oc.getBool("railway.topology.repair.connect-straight")) {
-        oc.set("railway.topology.repair", "true");
+        oc.setDefault("railway.topology.repair", "true");
     }
     if (oc.isDefault("railway.topology.repair") && oc.getBool("railway.topology.repair.minimal")) {
-        oc.set("railway.topology.repair", "true");
+        oc.setDefault("railway.topology.repair", "true");
     }
     if (oc.isDefault("railway.topology.all-bidi") && !oc.isDefault("railway.topology.all-bidi.input-file")) {
-        oc.set("railway.topology.all-bidi", "true");
+        oc.setDefault("railway.topology.all-bidi", "true");
     }
     if (oc.isDefault("railway.topology.repair.stop-turn") && !oc.isDefault("railway.topology.repair")) {
-        oc.set("railway.topology.repair.stop-turn", "true");
+        oc.setDefault("railway.topology.repair.stop-turn", "true");
     }
     if (!SUMOXMLDefinitions::LaneSpreadFunctions.hasString(oc.getString("default.spreadtype"))) {
         WRITE_ERROR("Unknown value for default.spreadtype '" + oc.getString("default.spreadtype") + "'.");

@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -157,7 +157,7 @@ PCLoaderDlrNavteq::loadPOIFile(const std::string& file,
             color = c;
         }
         if (!discard) {
-            PointOfInterest* poi = new PointOfInterest(name, type, color, pos, false, "", 0, 0, layer);
+            PointOfInterest* poi = new PointOfInterest(name, type, color, pos, false, "", 0, false, 0, layer);
             toFill.add(poi, OptionsCont::getOptions().isInStringVector("prune.keep-list", name));
         }
     }

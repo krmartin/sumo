@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -23,7 +23,7 @@
 #include <config.h>
 
 #include <vector>
-#include <fx.h>
+#include <utils/foxtools/fxheader.h>
 #include <utils/geom/Position.h>
 
 
@@ -53,6 +53,12 @@ public:
      * @param[in] o The object of interest
      */
     GUIGLObjectPopupMenu(GUIMainWindow& app, GUISUMOAbstractView& parent, GUIGlObject& o);
+
+    /** @brief Constructor
+     * @param[in] app The main window for instantiation of other windows
+     * @param[in] parent The parent view for changing it
+     */
+    GUIGLObjectPopupMenu(GUIMainWindow* app, GUISUMOAbstractView* parent);
 
     /// @brief Destructor
     virtual ~GUIGLObjectPopupMenu();
@@ -85,6 +91,9 @@ public:
     /// @brief Called if the cursor geo-position shall be copied to clipboard
     long onCmdCopyCursorGeoPosition(FXObject*, FXSelector, void*);
 
+    /// @brief Called if the cursor geo-position shall be shown online
+    long onCmdShowCursorGeoPositionOnline(FXObject*, FXSelector, void*);
+
     /// @brief Called if the parameter of this object shall be shown
     long onCmdShowPars(FXObject*, FXSelector, void*);
 
@@ -100,6 +109,7 @@ public:
     /// @}
 
 protected:
+    /// @brief FOX needs this
     FOX_CONSTRUCTOR(GUIGLObjectPopupMenu)
 
     /// @brief The parent window
@@ -112,7 +122,7 @@ protected:
     GUIMainWindow* myApplication;
 
     /// @brief The position within the network the cursor was above when instanting the popup
-    Position myNetworkPosition;
+    const Position myNetworkPosition;
 
     /// @brief vector mit Sub-MenuPanes
     std::vector<FXMenuPane*> myMenuPanes;

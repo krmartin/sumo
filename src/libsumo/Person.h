@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -18,29 +18,19 @@
 // C++ TraCI client API implementation
 /****************************************************************************/
 #pragma once
-#include <config.h>
-
 #include <vector>
 #include <libsumo/TraCIDefs.h>
 #include <libsumo/VehicleType.h>
-#ifndef LIBTRACI
-#include <microsim/transportables/MSTransportable.h>
-#endif
 
 
 // ===========================================================================
 // class declarations
 // ===========================================================================
-#ifdef LIBTRACI
-namespace tcpip {
-class Storage;
-}
-#else
+#ifndef LIBTRACI
 class MSPerson;
+class MSStage;
+struct Reservation;
 class PositionVector;
-namespace libsumo {
-class VariableWrapper;
-}
 #endif
 
 
@@ -70,7 +60,8 @@ public:
     static double getSlope(const std::string& personID);
     static double getLanePosition(const std::string& personID);
 
-    static std::vector<libsumo::TraCIReservation> getTaxiReservations(int onlyNew = false);
+    static std::vector<libsumo::TraCIReservation> getTaxiReservations(int stateFilter = 0);
+    static std::string splitTaxiReservation(std::string reservationID, const std::vector<std::string>& personIDs);
 
     LIBSUMO_ID_PARAMETER_API
     LIBSUMO_VEHICLE_TYPE_GETTER
@@ -83,8 +74,9 @@ public:
     static void appendDrivingStage(const std::string& personID, const std::string& toEdge, const std::string& lines, const std::string& stopID = "");
     static void removeStage(const std::string& personID, int nextStageIndex);
     static void rerouteTraveltime(const std::string& personID);
-    static void moveTo(const std::string& personID, const std::string& edgeID, double position);
-    static void moveToXY(const std::string& personID, const std::string& edgeID, const double x, const double y, double angle = libsumo::INVALID_DOUBLE_VALUE, const int keepRoute = 1);
+    static void moveTo(const std::string& personID, const std::string& laneID, double pos, double posLat = libsumo::INVALID_DOUBLE_VALUE);
+    static void moveToXY(const std::string& personID, const std::string& edgeID, const double x, const double y, double angle = libsumo::INVALID_DOUBLE_VALUE, const int keepRoute = 1, double matchThreshold = 100);
+    static void remove(const std::string& personID, char reason = libsumo::REMOVE_VAPORIZED);
     static void setSpeed(const std::string& personID, double speed);
     static void setType(const std::string& personID, const std::string& typeID);
 
@@ -95,6 +87,7 @@ public:
 #ifdef LIBTRACI
     static void writeStage(const libsumo::TraCIStage& stage, tcpip::Storage& content);
 #else
+#ifndef SWIG
     /** @brief Saves the shape of the requested object in the given container
      *  @param id The id of the poi to retrieve
      *  @param shape The container to fill
@@ -103,15 +96,27 @@ public:
 
     static std::shared_ptr<VariableWrapper> makeWrapper();
 
-    static bool handleVariable(const std::string& objID, const int variable, VariableWrapper* wrapper);
+    static bool handleVariable(const std::string& objID, const int variable, VariableWrapper* wrapper, tcpip::Storage* paramData);
 
 private:
     static MSPerson* getPerson(const std::string& id);
     static MSStage* convertTraCIStage(const TraCIStage& stage, const std::string personID);
+    static bool filterReservation(int stateFilter, const Reservation* res, std::vector<libsumo::TraCIReservation>& reservations);
+
+    /// @brief clase for CW Sorter
+    class reservation_by_id_sorter {
+    public:
+        /// @brief constructor
+        reservation_by_id_sorter() {};
+
+        /// @brief comparing operation for sort
+        int operator()(const TraCIReservation& r1, const TraCIReservation& r2) const;
+    };
 
 private:
     static SubscriptionResults mySubscriptionResults;
     static ContextSubscriptionResults myContextSubscriptionResults;
+#endif
 #endif
 
 private:

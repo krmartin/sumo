@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -22,8 +22,11 @@
 
 #include <iostream>
 #include <fstream>
+#ifdef HAVE_ZLIB
+#include <foreign/zstr/zstr.hpp>
+#endif
 #ifdef HAVE_FOX
-#include <utils/foxtools/FXWorkerThread.h>
+#include <utils/foxtools/MFXWorkerThread.h>
 #endif
 #include <utils/router/ReversedEdge.h>
 
@@ -55,6 +58,8 @@
 template<class E, class V>
 class AbstractLookupTable {
 public:
+    virtual ~AbstractLookupTable() {}
+
     /// @brief provide a lower bound on the distance between from and to (excluding traveltime of both edges)
     virtual double lowerBound(const E* from, const E* to, double speed, double speedFactor, double fromEffort, double toEffort) const = 0;
 
@@ -110,16 +115,13 @@ public:
                 numericID[e->getID()] = e->getNumericalID() - myFirstNonInternal;
             }
         }
+#ifdef HAVE_ZLIB
+        zstr::ifstream strm(filename.c_str(), std::fstream::in | std::fstream::binary);
+#else
         std::ifstream strm(filename.c_str());
+#endif
         if (!strm.good()) {
             throw ProcessError("Could not load landmark-lookup-table from '" + filename + "'.");
-        }
-        std::ofstream* ostrm = nullptr;
-        if (!outfile.empty()) {
-            ostrm = new std::ofstream(outfile.c_str());
-            if (!ostrm->good()) {
-                throw ProcessError("Could not open file '" + outfile + "' for writing.");
-            }
         }
         std::string line;
         int numLandMarks = 0;
@@ -134,11 +136,8 @@ public:
                 myLandmarks[lm] = numLandMarks++;
                 myFromLandmarkDists.push_back(std::vector<double>(0));
                 myToLandmarkDists.push_back(std::vector<double>(0));
-                if (ostrm != nullptr) {
-                    (*ostrm) << lm << "\n";
-                }
-            } else {
-                assert(st.size() == 4);
+            } else if (st.size() == 4) {
+                // legacy style landmark table
                 const std::string lm = st.get(0);
                 const std::string edge = st.get(1);
                 if (numericID[edge] != (int)myFromLandmarkDists[myLandmarks[lm]].size()) {
@@ -148,19 +147,30 @@ public:
                 const double distTo = StringUtils::toDouble(st.get(3));
                 myFromLandmarkDists[myLandmarks[lm]].push_back(distFrom);
                 myToLandmarkDists[myLandmarks[lm]].push_back(distTo);
+            } else {
+                assert((int)st.size() == 2 * numLandMarks + 1);
+                const std::string edge = st.get(0);
+                if (numericID[edge] != (int)myFromLandmarkDists[0].size()) {
+                    WRITE_WARNING("Unknown or unordered edge '" + edge + "' in landmark file.");
+                }
+                for (int i = 0; i < numLandMarks; i++) {
+                    const double distFrom = StringUtils::toDouble(st.get(2 * i + 1));
+                    const double distTo = StringUtils::toDouble(st.get(2 * i + 2));
+                    myFromLandmarkDists[i].push_back(distFrom);
+                    myToLandmarkDists[i].push_back(distTo);
+                }
             }
         }
         if (myLandmarks.empty()) {
             WRITE_WARNING("No landmarks in '" + filename + "', falling back to standard A*.");
-            delete ostrm;
             return;
         }
 #ifdef HAVE_FOX
-        FXWorkerThread::Pool threadPool;
+        MFXWorkerThread::Pool threadPool;
         std::vector<RoutingTask*> currentTasks;
 #endif
         std::vector<const E*> landmarks;
-        for (int i = 0; i < (int)myLandmarks.size(); ++i) {
+        for (int i = 0; i < numLandMarks; ++i) {
             if ((int)myFromLandmarkDists[i].size() != (int)edges.size() - myFirstNonInternal) {
                 const std::string landmarkID = getLandmark(i);
                 const E* landmark = nullptr;
@@ -173,20 +183,17 @@ public:
                     }
                 }
                 if (landmark == nullptr) {
-                    WRITE_WARNING("Landmark '" + landmarkID + "' does not exist in the network.");
+                    WRITE_WARNING("Landmark edge '" + landmarkID + "' does not exist in the network.");
                     continue;
                 }
-                if (router != nullptr) {
-                    const std::string missing = outfile.empty() ? filename + ".missing" : outfile;
-                    WRITE_WARNING("Not all network edges were found in the lookup table '" + filename + "' for landmark '" + landmarkID + "'. Saving missing values to '" + missing + "'.");
-                    if (ostrm == nullptr) {
-                        ostrm = new std::ofstream(missing.c_str());
-                        if (!ostrm->good()) {
-                            throw ProcessError("Could not open file '" + missing + "' for writing.");
-                        }
-                    }
+                if (!outfile.empty()) {
+                    WRITE_WARNING("Not all network edges were found in the lookup table '" + filename + "' for landmark edge '" + landmarkID + "'. Saving new matrix to '" + outfile + "'.");
                 } else {
-                    throw ProcessError("Not all network edges were found in the lookup table '" + filename + "' for landmark '" + landmarkID + "'.");
+                    if (myFromLandmarkDists[i].empty()) {
+                        WRITE_WARNING("No lookup table for landmark edge '" + landmarkID + "', recalculating.");
+                    } else {
+                        throw ProcessError("Not all network edges were found in the lookup table '" + filename + "' for landmark edge '" + landmarkID + "'.");
+                    }
                 }
 #ifdef HAVE_FOX
                 if (maxNumThreads > 0) {
@@ -215,6 +222,8 @@ public:
                         }
                     }
                 }
+#else
+                UNUSED_PARAMETER(reverseRouter);
 #endif
             }
         }
@@ -222,7 +231,7 @@ public:
         threadPool.waitAll(false);
         int taskIndex = 0;
 #endif
-        for (int i = 0; i < (int)myLandmarks.size(); ++i) {
+        for (int i = 0; i < numLandMarks; ++i) {
             if ((int)myFromLandmarkDists[i].size() != (int)edges.size() - myFirstNonInternal) {
                 const E* landmark = landmarks[i];
                 const double lmCost = router->recomputeCosts({landmark}, defaultVehicle, 0);
@@ -262,11 +271,36 @@ public:
                     }
                     myFromLandmarkDists[i].push_back(distFrom);
                     myToLandmarkDists[i].push_back(distTo);
-                    (*ostrm) << landmark->getID() << " " << edge->getID() << " " << distFrom << " " << distTo << "\n";
                 }
             }
         }
-        delete ostrm;
+        if (!outfile.empty()) {
+            std::ostream* ostrm = nullptr;
+#ifdef HAVE_ZLIB
+            if (StringUtils::endsWith(outfile, ".gz")) {
+                ostrm = new zstr::ofstream(outfile.c_str(), std::ios_base::out);
+            } else {
+#endif
+                ostrm = new std::ofstream(outfile.c_str());
+#ifdef HAVE_ZLIB
+            }
+#endif
+            if (!ostrm->good()) {
+                delete ostrm;
+                throw ProcessError("Could not open file '" + outfile + "' for writing.");
+            }
+            for (int i = 0; i < numLandMarks; ++i) {
+                (*ostrm) << getLandmark(i) << "\n";
+            }
+            for (int j = 0; j < (int)myFromLandmarkDists[0].size(); ++j) {
+                (*ostrm) << edges[j + myFirstNonInternal]->getID();
+                for (int i = 0; i < numLandMarks; ++i) {
+                    (*ostrm) << " " << myFromLandmarkDists[i][j] << " " << myToLandmarkDists[i][j];
+                }
+                (*ostrm) << "\n";
+            }
+            delete ostrm;
+        }
     }
 
     virtual ~LandmarkLookupTable() {
@@ -332,12 +366,12 @@ private:
 
 #ifdef HAVE_FOX
 private:
-    class WorkerThread : public FXWorkerThread {
+    class WorkerThread : public MFXWorkerThread {
     public:
-        WorkerThread(FXWorkerThread::Pool& pool,
+        WorkerThread(MFXWorkerThread::Pool& pool,
                      SUMOAbstractRouter<E, V>* router,
                      SUMOAbstractRouter<ReversedEdge<E, V>, V>* reverseRouter, const V* vehicle)
-            : FXWorkerThread(pool), myRouter(router), myReversedRouter(reverseRouter), myVehicle(vehicle) {}
+            : MFXWorkerThread(pool), myRouter(router), myReversedRouter(reverseRouter), myVehicle(vehicle) {}
 
         virtual ~WorkerThread() {
             delete myRouter;
@@ -372,11 +406,11 @@ private:
         std::vector<const ReversedEdge<E, V>*> myReversedRoute;
     };
 
-    class RoutingTask : public FXWorkerThread::Task {
+    class RoutingTask : public MFXWorkerThread::Task {
     public:
         RoutingTask(const E* src, const E* dest, const double costOff)
             : mySrc(src), myDest(dest), myCostOff(-costOff) {}
-        void run(FXWorkerThread* context) {
+        void run(MFXWorkerThread* context) {
             myCost = ((WorkerThread*)context)->compute(mySrc, myDest, myCostOff);
         }
         double getFromCost() {

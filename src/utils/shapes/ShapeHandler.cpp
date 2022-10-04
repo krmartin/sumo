@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -75,7 +75,7 @@ ShapeHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) {
                 if (myLastParameterised != nullptr) {
                     bool ok = true;
                     const std::string key = attrs.get<std::string>(SUMO_ATTR_KEY, nullptr, ok);
-                    // continue if key awas sucesfully loaded
+                    // continue if key was successfully loaded
                     if (ok) {
                         // circumventing empty string value
                         const std::string val = attrs.hasAttribute(SUMO_ATTR_VALUE) ? attrs.getString(SUMO_ATTR_VALUE) : "";
@@ -90,6 +90,7 @@ ShapeHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) {
                         }
                     }
                 }
+                break;
             default:
                 break;
         }
@@ -117,14 +118,17 @@ ShapeHandler::addPOI(const SUMOSAXAttributes& attrs, const bool ignorePruning, c
     double lon = attrs.getOpt<double>(SUMO_ATTR_LON, id.c_str(), ok, INVALID_POSITION);
     double lat = attrs.getOpt<double>(SUMO_ATTR_LAT, id.c_str(), ok, INVALID_POSITION);
     const double lanePos = attrs.getOpt<double>(SUMO_ATTR_POSITION, id.c_str(), ok, 0);
+    const bool friendlyPos = attrs.getOpt<bool>(SUMO_ATTR_FRIENDLY_POS, id.c_str(), ok, false);
     const double lanePosLat = attrs.getOpt<double>(SUMO_ATTR_POSITION_LAT, id.c_str(), ok, 0);
     const double layer = attrs.getOpt<double>(SUMO_ATTR_LAYER, id.c_str(), ok, myDefaultLayer);
     const std::string type = attrs.getOpt<std::string>(SUMO_ATTR_TYPE, id.c_str(), ok, "");
     const std::string laneID = attrs.getOpt<std::string>(SUMO_ATTR_LANE, id.c_str(), ok, "");
-    const RGBColor color = attrs.hasAttribute(SUMO_ATTR_COLOR) ? attrs.get<RGBColor>(SUMO_ATTR_COLOR, id.c_str(), ok) : myDefaultColor;
     const double angle = attrs.getOpt<double>(SUMO_ATTR_ANGLE, id.c_str(), ok, Shape::DEFAULT_ANGLE);
     std::string imgFile = attrs.getOpt<std::string>(SUMO_ATTR_IMGFILE, id.c_str(), ok, Shape::DEFAULT_IMG_FILE);
+    const RGBColor color = attrs.hasAttribute(SUMO_ATTR_COLOR) ? attrs.get<RGBColor>(SUMO_ATTR_COLOR, id.c_str(), ok) : (imgFile != "" ? RGBColor::WHITE : myDefaultColor);
     bool relativePath = attrs.getOpt<bool>(SUMO_ATTR_RELATIVEPATH, id.c_str(), ok, Shape::DEFAULT_RELATIVEPATH);
+
+    // If the image file is set, change the default POI color to white.
     if (imgFile != "" && !FileHelpers::isAbsolute(imgFile)) {
         imgFile = FileHelpers::getConfigurationRelative(getFileName(), imgFile);
     }
@@ -159,7 +163,7 @@ ShapeHandler::addPOI(const SUMOSAXAttributes& attrs, const bool ignorePruning, c
         if ((x == INVALID_POSITION) || (y == INVALID_POSITION)) {
             // try computing x,y from lane,pos
             if (laneID != "") {
-                pos = getLanePos(id, laneID, lanePos, lanePosLat);
+                pos = getLanePos(id, laneID, lanePos, friendlyPos, lanePosLat);
             } else {
                 // try computing x,y from lon,lat
                 if ((lat == INVALID_POSITION) || (lon == INVALID_POSITION)) {
@@ -183,7 +187,7 @@ ShapeHandler::addPOI(const SUMOSAXAttributes& attrs, const bool ignorePruning, c
                 }
             }
         }
-        if (!myShapeContainer.addPOI(id, type, color, pos, useGeo, laneID, lanePos, lanePosLat, layer, angle, imgFile, relativePath, width, height, ignorePruning)) {
+        if (!myShapeContainer.addPOI(id, type, color, pos, useGeo, laneID, lanePos, friendlyPos, lanePosLat, layer, angle, imgFile, relativePath, width, height, ignorePruning)) {
             WRITE_ERROR("PoI '" + id + "' already exists.");
         }
         myLastParameterised = myShapeContainer.getPOIs().get(id);
@@ -250,7 +254,7 @@ ShapeHandler::addPoly(const SUMOSAXAttributes& attrs, const bool ignorePruning, 
         }
         // check that lineWidth is positive
         if (lineWidth <= 0) {
-            WRITE_ERROR("Polygon's lineWidth must be greather than 0.");
+            WRITE_ERROR("Polygon's lineWidth must be greater than 0.");
             return;
         }
         // create polygon, or show an error if polygon already exists

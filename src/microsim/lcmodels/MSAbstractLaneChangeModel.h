@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -34,6 +34,7 @@
 // class declarations
 // ===========================================================================
 class MSLane;
+class SUMOSAXAttributes;
 
 
 // ===========================================================================
@@ -143,6 +144,16 @@ public:
      */
     virtual LaneChangeModel getModelID() const = 0;
 
+    /** @brief Save the state of the laneChangeModel
+     * @param[in] out The OutputDevice to write the information into
+     */
+    virtual void saveState(OutputDevice& out) const; 
+
+    /** @brief Loads the state of the laneChangeModel from the given attributes
+     * @param[in] attrs XML attributes describing the current state
+     */
+    virtual void loadState(const SUMOSAXAttributes& attrs);
+
     /// @brief whether lanechange-output is active
     static bool haveLCOutput() {
         return myLCOutput;
@@ -197,8 +208,13 @@ public:
         }
     }
 
-    void saveLCState(const int dir, const int stateWithoutTraCI, const int state) {
-        const auto pair = std::make_pair(stateWithoutTraCI | getCanceledState(dir), state);
+    void saveLCState(const int dir, int stateWithoutTraCI, const int state) {
+        int canceledStrategic = getCanceledState(dir);
+        // avoid conflicting directions
+        if ((canceledStrategic & LCA_WANTS_LANECHANGE_OR_STAY) != 0) {
+            stateWithoutTraCI = canceledStrategic;
+        }
+        const auto pair = std::make_pair(stateWithoutTraCI, state);
         if (dir == -1) {
             mySavedStateRight = pair;
         } else if (dir == 0) {
@@ -255,6 +271,7 @@ public:
         int laneOffset,
         MSAbstractLaneChangeModel::MSLCMessager& msgPass, int blocked,
         const std::pair<MSVehicle*, double>& leader,
+        const std::pair<MSVehicle*, double>& follower,
         const std::pair<MSVehicle*, double>& neighLead,
         const std::pair<MSVehicle*, double>& neighFollow,
         const MSLane& neighLane,
@@ -265,6 +282,7 @@ public:
         UNUSED_PARAMETER(&msgPass);
         UNUSED_PARAMETER(blocked);
         UNUSED_PARAMETER(&leader);
+        UNUSED_PARAMETER(&follower);
         UNUSED_PARAMETER(&neighLead);
         UNUSED_PARAMETER(&neighFollow);
         UNUSED_PARAMETER(&neighLane);
@@ -343,6 +361,9 @@ public:
      * the custom variables of each child implementation */
     virtual void changed() = 0;
 
+    /* @brief called once when the vehicle moves to a new lane in an "irregular"  way (i.e. by teleporting)
+     * resets custom variables of each child implementation */
+    virtual void resetState() {};
 
     /// @brief return factor for modifying the safety constraints of the car-following model
     virtual double getSafetyFactor() const {
@@ -382,11 +403,6 @@ public:
 
     /// @brief return the shadow lane for the given lane and lateral offset
     MSLane* getShadowLane(const MSLane* lane, double posLat) const;
-
-    /// @brief set the shadow lane
-    void setShadowLane(MSLane* lane) {
-        myShadowLane = lane;
-    }
 
     const std::vector<MSLane*>& getShadowFurtherLanes() const {
         return myShadowFurtherLanes;
@@ -431,7 +447,7 @@ public:
     ///       If lcMaxSpeedStanding==0 the completion may be impossible, and -1 is returned.
     ///       2) In case that no maxSpeedLat is used to control lane changing, this is only called prior to a lane change,
     ///          and the duration is MSGlobals::gLaneChangeDuration.
-    virtual double estimateLCDuration(const double speed, const double remainingManeuverDist, const double decel) const;
+    virtual double estimateLCDuration(const double speed, const double remainingManeuverDist, const double decel, bool urgent) const;
 
     /// @brief return true if the vehicle currently performs a lane change maneuver
     inline bool isChangingLanes() const {
@@ -500,8 +516,8 @@ public:
     void cleanupTargetLane();
 
     /// @brief reserve space at the end of the lane to avoid dead locks
-    virtual void saveBlockerLength(double length) {
-        UNUSED_PARAMETER(length);
+    virtual bool saveBlockerLength(double /* length */, double /* foeLeftSpace */) {
+        return true;
     }
 
     void setShadowPartialOccupator(MSLane* lane) {
@@ -532,6 +548,9 @@ public:
         return myAmOpposite;
     }
 
+    /// brief return lane index that treats opposite lanes like normal lanes to the left of the forward lanes
+    int getNormalizedLaneIndex();
+
     double getCommittedSpeed() const {
         return myCommittedSpeed;
     }
@@ -551,7 +570,7 @@ public:
 
     /// @brief decides the next lateral speed depending on the remaining lane change distance to be covered
     ///        and updates maneuverDist according to lateral safety constraints.
-    virtual double computeSpeedLat(double latDist, double& maneuverDist) const;
+    virtual double computeSpeedLat(double latDist, double& maneuverDist, bool urgent) const;
 
     /// @brief Returns a deceleration value which is used for the estimation of the duration of a lane change.
     /// @note  Effective only for continuous lane-changing when using attributes myMaxSpeedLatFactor and myMaxSpeedLatStanding. See #3771
@@ -568,10 +587,21 @@ public:
         throw InvalidArgument("Setting parameter '" + key + "' is not supported for laneChangeModel of type '" + toString(myModel) + "'");
     }
 
+    /// reserve extra space for unseen blockers when more tnan one lane change is required
+    virtual double getExtraReservation(int /*bestLaneOffset*/) const {
+        return 0;
+    }
 
     /// @brief Check for commands issued for the vehicle via TraCI and apply the appropriate state changes
     ///        For the sublane case, this includes setting a new maneuver distance if appropriate.
     void checkTraCICommands();
+
+    /// @brief get vehicle position relative to the forward direction lane
+    double getForwardPos() const;
+
+    bool hasBlueLight() const {
+        return myHaveBlueLight;
+    }
 
     static const double NO_NEIGHBOR;
 
@@ -580,9 +610,13 @@ protected:
 
     virtual bool predInteraction(const std::pair<MSVehicle*, double>& leader);
 
+    virtual bool avoidOvertakeRight() const;
+
     /// @brief whether the influencer cancels the given request
     bool cancelRequest(int state, int laneOffset);
 
+    /// @brief return the max of maxSpeedLat and lcMaxSpeedLatStanding
+    double getMaxSpeedLat2() const;
 
 protected:
     /// @brief The vehicle this lane-changer belongs to
@@ -654,7 +688,9 @@ protected:
     std::vector<MSLane*> myFurtherTargetLanes;
 
     /// @brief The vehicle's car following model
-    const MSCFModel& myCarFollowModel;
+    inline const MSCFModel& getCarFollowModel() const {
+        return myVehicle.getCarFollowModel();
+    }
 
     /// @brief the type of this model
     const LaneChangeModel myModel;
@@ -688,12 +724,19 @@ protected:
     ///        in the case of continuous LC.
     bool myDontResetLCGaps;
 
-    // @brief the maximum lateral speed when standing
+    // @brief the maximum lateral speed for non-strategic changes when standing
     double myMaxSpeedLatStanding;
-    // @brief the factor of maximum lateral speed to longitudinal speed
+    // @brief the factor of maximum lateral speed to longitudinal speed for non-strategic changes
     double myMaxSpeedLatFactor;
+    // @brief the maximum lateral maneuver distance when standing
+    double myMaxDistLatStanding;
     // @brief factor for lane keeping imperfection
     double mySigma;
+    // allow overtaking right even though it is prohibited
+    double myOvertakeRightParam;
+
+    /// @brief whether this vehicle is driving with special permissions and behavior
+    bool myHaveBlueLight;
 
     /* @brief to be called by derived classes in their changed() method.
      * If dir=0 is given, the current value remains unchanged */

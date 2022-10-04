@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,11 +21,14 @@
 
 #include <netedit/GNENet.h>
 #include <netedit/GNEViewNet.h>
+#include <netedit/GNEViewParent.h>
+#include <netedit/frames/common/GNESelectorFrame.h>
 #include <utils/gui/div/GLHelper.h>
 #include <utils/gui/div/GUIParameterTableWindow.h>
 #include <utils/gui/globjects/GLIncludes.h>
 #include <utils/gui/globjects/GUIGLObjectPopupMenu.h>
 #include <utils/gui/div/GUIDesigns.h>
+#include <utils/gui/div/GUIGlobalPostDrawing.h>
 
 #include "GNEDemandElement.h"
 
@@ -43,34 +46,32 @@ const double GNEDemandElement::myPersonPlanArrivalPositionDiameter = SUMO_const_
 // GNEDemandElement - methods
 // ---------------------------------------------------------------------------
 
-GNEDemandElement::GNEDemandElement(const std::string& id, GNENet* net, GUIGlObjectType type, SumoXMLTag tag,
+GNEDemandElement::GNEDemandElement(const std::string& id, GNENet* net, GUIGlObjectType type, SumoXMLTag tag, FXIcon *icon, const int options,
                                    const std::vector<GNEJunction*>& junctionParents,
                                    const std::vector<GNEEdge*>& edgeParents,
                                    const std::vector<GNELane*>& laneParents,
                                    const std::vector<GNEAdditional*>& additionalParents,
-                                   const std::vector<GNEShape*>& shapeParents,
-                                   const std::vector<GNETAZElement*>& TAZElementParents,
                                    const std::vector<GNEDemandElement*>& demandElementParents,
                                    const std::vector<GNEGenericData*>& genericDataParents) :
-    GUIGlObject(type, id),
-    GNEHierarchicalElement(net, tag, junctionParents, edgeParents, laneParents, additionalParents, shapeParents, TAZElementParents, demandElementParents, genericDataParents),
-    GNEPathElements(this),
+    GUIGlObject(type, id, icon),
+    GNEHierarchicalElement(net, tag, junctionParents, edgeParents, laneParents, additionalParents, demandElementParents, genericDataParents),
+    GNEPathManager::PathElement(this, options),
     myStackedLabelNumber(0) {
+    // check if is template
+    myIsTemplate = (id == "");
 }
 
 
-GNEDemandElement::GNEDemandElement(GNEDemandElement* demandElementParent, GNENet* net, GUIGlObjectType type, SumoXMLTag tag,
+GNEDemandElement::GNEDemandElement(GNEDemandElement* demandElementParent, GNENet* net, GUIGlObjectType type, SumoXMLTag tag, FXIcon *icon, const int options,
                                    const std::vector<GNEJunction*>& junctionParents,
                                    const std::vector<GNEEdge*>& edgeParents,
                                    const std::vector<GNELane*>& laneParents,
                                    const std::vector<GNEAdditional*>& additionalParents,
-                                   const std::vector<GNEShape*>& shapeParents,
-                                   const std::vector<GNETAZElement*>& TAZElementParents,
                                    const std::vector<GNEDemandElement*>& demandElementParents,
                                    const std::vector<GNEGenericData*>& genericDataParents) :
-    GUIGlObject(type, demandElementParent->getID()),
-    GNEHierarchicalElement(net, tag, junctionParents, edgeParents, laneParents, additionalParents, shapeParents, TAZElementParents, demandElementParents, genericDataParents),
-    GNEPathElements(this),
+    GUIGlObject(type, demandElementParent->getID(), icon),
+    GNEHierarchicalElement(net, tag, junctionParents, edgeParents, laneParents, additionalParents, demandElementParents, genericDataParents),
+    GNEPathManager::PathElement(this, options),
     myStackedLabelNumber(0) {
 }
 
@@ -78,9 +79,9 @@ GNEDemandElement::GNEDemandElement(GNEDemandElement* demandElementParent, GNENet
 GNEDemandElement::~GNEDemandElement() {}
 
 
-const std::string&
-GNEDemandElement::getID() const {
-    return getMicrosimID();
+void
+GNEDemandElement::removeGeometryPoint(const Position /*clickedPosition*/, GNEUndoList* /*undoList*/) {
+    // currently there isn't demand elements with removable geometry points
 }
 
 
@@ -90,29 +91,29 @@ GNEDemandElement::getGUIGlObject() {
 }
 
 
-const GNEGeometry::Geometry&
+const GUIGeometry&
 GNEDemandElement::getDemandElementGeometry() {
     return myDemandElementGeometry;
 }
 
 
-const GNEGeometry::SegmentGeometry&
-GNEDemandElement::getDemandElementSegmentGeometry() const {
-    return myDemandElementSegmentGeometry;
-}
-
-
 GNEDemandElement*
 GNEDemandElement::getPreviousChildDemandElement(const GNEDemandElement* demandElement) const {
-    // find child demand element
-    auto it = std::find(getChildDemandElements().begin(), getChildDemandElements().end(), demandElement);
-    // return element or null depending of iterator
-    if (it == getChildDemandElements().end()) {
-        return nullptr;
-    } else if (it == getChildDemandElements().begin()) {
+    // first check if there are demand elements
+    if (getChildDemandElements().empty()) {
         return nullptr;
     } else {
-        return *(it - 1);
+        // find child demand element
+        auto it = std::find(getChildDemandElements().begin(), getChildDemandElements().end(), demandElement);
+        // return element or null depending of iterator
+        if (it == getChildDemandElements().end()) {
+            // in this case, we assume that the last child is the previos child
+            return getChildDemandElements().back();
+        } else if (it == getChildDemandElements().begin()) {
+            return nullptr;
+        } else {
+            return *(it - 1);
+        }
     }
 }
 
@@ -150,7 +151,7 @@ GNEDemandElement::getViaEdges() const {
 
 void
 GNEDemandElement::updateDemandElementGeometry(const GNELane* lane, const double posOverLane) {
-    myDemandElementGeometry.updateGeometry(lane, posOverLane);
+    myDemandElementGeometry.updateGeometry(lane->getLaneShape(), posOverLane, myMoveElementLateralOffset);
 }
 
 
@@ -162,59 +163,19 @@ GNEDemandElement::updateDemandElementStackLabel(const int stack) {
 
 void
 GNEDemandElement::updateDemandElementSpreadGeometry(const GNELane* lane, const double posOverLane) {
-    mySpreadGeometry.updateGeometry(lane, posOverLane);
-}
-
-
-void
-GNEDemandElement::updatePartialGeometry(const GNELane* lane) {
-    // declare extreme geometry
-    GNEGeometry::ExtremeGeometry extremeGeometry;
-    // special case for stops
-    if (myTagProperty.isVehicle()) {
-        // use depart/arrival positions as lane extremes
-        extremeGeometry.laneStartPosition = getAttributeDouble(SUMO_ATTR_DEPARTPOS);
-        extremeGeometry.laneEndPosition = getAttributeDouble(SUMO_ATTR_ARRIVALPOS);
-    } else if (myTagProperty.isPersonPlan()) {
-        // calculate person plan start and end positions
-        extremeGeometry = calculatePersonPlanLaneStartEndPos();
-    }
-    // update geometry path for the given lane
-    GNEGeometry::updateGeometricPath(myDemandElementSegmentGeometry, lane, extremeGeometry);
-    // update child demand elementss
-    for (const auto& i : getChildDemandElements()) {
-        i->updatePartialGeometry(lane);
-    }
-}
-
-
-bool
-GNEDemandElement::isDemandElementValid() const {
-    return true;
-}
-
-
-std::string
-GNEDemandElement::getDemandElementProblem() const {
-    return "";
-}
-
-
-void
-GNEDemandElement::fixDemandElementProblem() {
-    throw InvalidArgument(getTagStr() + " cannot fix any problem");
+    mySpreadGeometry.updateGeometry(lane->getLaneShape(), posOverLane, myMoveElementLateralOffset);
 }
 
 
 void
 GNEDemandElement::openDemandElementDialog() {
-    throw InvalidArgument(getTagStr() + " doesn't have an demand element dialog");
+    throw InvalidArgument(getTagStr() + " doesn't have a demand element dialog");
 }
 
 
 std::string
 GNEDemandElement::getBegin() const {
-    throw InvalidArgument(getTagStr() + " doesn't have an begin time");
+    throw InvalidArgument(getTagStr() + " doesn't have a begin time");
 }
 
 
@@ -225,7 +186,7 @@ GNEDemandElement::getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) 
     buildPopupHeader(ret, app);
     // build menu command for center button and copy cursor position to clipboard
     buildCenterPopupEntry(ret);
-    buildPositionCopyEntry(ret, false);
+    buildPositionCopyEntry(ret, app);
     // buld menu commands for names
     GUIDesigns::buildFXMenuCommand(ret, "Copy " + getTagStr() + " name to clipboard", nullptr, ret, MID_COPY_NAME);
     GUIDesigns::buildFXMenuCommand(ret, "Copy " + getTagStr() + " typed name to clipboard", nullptr, ret, MID_COPY_TYPED_NAME);
@@ -235,7 +196,7 @@ GNEDemandElement::getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) 
     buildShowParamsPopupEntry(ret);
     // show option to open demand element dialog
     if (myTagProperty.hasDialog()) {
-        GUIDesigns::buildFXMenuCommand(ret, ("Open " + getTagStr() + " Dialog").c_str(), getIcon(), &parent, MID_OPEN_ADDITIONAL_DIALOG);
+        GUIDesigns::buildFXMenuCommand(ret, ("Open " + getTagStr() + " Dialog").c_str(), getACIcon(), &parent, MID_OPEN_ADDITIONAL_DIALOG);
         new FXMenuSeparator(ret);
     }
     GUIDesigns::buildFXMenuCommand(ret, "Cursor position in view: " + toString(getPositionInView().x()) + "," + toString(getPositionInView().y()), nullptr, nullptr, 0);
@@ -262,9 +223,187 @@ GNEDemandElement::getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView&) {
 }
 
 
+bool 
+GNEDemandElement::isGLObjectLocked() {
+    if (myNet->getViewNet()->getEditModes().isCurrentSupermodeDemand()) {
+        return myNet->getViewNet()->getLockManager().isObjectLocked(getType(), isAttributeCarrierSelected());
+    } else {
+        return true;
+    }
+}
+
+
+void
+GNEDemandElement::markAsFrontElement() {
+    myNet->getViewNet()->setFrontAttributeCarrier(this);
+}
+
+
+void 
+GNEDemandElement::deleteGLObject() {
+    // we need an special checks due hierarchies
+    if (myTagProperty.isPersonPlan() || myTagProperty.isContainerPlan()) {
+        // get person/container plarent
+        GNEDemandElement* parent = getParentDemandElements().front();
+        // if this is the last person/container plan element, remove parent instead plan
+        if (parent->getChildDemandElements().size() == 1) {
+            parent->deleteGLObject();
+        } else {
+            myNet->deleteDemandElement(this, myNet->getViewNet()->getUndoList());
+        }
+    } else if (getTagProperty().getTag() == GNE_TAG_ROUTE_EMBEDDED) {
+        // remove parent demand element
+        getParentDemandElements().front()->deleteGLObject();
+    } else {
+        myNet->deleteDemandElement(this, myNet->getViewNet()->getUndoList());
+    }
+}
+
+
+void 
+GNEDemandElement::selectGLObject() {
+    if (isAttributeCarrierSelected()) {
+        unselectAttributeCarrier();
+    } else {
+        selectAttributeCarrier();
+    }
+    // update information label
+    myNet->getViewNet()->getViewParent()->getSelectorFrame()->getSelectionInformation()->updateInformationLabel();
+}
+
+
+void
+GNEDemandElement::updateGLObject() {
+    updateGeometry();
+}
+
+
+double
+GNEDemandElement::getPathElementDepartValue() const {
+    // get previous person Plan
+    const GNEDemandElement* previousPersonPlan = getParentDemandElements().at(0)->getPreviousChildDemandElement(this);
+    // check if this is the first person plan
+    if (previousPersonPlan) {
+        if (previousPersonPlan->getParentAdditionals().size() > 0) {
+            if (previousPersonPlan->getTagProperty().isStopPerson()) {
+                // calculate busStop end
+                const double endPos = previousPersonPlan->getParentAdditionals().front()->getAttributeDouble(SUMO_ATTR_ENDPOS);
+                // check endPos
+                if (endPos < 0.3) {
+                    return endPos;
+                } else {
+                    return (endPos - 0.3);
+                }
+            } else {
+                // use busStop center
+                return previousPersonPlan->getParentAdditionals().front()->getAttributeDouble(SUMO_ATTR_CENTER);
+            }
+        } else {
+            // use arrival pos
+            return previousPersonPlan->getAttributeDouble(SUMO_ATTR_ARRIVALPOS);
+        }
+    } else {
+        // use pedestrian departPos
+        return getParentDemandElements().at(0)->getAttributeDouble(SUMO_ATTR_DEPARTPOS);
+    }
+}
+
+
+Position
+GNEDemandElement::getPathElementDepartPos() const {
+    // get previous person Plan
+    const GNEDemandElement* previousPersonPlan = getParentDemandElements().at(0)->getPreviousChildDemandElement(this);
+    // check if this is the first person plan
+    if (previousPersonPlan) {
+        if (previousPersonPlan->getParentAdditionals().size() > 0) {
+            if (previousPersonPlan->getTagProperty().isStopPerson()) {
+                // get busStop
+                const GNEAdditional* busStop = previousPersonPlan->getParentAdditionals().front();
+                // get length
+                const double length = busStop->getAdditionalGeometry().getShape().length2D();
+                // check length
+                if (length < 0.3) {
+                    return busStop->getAdditionalGeometry().getShape().back();
+                } else {
+                    return busStop->getAdditionalGeometry().getShape().positionAtOffset2D(length - 0.3);
+                }
+            } else {
+                // use busStop center
+                return previousPersonPlan->getParentAdditionals().front()->getAdditionalGeometry().getShape().getLineCenter();
+            }
+        } else {
+            // use arrival pos
+            return previousPersonPlan->getAttributePosition(SUMO_ATTR_ARRIVALPOS);
+        }
+    } else if (getParentJunctions().size() > 0) {
+        return getParentJunctions().front()->getNBNode()->getPosition();
+    } else {
+        // use pedestrian departPos
+        return getParentDemandElements().at(0)->getAttributePosition(SUMO_ATTR_DEPARTPOS);
+    }
+}
+
+
+double
+GNEDemandElement::getPathElementArrivalValue() const {
+    // check if this person plan ends in a busStop
+    if (getParentAdditionals().size() > 0) {
+        // get next person Plan
+        const GNEDemandElement* nextPersonPlan = getParentDemandElements().at(0)->getNextChildDemandElement(this);
+        // continue depending if is an stop or a person plan
+        if (nextPersonPlan && (nextPersonPlan->getTagProperty().getTag() == GNE_TAG_STOPPERSON_BUSSTOP)) {
+            // calculate busStop end
+            const double endPos = getParentAdditionals().front()->getAttributeDouble(SUMO_ATTR_ENDPOS);
+            // check endPos
+            if (endPos < 0.3) {
+                return getParentAdditionals().front()->getAttributeDouble(SUMO_ATTR_ENDPOS);
+            } else {
+                return getParentAdditionals().front()->getAttributeDouble(SUMO_ATTR_ENDPOS) - 0.3;
+            }
+        } else {
+            return getParentAdditionals().front()->getAttributeDouble(SUMO_ATTR_CENTER);
+        }
+    } else {
+        return getAttributeDouble(SUMO_ATTR_ARRIVALPOS);
+    }
+}
+
+
+Position
+GNEDemandElement::getPathElementArrivalPos() const {
+    // check if this person plan ends in a busStop
+    if (getParentAdditionals().size() > 0) {
+        // get next person Plan
+        const GNEDemandElement* nextPersonPlan = getParentDemandElements().at(0)->getNextChildDemandElement(this);
+        // continue depending if is an stop or a person plan
+        if (nextPersonPlan && (nextPersonPlan->getTagProperty().getTag() == GNE_TAG_STOPPERSON_BUSSTOP)) {
+            // get busStop
+            const GNEAdditional* busStop = nextPersonPlan->getParentAdditionals().front();
+            // get length
+            const double length = busStop->getAdditionalGeometry().getShape().length2D();
+            // check length
+            if (length < 0.3) {
+                return busStop->getAdditionalGeometry().getShape().back();
+            } else {
+                return busStop->getAdditionalGeometry().getShape().positionAtOffset2D(length - 0.3);
+            }
+        } else {
+            return getParentAdditionals().front()->getAdditionalGeometry().getShape().getLineCenter();
+        }
+    } else if (getParentJunctions().size() > 0) {
+        return getParentJunctions().back()->getNBNode()->getPosition();
+    } else {
+        return getAttributePosition(SUMO_ATTR_ARRIVALPOS);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// GNEDemandElement - protected methods
+// ---------------------------------------------------------------------------
+
 bool
 GNEDemandElement::isValidDemandElementID(const std::string& newID) const {
-    if (SUMOXMLDefinitions::isValidVehicleID(newID) && (myNet->retrieveDemandElement(myTagProperty.getTag(), newID, false) == nullptr)) {
+    if (SUMOXMLDefinitions::isValidVehicleID(newID) && (myNet->getAttributeCarriers()->retrieveDemandElement(myTagProperty.getTag(), newID, false) == nullptr)) {
         return true;
     } else {
         return false;
@@ -272,378 +411,478 @@ GNEDemandElement::isValidDemandElementID(const std::string& newID) const {
 }
 
 
-GNELane*
-GNEDemandElement::getFirstAllowedVehicleLane() const {
-    // first check if current demand element has parent edges
-    if (myTagProperty.getTag() == GNE_TAG_WALK_ROUTE) {
-        // use route edges
-        return getParentDemandElements().at(1)->getParentEdges().front()->getLaneByAllowedVClass(getVClass());
-    } else if ((myTagProperty.getTag() == SUMO_TAG_VEHICLE) || (myTagProperty.getTag() == GNE_TAG_FLOW_ROUTE)) {
-        // check if vehicle use a embedded route
-        if (getParentDemandElements().size() == 2) {
-            return getParentDemandElements().at(1)->getParentEdges().front()->getLaneByAllowedVClass(getVClass());
-        } else {
-            return nullptr;
-        }
-    } else if ((myTagProperty.getTag() == GNE_TAG_VEHICLE_WITHROUTE) || (myTagProperty.getTag() == GNE_TAG_FLOW_WITHROUTE)) {
-        if (getChildDemandElements().size() > 0) {
-            return getChildDemandElements().front()->getParentEdges().front()->getLaneByAllowedVClass(getVClass());
-        } else {
-            return nullptr;
-        }
-    } else if (myTagProperty.personPlanStartBusStop()) {
-        return getParentAdditionals().front()->getParentLanes().front();
-    } else if (getParentEdges().size() > 0) {
-        if (myTagProperty.hasAttribute(SUMO_ATTR_DEPARTLANE)) {
-            // obtain Lane depending of attribute "departLane"
-            std::string departLane = getAttribute(SUMO_ATTR_DEPARTLANE);
-            //  check depart lane
-            if ((departLane == "random") || (departLane == "free") || (departLane == "allowed") || (departLane == "best") || (departLane == "first")) {
-                return getParentEdges().front()->getLaneByAllowedVClass(getVClass());
-            }
-            // obtain index
-            const int departLaneIndex = parse<int>(getAttribute(SUMO_ATTR_DEPARTLANE));
-            // if index is correct, return lane. In other case, return nullptr;
-            if ((departLaneIndex >= 0) && (departLaneIndex < getParentEdges().front()->getNBEdge()->getNumLanes())) {
-                return getParentEdges().front()->getLanes().at(departLaneIndex);
-            } else {
-                return nullptr;
-            }
-        } else if (myTagProperty.isRide()) {
-            // special case for rides
-            return getParentEdges().front()->getLaneByDisallowedVClass(getVClass());
-        } else {
-            // in other case, always return the first allowed
-            return getParentEdges().front()->getLaneByAllowedVClass(getVClass());
-        }
+const Position
+GNEDemandElement::getBeginPosition(const double pedestrianDepartPos) const {
+    if (myTagProperty.isStopPerson()) {
+        return getPositionInView();
     } else {
-        return nullptr;
+        // get first lane
+        const GNELane* firstLane = myNet->getPathManager()->getFirstLane(this);
+        if (firstLane) {
+            return firstLane->getLaneShape().positionAtOffset2D(pedestrianDepartPos);
+        } else {
+            return Position(0, 0);
+        }
     }
 }
 
 
-GNELane*
-GNEDemandElement::getLastAllowedVehicleLane() const {
-    // first check if current demand element has parent edges
-    if (myTagProperty.getTag() == GNE_TAG_WALK_ROUTE) {
-        // use route edges
-        return getParentDemandElements().at(1)->getParentEdges().back()->getLaneByAllowedVClass(getVClass());
-    } else if (myTagProperty.personPlanEndBusStop()) {
-        // return busStop lane
-        return getParentAdditionals().back()->getParentLanes().front();
-    } else if (getParentEdges().size() > 0) {
-        if (myTagProperty.hasAttribute(SUMO_ATTR_ARRIVALLANE)) {
-            // obtain Lane depending of attribute "arrivalLane"
-            std::string arrivalLane = getAttribute(SUMO_ATTR_ARRIVALLANE);
-            //  check depart lane
-            if (arrivalLane == "current") {
-                return getParentEdges().back()->getLaneByAllowedVClass(getVClass());
-            }
-            // obtain index
-            const int arrivalLaneIndex = parse<int>(getAttribute(SUMO_ATTR_ARRIVALLANE));
-            // if index is correct, return lane. In other case, return nullptr;
-            if ((arrivalLaneIndex >= 0) && (arrivalLaneIndex < getParentEdges().back()->getNBEdge()->getNumLanes())) {
-                return getParentEdges().back()->getLanes().at(arrivalLaneIndex);
-            } else {
-                return nullptr;
-            }
-        } else if (myTagProperty.isRide()) {
-            // special case for rides
-            return getParentEdges().back()->getLaneByDisallowedVClass(getVClass());
-        } else {
-            // in other case, always return the first allowed
-            return getParentEdges().back()->getLaneByAllowedVClass(getVClass());
+std::vector<GNEDemandElement*>
+GNEDemandElement::getInvalidStops() const {
+    // get stops
+    std::vector<GNEDemandElement*> stops;
+    for (const auto& stop : getChildDemandElements()) {
+        if (stop->getTagProperty().getTag() == SUMO_TAG_STOP_LANE) {
+            stops.push_back(stop);
         }
+    }
+    // check stops
+    if (stops.empty()) {
+        return stops;
     } else {
-        return nullptr;
-    }
-}
-
-
-const GNEEdge*
-GNEDemandElement::getFirstPersonPlanEdge() const {
-    // set specific mode depending of tag
-    switch (myTagProperty.getTag()) {
-        // route
-        case GNE_TAG_WALK_ROUTE:
-            return getParentDemandElements().at(1)->getParentEdges().front();
-        // edges
-        case GNE_TAG_WALK_EDGES:
-        // edge->edge
-        case GNE_TAG_PERSONTRIP_EDGE_EDGE:
-        case GNE_TAG_WALK_EDGE_EDGE:
-        case GNE_TAG_RIDE_EDGE_EDGE:
-        // edge->busStop
-        case GNE_TAG_PERSONTRIP_EDGE_BUSSTOP:
-        case GNE_TAG_WALK_EDGE_BUSSTOP:
-        case GNE_TAG_RIDE_EDGE_BUSSTOP:
-            return getParentEdges().front();
-        // busStop->edge
-        case GNE_TAG_PERSONTRIP_BUSSTOP_EDGE:
-        case GNE_TAG_WALK_BUSSTOP_EDGE:
-        case GNE_TAG_RIDE_BUSSTOP_EDGE:
-        // busStop->busStop
-        case GNE_TAG_PERSONTRIP_BUSSTOP_BUSSTOP:
-        case GNE_TAG_WALK_BUSSTOP_BUSSTOP:
-        case GNE_TAG_RIDE_BUSSTOP_BUSSTOP:
-            return getParentAdditionals().front()->getParentLanes().front()->getParentEdge();
-        // stops
-        case GNE_TAG_PERSONSTOP_BUSSTOP:
-            return getParentAdditionals().front()->getParentLanes().front()->getParentEdge();
-        case GNE_TAG_PERSONSTOP_EDGE:
-            return getParentLanes().front()->getParentEdge();
-        default:
-            return nullptr;
-    }
-}
-
-
-GNEGeometry::ExtremeGeometry
-GNEDemandElement::calculatePersonPlanLaneStartEndPos() const {
-    // declare extreme geometry
-    GNEGeometry::ExtremeGeometry extremeGeometry;
-    // get previous person Plan
-    const GNEDemandElement* previousPersonPlan = getParentDemandElements().at(0)->getPreviousChildDemandElement(this);
-    double endLanePosPreviousLane = 0;
-    // obtain previous plan
-    if (previousPersonPlan) {
-        if (previousPersonPlan->getTagProperty().personPlanEndEdge()) {
-            // get arrival position
-            endLanePosPreviousLane = previousPersonPlan->getAttributeDouble(SUMO_ATTR_ARRIVALPOS);
-        } else if (previousPersonPlan->getTagProperty().personPlanEndBusStop()) {
-            // get arrival pos (end busStop shape)
-            endLanePosPreviousLane = previousPersonPlan->getParentAdditionals().back()->getAttributeDouble(SUMO_ATTR_ENDPOS);
-            extremeGeometry.viewStartPos = previousPersonPlan->getParentAdditionals().back()->getAdditionalGeometry().getShape().back();
+        // get sorted stops
+        std::vector<const GNEDemandElement*> sortedStops;
+        // continue depending of route
+        if (getTagProperty().getTag() == SUMO_TAG_ROUTE) {
+            sortedStops = getSortedStops(getParentEdges());
+        } else if (getChildDemandElements().front()->getTagProperty().getTag() == GNE_TAG_ROUTE_EMBEDDED) {
+            sortedStops = getSortedStops(getChildDemandElements().front()->getParentEdges());
         }
-    }
-    // set lane start position
-    if (myTagProperty.personPlanStartEdge()) {
-        if (previousPersonPlan) {
-            // use as startLanePos the endLanePosPreviousLane
-            extremeGeometry.laneStartPosition = endLanePosPreviousLane;
-            // obtain last allowed vehicle lane of previous person plan
-            const GNELane* lastAllowedLanePrevious = previousPersonPlan->getLastAllowedVehicleLane();
-            // check if both plans start in the same lane
-            if (lastAllowedLanePrevious) {
-                extremeGeometry.viewStartPos = lastAllowedLanePrevious->getLaneShape().positionAtOffset(extremeGeometry.laneStartPosition);
+        // iterate over sortedStops
+        for (const auto& sortedStop : sortedStops) {
+            const auto it = std::find(stops.begin(), stops.end(), sortedStop);
+            if (it != stops.end()) {
+                stops.erase(it);
             }
-        } else {
-            // return pedestrian departPos
-            extremeGeometry.laneStartPosition = getParentDemandElements().front()->getAttributeDouble(SUMO_ATTR_DEPARTPOS);
         }
-    } else if (myTagProperty.personPlanStartBusStop()) {
-        // use as startLanePos the busStop end position
-        extremeGeometry.laneStartPosition = getParentAdditionals().front()->getAttributeDouble(SUMO_ATTR_ENDPOS);
-        // use as extraEndPosition the end of first busStop shape
-        extremeGeometry.viewStartPos = getParentAdditionals().front()->getAdditionalGeometry().getShape().back();
+        // return stops not found in sortedStops
+        return stops;
     }
-    // set lane end position
-    if (myTagProperty.personPlanEndEdge()) {
-        // use as endLane Position the arrival position
-        extremeGeometry.laneEndPosition = getAttributeDouble(SUMO_ATTR_ARRIVALPOS);
-    } else if (myTagProperty.personPlanEndBusStop()) {
-        // use as endLanePosition the busStop start position
-        extremeGeometry.laneEndPosition = getParentAdditionals().back()->getAttributeDouble(SUMO_ATTR_STARTPOS);
-        // use as extraEndPosition the begin of last busStop shape
-        extremeGeometry.viewEndPos = getParentAdditionals().back()->getAdditionalGeometry().getShape().front();
+}
+
+
+bool
+GNEDemandElement::drawPersonPlan() const {
+    // check conditions
+    if (myNet->getViewNet()->getEditModes().isCurrentSupermodeNetwork() &&
+            myNet->getViewNet()->getNetworkViewOptions().showDemandElements() &&
+            myNet->getViewNet()->getDemandViewOptions().showAllPersonPlans()) {
+        // show all person plans in network mode
+        return true;
+    } else if (myNet->getViewNet()->getEditModes().isCurrentSupermodeDemand() &&
+               myNet->getViewNet()->getDemandViewOptions().showAllPersonPlans()) {
+        // show all person plans
+        return true;
+    } else if (myNet->getViewNet()->isAttributeCarrierInspected(getParentDemandElements().front())) {
+        // person parent is inspected
+        return true;
+    } else if (myNet->getViewNet()->getDemandViewOptions().getLockedPerson() == getParentDemandElements().front()) {
+        // person parent is locked
+        return true;
+    } else if (myNet->getViewNet()->getInspectedAttributeCarriers().empty()) {
+        // nothing is inspected
+        return false;
+    } else {
+        // get inspected AC
+        const GNEAttributeCarrier* AC = myNet->getViewNet()->getInspectedAttributeCarriers().front();
+        // check condition
+        if (AC->getTagProperty().isPersonPlan() && AC->getAttribute(GNE_ATTR_PARENT) == getAttribute(GNE_ATTR_PARENT)) {
+            // common person parent
+            return true;
+        } else {
+            // all conditions are false
+            return false;
+        }
     }
-    // return extreme geometry
-    return extremeGeometry;
+}
+
+
+bool
+GNEDemandElement::drawContainerPlan() const {
+    // check conditions
+    if (myNet->getViewNet()->getEditModes().isCurrentSupermodeNetwork() &&
+            myNet->getViewNet()->getNetworkViewOptions().showDemandElements() &&
+            myNet->getViewNet()->getDemandViewOptions().showAllContainerPlans()) {
+        // show all container plans in network mode
+        return true;
+    } else if (myNet->getViewNet()->getEditModes().isCurrentSupermodeDemand() &&
+               myNet->getViewNet()->getDemandViewOptions().showAllContainerPlans()) {
+        // show all container plans
+        return true;
+    } else if (myNet->getViewNet()->isAttributeCarrierInspected(getParentDemandElements().front())) {
+        // container parent is inspected
+        return true;
+    } else if (myNet->getViewNet()->getDemandViewOptions().getLockedContainer() == getParentDemandElements().front()) {
+        // container parent is locked
+        return true;
+    } else if (myNet->getViewNet()->getInspectedAttributeCarriers().empty()) {
+        // nothing is inspected
+        return false;
+    } else {
+        // get inspected AC
+        const GNEAttributeCarrier* AC = myNet->getViewNet()->getInspectedAttributeCarriers().front();
+        // check condition
+        if (AC->getTagProperty().isContainerPlan() && AC->getAttribute(GNE_ATTR_PARENT) == getAttribute(GNE_ATTR_PARENT)) {
+            // common container parent
+            return true;
+        } else {
+            // all conditions are false
+            return false;
+        }
+    }
 }
 
 
 void
-GNEDemandElement::drawPersonPlanPartialLane(const GUIVisualizationSettings& s, const GNELane* lane,
-        const double offsetFront, const double personPlanWidth, const RGBColor& personPlanColor) const {
-    // get inspected attribute carriers
-    const auto& inspectedACs = myNet->getViewNet()->getInspectedAttributeCarriers();
-    // get inspected person plan
-    const GNEAttributeCarrier* personPlanInspected = (inspectedACs.size() > 0) ? inspectedACs.front() : nullptr;
+GNEDemandElement::drawPersonPlanPartial(const bool drawPlan, const GUIVisualizationSettings& s, const GNELane* lane, const GNEPathManager::Segment* segment,
+                                        const double offsetFront, const double personPlanWidth, const RGBColor& personPlanColor) const {
+    // get inspected and front flags
+    const bool dottedElement = myNet->getViewNet()->isAttributeCarrierInspected(this) || (myNet->getViewNet()->getFrontAttributeCarrier() == this);
+    // get person parent
     const GNEDemandElement* personParent = getParentDemandElements().front();
-    // declare flag to enable or disable draw person plan
-    bool drawPersonPlan = false;
-    if (myNet->getViewNet()->getDemandViewOptions().showAllPersonPlans()) {
-        // all person plan has to be drawn
-        drawPersonPlan = true;
-    } else if (myNet->getViewNet()->getDemandViewOptions().getLockedPerson() == personParent) {
-        // if person parent is locked, draw all their person plans children
-        drawPersonPlan = true;
-    } else if (personPlanInspected == personParent) {
-        // draw if we're inspecting person parent
-        drawPersonPlan = true;
-    } else if (personPlanInspected == this) {
-        // draw if we're inspecting this demand element
-        drawPersonPlan = true;
-    }
-    // check if draw person plan elements can be drawn
-    if (drawPersonPlan) {
+    // check if draw person plan element can be drawn
+    if (drawPlan && myNet->getPathManager()->getPathDraw()->drawPathGeometry(dottedElement, lane, myTagProperty.getTag())) {
+        // get inspected attribute carriers
+        const auto& inspectedACs = myNet->getViewNet()->getInspectedAttributeCarriers();
+        // get inspected person plan
+        const GNEAttributeCarrier* personPlanInspected = (inspectedACs.size() > 0) ? inspectedACs.front() : nullptr;
         // flag to check if width must be duplicated
         const bool duplicateWidth = (personPlanInspected == this) || (personPlanInspected == personParent);
-        // get segment widtsh
-        const double segmentWidth = s.addSize.getExaggeration(s, lane) * personPlanWidth;
+        // calculate path width
+        const double pathWidth = s.addSize.getExaggeration(s, lane) * personPlanWidth * (duplicateWidth ? 2 : 1);
+        // declare path geometry
+        GUIGeometry personPlanGeometry;
+        // update pathGeometry depending of first and last segment
+        if (segment->isFirstSegment() && segment->isLastSegment()) {
+            personPlanGeometry.updateGeometry(lane->getLaneGeometry().getShape(),
+                                              getPathElementDepartValue(), getPathElementArrivalValue(),    // extrem positions
+                                              getPathElementDepartPos(), getPathElementArrivalPos());       // extra positions
+        } else if (segment->isFirstSegment()) {
+            personPlanGeometry.updateGeometry(lane->getLaneGeometry().getShape(),
+                                              getPathElementDepartValue(), -1,                 // extrem positions
+                                              getPathElementDepartPos(), Position::INVALID);   // extra positions
+        } else if (segment->isLastSegment()) {
+            personPlanGeometry.updateGeometry(lane->getLaneGeometry().getShape(),
+                                              -1, getPathElementArrivalValue(),                // extrem positions
+                                              Position::INVALID, getPathElementArrivalPos());  // extra positions
+        } else {
+            personPlanGeometry = lane->getLaneGeometry();
+        }
         // get color
-        const RGBColor& color = drawUsingSelectColor() ? s.colorSettings.selectedPersonPlanColor : personPlanColor;
+        const RGBColor& pathColor = drawUsingSelectColor() ? s.colorSettings.selectedPersonPlanColor : personPlanColor;
         // Start drawing adding an gl identificator
-        glPushName(getGlID());
+        GLHelper::pushName(getGlID());
         // Add a draw matrix
-        glPushMatrix();
+        GLHelper::pushMatrix();
         // Start with the drawing of the area traslating matrix to origin
         myNet->getViewNet()->drawTranslateFrontAttributeCarrier(this, getType(), offsetFront);
-        // iterate over segments
-        for (const auto& segment : myDemandElementSegmentGeometry) {
-            // draw partial segment
-            if (segment.isLaneSegment() && (segment.getLane() == lane)) {
-                // Set person plan color
-                GLHelper::setColor(color);
-                // draw segment depending of duplicateWidth
-                if (duplicateWidth) {
-                    // draw segment geometry
-                    GNEGeometry::drawSegmentGeometry(myNet->getViewNet(), segment, (2 * segmentWidth));
-                    // check if shape dotted contour has to be drawn
-                    if (personPlanInspected == this) {
-                        GNEGeometry::drawSegmentGeometry(myNet->getViewNet(), segment, (2 * segmentWidth));
-                    }
-                } else {
-                    // draw segment geometry
-                    GNEGeometry::drawSegmentGeometry(myNet->getViewNet(), segment, segmentWidth);
-                    // check if shape dotted contour has to be drawn
-                    if (personPlanInspected == this) {
-                        GNEGeometry::drawSegmentGeometry(myNet->getViewNet(), segment, segmentWidth);
-                    }
-                }
-            }
-        }
+        // Set color
+        GLHelper::setColor(pathColor);
+        // draw geometry
+        GUIGeometry::drawGeometry(s, myNet->getViewNet()->getPositionInformation(), personPlanGeometry, pathWidth);
         // Pop last matrix
-        glPopMatrix();
+        GLHelper::popMatrix();
         // Draw name if isn't being drawn for selecting
         if (!s.drawForRectangleSelection) {
             drawName(getCenteringBoundary().getCenter(), s.scale, s.addName);
         }
         // Pop name
-        glPopName();
-        // check if person plan ArrivalPos attribute
-        if (myTagProperty.hasAttribute(SUMO_ATTR_ARRIVALPOS)) {
-            // obtain arrival position using last segment
-            const Position& arrivalPos = getDemandElementSegmentGeometry().getLastPosition();
-            // only draw arrival position point if isn't -1
-            if (arrivalPos != Position::INVALID) {
-                // obtain circle width
-                const double circleRadius = (duplicateWidth ? myPersonPlanArrivalPositionDiameter : (myPersonPlanArrivalPositionDiameter / 2.0));
-                const double circleWidth = circleRadius * MIN2((double)0.5, s.laneWidthExaggeration);
-                const double circleWidthSquared = circleWidth * circleWidth;
-                if (!s.drawForRectangleSelection || (myNet->getViewNet()->getPositionInformation().distanceSquaredTo2D(arrivalPos) <= (circleWidthSquared + 2))) {
-                    // push draw matrix
-                    glPushMatrix();
-                    // Start with the drawing of the area traslating matrix to origin
-                    myNet->getViewNet()->drawTranslateFrontAttributeCarrier(this, getType());
-                    // translate to pos and move to upper using GLO_PERSONTRIP (to avoid overlapping)
-                    glTranslated(arrivalPos.x(), arrivalPos.y(), 0);
-                    // Set person plan color
-                    GLHelper::setColor(color);
-                    // resolution of drawn circle depending of the zoom (To improve smothness)
-                    GLHelper::drawFilledCircle(circleWidth, s.getCircleResolution());
-                    // pop draw matrix
-                    glPopMatrix();
-                }
+        GLHelper::popName();
+        // check if this is the last segment
+        if (segment->isLastSegment()) {
+            // calculate circle width
+            const double circleRadius = (duplicateWidth ? myPersonPlanArrivalPositionDiameter : (myPersonPlanArrivalPositionDiameter / 2.0));
+            const double circleWidth = circleRadius * MIN2((double)0.5, s.laneWidthExaggeration);
+            const double circleWidthSquared = circleWidth * circleWidth;
+            // get geometryEndPos
+            const Position geometryEndPos = getPathElementArrivalPos();
+            // check if endPos can be drawn
+            if (!s.drawForRectangleSelection || (myNet->getViewNet()->getPositionInformation().distanceSquaredTo2D(geometryEndPos) <= (circleWidthSquared + 2))) {
+                // push draw matrix
+                GLHelper::pushMatrix();
+                // Start with the drawing of the area traslating matrix to origin
+                myNet->getViewNet()->drawTranslateFrontAttributeCarrier(this, getType());
+                // translate to pos and move to upper using GLO_PERSONTRIP (to avoid overlapping)
+                glTranslated(geometryEndPos.x(), geometryEndPos.y(), 0);
+                // Set person plan color
+                GLHelper::setColor(pathColor);
+                // resolution of drawn circle depending of the zoom (To improve smothness)
+                GLHelper::drawFilledCircle(circleWidth, s.getCircleResolution());
+                // pop draw matrix
+                GLHelper::popMatrix();
             }
         }
+        // check if we have to draw an red arrow or line
+        if (segment->getNextSegment() && segment->getNextSegment()->getLane()) {
+            // get firstPosition (last position of current lane shape)
+            const Position from = lane->getLaneShape().back();
+            // get lastPosition (first position of next lane shape)
+            const Position to = segment->getNextSegment()->getLane()->getLaneShape().front();
+            // push draw matrix
+            GLHelper::pushMatrix();
+            // Start with the drawing of the area traslating matrix to origin
+            myNet->getViewNet()->drawTranslateFrontAttributeCarrier(this, getType());
+            // draw child line
+            GUIGeometry::drawChildLine(s, from, to, RGBColor::RED, dottedElement || isAttributeCarrierSelected(), .05);
+            // pop draw matrix
+            GLHelper::popMatrix();
+        }
+        // check if we have to draw an red arrow or line
+        if (segment->getPreviousSegment() && segment->getPreviousSegment()->getLane()) {
+            // get firstPosition (last position of current lane shape)
+            const Position from = lane->getLaneShape().front();
+            // get lastPosition (first position of next lane shape)
+            const Position to = segment->getPreviousSegment()->getLane()->getLaneShape().back();
+            // push draw matrix
+            GLHelper::pushMatrix();
+            // Start with the drawing of the area traslating matrix to origin
+            myNet->getViewNet()->drawTranslateFrontAttributeCarrier(this, getType());
+            // draw child line
+            GUIGeometry::drawChildLine(s, from, to, RGBColor::RED, dottedElement || isAttributeCarrierSelected(), .05);
+            // pop draw matrix
+            GLHelper::popMatrix();
+        }
+        // declare trim geometry to draw
+        const auto shape = (segment->isFirstSegment() || segment->isLastSegment()) ? personPlanGeometry.getShape() : lane->getLaneShape();
+        // check if mouse is over element
+        mouseWithinGeometry(shape, pathWidth);
         // check if shape dotted contour has to be drawn
-        if (s.drawDottedContour() || myNet->getViewNet()->isAttributeCarrierInspected(this)) {
-            // get first and last allowed lanes
-            const GNELane* firstLane = getFirstAllowedVehicleLane();
-            const GNELane* lastLane = getLastAllowedVehicleLane();
-            // iterate over segments
-            for (const auto& segment : myDemandElementSegmentGeometry) {
-                if (segment.isLaneSegment() && (segment.getLane() == lane)) {
-                    // draw partial segment
-                    if (firstLane == lane) {
-                        // draw front dotted contour
-                        GNEGeometry::drawDottedContourLane(GNEGeometry::DottedContourType::INSPECT, s, GNEGeometry::DottedGeometry(s, segment.getShape(), false), segmentWidth, true, false);
-                    } else if (lastLane == lane) {
-                        // draw back dotted contour
-                        GNEGeometry::drawDottedContourLane(GNEGeometry::DottedContourType::INSPECT, s, GNEGeometry::DottedGeometry(s, segment.getShape(), false), segmentWidth, false, true);
-                    } else {
-                        // draw dotted contour
-                        GNEGeometry::drawDottedContourLane(GNEGeometry::DottedContourType::INSPECT, s, lane->getDottedLaneGeometry(), segmentWidth, false, false);
-                    }
-                }
+        if (dottedElement) {
+            // inspect contour
+            if (myNet->getViewNet()->isAttributeCarrierInspected(this)) {
+                GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::INSPECT, shape, pathWidth, 1, segment->isFirstSegment(), segment->isLastSegment());
+            }
+            // front element contour
+            if (myNet->getViewNet()->getFrontAttributeCarrier() == this) {
+                GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::FRONT, shape, pathWidth, 1, segment->isFirstSegment(), segment->isLastSegment());
+            }
+            // delete contour
+            if (myNet->getViewNet()->drawDeleteContour(this, this)) {
+                GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::REMOVE, shape, pathWidth, 1, segment->isFirstSegment(), segment->isLastSegment());
+            }
+            // select contour
+            if (myNet->getViewNet()->drawSelectContour(this, this)) {
+                GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::SELECT, shape, pathWidth, 1, segment->isFirstSegment(), segment->isLastSegment());
             }
         }
     }
     // draw person parent if this is the edge first edge and this is the first plan
-    if ((getFirstPersonPlanEdge() == lane->getParentEdge()) && (personParent->getChildDemandElements().front() == this)) {
+    if ((getFirstPathLane()->getParentEdge() == lane->getParentEdge()) &&
+            (personParent->getChildDemandElements().front() == this)) {
         personParent->drawGL(s);
     }
 }
 
 
 void
-GNEDemandElement::drawPersonPlanPartialJunction(const GUIVisualizationSettings& s, const GNELane* fromLane, const GNELane* toLane,
-        const double offsetFront, const double personPlanWidth, const RGBColor& personPlanColor) const {
-    // get inspected attribute carriers
-    const auto& inspectedACs = myNet->getViewNet()->getInspectedAttributeCarriers();
-    // get inspected person plan
-    const GNEAttributeCarrier* personPlanInspected = (inspectedACs.size() > 0) ? inspectedACs.front() : nullptr;
-    const GNEDemandElement* personParent = getParentDemandElements().front();
-    // declare flag to enable or disable draw person plan
-    bool drawPersonPlan = false;
-    if (myNet->getViewNet()->getDemandViewOptions().showAllPersonPlans()) {
-        // all person plan has to be drawn
-        drawPersonPlan = true;
-    } else if (myNet->getViewNet()->getDemandViewOptions().getLockedPerson() == personParent) {
-        // if person parent is locked, draw all their person plans children
-        drawPersonPlan = true;
-    } else if (personPlanInspected == personParent) {
-        // draw if we're inspecting person parent
-        drawPersonPlan = true;
-    } else if (personPlanInspected == this) {
-        // draw if we're inspecting this demand element
-        drawPersonPlan = true;
-    }
+GNEDemandElement::drawPersonPlanPartial(const bool drawPlan, const GUIVisualizationSettings& s, const GNELane* fromLane, const GNELane* toLane, const GNEPathManager::Segment* /*segment*/,
+                                        const double offsetFront, const double personPlanWidth, const RGBColor& personPlanColor) const {
+    // get inspected and front flags
+    const bool dottedElement = myNet->getViewNet()->isAttributeCarrierInspected(this) || (myNet->getViewNet()->getFrontAttributeCarrier() == this);
     // check if draw person plan elements can be drawn
-    if (drawPersonPlan) {
+    if (drawPlan && myNet->getPathManager()->getPathDraw()->drawPathGeometry(false, fromLane, toLane, myTagProperty.getTag())) {
+        // get inspected attribute carriers
+        const auto& inspectedACs = myNet->getViewNet()->getInspectedAttributeCarriers();
+        // get person parent
+        const GNEDemandElement* personParent = getParentDemandElements().front();
+        // get inspected person plan
+        const GNEAttributeCarrier* personPlanInspected = (inspectedACs.size() > 0) ? inspectedACs.front() : nullptr;
         // flag to check if width must be duplicated
         const bool duplicateWidth = (personPlanInspected == this) || (personPlanInspected == personParent);
-        // get segment widtsh
-        const double segmentWidth = s.addSize.getExaggeration(s, fromLane) * personPlanWidth;
+        // calculate path width
+        const double pathWidth = s.addSize.getExaggeration(s, fromLane) * personPlanWidth * (duplicateWidth ? 2 : 1);
         // get color
         const RGBColor& color = drawUsingSelectColor() ? s.colorSettings.selectedPersonPlanColor : personPlanColor;
         // Start drawing adding an gl identificator
-        glPushName(getGlID());
+        GLHelper::pushName(getGlID());
         // push a draw matrix
-        glPushMatrix();
+        GLHelper::pushMatrix();
         // Start with the drawing of the area traslating matrix to origin
         myNet->getViewNet()->drawTranslateFrontAttributeCarrier(this, getType(), offsetFront);
         // check if draw lane2lane connection or a red line
-        if (fromLane->getLane2laneConnections().exist(toLane)) {
+        if (fromLane && fromLane->getLane2laneConnections().exist(toLane)) {
             // obtain lane2lane geometry
-            const GNEGeometry::Geometry& lane2laneGeometry = fromLane->getLane2laneConnections().getLane2laneGeometry(toLane);
+            const GUIGeometry& lane2laneGeometry = fromLane->getLane2laneConnections().getLane2laneGeometry(toLane);
             // Set person plan color
             GLHelper::setColor(color);
             // draw lane2lane
-            if (duplicateWidth) {
-                GNEGeometry::drawGeometry(myNet->getViewNet(), lane2laneGeometry, (2 * segmentWidth));
-            } else {
-                GNEGeometry::drawGeometry(myNet->getViewNet(), lane2laneGeometry, segmentWidth);
-            }
+            GUIGeometry::drawGeometry(s, myNet->getViewNet()->getPositionInformation(), lane2laneGeometry, pathWidth);
         } else {
             // Set invalid person plan color
             GLHelper::setColor(RGBColor::RED);
             // draw line between end of first shape and first position of second shape
-            GLHelper::drawBoxLines({fromLane->getLaneShape().back(), toLane->getLaneShape().front()}, (0.5 * segmentWidth));
+            GLHelper::drawBoxLines({fromLane->getLaneShape().back(), toLane->getLaneShape().front()}, (0.5 * pathWidth));
         }
         // Pop last matrix
-        glPopMatrix();
+        GLHelper::popMatrix();
         // Pop name
-        glPopName();
+        GLHelper::popName();
+        // draw lock icon
+        GNEViewNetHelper::LockIcon::drawLockIcon(this, getType(), getPositionInView(), 0.5);
         // check if shape dotted contour has to be drawn
-        if (s.drawDottedContour() || myNet->getViewNet()->isAttributeCarrierInspected(this)) {
-            // draw lane2lane dotted geometry
-            if (fromLane->getLane2laneConnections().exist(toLane)) {
-                GNEGeometry::drawDottedContourLane(GNEGeometry::DottedContourType::INSPECT, s, fromLane->getLane2laneConnections().getLane2laneDottedGeometry(toLane), segmentWidth, false, false);
+        if (fromLane->getLane2laneConnections().exist(toLane) && dottedElement) {
+            // check if mouse is over element
+            mouseWithinGeometry(fromLane->getLane2laneConnections().getLane2laneGeometry(toLane).getShape(), pathWidth);
+            // inspect contour
+            if (myNet->getViewNet()->isAttributeCarrierInspected(this)) {
+                GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::INSPECT, fromLane->getLane2laneConnections().getLane2laneGeometry(toLane).getShape(),
+                        pathWidth, 1, false, false);
+            }
+            // front contour
+            if (myNet->getViewNet()->getFrontAttributeCarrier() == this) {
+                GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::FRONT, fromLane->getLane2laneConnections().getLane2laneGeometry(toLane).getShape(),
+                        pathWidth, 1, false, false);
+            }
+            // delete contour
+            if (myNet->getViewNet()->drawDeleteContour(this, this)) {
+                GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::REMOVE, fromLane->getLane2laneConnections().getLane2laneGeometry(toLane).getShape(),
+                        pathWidth, 1, false, false);
+            }
+            // select contour
+            if (myNet->getViewNet()->drawSelectContour(this, this)) {
+                GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::SELECT, fromLane->getLane2laneConnections().getLane2laneGeometry(toLane).getShape(),
+                        pathWidth, 1, false, false);
             }
         }
     }
+}
+
+
+GNEDemandElement::Problem
+GNEDemandElement::isPersonPlanValid() const {
+    // get previous child
+    const auto previousChild = getParentDemandElements().at(0)->getPreviousChildDemandElement(this);
+    if (previousChild) {
+        // get previous edge
+        GNEEdge* previousEdge = nullptr;
+        if (previousChild->getParentLanes().size() == 1) {
+            previousEdge = previousChild->getParentLanes().front()->getParentEdge();
+        } else if (previousChild->getParentAdditionals().size() == 1) {
+            previousEdge = previousChild->getParentAdditionals().front()->getParentLanes().front()->getParentEdge();
+        } else if (previousChild->getParentEdges().size() > 0) {
+            previousEdge = previousChild->getParentEdges().back();
+        } else if (previousChild->getTagProperty().getTag() == GNE_TAG_WALK_ROUTE) {
+            previousEdge = previousChild->getParentDemandElements().at(1)->getParentEdges().back();
+        }
+        // get first edge
+        GNEEdge* firstEdge = nullptr;
+        // check edge
+        if (getParentLanes().size() == 1) {
+            firstEdge = getParentLanes().front()->getParentEdge();
+        } else if (getParentEdges().size() > 0) {
+            firstEdge = getParentEdges().front();
+        } else if (getParentAdditionals().size() == 1) {
+            firstEdge = getParentAdditionals().front()->getParentLanes().front()->getParentEdge();
+        } else if (getTagProperty().getTag() == GNE_TAG_WALK_ROUTE) {
+            firstEdge = getParentDemandElements().at(1)->getParentEdges().front();
+        }
+        // compare both edges
+        if (previousEdge != firstEdge) {
+            return Problem::DISCONNECTED_PLAN;
+        }
+    }
+    // get next child
+    const auto nextChild = getParentDemandElements().at(0)->getNextChildDemandElement(this);
+    if (nextChild) {
+        // get previous edge
+        GNEEdge* nextEdge = nullptr;
+        if (nextChild->getParentLanes().size() == 1) {
+            nextEdge = nextChild->getParentLanes().front()->getParentEdge();
+        } else if (nextChild->getParentEdges().size() > 0) {
+            nextEdge = nextChild->getParentEdges().front();
+        } else if (nextChild->getParentAdditionals().size() == 1) {
+            nextEdge = nextChild->getParentAdditionals().front()->getParentLanes().front()->getParentEdge();
+        } else if (nextChild->getTagProperty().getTag() == GNE_TAG_WALK_ROUTE) {
+            nextEdge = nextChild->getParentDemandElements().at(1)->getParentEdges().front();
+        }
+        // get last edge
+        GNEEdge* lastEdge = nullptr;
+        // check edge
+        if (getParentLanes().size() == 1) {
+            lastEdge = getParentLanes().front()->getParentEdge();
+        } else if (getParentAdditionals().size() == 1) {
+            lastEdge = getParentAdditionals().front()->getParentLanes().front()->getParentEdge();
+        } else if (getParentEdges().size() > 0) {
+            lastEdge = getParentEdges().back();
+        } else if (getTagProperty().getTag() == GNE_TAG_WALK_ROUTE) {
+            lastEdge = getParentDemandElements().at(1)->getParentEdges().back();
+        }
+        // compare both edges
+        if (nextEdge != lastEdge) {
+            return Problem::DISCONNECTED_PLAN;
+        }
+    }
+    // all ok, then return true
+    return Problem::OK;
+}
+
+
+std::string
+GNEDemandElement::getPersonPlanProblem() const {
+    // get previous child
+    const auto previousChild = getParentDemandElements().at(0)->getPreviousChildDemandElement(this);
+    if (previousChild) {
+        // get previous edge
+        GNEEdge* previousEdge = nullptr;
+        if (previousChild->getParentLanes().size() == 1) {
+            previousEdge = previousChild->getParentLanes().front()->getParentEdge();
+        } else if (previousChild->getParentAdditionals().size() == 1) {
+            previousEdge = previousChild->getParentAdditionals().front()->getParentLanes().front()->getParentEdge();
+        } else if (previousChild->getParentEdges().size() > 0) {
+            previousEdge = previousChild->getParentEdges().back();
+        } else if (previousChild->getTagProperty().getTag() == GNE_TAG_WALK_ROUTE) {
+            previousEdge = previousChild->getParentDemandElements().at(1)->getParentEdges().back();
+        }
+        // get first edge
+        GNEEdge* firstEdge = nullptr;
+        // check edge
+        if (getParentLanes().size() == 1) {
+            firstEdge = getParentLanes().front()->getParentEdge();
+        } else if (getParentEdges().size() > 0) {
+            firstEdge = getParentEdges().front();
+        } else if (getParentAdditionals().size() == 1) {
+            firstEdge = getParentAdditionals().front()->getParentLanes().front()->getParentEdge();
+        } else if (getTagProperty().getTag() == GNE_TAG_WALK_ROUTE) {
+            firstEdge = getParentDemandElements().at(1)->getParentEdges().front();
+        }
+        // compare both edges
+        if (previousEdge && firstEdge && (previousEdge != firstEdge)) {
+            return "Edge '" + previousEdge->getID() + "' is not consecutive with edge '" + firstEdge->getID() + "'";
+        }
+    }
+    // get next child
+    const auto nextChild = getParentDemandElements().at(0)->getNextChildDemandElement(this);
+    if (nextChild) {
+        // get previous edge
+        GNEEdge* nextEdge = nullptr;
+        if (nextChild->getParentLanes().size() == 1) {
+            nextEdge = nextChild->getParentLanes().front()->getParentEdge();
+        } else if (nextChild->getParentAdditionals().size() == 1) {
+            nextEdge = nextChild->getParentAdditionals().front()->getParentLanes().front()->getParentEdge();
+        } else if (nextChild->getParentEdges().size() > 0) {
+            nextEdge = nextChild->getParentEdges().front();
+        } else if (nextChild->getTagProperty().getTag() == GNE_TAG_WALK_ROUTE) {
+            nextEdge = nextChild->getParentDemandElements().at(1)->getParentEdges().front();
+        }
+        // get last edge
+        GNEEdge* lastEdge = nullptr;
+        // check edge
+        if (getParentLanes().size() == 1) {
+            lastEdge = getParentLanes().front()->getParentEdge();
+        } else if (getParentAdditionals().size() == 1) {
+            lastEdge = getParentAdditionals().front()->getParentLanes().front()->getParentEdge();
+        } else if (getParentEdges().size() > 0) {
+            lastEdge = getParentEdges().back();
+        } else if (getTagProperty().getTag() == GNE_TAG_WALK_ROUTE) {
+            lastEdge = getParentDemandElements().at(1)->getParentEdges().back();
+        }
+        // compare both edges
+        if (nextEdge && lastEdge && (nextEdge != lastEdge)) {
+            return "Edge '" + lastEdge->getID() + "' is not consecutive with edge '" + nextEdge->getID() + "'";
+        }
+    }
+    // undefined problem
+    return "undefined problem";
 }
 
 
@@ -660,9 +899,27 @@ GNEDemandElement::replaceDemandParentLanes(const std::string& value) {
 
 
 void
+GNEDemandElement::replaceFirstParentJunction(const std::string& value) {
+    std::vector<GNEJunction*> parentJunctions = getParentJunctions();
+    parentJunctions[0] = myNet->getAttributeCarriers()->retrieveJunction(value);
+    // replace parent junctions
+    replaceParentElements(this, parentJunctions);
+}
+
+
+void
+GNEDemandElement::replaceLastParentJunction(const std::string& value) {
+    std::vector<GNEJunction*> parentJunctions = getParentJunctions();
+    parentJunctions[(int)parentJunctions.size() - 1] = myNet->getAttributeCarriers()->retrieveJunction(value);
+    // replace parent junctions
+    replaceParentElements(this, parentJunctions);
+}
+
+
+void
 GNEDemandElement::replaceFirstParentEdge(const std::string& value) {
     std::vector<GNEEdge*> parentEdges = getParentEdges();
-    parentEdges[0] = myNet->retrieveEdge(value);
+    parentEdges[0] = myNet->getAttributeCarriers()->retrieveEdge(value);
     // replace parent edges
     replaceParentElements(this, parentEdges);
 }
@@ -686,16 +943,16 @@ GNEDemandElement::replaceMiddleParentEdges(const std::string& value, const bool 
 void
 GNEDemandElement::replaceLastParentEdge(const std::string& value) {
     std::vector<GNEEdge*> parentEdges = getParentEdges();
-    parentEdges[(int)parentEdges.size() - 1] = myNet->retrieveEdge(value);
+    parentEdges[(int)parentEdges.size() - 1] = myNet->getAttributeCarriers()->retrieveEdge(value);
     // replace parent edges
     replaceParentElements(this, parentEdges);
 }
 
 
 void
-GNEDemandElement::replaceAdditionalParent(SumoXMLTag tag, const std::string& value, const int parentIndex) {
+GNEDemandElement::replaceAdditionalParent(SumoXMLTag tag, const std::string& value) {
     std::vector<GNEAdditional*> parentAdditionals = getParentAdditionals();
-    parentAdditionals[parentIndex] = myNet->retrieveAdditional(tag, value);
+    parentAdditionals[0] = myNet->getAttributeCarriers()->retrieveAdditional(tag, value);
     // replace parent additionals
     replaceParentElements(this, parentAdditionals);
 }
@@ -704,9 +961,19 @@ GNEDemandElement::replaceAdditionalParent(SumoXMLTag tag, const std::string& val
 void
 GNEDemandElement::replaceDemandElementParent(SumoXMLTag tag, const std::string& value, const int parentIndex) {
     std::vector<GNEDemandElement*> parentDemandElements = getParentDemandElements();
-    parentDemandElements[parentIndex] = myNet->retrieveDemandElement(tag, value);
+    parentDemandElements[parentIndex] = myNet->getAttributeCarriers()->retrieveDemandElement(tag, value);
     // replace parent demand elements
     replaceParentElements(this, parentDemandElements);
+}
+
+
+void
+GNEDemandElement::setVTypeDistributionParent(const std::string& value) {
+    std::vector<GNEDemandElement*> parents;
+    if (value.size() > 0) {
+        parents.push_back(myNet->getAttributeCarriers()->retrieveDemandElement(SUMO_TAG_VTYPE_DISTRIBUTION, value));
+    }
+    replaceParentElements(this, parents);
 }
 
 
@@ -714,6 +981,177 @@ bool
 GNEDemandElement::checkChildDemandElementRestriction() const {
     // throw exception because this function mus be implemented in child (see GNEE3Detector)
     throw ProcessError("Calling non-implemented function checkChildDemandElementRestriction during saving of " + getTagStr() + ". It muss be reimplemented in child class");
+}
+
+
+GNEDemandElement::SortedStops::SortedStops(GNEEdge* edge_) :
+    edge(edge_) {
+}
+
+
+void
+GNEDemandElement::SortedStops::addStop(const GNEDemandElement* stop) {
+    // create first pair
+    auto posIndexPair = std::make_pair(stop->getAttributeDouble(SUMO_ATTR_ENDPOS), stop->getAttributeDouble(SUMO_ATTR_INDEX));
+    myStops.push_back(std::make_pair(posIndexPair, stop));
+    // sort stops
+    std::sort(myStops.begin(), myStops.end());
+}
+
+
+std::vector<const GNEDemandElement*>
+GNEDemandElement::getSortedStops(const std::vector<GNEEdge*>& edges) const {
+    std::vector<GNEDemandElement*> stops;
+    // get stops
+    for (const auto& stop : getChildDemandElements()) {
+        if (stop->getTagProperty().isStop()) {
+            stops.push_back(stop);
+        }
+    }
+    // create SortedStops
+    std::vector<SortedStops> sortedStops;
+    for (const auto& edge : edges) {
+        sortedStops.push_back(SortedStops(edge));
+    }
+    // iterate over all stops and insert it in sortedStops
+    for (const auto& stop : stops) {
+        bool stopLoop = false;
+        // iterate over sortedStops
+        for (auto it = sortedStops.begin(); (it != sortedStops.end()) && !stopLoop; it++) {
+            if ((stop->getParentAdditionals().size() > 0) && (stop->getParentAdditionals().front()->getParentLanes().front()->getParentEdge() == it->edge)) {
+                it->addStop(stop);
+                stopLoop = true;
+            } else if ((stop->getParentLanes().size() > 0) && (stop->getParentLanes().front()->getParentEdge() == it->edge)) {
+                it->addStop(stop);
+                stopLoop = true;
+            }
+        }
+    }
+    // finally return sorted stops
+    std::vector<const GNEDemandElement*> solution;
+    for (const auto& sortedStop : sortedStops) {
+        for (const auto& stop : sortedStop.myStops) {
+            solution.push_back(stop.second);
+        }
+    }
+    return solution;
+}
+
+
+void
+GNEDemandElement::setFlowParameters(SUMOVehicleParameter* vehicleParameters, const SumoXMLAttr attribute, const bool value) {
+    // modify parameters depending of given Flow attribute
+    if (value) {
+        switch (attribute) {
+            case SUMO_ATTR_END:
+                vehicleParameters->parametersSet |= VEHPARS_END_SET;
+                break;
+            case SUMO_ATTR_NUMBER:
+                vehicleParameters->parametersSet |= VEHPARS_NUMBER_SET;
+                break;
+            case SUMO_ATTR_VEHSPERHOUR:
+            case SUMO_ATTR_PERSONSPERHOUR:
+            case SUMO_ATTR_CONTAINERSPERHOUR:
+                vehicleParameters->parametersSet |= VEHPARS_VPH_SET;
+                break;
+            case SUMO_ATTR_PERIOD:
+                vehicleParameters->parametersSet |= VEHPARS_PERIOD_SET;
+                break;
+            case GNE_ATTR_POISSON:
+                vehicleParameters->parametersSet |= VEHPARS_POISSON_SET;
+                break;
+            case SUMO_ATTR_PROB:
+                vehicleParameters->parametersSet |= VEHPARS_PROB_SET;
+                break;
+            default:
+                break;
+        }
+    } else {
+        switch (attribute) {
+            case SUMO_ATTR_END:
+                vehicleParameters->parametersSet &= ~VEHPARS_END_SET;
+                break;
+            case SUMO_ATTR_NUMBER:
+                vehicleParameters->parametersSet &= ~VEHPARS_NUMBER_SET;
+                break;
+            case SUMO_ATTR_VEHSPERHOUR:
+            case SUMO_ATTR_PERSONSPERHOUR:
+            case SUMO_ATTR_CONTAINERSPERHOUR:
+                vehicleParameters->parametersSet &= ~VEHPARS_VPH_SET;
+                break;
+            case SUMO_ATTR_PERIOD:
+                vehicleParameters->parametersSet &= ~VEHPARS_PERIOD_SET;
+                break;
+            case GNE_ATTR_POISSON:
+                vehicleParameters->parametersSet &= ~VEHPARS_POISSON_SET;
+                break;
+            case SUMO_ATTR_PROB:
+                vehicleParameters->parametersSet &= ~VEHPARS_PROB_SET;
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+
+void
+GNEDemandElement::adjustDefaultFlowAttributes(SUMOVehicleParameter* vehicleParameters) {
+    // first check that this demand element is a flow
+    if (myTagProperty.isFlow()) {
+        // end
+        if ((vehicleParameters->parametersSet & VEHPARS_END_SET) == 0) {
+            setAttribute(SUMO_ATTR_END, myTagProperty.getDefaultValue(SUMO_ATTR_END));
+        }
+        // number
+        if ((vehicleParameters->parametersSet & VEHPARS_NUMBER_SET) == 0) {
+            setAttribute(SUMO_ATTR_NUMBER, myTagProperty.getDefaultValue(SUMO_ATTR_NUMBER));
+        }
+        // vehicles/person/container per hour
+        if (((vehicleParameters->parametersSet & VEHPARS_PERIOD_SET) == 0) &&
+                ((vehicleParameters->parametersSet & VEHPARS_POISSON_SET) == 0) &&
+                ((vehicleParameters->parametersSet & VEHPARS_VPH_SET) == 0)) {
+            setAttribute(SUMO_ATTR_PERIOD, myTagProperty.getDefaultValue(SUMO_ATTR_PERIOD));
+        }
+        // probability
+        if ((vehicleParameters->parametersSet & VEHPARS_PROB_SET) == 0) {
+            setAttribute(SUMO_ATTR_PROB, myTagProperty.getDefaultValue(SUMO_ATTR_PROB));
+        }
+        // poisson
+        if (vehicleParameters->repetitionOffset < 0) {
+            toggleAttribute(SUMO_ATTR_PERIOD, false);
+            toggleAttribute(GNE_ATTR_POISSON, true);
+            setAttribute(GNE_ATTR_POISSON, time2string(vehicleParameters->repetitionOffset * -1));
+        }
+    }
+}
+
+
+void
+GNEDemandElement::buildMenuCommandRouteLength(GUIGLObjectPopupMenu* ret) const {
+    std::vector<GNEEdge*> edges;
+    if (myTagProperty.isRoute()) {
+        edges = getParentEdges();
+    } else if ((getParentDemandElements().size() > 1) && getParentDemandElements().at(1)->getTagProperty().isRoute()) {
+        edges = getParentDemandElements().at(1)->getParentEdges();
+    } else if ((getChildDemandElements().size() > 0) && getChildDemandElements().front()->getTagProperty().isRoute()) {
+        edges = getChildDemandElements().front()->getParentEdges();
+    } else if (getParentEdges().size() > 0) {
+        edges = getParentEdges();
+    }
+    // calculate path
+    const auto path = myNet->getPathManager()->getPathCalculator()->calculateDijkstraPath(getVClass(), edges);
+    // check path size
+    if (path.size() > 0) {
+        double length = 0;
+        for (const auto& edge : path) {
+            length += edge->getNBEdge()->getFinalLength();
+        }
+        for (int i = 0; i < ((int)path.size() - 1); i++) {
+            length += path.at(i)->getLanes().front()->getLane2laneConnections().getLane2laneGeometry(path.at(i + 1)->getLanes().front()).getShape().length();
+        }
+        GUIDesigns::buildFXMenuCommand(ret, "Route length: " + toString(length), nullptr, ret, MID_COPY_NAME);
+    }
 }
 
 /****************************************************************************/

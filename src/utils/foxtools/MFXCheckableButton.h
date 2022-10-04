@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2004-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2004-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -15,13 +15,14 @@
 /// @author  Daniel Krajzewicz
 /// @date    2004-03-19
 ///
-// Checkable button similar to a FXButton but mainntain the check
+// Checkable button similar to a FXButton but maintain the check
 /****************************************************************************/
 #ifndef MFXCheckableButton_h
 #define MFXCheckableButton_h
 #include <config.h>
 
-#include <fx.h>
+#include "fxheader.h"
+#include "MFXStaticToolTip.h"
 
 /**
  * @class MFXCheckableButton
@@ -32,9 +33,8 @@ class MFXCheckableButton : public FXButton {
 
 public:
     /// @brief constructor (Very similar to the FXButton constructor)
-    MFXCheckableButton(bool amChecked, FXComposite* p, const FXString& text,
-                       FXIcon* ic = NULL, FXObject* tgt = NULL, FXSelector sel = 0,
-                       FXuint opts = BUTTON_NORMAL,
+    MFXCheckableButton(bool amChecked, FXComposite* p, MFXStaticToolTip* staticToolTip, const FXString& text,
+                       FXIcon* ic = NULL, FXObject* tgt = NULL, FXSelector sel = 0, FXuint opts = BUTTON_NORMAL,
                        FXint x = 0, FXint y = 0, FXint w = 0, FXint h = 0,
                        FXint pl = DEFAULT_PAD, FXint pr = DEFAULT_PAD, FXint pt = DEFAULT_PAD, FXint pb = DEFAULT_PAD);
 
@@ -54,19 +54,22 @@ public:
 
     /// @brief called when this MFXCheckableButton is updated
     long onUpdate(FXObject*, FXSelector, void*);
+
+    /// @brief called when mouse enter in MFXCheckableButton
+    long onEnter(FXObject*, FXSelector, void*);
+
+    /// @brief called when mouse leaves in MFXCheckableButton
+    long onLeave(FXObject*, FXSelector, void*);
+
+    /// @brief called when mouse motion in MFXCheckableButton
+    long onMotion(FXObject*, FXSelector, void*);
+
     /// @}
 
 protected:
+    /// @brief FOX need this
     FOX_CONSTRUCTOR(MFXCheckableButton)
 
-private:
-    /// @brief build color of this MFXCheckableButton
-    void buildColors();
-
-    /// @brief set colors of this MFXCheckableButton
-    void setColors();
-
-private:
     /// @brief flag to indicate if this MFXCheckableButton is checked
     bool myAmChecked;
 
@@ -78,6 +81,22 @@ private:
 
     /// @brief check if this MFXCheckableButton is initialised
     bool myAmInitialised;
+
+    /// @brief static tool tip
+    MFXStaticToolTip* myStaticToolTip = nullptr;
+
+    /// @brief build color of this MFXCheckableButton
+    void buildColors();
+
+    /// @brief set colors of this MFXCheckableButton
+    void setColors();
+
+private:
+    /// @brief Invalidated copy constructor.
+    MFXCheckableButton(const MFXCheckableButton&) = delete;
+
+    /// @brief Invalidated assignment operator.
+    MFXCheckableButton& operator=(const MFXCheckableButton&) = delete;
 };
 
 

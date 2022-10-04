@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -42,12 +42,14 @@
 #ifdef HAVE_FOX
 #include <utils/foxtools/MsgHandlerSynchronized.h>
 #endif
+#include <libsumo/Helper.h>
 #include <mesosim/MEVehicleControl.h>
 #include <microsim/MSVehicleControl.h>
 #include <microsim/MSVehicleTransfer.h>
 #include <microsim/MSNet.h>
 #include <microsim/devices/MSDevice.h>
 #include <microsim/devices/MSDevice_ToC.h>
+#include <microsim/devices/MSDevice_BTreceiver.h>
 #include <microsim/MSEdgeControl.h>
 #include <microsim/MSGlobals.h>
 #include <microsim/output/MSDetectorControl.h>
@@ -55,6 +57,7 @@
 #include <microsim/MSEdgeWeightsStorage.h>
 #include <microsim/MSStateHandler.h>
 #include <microsim/MSDriverState.h>
+#include <microsim/trigger/MSTriggeredRerouter.h>
 #include <traci-server/TraCIServer.h>
 
 #include "NLHandler.h"
@@ -133,26 +136,23 @@ NLBuilder::build() {
     // - additional-files before route-files and state-files due to referencing
     // - additional-files before weight-files since the latter might contain intermodal edge data and the intermodal net depends on the stops and public transport from the additionals
 
-    // load additional net elements (sources, detectors, ...)
-    if (myOptions.isSet("additional-files")) {
-        if (!load("additional-files")) {
-            return false;
-        }
-        // load shapes with separate handler
-        NLShapeHandler sh("", myNet.getShapeContainer());
-        if (!ShapeHandler::loadFiles(myOptions.getStringVector("additional-files"), sh)) {
-            return false;
-        }
-        if (myXMLHandler.haveSeenAdditionalSpeedRestrictions()) {
-            myNet.getEdgeControl().setAdditionalRestrictions();
-        }
-        if (MSGlobals::gUseMesoSim && myXMLHandler.haveSeenMesoEdgeType()) {
-            myNet.getEdgeControl().setMesoTypes();
-            for (MSTrafficLightLogic* tll : myNet.getTLSControl().getAllLogics()) {
-                tll->initMesoTLSPenalties();
+    bool stateBeginMismatch = false;
+    if (myOptions.isSet("load-state")) {
+        // first, load only the time
+        const SUMOTime stateTime = MSStateHandler::MSStateTimeHandler::getTime(myOptions.getString("load-state"));
+        if (myOptions.isDefault("begin")) {
+            myOptions.set("begin", time2string(stateTime));
+            if (TraCIServer::getInstance() != nullptr) {
+                TraCIServer::getInstance()->stateLoaded(stateTime);
+            }
+        } else {
+            if (stateTime != string2time(myOptions.getString("begin"))) {
+                WRITE_WARNING("State was written at a different time=" + time2string(stateTime) + " than the begin time " + myOptions.getString("begin") + "!");
+                stateBeginMismatch = true;
             }
         }
     }
+
     if (myOptions.getBool("junction-taz")) {
         // create a TAZ for every junction
         const MSJunctionControl& junctions = myNet.getJunctionControl();
@@ -160,7 +160,7 @@ NLBuilder::build() {
             const std::string sinkID = it->first + "-sink";
             const std::string sourceID = it->first + "-source";
             if (MSEdge::dictionary(sinkID) == nullptr && MSEdge::dictionary(sourceID) == nullptr) {
-                // sink must be built and addd before source
+                // sink must be built and added before source
                 MSEdge* sink = myEdgeBuilder.buildEdge(sinkID, SumoXMLEdgeFunc::CONNECTOR, "", "", -1, 0);
                 MSEdge* source = myEdgeBuilder.buildEdge(sourceID, SumoXMLEdgeFunc::CONNECTOR, "", "", -1, 0);
                 sink->setOtherTazConnector(source);
@@ -185,6 +185,32 @@ NLBuilder::build() {
             }
         }
     }
+
+    // load additional net elements (sources, detectors, ...)
+    if (myOptions.isSet("additional-files")) {
+        if (!load("additional-files")) {
+            return false;
+        }
+        // load shapes with separate handler
+        NLShapeHandler sh("", myNet.getShapeContainer());
+        if (!ShapeHandler::loadFiles(myOptions.getStringVector("additional-files"), sh)) {
+            return false;
+        }
+        if (myXMLHandler.haveSeenAdditionalSpeedRestrictions()) {
+            myNet.getEdgeControl().setAdditionalRestrictions();
+        }
+        if (MSGlobals::gUseMesoSim && myXMLHandler.haveSeenMesoEdgeType()) {
+            myNet.getEdgeControl().setMesoTypes();
+            for (MSTrafficLightLogic* tll : myNet.getTLSControl().getAllLogics()) {
+                tll->initMesoTLSPenalties();
+            }
+        }
+        MSTriggeredRerouter::checkParkingRerouteConsistency();
+    }
+    if (stateBeginMismatch && myNet.getVehicleControl().getLoadedVehicleNo() > 0) {
+        throw ProcessError("Loading vehicles ahead of a state file is not supported. Correct --begin option or load vehicles with option --route-files");
+    }
+
     // load weights if wished
     if (myOptions.isSet("weight-files")) {
         if (!myOptions.isUsableFileList("weight-files")) {
@@ -219,21 +245,13 @@ NLBuilder::build() {
     }
     // load the previous state if wished
     if (myOptions.isSet("load-state")) {
+        myNet.setCurrentTimeStep(string2time(myOptions.getString("begin")));
         const std::string& f = myOptions.getString("load-state");
         long before = PROGRESS_BEGIN_TIME_MESSAGE("Loading state from '" + f + "'");
         MSStateHandler h(f, string2time(myOptions.getString("load-state.offset")));
         XMLSubSys::runParser(h, f);
-        if (myOptions.isDefault("begin")) {
-            myOptions.set("begin", time2string(h.getTime()));
-            if (TraCIServer::getInstance() != nullptr) {
-                TraCIServer::getInstance()->stateLoaded(h.getTime());
-            }
-        }
         if (MsgHandler::getErrorInstance()->wasInformed()) {
             return false;
-        }
-        if (h.getTime() != string2time(myOptions.getString("begin"))) {
-            WRITE_WARNING("State was written at a different time " + time2string(h.getTime()) + " than the begin time " + myOptions.getString("begin") + "!");
         }
         PROGRESS_TIME_MESSAGE(before);
     }
@@ -263,7 +281,17 @@ NLBuilder::init(const bool isLibsumo) {
         return nullptr;
     }
     SystemFrame::checkOptions();
-    XMLSubSys::setValidation(oc.getString("xml-validation"), oc.getString("xml-validation.net"), oc.getString("xml-validation.routes"));
+    std::string validation = oc.getString("xml-validation");
+    std::string routeValidation = oc.getString("xml-validation.routes");
+    if (isLibsumo) {
+        if (oc.isDefault("xml-validation")) {
+            validation = "never";
+        }
+        if (oc.isDefault("xml-validation.routes")) {
+            routeValidation = "never";
+        }
+    }
+    XMLSubSys::setValidation(validation, oc.getString("xml-validation.net"), routeValidation);
     if (!MSFrame::checkOptions()) {
         throw ProcessError();
     }
@@ -283,10 +311,10 @@ NLBuilder::init(const bool isLibsumo) {
         vc = new MSVehicleControl();
     }
     MSNet* net = new MSNet(vc, new MSEventControl(), new MSEventControl(), new MSEventControl());
-    // need to init TraCI-Server before loading routes to catch VEHICLE_STATE_BUILT
+    // need to init TraCI-Server before loading routes to catch VehicleState::BUILT
     TraCIServer::openSocket(std::map<int, TraCIServer::CmdExecutor>());
     if (isLibsumo) {
-        libsumo::Helper::registerVehicleStateListener();
+        libsumo::Helper::registerStateListener();
     }
 
     NLEdgeControlBuilder eb;
@@ -315,6 +343,7 @@ NLBuilder::initRandomness() {
     RandHelper::initRandGlobal(MSDevice::getEquipmentRNG());
     RandHelper::initRandGlobal(OUProcess::getRNG());
     RandHelper::initRandGlobal(MSDevice_ToC::getResponseTimeRNG());
+    RandHelper::initRandGlobal(MSDevice_BTreceiver::getRecognitionRNG());
     MSLane::initRNGs(OptionsCont::getOptions());
 }
 
@@ -366,7 +395,7 @@ NLBuilder::buildNet() {
     // if anthing goes wrong after this point, the net is responsible for cleaning up
     myNet.closeBuilding(myOptions, edges, junctions, routeLoaders, tlc, stateDumpTimes, stateDumpFiles,
                         myXMLHandler.haveSeenInternalEdge(),
-                        myXMLHandler.haveSeenNeighs(),
+                        myXMLHandler.hasJunctionHigherSpeeds(),
                         myXMLHandler.networkVersion());
 }
 

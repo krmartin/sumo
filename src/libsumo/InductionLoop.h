@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2017-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2017-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -18,8 +18,6 @@
 // C++ TraCI client API implementation
 /****************************************************************************/
 #pragma once
-#include <config.h>
-
 #include <string>
 #include <vector>
 #include <libsumo/TraCIDefs.h>
@@ -32,9 +30,6 @@
 class NamedRTree;
 class MSInductLoop;
 class PositionVector;
-namespace libsumo {
-class VariableWrapper;
-}
 #endif
 
 
@@ -58,10 +53,13 @@ public:
     static double getTimeSinceDetection(const std::string& detID);
     static std::vector<libsumo::TraCIVehicleData> getVehicleData(const std::string& detID);
 
+    static void overrideTimeSinceDetection(const std::string& detID, double time);
+
     LIBSUMO_ID_PARAMETER_API
     LIBSUMO_SUBSCRIPTION_API
 
 #ifndef LIBTRACI
+#ifndef SWIG
     /** @brief Returns a tree filled with inductive loop instances
      * @return The rtree of inductive loops
      */
@@ -76,7 +74,7 @@ public:
 
     static std::shared_ptr<VariableWrapper> makeWrapper();
 
-    static bool handleVariable(const std::string& objID, const int variable, VariableWrapper* wrapper);
+    static bool handleVariable(const std::string& objID, const int variable, VariableWrapper* wrapper, tcpip::Storage* paramData);
 
 private:
     static MSInductLoop* getDetector(const std::string& detID);
@@ -85,6 +83,7 @@ private:
     static SubscriptionResults mySubscriptionResults;
     static ContextSubscriptionResults myContextSubscriptionResults;
     static NamedRTree* myTree;
+#endif
 #endif
 
 private:

@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -29,7 +29,7 @@
 #include <string>
 #include <iostream>
 #ifdef HAVE_FOX
-#include <fx.h>
+#include <utils/foxtools/fxheader.h>
 #endif
 #include <utils/common/Named.h>
 #include <utils/common/Parameterised.h>
@@ -84,6 +84,8 @@ private:
 
 
 public:
+    friend class MSLaneChangerSublane; // needs access to myLaneChanger
+
     /** @brief Constructor.
      *
      * After calling this constructor, the edge is not yet initialised
@@ -167,8 +169,15 @@ public:
         return *myLanes;
     }
 
+    inline int getNumLanes() const {
+        return (int)myLanes->size();
+    }
+
     /// @brief return total number of vehicles on this edges lanes or segments
     int getVehicleNumber() const;
+
+    /// @brief whether this edge has no vehicles
+    bool isEmpty() const;
 
     /// @brief return vehicles on this edges lanes or segments
     std::vector<const SUMOVehicle*> getVehicles() const;
@@ -189,7 +198,7 @@ public:
      *
      * @return This edge's persons.
      */
-    inline const std::set<MSTransportable*>& getPersons() const {
+    inline const std::set<MSTransportable*, ComparatorNumericalIdLess>& getPersons() const {
         return myPersons;
     }
 
@@ -308,6 +317,9 @@ public:
         return myEdgeType;
     }
 
+    // @brief try to infer edge type for internal edges
+    void inferEdgeType();
+
     /** @brief Returns the priority of the edge
      */
     int getPriority() const {
@@ -324,7 +336,7 @@ public:
     /**@brief Sets the crossed edge ids for a crossing edge
      *
      */
-    void setCrossingEdges(const std::vector<std::string>& crossingEdges)		{
+    void setCrossingEdges(const std::vector<std::string>& crossingEdges)        {
         myCrossingEdges.clear();
         myCrossingEdges.insert(myCrossingEdges.begin(), crossingEdges.begin(), crossingEdges.end());
     }
@@ -346,6 +358,8 @@ public:
      * @param[in] edge The edge to add
      */
     void addSuccessor(MSEdge* edge, const MSEdge* via = nullptr);
+
+    void resetTAZ(MSJunction* junction);
 
     /** @brief Returns the number of edges that may be reached from this edge
      * @return The number of following edges
@@ -457,6 +471,9 @@ public:
         }
     }
 
+    double getTimePenalty() const {
+        return myTimePenalty;
+    }
 
     /** @brief Returns the travel time for the given edge
      *
@@ -537,6 +554,8 @@ public:
      */
     MSLane* getDepartLane(MSVehicle& veh) const;
 
+    /// @brief consider given departLane parameter (only for validating speeds)
+    MSLane* getDepartLaneMeso(SUMOVehicle& veh) const;
 
     /** @brief Returns the last time a vehicle could not be inserted
      * @return The current value
@@ -560,11 +579,11 @@ public:
 
 
     /// @todo extension: inner junctions are not filled
-    const MSEdge* getInternalFollowingEdge(const MSEdge* followerAfterInternal) const;
+    const MSEdge* getInternalFollowingEdge(const MSEdge* followerAfterInternal, SUMOVehicleClass vClass) const;
 
 
     /// @brief returns the length of all internal edges on the junction until reaching the non-internal edge followerAfterInternal.
-    double getInternalFollowingLengthTo(const MSEdge* followerAfterInternal) const;
+    double getInternalFollowingLengthTo(const MSEdge* followerAfterInternal, SUMOVehicleClass vClass) const;
 
     /// @brief if this edge is an internal edge, return its first normal predecessor, otherwise the edge itself
     const MSEdge* getNormalBefore() const;
@@ -607,7 +626,7 @@ public:
         return mySublaneSides;
     }
 
-    void rebuildAllowedLanes();
+    void rebuildAllowedLanes(const bool onInit = false);
 
     void rebuildAllowedTargets(const bool updateVehicles = true);
 
@@ -646,6 +665,11 @@ public:
      */
     void setMaxSpeed(double val) const;
 
+    /** @brief Sets a new friction coefficient COF for all lanes [*later to be (used by TraCI and MSCalibrator)*]
+    * @param[in] val the new coefficient in [0..1]
+    */
+    void setFrictionCoefficient(double val) const;
+
     /** @brief Returns the maximum speed the vehicle may use on this edge
      *
      * @caution Only the first lane is considered
@@ -654,22 +678,9 @@ public:
     double getVehicleMaxSpeed(const SUMOTrafficObject* const veh) const;
 
 
-    virtual void addPerson(MSTransportable* p) const;
+    virtual void addTransportable(MSTransportable* t) const;
 
-    virtual void removePerson(MSTransportable* p) const;
-
-    /// @brief Add a container to myContainers
-    virtual void addContainer(MSTransportable* container) const {
-        myContainers.insert(container);
-    }
-
-    /// @brief Remove container from myContainers
-    virtual void removeContainer(MSTransportable* container) const {
-        std::set<MSTransportable*>::iterator i = myContainers.find(container);
-        if (i != myContainers.end()) {
-            myContainers.erase(i);
-        }
-    }
+    virtual void removeTransportable(MSTransportable* t) const;
 
     inline bool isRoundabout() const {
         return myAmRoundabout;
@@ -693,13 +704,16 @@ public:
     }
 
     /// @brief whether this edge allows changing to the opposite direction edge
-    bool canChangeToOpposite();
+    bool canChangeToOpposite() const;
 
     /// @brief Returns the opposite direction edge if on exists else a nullptr
     const MSEdge* getOppositeEdge() const;
 
     /// @brief get the mean speed
     double getMeanSpeed() const;
+
+    /// @brief get the mean friction over the lanes
+    double getMeanFriction() const;
 
     /// @brief get the mean speed of all bicycles on this edge
     double getMeanSpeedBike() const;
@@ -735,6 +749,9 @@ public:
      */
     SUMOVehicle* getWaitingVehicle(MSTransportable* transportable, const double position) const;
 
+    /** @brief Remove all transportables before quick-loading state */
+    void clearState();
+
     /// @brief update meso segment parameters
     void updateMesoType();
 
@@ -743,11 +760,11 @@ public:
         returns false. */
     static bool dictionary(const std::string& id, MSEdge* edge);
 
-    /** @brief Returns the MSEdge associated to the key id if exists, otherwise returns 0. */
+    /** @brief Returns the MSEdge associated to the key id if it exists, otherwise returns nullptr. */
     static MSEdge* dictionary(const std::string& id);
 
-    /// @brief Returns the number of edges
-    static int dictSize();
+    /** @brief Returns the MSEdge associated to the key id giving a hint with a numerical id. */
+    static MSEdge* dictionaryHint(const std::string& id, const int startIdx);
 
     /// @brief Returns all edges with a numerical id
     static const MSEdgeVector& getAllEdges();
@@ -758,6 +775,11 @@ public:
     /** @brief Inserts IDs of all known edges into the given vector */
     static void insertIDs(std::vector<std::string>& into);
 
+    static SVCPermissions getMesoPermissions(SVCPermissions p, SVCPermissions ignoreIgnored = 0);
+
+    static void setMesoIgnoredVClasses(SVCPermissions ignored) {
+        myMesoIgnoredVClasses = ignored;
+    }
 
 public:
     /// @name Static parser helper
@@ -874,10 +896,10 @@ protected:
     MSJunction* myToJunction;
 
     /// @brief Persons on the edge for drawing and pushbutton
-    mutable std::set<MSTransportable*> myPersons;
+    mutable std::set<MSTransportable*, ComparatorNumericalIdLess> myPersons;
 
     /// @brief Containers on the edge
-    mutable std::set<MSTransportable*> myContainers;
+    mutable std::set<MSTransportable*, ComparatorNumericalIdLess> myContainers;
 
     /// @name Storages for allowed lanes (depending on vehicle classes)
     /// @{
@@ -948,6 +970,8 @@ protected:
      * @deprecated Move to MSEdgeControl, make non-static
      */
     static MSEdgeVector myEdges;
+
+    static SVCPermissions myMesoIgnoredVClasses;
     /// @}
 
 

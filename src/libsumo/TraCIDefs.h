@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -22,6 +22,12 @@
 /****************************************************************************/
 #pragma once
 // we do not include config.h here, since we should be independent of a special sumo build
+// but we want to avoid certain warnings in MSVC see config.h.cmake for details
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4514 4820)
+#endif
+
 #include <libsumo/TraCIConstants.h>
 #include <vector>
 #include <limits>
@@ -31,6 +37,17 @@
 #include <sstream>
 #include <memory>
 #include <cstring>
+
+
+// ===========================================================================
+// common declarations
+// ===========================================================================
+namespace libsumo {
+class VariableWrapper;
+}
+namespace tcpip {
+class Storage;
+}
 
 
 // ===========================================================================
@@ -53,24 +70,26 @@ static const libsumo::SubscriptionResults getAllSubscriptionResults(); \
 static const libsumo::TraCIResults getSubscriptionResults(const std::string& objectID); \
 static const libsumo::ContextSubscriptionResults getAllContextSubscriptionResults(); \
 static const libsumo::SubscriptionResults getContextSubscriptionResults(const std::string& objectID); \
-static void subscribeParameterWithKey(const std::string& objectID, const std::string& key, double beginTime = libsumo::INVALID_DOUBLE_VALUE, double endTime = libsumo::INVALID_DOUBLE_VALUE);
+static void subscribeParameterWithKey(const std::string& objectID, const std::string& key, double beginTime = libsumo::INVALID_DOUBLE_VALUE, double endTime = libsumo::INVALID_DOUBLE_VALUE); \
+static const int DOMAIN_ID;
 
-#define LIBSUMO_SUBSCRIPTION_IMPLEMENTATION(CLASS, DOMAIN) \
+#define LIBSUMO_SUBSCRIPTION_IMPLEMENTATION(CLASS, DOM) \
+const int CLASS::DOMAIN_ID(libsumo::CMD_GET_##DOM##_VARIABLE); \
 void \
 CLASS::subscribe(const std::string& objectID, const std::vector<int>& varIDs, double begin, double end, const libsumo::TraCIResults& params) { \
-    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOMAIN##_VARIABLE, objectID, varIDs, begin, end, params); \
+    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOM##_VARIABLE, objectID, varIDs, begin, end, params); \
 } \
 void \
 CLASS::unsubscribe(const std::string& objectID) { \
-    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOMAIN##_VARIABLE, objectID, std::vector<int>(), libsumo::INVALID_DOUBLE_VALUE, libsumo::INVALID_DOUBLE_VALUE, libsumo::TraCIResults()); \
+    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOM##_VARIABLE, objectID, std::vector<int>(), libsumo::INVALID_DOUBLE_VALUE, libsumo::INVALID_DOUBLE_VALUE, libsumo::TraCIResults()); \
 } \
 void \
 CLASS::subscribeContext(const std::string& objectID, int domain, double dist, const std::vector<int>& varIDs, double begin, double end, const TraCIResults& params) { \
-    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOMAIN##_CONTEXT, objectID, varIDs, begin, end, params, domain, dist); \
+    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOM##_CONTEXT, objectID, varIDs, begin, end, params, domain, dist); \
 } \
 void \
 CLASS::unsubscribeContext(const std::string& objectID, int domain, double dist) { \
-    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOMAIN##_CONTEXT, objectID, std::vector<int>(), libsumo::INVALID_DOUBLE_VALUE, libsumo::INVALID_DOUBLE_VALUE, libsumo::TraCIResults(), domain, dist); \
+    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOM##_CONTEXT, objectID, std::vector<int>(), libsumo::INVALID_DOUBLE_VALUE, libsumo::INVALID_DOUBLE_VALUE, libsumo::TraCIResults(), domain, dist); \
 } \
 const libsumo::SubscriptionResults \
 CLASS::getAllSubscriptionResults() { \
@@ -90,7 +109,7 @@ CLASS::getContextSubscriptionResults(const std::string& objectID) { \
 } \
 void \
 CLASS::subscribeParameterWithKey(const std::string& objectID, const std::string& key, double beginTime, double endTime) { \
-    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOMAIN##_VARIABLE, objectID, std::vector<int>({libsumo::VAR_PARAMETER_WITH_KEY}), beginTime, endTime, libsumo::TraCIResults {{libsumo::VAR_PARAMETER_WITH_KEY, std::make_shared<libsumo::TraCIString>(key)}}); \
+    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOM##_VARIABLE, objectID, std::vector<int>({libsumo::VAR_PARAMETER_WITH_KEY}), beginTime, endTime, libsumo::TraCIResults {{libsumo::VAR_PARAMETER_WITH_KEY, std::make_shared<libsumo::TraCIString>(key)}}); \
 }
 
 
@@ -139,11 +158,11 @@ public:
 
 struct TraCIResult {
     virtual ~TraCIResult() {}
-    virtual std::string getString() {
+    virtual std::string getString() const {
         return "";
     }
-    virtual const std::vector<unsigned char> toPacket() const {
-        return std::vector<unsigned char>();
+    virtual int getType() const {
+        return -1;
     }
 };
 
@@ -151,7 +170,7 @@ struct TraCIResult {
  * @brief A 3D-position
  */
 struct TraCIPosition : TraCIResult {
-    std::string getString() {
+    std::string getString() const {
         std::ostringstream os;
         os << "TraCIPosition(" << x << "," << y << "," << z << ")";
         return os.str();
@@ -163,13 +182,15 @@ struct TraCIPosition : TraCIResult {
  * @brief An edgeId, position and laneIndex
  */
 struct TraCIRoadPosition : TraCIResult {
-    std::string getString() {
+    TraCIRoadPosition() {}
+    TraCIRoadPosition(const std::string e, const double p) : edgeID(e), pos(p) {}
+    std::string getString() const {
         std::ostringstream os;
         os << "TraCIRoadPosition(" << edgeID << "_" << laneIndex << "," << pos << ")";
         return os.str();
     }
-    std::string edgeID;
-    double pos;
+    std::string edgeID = "";
+    double pos = INVALID_DOUBLE_VALUE;
     int laneIndex = INVALID_INT_VALUE;
 };
 
@@ -179,7 +200,7 @@ struct TraCIRoadPosition : TraCIResult {
 struct TraCIColor : TraCIResult {
     TraCIColor() : r(0), g(0), b(0), a(255) {}
     TraCIColor(int r, int g, int b, int a = 255) : r(r), g(g), b(b), a(a) {}
-    std::string getString() {
+    std::string getString() const {
         std::ostringstream os;
         os << "TraCIColor(" << r << "," << g << "," << b << "," << a << ")";
         return os.str();
@@ -188,30 +209,27 @@ struct TraCIColor : TraCIResult {
 };
 
 
-/** @struct TraCILeaderDistance
- * @brief A leaderId and distance to leader
- */
-struct TraCILeaderDistance : TraCIResult {
-    std::string getString() {
-        std::ostringstream os;
-        os << "TraCILeaderDistance(" << leaderID << "," << dist << ")";
-        return os.str();
-    }
-    std::string leaderID;
-    double dist;
-};
-
-
 /** @struct TraCIPositionVector
  * @brief A list of positions
  */
-typedef std::vector<TraCIPosition> TraCIPositionVector;
+struct TraCIPositionVector : TraCIResult {
+    std::string getString() const {
+        std::ostringstream os;
+        os << "[";
+        for (const TraCIPosition& v : value) {
+            os << "(" << v.x << "," << v.y << "," << v.z << ")";
+        }
+        os << "]";
+        return os.str();
+    }
+    std::vector<TraCIPosition> value;
+};
 
 
 struct TraCIInt : TraCIResult {
     TraCIInt() : value(0) {}
     TraCIInt(int v) : value(v) {}
-    std::string getString() {
+    std::string getString() const {
         std::ostringstream os;
         os << value;
         return os.str();
@@ -223,17 +241,14 @@ struct TraCIInt : TraCIResult {
 struct TraCIDouble : TraCIResult {
     TraCIDouble() : value(0.) {}
     TraCIDouble(double v) : value(v) {}
-    std::string getString() {
+    std::string getString() const {
         std::ostringstream os;
         os << value;
         return os.str();
     }
-/*    const std::vector<unsigned char> toPacket() const {
-        std::vector<unsigned char> dest(sizeof(value) + 1);
-        dest[0] = (unsigned char)libsumo::TYPE_DOUBLE;
-        std::memcpy(dest.data() + 1, &value, sizeof(value));
-        return dest;
-    }*/
+    int getType() const {
+        return libsumo::TYPE_DOUBLE;
+    }
     double value;
 };
 
@@ -241,23 +256,18 @@ struct TraCIDouble : TraCIResult {
 struct TraCIString : TraCIResult {
     TraCIString() : value("") {}
     TraCIString(std::string v) : value(v) {}
-    std::string getString() {
+    std::string getString() const {
         return value;
     }
-/*    const std::vector<unsigned char> toPacket() const {
-        std::vector<unsigned char> dest(sizeof(value) + 5);
-        dest[0] = (unsigned char)libsumo::TYPE_STRING;
-        const int size = (int)value.size();
-        std::memcpy(dest.data() + 1, &size, sizeof(size));
-        std::memcpy(dest.data() + 5, &value, sizeof(value));
-        return dest;
-    }*/
+    int getType() const {
+        return libsumo::TYPE_STRING;
+    }
     std::string value;
 };
 
 
 struct TraCIStringList : TraCIResult {
-    std::string getString() {
+    std::string getString() const {
         std::ostringstream os;
         os << "[";
         for (std::string v : value) {
@@ -270,11 +280,25 @@ struct TraCIStringList : TraCIResult {
 };
 
 
+struct TraCIDoubleList : TraCIResult {
+    std::string getString() const {
+        std::ostringstream os;
+        os << "[";
+        for (double v : value) {
+            os << v << ",";
+        }
+        os << "]";
+        return os.str();
+    }
+    std::vector<double> value;
+};
+
+
 /// @brief {variable->value}
-typedef std::map<int, std::shared_ptr<TraCIResult> > TraCIResults;
+typedef std::map<int, std::shared_ptr<libsumo::TraCIResult> > TraCIResults;
 /// @brief {object->{variable->value}}
-typedef std::map<std::string, TraCIResults> SubscriptionResults;
-typedef std::map<std::string, SubscriptionResults> ContextSubscriptionResults;
+typedef std::map<std::string, libsumo::TraCIResults> SubscriptionResults;
+typedef std::map<std::string, libsumo::SubscriptionResults> ContextSubscriptionResults;
 
 
 class TraCIPhase {
@@ -297,7 +321,7 @@ public:
 
 
 #ifdef SWIG
-%template(TraCIPhaseVector) std::vector<libsumo::TraCIPhase*>; // *NOPAD*
+%template(TraCIPhaseVector) std::vector<std::shared_ptr<libsumo::TraCIPhase> >; // *NOPAD*
 #endif
 
 
@@ -306,20 +330,21 @@ class TraCILogic {
 public:
     TraCILogic() {}
     TraCILogic(const std::string& _programID, const int _type, const int _currentPhaseIndex,
-               const std::vector<libsumo::TraCIPhase*>& _phases = std::vector<libsumo::TraCIPhase*>())
+               const std::vector<std::shared_ptr<libsumo::TraCIPhase> >& _phases = std::vector<std::shared_ptr<libsumo::TraCIPhase> >())
         : programID(_programID), type(_type), currentPhaseIndex(_currentPhaseIndex), phases(_phases) {}
     ~TraCILogic() {}
 
     std::string programID;
     int type;
     int currentPhaseIndex;
-    std::vector<TraCIPhase*> phases;
+    std::vector<std::shared_ptr<libsumo::TraCIPhase> > phases;
     std::map<std::string, std::string> subParameter;
 };
 
 
 class TraCILink {
 public:
+    TraCILink() {}
     TraCILink(const std::string& _from, const std::string& _via, const std::string& _to)
         : fromLane(_from), viaLane(_via), toLane(_to) {}
     ~TraCILink() {}
@@ -413,7 +438,7 @@ struct TraCINextStopData : TraCIResult {
         speed(speed)
     {}
 
-    std::string getString() {
+    std::string getString() const {
         std::ostringstream os;
         os << "TraCINextStopData(" << lane << "," << endPos << "," << stoppingPlaceID
            << "," << stopFlags << "," << duration << "," << until
@@ -461,7 +486,7 @@ struct TraCINextStopData : TraCIResult {
  * @see TraCINextStopData
  */
 struct TraCINextStopDataVector : TraCIResult {
-    std::string getString() {
+    std::string getString() const {
         std::ostringstream os;
         os << "TraCINextStopDataVector[";
         for (TraCINextStopData v : value) {
@@ -541,9 +566,10 @@ public:
                      double departPos,
                      double arrivalPos,
                      double depart,
-                     double reservationTime) :
+                     double reservationTime,
+                     int state) :
         id(id), persons(persons), group(group), fromEdge(fromEdge), toEdge(toEdge), departPos(departPos), arrivalPos(arrivalPos),
-        depart(depart), reservationTime(reservationTime) {}
+        depart(depart), reservationTime(reservationTime), state(state) {}
     /// @brief The id of the taxi reservation (usable for traci.vehicle.dispatchTaxi)
     std::string id;
     /// @brief The persons ids that are part of this reservation
@@ -562,6 +588,8 @@ public:
     double depart;
     /// @brief time when the reservation was made
     double reservationTime;
+    /// @brief the state of this reservation
+    int state;
 };
 
 struct TraCICollision {
@@ -580,4 +608,35 @@ struct TraCICollision {
     double pos;
 };
 
+
+struct TraCISignalConstraint {
+    /// @brief the idea of the rail signal where this constraint is active
+    std::string signalId;
+    /// @brief the tripId or vehicle id of the train that is constrained
+    std::string tripId;
+    /// @brief the tripId or vehicle id of the train that must pass first
+    std::string foeId;
+    /// @brief the tlsID of the rail signla that the foe must pass first
+    std::string foeSignal;
+    /// @brief the number of trains that must be recorded at the foeSignal
+    int limit;
+    /// @brief the type of constraint (predecessor:0, insertionPredecessor:1)
+    int type;
+    /// @brief whether tripId must still wait for foeId to pass foeSignal
+    bool mustWait;
+    /// @brief whether this constraint is active
+    bool active;
+
+    std::string getString() const {
+        std::ostringstream os;
+        os << "TraCISignalConstraint(signalId=" << signalId << ", tripid=" << tripId << ", foeSignal=" << foeSignal << ", foeId=" << foeId << ")";
+        return os.str();
+    }
+};
+
 }
+
+// pop MSVC warnings
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

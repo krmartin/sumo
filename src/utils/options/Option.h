@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -75,17 +75,10 @@ public:
     /** destructor */
     virtual ~Option();
 
-
     /** @brief returns the information whether this options holds a valid value
      * @return Whether a value has been set
      */
     bool isSet() const;
-
-
-    /** @brief marks this option as unset
-     */
-    void unSet();
-
 
     /** @brief Returns the stored double value
      *
@@ -97,7 +90,6 @@ public:
      */
     virtual double getFloat() const;
 
-
     /** @brief Returns the stored integer value
      *
      * Option_Integer returns the stored integer number in this method's reimplementation.
@@ -107,7 +99,6 @@ public:
      * @exception InvalidArgument If the class is not an instance of Option_Integer
      */
     virtual int getInt() const;
-
 
     /** @brief Returns the stored string value
      *
@@ -120,7 +111,6 @@ public:
      */
     virtual std::string getString() const;
 
-
     /** @brief Returns the stored boolean value
      *
      * Option_Bool returns the stored boolean in this method's reimplementation.
@@ -130,7 +120,6 @@ public:
      * @exception InvalidArgument If the class is not an instance of Option_Bool
      */
     virtual bool getBool() const;
-
 
     /** @brief Returns the stored integer vector
      *
@@ -167,8 +156,7 @@ public:
      * @return Whether the new value could be set
      * @exception InvalidArgument If the value could not be converted
      */
-    virtual bool set(const std::string& v) = 0;
-
+    virtual bool set(const std::string& v, const std::string& orig, const bool append) = 0;
 
     /** @brief Returns the string-representation of the value
      *
@@ -176,8 +164,9 @@ public:
      *
      * @return The stored value encoded into a string-
      */
-    virtual std::string getValueString() const = 0;
-
+    const std::string& getValueString() const {
+        return myValueString;
+    }
 
     /** @brief Returns the information whether the option is a bool option
      *
@@ -187,13 +176,11 @@ public:
      */
     virtual bool isBool() const;
 
-
     /** @brief Returns the information whether the option holds the default value
      *
      * @return true if the option was not set from command line / configuration, false otherwise
      */
     virtual bool isDefault() const;
-
 
     /** @brief Returns the information whether this option is a file name
      *
@@ -202,7 +189,6 @@ public:
      * @return true if the Option is an Option_FileName, false otherwise
      */
     virtual bool isFileName() const;
-
 
     /** @brief Returns the information whether the option may be set a further time
      *
@@ -213,7 +199,6 @@ public:
      */
     bool isWriteable() const;
 
-
     /** @brief Resets the option to be writeable
      *
      * An option is writable after initialisation, but as soon as it gets set,
@@ -221,14 +206,12 @@ public:
      */
     void resetWritable();
 
-
     /** @brief Resets the option to be on its default value
      *
      * An option is on its default after initialisation with a value, but as soon as it gets set,
      *  it is no longer. This method resets the default-flag.
      */
     void resetDefault();
-
 
     /** @brief Returns the description of what this option does
      *
@@ -238,7 +221,6 @@ public:
      */
     const std::string& getDescription() const;
 
-
     /** @brief Sets the description of what this option does
      *
      * The description stored in myDescription is returned.
@@ -246,7 +228,6 @@ public:
      * @return The description of this option's purpose
      */
     void setDescription(const std::string& desc);
-
 
     /** @brief Returns the mml-type name of this option
      *
@@ -256,19 +237,6 @@ public:
      */
     virtual const std::string& getTypeName() const;
 
-
-    /** @brief Create a new Option of the given type with given default value but make it unset
-     *  @note Was implemented to allow warning once if user didn't set the option, refs. #4567
-     *  @see MSDeviceSSM::insertOptions()
-     */
-    template<class OptionType, class ValueType>
-    static OptionType* makeUnsetWithDefault(ValueType def) {
-        OptionType* o = new OptionType(def);
-        o->unSet();
-        return o;
-    }
-
-
 protected:
     /** @brief Marks the information as set
      *
@@ -276,8 +244,7 @@ protected:
      *
      * @return Whether the option was not set before.
      */
-    bool markSet();
-
+    bool markSet(const std::string& orig);
 
 protected:
     /** @brief Constructor
@@ -289,19 +256,12 @@ protected:
      */
     Option(bool set = false);
 
-
-    /** @brief Copy constructor */
-    Option(const Option& s);
-
-
-    /** @brief Assignment operator */
-    virtual Option& operator=(const Option& s);
-
-
 protected:
     /// @brief A type name for this option (has presets, but may be overwritten)
     std::string myTypeName;
 
+    /// @brief The original set string
+    std::string myValueString;
 
 private:
     /** @brief information whether the value is set */
@@ -336,25 +296,11 @@ public:
      */
     Option_Integer(int value);
 
-
-    /** @brief Copy constructor */
-    Option_Integer(const Option_Integer& s);
-
-
-    /** @brief Destructor */
-    ~Option_Integer();
-
-
-    /** @brief Assignment operator */
-    Option_Integer& operator=(const Option_Integer& s);
-
-
     /** @brief Returns the stored integer value
      * @see Option::getInt()
      * @return Returns the stored integer number
      */
     int getInt() const;
-
 
     /** @brief Stores the given value after parsing it into an integer
      *
@@ -371,23 +317,11 @@ public:
      * @return Whether the new value could be set
      * @exception InvalidArgument If the value could not be converted into an integer
      */
-    bool set(const std::string& v);
-
-
-    /** @brief Returns the string-representation of the value
-     *
-     * The stored value is encoded into a string and returned.
-     *
-     * @see std::string Option::getValueString()
-     * @return The stored value encoded into a string
-     */
-    std::string getValueString() const;
-
+    bool set(const std::string& v, const std::string& orig, const bool append);
 
 private:
     /** the value, valid only when the base-classes "myAmSet"-member is true */
-    int      myValue;
-
+    int myValue;
 };
 
 
@@ -402,7 +336,6 @@ public:
      */
     Option_String();
 
-
     /** @brief Constructor for an option with a default value
      *
      * Calls Option(true)
@@ -411,25 +344,11 @@ public:
      */
     Option_String(const std::string& value, std::string typeName = "STR");
 
-
-    /** @brief Copy constructor */
-    Option_String(const Option_String& s);
-
-
-    /** @brief Destructor */
-    virtual ~Option_String();
-
-
-    /** @brief Assignment operator */
-    Option_String& operator=(const Option_String& s);
-
-
     /** @brief Returns the stored string value
      * @see std::string Option::getString()
      * @return Returns the stored string
      */
     std::string getString() const;
-
 
     /** @brief Stores the given value
      *
@@ -442,22 +361,11 @@ public:
      * @see bool Option::set(std::string v)
      * @return Whether the new value could be set
      */
-    bool set(const std::string& v);
-
-
-    /** @brief Returns the string-representation of the value
-     *
-     * The stored value is encoded into a string and returned.
-     *
-     * @see std::string Option::getValueString()
-     * @return The stored value encoded into a string
-     */
-    std::string getValueString() const;
-
+    bool set(const std::string& v, const std::string& orig, const bool append);
 
 protected:
     /** the value, valid only when the base-classes "myAmSet"-member is true */
-    std::string      myValue;
+    std::string myValue;
 
 };
 
@@ -475,25 +383,11 @@ public:
      */
     Option_Float(double value);
 
-
-    /** @brief Copy constructor */
-    Option_Float(const Option_Float& s);
-
-
-    /** @brief Destructor */
-    ~Option_Float();
-
-
-    /** @brief Assignment operator */
-    Option_Float& operator=(const Option_Float& s);
-
-
     /** @brief Returns the stored double value
      * @see double Option::getFloat()
      * @return Returns the stored real number
      */
     double getFloat() const;
-
 
     /** @brief Stores the given value after parsing it into a double
      *
@@ -510,23 +404,11 @@ public:
      * @return Whether the new value could be set
      * @exception InvalidArgument If the value could not be converted into a double
      */
-    bool set(const std::string& v);
-
-
-    /** @brief Returns the string-representation of the value
-     *
-     * The stored value is encoded into a string and returned.
-     *
-     * @see std::string Option::getValueString()
-     * @return The stored value encoded into a string
-     */
-    std::string getValueString() const;
-
+    bool set(const std::string& v, const std::string& orig, const bool append);
 
 private:
     /** the value, valid only when the base-classes "myAmSet"-member is true */
-    double       myValue;
-
+    double myValue;
 };
 
 
@@ -543,19 +425,6 @@ public:
      */
     Option_Bool(bool value);
 
-
-    /** @brief Copy constructor */
-    Option_Bool(const Option_Bool& s);
-
-
-    /** @brief Destructor */
-    ~Option_Bool();
-
-
-    /** @brief Assignment operator */
-    Option_Bool& operator=(const Option_Bool& s);
-
-
     /** @brief Returns the stored boolean value
      * @see bool Option::getBool()
      * @return Returns the stored boolean
@@ -563,18 +432,7 @@ public:
     bool getBool() const;
 
     /** sets the given value (converts it to bool) */
-    virtual bool set(const std::string& v);
-
-
-    /** @brief Returns the string-representation of the value
-     *
-     * If myValue is true, "true" is returned, "false" otherwise.
-     *
-     * @see std::string Option::getValueString()
-     * @return The stored value encoded into a string
-     */
-    virtual std::string getValueString() const;
-
+    bool set(const std::string& v, const std::string& orig, const bool append);
 
     /** @brief Returns true, the information whether the option is a bool option
      *
@@ -585,11 +443,9 @@ public:
      */
     bool isBool() const;
 
-
 protected:
     /** the value, valid only when the base-classes "myAmSet"-member is true */
-    bool        myValue;
-
+    bool myValue;
 };
 
 
@@ -608,37 +464,8 @@ public:
      */
     Option_BoolExtended(bool value);
 
-
-    /** @brief Copy constructor */
-    Option_BoolExtended(const Option_BoolExtended& s);
-
-
-    /** @brief Destructor */
-    ~Option_BoolExtended();
-
-
-    /** @brief Assignment operator */
-    Option_BoolExtended& operator=(const Option_BoolExtended& s);
-
-
     /** sets the given value (converts it to bool) */
-    bool set(const std::string& v);
-
-
-    /** @brief Returns the string-representation of the value
-     *
-     * If myValue is true, "true" is returned, "false" otherwise.
-     *
-     * @see std::string Option::getValueString()
-     * @return The stored value encoded into a string
-     */
-    std::string getValueString() const;
-
-
-private:
-    /** the value, valid only when the base-classes "myAmSet"-member is true */
-    std::string myValueString;
-
+    bool set(const std::string& v, const std::string& orig, const bool append);
 };
 
 
@@ -651,32 +478,17 @@ public:
      */
     Option_IntVector();
 
-
     /** @brief Constructor for an option with a default value
      *
      * @param[in] value This option's default value
      */
     Option_IntVector(const IntVector& value);
 
-
-    /** @brief Copy constructor */
-    Option_IntVector(const Option_IntVector& s);
-
-
-    /** @brief Destructor */
-    virtual ~Option_IntVector();
-
-
-    /** @brief Assignment operator */
-    Option_IntVector& operator=(const Option_IntVector& s);
-
-
     /** @brief Returns the stored integer vector
      * @see const IntVector &Option::getIntVector()
      * @return Returns the stored integer vector
      */
     const IntVector& getIntVector() const;
-
 
     /** @brief Stores the given value after parsing it into a vector of integers
      *
@@ -693,18 +505,7 @@ public:
      * @return Whether the new value could be set
      * @exception InvalidArgument If the value could not be converted into a vector of integers
      */
-    bool set(const std::string& v);
-
-
-    /** @brief Returns the string-representation of the value
-     *
-     * The stored value is encoded into a string and returned.
-     *
-     * @see std::string Option::getValueString()
-     * @return The stored value encoded into a string
-     */
-    std::string getValueString() const;
-
+    bool set(const std::string& v, const std::string& orig, const bool append);
 
 private:
     /** the value, valid only when the base-classes "myAmSet"-member is true */
@@ -726,15 +527,6 @@ public:
      * @param[in] value This option's default value
      */
     Option_StringVector(const StringVector& value);
-
-    /** @brief Copy constructor */
-    Option_StringVector(const Option_StringVector& s);
-
-    /** @brief Destructor */
-    virtual ~Option_StringVector();
-
-    /** @brief Assignment operator */
-    Option_StringVector& operator=(const Option_StringVector& s);
 
     /** @brief Returns the stored string vector
      * @see const StringVector &Option::getStringVector()
@@ -758,16 +550,7 @@ public:
      * @exception InvalidArgument If the value could not be converted into a
      * vector of strings
      */
-    bool set(const std::string& v);
-
-    /** @brief Returns the string-representation of the value
-     *
-     * The stored value is encoded into a string and returned.
-     *
-     * @see std::string Option::getValueString()
-     * @return The stored value encoded into a string
-     */
-    std::string getValueString() const;
+    bool set(const std::string& v, const std::string& orig, const bool append);
 
 private:
     /** the value, valid only when the base-classes "myAmSet"-member is true */
@@ -790,15 +573,6 @@ public:
      */
     Option_FileName(const StringVector& value);
 
-    /** @brief Copy constructor */
-    Option_FileName(const Option_FileName& s);
-
-    /** @brief Destructor */
-    virtual ~Option_FileName();
-
-    /** @brief Assignment operator */
-    Option_FileName& operator=(const Option_FileName& s);
-
     /** @brief Returns true, the information whether this option is a file name
      *
      * Returns true.
@@ -816,13 +590,4 @@ public:
      * not in line with code style of the Options sub-system.
      */
     std::string getString() const;
-
-    /** @brief Returns the string-representation of the value
-     *
-     * The value is URL-encoded using StringUtils::urlEncode and returned.
-     *
-     * @see std::string Option::getValueString()
-     * @return The stored value encoded into a string
-     */
-    std::string getValueString() const;
 };

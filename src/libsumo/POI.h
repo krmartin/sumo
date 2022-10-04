@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,8 +21,6 @@
 // C++ TraCI client API implementation
 /****************************************************************************/
 #pragma once
-#include <config.h>
-
 #include <vector>
 #include <libsumo/TraCIDefs.h>
 
@@ -34,9 +32,6 @@
 class NamedRTree;
 class PointOfInterest;
 class PositionVector;
-namespace libsumo {
-class VariableWrapper;
-}
 #endif
 
 
@@ -74,6 +69,7 @@ public:
 
 
 #ifndef LIBTRACI
+#ifndef SWIG
     /** @brief Returns a tree filled with PoI instances
      *  @return The rtree of PoIs
      */
@@ -88,7 +84,7 @@ public:
 
     static std::shared_ptr<VariableWrapper> makeWrapper();
 
-    static bool handleVariable(const std::string& objID, const int variable, VariableWrapper* wrapper);
+    static bool handleVariable(const std::string& objID, const int variable, VariableWrapper* wrapper, tcpip::Storage* paramData);
 
 private:
     static PointOfInterest* getPoI(const std::string& id);
@@ -98,6 +94,7 @@ private:
     static SubscriptionResults mySubscriptionResults;
     static ContextSubscriptionResults myContextSubscriptionResults;
     static NamedRTree* myTree;
+#endif
 #endif
 
     /// @brief invalidated standard constructor

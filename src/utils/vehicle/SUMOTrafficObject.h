@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -45,6 +45,7 @@ class Position;
  */
 class SUMOTrafficObject : public Named {
 public:
+    typedef long long int NumericalID;
 
     /// @brief Constructor
     SUMOTrafficObject(const std::string& id) : Named(id) {}
@@ -73,6 +74,11 @@ public:
         return false;
     }
 
+    /// @brief return the numerical ID which is only for internal usage
+    //  (especially fast comparison in maps which need vehicles as keys)
+    virtual NumericalID getNumericalID() const = 0;
+
+
     /** @brief Returns the object's "vehicle" type
      * @return The vehicle's type
      */
@@ -98,7 +104,7 @@ public:
     /** @brief Returns the associated RNG for this object
     * @return The vehicle's associated RNG
     */
-    virtual std::mt19937* getRNG() const = 0;
+    virtual SumoRNG* getRNG() const = 0;
 
     /** @brief Returns whether the object is at a stop
      * @return Whether it has stopped
@@ -110,6 +116,9 @@ public:
      * @return The current edge in the object's route
      */
     virtual const MSEdge* getEdge() const = 0;
+
+    /// @brief returns the next edge (possibly an internal edge)
+    virtual const MSEdge* getNextEdgePtr() const = 0;
 
     /** @brief Returns the lane the object is currently at
      *
@@ -129,7 +138,7 @@ public:
      */
     virtual SUMOVehicleClass getVClass() const = 0;
 
-    /** @brief Returns the object's maximum speed
+    /** @brief Returns the object's maximum speed (minimum of technical and desired maximum speed)
      * @return The object's maximum speed
      */
     virtual double getMaxSpeed() const = 0;
@@ -180,5 +189,12 @@ public:
     /** @brief Returns whether this object has arrived
      */
     virtual bool hasArrived() const = 0;
+
+    /// @brief whether the vehicle is individually influenced (via TraCI or special parameters)
+    virtual bool hasInfluencer() const = 0;
+
+    /// @brief whether this object is selected in the GUI
+    virtual bool isSelected() const = 0;
+
 
 };

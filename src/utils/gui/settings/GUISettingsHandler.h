@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -161,6 +161,9 @@ private:
     /// @brief View rotation
     double myRotation;
 
+    /// @brief Zoom level
+    double myZoom;
+
     /// @brief mappig of time steps to filenames for potential snapshots
     std::map<SUMOTime, std::vector<std::string> > mySnapshots;
 
@@ -184,6 +187,8 @@ private:
     double myJamSoundTime;
 
 private:
+    /// @brief parse color attribute
+    RGBColor parseColor(const SUMOSAXAttributes& attrs, const std::string attribute, const RGBColor& defaultValue) const;
 
     /// @brief parse attributes for textSettings
     GUIVisualizationTextSettings parseTextSettings(
@@ -194,5 +199,4 @@ private:
     GUIVisualizationSizeSettings parseSizeSettings(
         const std::string& prefix, const SUMOSAXAttributes& attrs,
         GUIVisualizationSizeSettings defaults);
-
 };

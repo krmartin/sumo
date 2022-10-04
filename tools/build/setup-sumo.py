@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2020-2020 German Aerospace Center (DLR) and others.
+# Copyright (C) 2020-2022 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -15,10 +15,13 @@
 # @author  Michael Behrisch
 # @date    2020-07-28
 
+import os
 from skbuild import setup
 import version
 
 SUMO_VERSION = version.get_pep440_version()
+package_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
 setup(
     name='eclipse-sumo',
     version=SUMO_VERSION,
@@ -28,6 +31,8 @@ setup(
     author_email='sumo@dlr.de',
     license='EPL-2.0',
     description=("A microscopic, multi-modal traffic simulation package"),
+    long_description=open(os.path.join(os.path.dirname(package_dir), 'README.md')).read(),
+    long_description_content_type='text/markdown',
 
     classifiers=[
         'Development Status :: 5 - Production/Stable',

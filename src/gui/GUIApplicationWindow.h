@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -26,11 +26,12 @@
 #include <string>
 #include <vector>
 #include <iostream>
-#include <fx.h>
-#include <utils/foxtools/FXSynchQue.h>
-#include <utils/foxtools/FXThreadEvent.h>
+#include <utils/foxtools/fxheader.h>
+#include <utils/foxtools/MFXSynchQue.h>
+#include <utils/foxtools/MFXThreadEvent.h>
 #include <utils/foxtools/MFXInterThreadEventClient.h>
-#include <utils/foxtools/FXLCDLabel.h>
+#include <utils/foxtools/MFXLCDLabel.h>
+#include <utils/foxtools/MFXRecentNetworks.h>
 #include <utils/gui/windows/GUIMainWindow.h>
 #include <utils/common/ValueRetriever.h>
 #include <utils/common/ValueSource.h>
@@ -41,12 +42,14 @@
 // ===========================================================================
 // class declarations
 // ===========================================================================
+class Command;
 class GUILoadThread;
 class GUIRunThread;
 class GUIMessageWindow;
 class GUIEvent;
 class GUIParameterTracker;
 class GUIParameterTableWindow;
+class GUIDialog_Breakpoints;
 
 
 // ===========================================================================
@@ -87,10 +90,13 @@ public:
     virtual void detach();
     /// @}
 
-    void loadOnStartup();
+    void loadOnStartup(const bool wait = false);
 
+    GUIRunThread* getRunner() {
+        return myRunThread;
+    }
 
-    void dependentBuild();
+    void dependentBuild(const bool isLibsumo);
 
     void setStatusBarText(const std::string& text);
 
@@ -120,6 +126,9 @@ public:
     /// @name FOX-callbacks
     /// @{
 
+    /// @brief Called on menu File->New Window
+    long onCmdNewWindow(FXObject*, FXSelector, void*);
+
     /// @brief Called on menu File->Open Configuration
     long onCmdOpenConfiguration(FXObject*, FXSelector, void*);
 
@@ -134,6 +143,9 @@ public:
 
     /// @brief Called on reload
     long onCmdReload(FXObject*, FXSelector, void*);
+
+    /// @brief Called on quick-reload
+    long onCmdQuickReload(FXObject*, FXSelector, void*);
 
     /// @brief Called on opening a recent file
     long onCmdOpenRecent(FXObject*, FXSelector, void*);
@@ -164,6 +176,15 @@ public:
     /// @brief called if the user selects help->Documentation
     long onCmdHelp(FXObject* sender, FXSelector sel, void* ptr);
 
+    /// @brief called if the user selects help->Changelog
+    long onCmdChangelog(FXObject* sender, FXSelector sel, void* ptr);
+
+    /// @brief called if the user selects help->Hotkeys
+    long onCmdHotkeys(FXObject* sender, FXSelector sel, void* ptr);
+
+    /// @brief called if the user selects help->Tutorial
+    long onCmdTutorial(FXObject* sender, FXSelector sel, void* ptr);
+
     /// @brief Called on menu Edit->Netedit
     long onCmdNetedit(FXObject*, FXSelector, void*);
 
@@ -172,6 +193,9 @@ public:
 
     /// @brief Toggle gaming mode
     long onCmdGaming(FXObject*, FXSelector, void*);
+
+    /// @brief Toggle draw junction shape
+    long onCmdToggleDrawJunctionShape(FXObject*, FXSelector, void*);
 
     /// @brief Toggle full screen mode
     long onCmdFullScreen(FXObject*, FXSelector, void*);
@@ -203,8 +227,17 @@ public:
     /// @brief Called on "save state"
     long onCmdSaveState(FXObject*, FXSelector, void*);
 
+    /// @brief Called on "save state"
+    long onCmdLoadState(FXObject*, FXSelector, void*);
+
     /// @brief Called on "time toggle"
     long onCmdTimeToggle(FXObject*, FXSelector, void*);
+
+    /// @brief Called on "delay inc"
+    long onCmdDelayInc(FXObject*, FXSelector, void*);
+
+    /// @brief Called on "delay dec"
+    long onCmdDelayDec(FXObject*, FXSelector, void*);
 
     /// @brief Called on "delay toggle"
     long onCmdDelayToggle(FXObject*, FXSelector, void*);
@@ -296,6 +329,13 @@ public:
 
     const std::vector<SUMOTime> retrieveBreakpoints() const;
 
+    void eraseBreakpointDialog() {
+        myBreakpointDialog = nullptr;
+    }
+
+    /// @brief register custom hotkey action
+    void addHotkey(int key, Command* press, Command* release);
+
 protected:
     virtual void addToWindowsMenu(FXMenuPane*) { }
 
@@ -309,8 +349,10 @@ private:
     /// @brief updates the simulation time display
     void updateTimeLCD(SUMOTime time);
 
+    void updateTimeLCDTooltip();
+
     /** opens a new simulation display */
-    GUISUMOAbstractView* openNewView(GUISUMOViewParent::ViewType vt = GUISUMOViewParent::VIEW_2D_OPENGL);
+    GUISUMOAbstractView* openNewView(GUISUMOViewParent::ViewType vt = GUISUMOViewParent::VIEW_2D_OPENGL, std::string caption = "");
 
     /// @brief handles additional game-related events
     void checkGamingEvents();
@@ -345,10 +387,16 @@ protected:
     /// @brief information whether the gui is currently loading and the load-options shall be greyed out
     bool myAmLoading;
 
+    /// @brief whether we are reloading the simulation
+    bool myIsReload;
+
+    /// @brief last modification time of the gui setting file
+    long long  myGuiSettingsFileMTime;
+
     /// @brief the submenus
     FXMenuPane* myFileMenu = nullptr, *myEditMenu = nullptr, *mySelectByPermissions = nullptr, *mySettingsMenu = nullptr,
                 *myLocatorMenu, *myControlMenu = nullptr,
-                                 *myWindowsMenu, *myHelpMenu = nullptr;
+                                 *myWindowMenu, *myHelpMenu = nullptr;
 
     /// @brief the menu cascades
     FXMenuCascade* mySelectLanesMenuCascade = nullptr;
@@ -380,7 +428,7 @@ protected:
     double myAlternateSimDelay;
 
     /// @brief List of got requests
-    FXSynchQue<GUIEvent*> myEvents;
+    MFXSynchQue<GUIEvent*> myEvents;
 
     /// @brief The menu used for the MDI-windows
     FXMDIMenu* myMDIMenu = nullptr;
@@ -392,16 +440,16 @@ protected:
     FXToolBar* myToolBar1 = nullptr, *myToolBar2 = nullptr, *myToolBar3 = nullptr, *myToolBar4 = nullptr, *myToolBar5 = nullptr, *myToolBar8 = nullptr;
 
     /// @brief the simulation step display
-    FXEX::FXLCDLabel* myLCDLabel = nullptr;
+    MFXLCDLabel* myLCDLabel = nullptr;
 
     /// @brief io-event with the load-thread
-    FXEX::FXThreadEvent myLoadThreadEvent;
+    FXEX::MFXThreadEvent myLoadThreadEvent;
 
     /// @brief io-event with the run-thread
-    FXEX::FXThreadEvent myRunThreadEvent;
+    FXEX::MFXThreadEvent myRunThreadEvent;
 
-    /// @brief List of recent files
-    FXRecentFiles myRecentFiles;
+    /// @brief List of recent networks and configs
+    MFXRecentNetworks myRecentNetworksAndConfigs;
 
     /// @brief Input file pattern
     std::string myConfigPattern;
@@ -420,6 +468,9 @@ protected:
     /// @brief the semaphore when waiting for event completion
     FXCondition myEventCondition;
 
+    /// @brief menu checkbox to activate game mode
+    FXMenuCheck* myGamingModeCheckbox;
+
     /// @name game related things
     /// {
     RandomDistributor<std::string> myJamSounds;
@@ -433,10 +484,10 @@ protected:
     bool myTLSGame;
 
     /// @brief performance indicators
-    FXEX::FXLCDLabel* myWaitingTimeLabel = nullptr;
-    FXEX::FXLCDLabel* myTimeLossLabel = nullptr;
-    FXEX::FXLCDLabel* myTotalDistanceLabel = nullptr;
-    FXEX::FXLCDLabel* myEmergencyVehicleLabel = nullptr;
+    MFXLCDLabel* myWaitingTimeLabel = nullptr;
+    MFXLCDLabel* myTimeLossLabel = nullptr;
+    MFXLCDLabel* myTotalDistanceLabel = nullptr;
+    MFXLCDLabel* myEmergencyVehicleLabel = nullptr;
     SUMOTime myWaitingTime;
     SUMOTime myTimeLoss;
     SUMOTime myEmergencyVehicleCount;
@@ -445,4 +496,12 @@ protected:
     FXToolBarShell* myToolBarDrag6 = nullptr, *myToolBarDrag7 = nullptr, *myToolBarDrag9 = nullptr, *myToolBarDrag10 = nullptr;
     ////}
 
+    /// last time the simulation view was redrawn due to a simStep
+    long myLastStepEventMillis;
+
+    /// @brief custom hotkeys
+    std::map<int, Command*> myHotkeyPress;
+    std::map<int, Command*> myHotkeyRelease;
+
+    GUIDialog_Breakpoints* myBreakpointDialog = nullptr;
 };

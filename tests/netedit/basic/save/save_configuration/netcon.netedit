@@ -1,15 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on 3/11/2020 9:11:20 AM by Eclipse SUMO netedit Version v1_5_0+0577-c86610ca2e
+<!-- generated on 2022-06-20 09:34:38 by Eclipse SUMO netedit Version v1_13_0+1015-35da78b273c
 <configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/netconvertConfiguration.xsd">
 
     <input>
-        <sumo-net-file value="C:\Users\SUMO-Test\.texttest\tmp\netedit.gui.11Mar090907.5180\netedit.gui\basic\save\save_configuration\input_net.net.xml"/>
+        <sumo-net-file value="/home/palcraft/.texttest/tmp/netedit.daily.basic.20Jun093116.9121/netedit.daily.basic/basic/save/save_configuration/input_net.net.xml"/>
     </input>
 
     <output>
-        <output-file value="C:\Users\SUMO-Test\.texttest\tmp\netedit.gui.11Mar090907.5180\netedit.gui\basic\save\save_configuration\net.net.xml"/>
-        <plain-output-prefix value="C:\Users\SUMO-Test\.texttest\tmp\netedit.gui.11Mar090907.5180\netedit.gui\basic\save\save_configuration\net"/>
+        <output-file value="/home/palcraft/.texttest/tmp/netedit.daily.basic.20Jun093116.9121/netedit.daily.basic/basic/save/save_configuration/net.net.xml"/>
     </output>
 
     <processing>
@@ -32,62 +31,63 @@
     </pedestrian>
 
     <netedit>
-        <additional-files value="C:\Users\SUMO-Test\.texttest\tmp\netedit.gui.11Mar090907.5180\netedit.gui\basic\save\save_configuration\additionals.xml"/>
-        <additionals-output value="C:\Users\SUMO-Test\.texttest\tmp\netedit.gui.11Mar090907.5180\netedit.gui\basic\save\save_configuration\additionals.xml"/>
-        <route-files value="C:\Users\SUMO-Test\.texttest\tmp\netedit.gui.11Mar090907.5180\netedit.gui\basic\save\save_configuration\routes.xml"/>
-        <demandelements-output value="C:\Users\SUMO-Test\.texttest\tmp\netedit.gui.11Mar090907.5180\netedit.gui\basic\save\save_configuration\routes.xml"/>
+        <additional-files value="/home/palcraft/.texttest/tmp/netedit.daily.basic.20Jun093116.9121/netedit.daily.basic/basic/save/save_configuration/additionals.xml"/>
+        <additionals-output value="/home/palcraft/.texttest/tmp/netedit.daily.basic.20Jun093116.9121/netedit.daily.basic/basic/save/save_configuration/additionals.xml"/>
+        <route-files value="/home/palcraft/.texttest/tmp/netedit.daily.basic.20Jun093116.9121/netedit.daily.basic/basic/save/save_configuration/routes.xml"/>
+        <demandelements-output value="/home/palcraft/.texttest/tmp/netedit.daily.basic.20Jun093116.9121/netedit.daily.basic/basic/save/save_configuration/routes.xml"/>
+        <data-files value="/home/palcraft/.texttest/tmp/netedit.daily.basic.20Jun093116.9121/netedit.daily.basic/basic/save/save_configuration/datas.xml"/>
+        <dataelements-output value="/home/palcraft/.texttest/tmp/netedit.daily.basic.20Jun093116.9121/netedit.daily.basic/basic/save/save_configuration/datas.xml"/>
     </netedit>
 
     <visualisation>
-        <gui-settings-file value="C:\Users\SUMO-Test\.texttest\tmp\netedit.gui.11Mar090907.5180\netedit.gui\basic\save\save_configuration\gui-settings.xml"/>
-        <window-size value="700,500"/>
+        <gui-settings-file value="/home/palcraft/.texttest/tmp/netedit.daily.basic.20Jun093116.9121/netedit.daily.basic/basic/save/save_configuration/gui-settings.xml"/>
+        <window-size value="936,697"/>
         <window-pos value="50,50"/>
         <gui-testing value="true"/>
         <gui-testing-debug value="true"/>
-        <gui-testing.setting-output value="C:\Users\SUMO-Test\.texttest\tmp\netedit.gui.11Mar090907.5180\netedit.gui\basic\save\save_configuration\guisettingsoutput.xml"/>
+        <gui-testing.setting-output value="/home/palcraft/.texttest/tmp/netedit.daily.basic.20Jun093116.9121/netedit.daily.basic/basic/save/save_configuration/guisettingsoutput.xml"/>
     </visualisation>
 
     <report>
         <no-warnings value="true"/>
-        <aggregate-warnings value="5"/>
-        <error-log value="C:\Users\SUMO-Test\.texttest\tmp\netedit.gui.11Mar090907.5180\netedit.gui\basic\save\save_configuration\log.txt"/>
+        <error-log value="/home/palcraft/.texttest/tmp/netedit.daily.basic.20Jun093116.9121/netedit.daily.basic/basic/save/save_configuration/log.txt"/>
     </report>
 
 </configuration>
 -->
 
-<connections version="1.6" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/connections_file.xsd">
-    <connection from="1" to="5" fromLane="1" toLane="1"/>
+<connections version="1.9" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/connections_file.xsd">
+    <connection from="1" to="5" fromLane="2" toLane="2"/>
 
-    <connection from="2" to="6" fromLane="1" toLane="1"/>
+    <connection from="2" to="6" fromLane="2" toLane="2"/>
 
-    <connection from="3" to="7" fromLane="1" toLane="1"/>
+    <connection from="3" to="7" fromLane="2" toLane="2"/>
 
-    <connection from="4" to="8" fromLane="1" toLane="1"/>
+    <connection from="4" to="8" fromLane="2" toLane="2"/>
 
-    <connection from="5" to="4" fromLane="0" toLane="0"/>
-    <connection from="5" to="2" fromLane="0" toLane="0"/>
+    <connection from="5" to="4" fromLane="1" toLane="1"/>
     <connection from="5" to="2" fromLane="1" toLane="1"/>
-    <connection from="5" to="3" fromLane="1" toLane="1"/>
-    <connection from="5" to="1" fromLane="1" toLane="1"/>
+    <connection from="5" to="2" fromLane="2" toLane="2"/>
+    <connection from="5" to="3" fromLane="2" toLane="2"/>
+    <connection from="5" to="1" fromLane="2" toLane="2"/>
 
-    <connection from="6" to="3" fromLane="0" toLane="0"/>
-    <connection from="6" to="1" fromLane="0" toLane="0"/>
+    <connection from="6" to="3" fromLane="1" toLane="1"/>
     <connection from="6" to="1" fromLane="1" toLane="1"/>
-    <connection from="6" to="4" fromLane="1" toLane="1"/>
-    <connection from="6" to="2" fromLane="1" toLane="1"/>
+    <connection from="6" to="1" fromLane="2" toLane="2"/>
+    <connection from="6" to="4" fromLane="2" toLane="2"/>
+    <connection from="6" to="2" fromLane="2" toLane="2"/>
 
-    <connection from="7" to="1" fromLane="0" toLane="0"/>
-    <connection from="7" to="4" fromLane="0" toLane="0"/>
+    <connection from="7" to="1" fromLane="1" toLane="1"/>
     <connection from="7" to="4" fromLane="1" toLane="1"/>
-    <connection from="7" to="2" fromLane="1" toLane="1"/>
-    <connection from="7" to="3" fromLane="1" toLane="1"/>
+    <connection from="7" to="4" fromLane="2" toLane="2"/>
+    <connection from="7" to="2" fromLane="2" toLane="2"/>
+    <connection from="7" to="3" fromLane="2" toLane="2"/>
 
-    <connection from="8" to="2" fromLane="0" toLane="0"/>
-    <connection from="8" to="3" fromLane="0" toLane="0"/>
+    <connection from="8" to="2" fromLane="1" toLane="1"/>
     <connection from="8" to="3" fromLane="1" toLane="1"/>
-    <connection from="8" to="1" fromLane="1" toLane="1"/>
-    <connection from="8" to="4" fromLane="1" toLane="1"/>
+    <connection from="8" to="3" fromLane="2" toLane="2"/>
+    <connection from="8" to="1" fromLane="2" toLane="2"/>
+    <connection from="8" to="4" fromLane="2" toLane="2"/>
 
     <crossing node="Center" edges="4 8" priority="1" width="3.00" linkIndex="20"/>
     <crossing node="Center" edges="3 7" priority="1" width="4.00" linkIndex="21"/>

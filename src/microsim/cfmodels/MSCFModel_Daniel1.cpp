@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -66,19 +66,19 @@ MSCFModel_Daniel1::finalizeSpeed(MSVehicle* const veh, double vPos) const {
 
 
 double
-MSCFModel_Daniel1::followSpeed(const MSVehicle* const veh, double speed, double gap, double predSpeed, double /*predMaxDecel*/, const MSVehicle* const /*pred*/) const {
+MSCFModel_Daniel1::followSpeed(const MSVehicle* const veh, double speed, double gap, double predSpeed, double /*predMaxDecel*/, const MSVehicle* const /*pred*/, const CalcReason /*usage*/) const {
     return MIN2(_vsafe(gap, predSpeed), maxNextSpeed(speed, veh));
 }
 
 
 double
-MSCFModel_Daniel1::stopSpeed(const MSVehicle* const veh, const double speed, double gap) const {
+MSCFModel_Daniel1::stopSpeed(const MSVehicle* const veh, const double speed, double gap, double /*decel*/, const CalcReason /*usage*/) const {
     return MIN2(_vsafe(gap, 0), maxNextSpeed(speed, veh));
 }
 
 
 double
-MSCFModel_Daniel1::dawdle(double speed, std::mt19937* rng) const {
+MSCFModel_Daniel1::dawdle(double speed, SumoRNG* rng) const {
     return MAX2(0., speed - ACCEL2SPEED(myDawdle * myAccel * RandHelper::rand(rng)));
 }
 

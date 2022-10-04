@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on Wed Dec 16 09:34:27 2020 by Eclipse SUMO netgenerate Version v1_8_0+0261-d8d0c429ef
+<!-- generated on 2022-10-04 09:25:55 by Eclipse SUMO netgenerate Version v1_14_1+1404-60b7850a127
 -->
 
 <configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/netgenerateConfiguration.xsd">
@@ -11,6 +11,9 @@
 
         <!-- Saves current configuration into FILE -->
         <save-configuration value="" synonymes="C save-config" type="FILE"/>
+
+        <!-- Enforce relative paths when saving the configuration -->
+        <save-configuration.relative value="false" synonymes="save-config.relative" type="BOOL"/>
 
         <!-- Saves a configuration template (empty) into FILE -->
         <save-template value="" type="FILE"/>
@@ -48,6 +51,12 @@
         <!-- The length of streets attached at the boundary; 0 means no streets are attached -->
         <grid.attach-length value="0" synonymes="attach-length" type="FLOAT"/>
 
+        <!-- The length of streets attached at the boundary in x direction; 0 means no streets are attached -->
+        <grid.x-attach-length value="0" type="FLOAT"/>
+
+        <!-- The length of streets attached at the boundary in y direction; 0 means no streets are attached -->
+        <grid.y-attach-length value="0" type="FLOAT"/>
+
     </grid_network>
 
     <spider_network>
@@ -76,7 +85,7 @@
         <rand.iterations value="2000" synonymes="iterations rand-iterations" type="INT"/>
 
         <!-- Defines the probability to build a reverse edge -->
-        <rand.bidi-probability value="1" synonymes="bidi rand-bidi-probability" type="FLOAT"/>
+        <bidi-probability value="1" synonymes="bidi rand-bidi-probability rand.bidi-probability" type="FLOAT"/>
 
         <!-- The maximum distance for each edge -->
         <rand.max-distance value="250" synonymes="max-dist rand-max-distance" type="FLOAT"/>
@@ -112,10 +121,13 @@
         <rand.neighbor-dist6 value="1" synonymes="dist6 rand-neighbor-dist6" type="FLOAT"/>
 
         <!-- Draw lane numbers randomly from [1,default.lanenumber] -->
-        <rand.random-lanenumber value="false" type="BOOL"/>
+        <random-lanenumber value="false" synonymes="rand.random-lanenumber" type="BOOL"/>
 
         <!-- Draw edge priority randomly from [1,default.priority] -->
-        <rand.random-priority value="false" type="BOOL"/>
+        <random-priority value="false" synonymes="rand.random-priority" type="BOOL"/>
+
+        <!-- Draw edge type randomly from all loaded types -->
+        <random-type value="false" type="BOOL"/>
 
         <!-- Place nodes on a regular grid with spacing rand.min-distance -->
         <rand.grid value="false" type="BOOL"/>
@@ -151,7 +163,7 @@
         <output-file value="" synonymes="o output sumo-output" type="FILE"/>
 
         <!-- Prefix of files to write plain xml nodes, edges and connections to -->
-        <plain-output-prefix value="" synonymes="plain plain-output" type="FILE"/>
+        <plain-output-prefix value="" synonymes="p plain plain-output" type="FILE"/>
 
         <!-- Writes information about joined junctions to FILE (can be loaded as additional node-file to reproduce joins -->
         <junctions.join-output value="" type="FILE"/>
@@ -216,6 +228,27 @@
         <!-- Ensures that generated ids do not included any of the typed IDs from FILE (sumo-gui selection file format) -->
         <reserved-ids value="" type="FILE"/>
 
+        <!-- Splits edges across geometry nodes -->
+        <geometry.split value="false" synonymes="split-geometry" type="BOOL"/>
+
+        <!-- Replace nodes which only define edge geometry by geometry points (joins edges) -->
+        <geometry.remove value="false" synonymes="R remove-geometry" type="BOOL"/>
+
+        <!-- Ensure that the given list of edges is not modified -->
+        <geometry.remove.keep-edges.explicit value="" type="STR[]"/>
+
+        <!-- Ensure that the edges in FILE are not modified (Each id on a single line. Selection files from sumo-gui are also supported) -->
+        <geometry.remove.keep-edges.input-file value="" type="FILE"/>
+
+        <!-- Allow merging edges with differing attributes when their length is below min-length -->
+        <geometry.remove.min-length value="0" type="FLOAT"/>
+
+        <!-- Allow merging edges with differing lane widths if the difference is below FLOAT -->
+        <geometry.remove.width-tolerance value="0" type="FLOAT"/>
+
+        <!-- splits geometry to restrict segment length -->
+        <geometry.max-segment-length value="0" type="FLOAT"/>
+
         <!-- Warn about edge geometries with a grade in % above FLOAT. -->
         <geometry.max-grade value="10" type="FLOAT"/>
 
@@ -247,7 +280,7 @@
         <opposites.guess value="false" type="BOOL"/>
 
         <!-- Ensure that opposite edges have the same length -->
-        <opposites.guess.fix-lengths value="false" type="BOOL"/>
+        <opposites.guess.fix-lengths value="true" type="BOOL"/>
 
         <!-- Enable guessing of network fringe nodes -->
         <fringe.guess value="false" type="BOOL"/>
@@ -273,6 +306,9 @@
         <!-- The default speed on an edge (in m/s) -->
         <default.speed value="13.89" synonymes="S speed" type="FLOAT"/>
 
+        <!-- The default friction on an edge -->
+        <default.friction value="1" synonymes="friction" type="FLOAT"/>
+
         <!-- The default priority of an edge -->
         <default.priority value="-1" synonymes="P priority" type="INT"/>
 
@@ -287,6 +323,9 @@
 
         <!-- The default width of a pedestrian crossing -->
         <default.crossing-width value="4" type="FLOAT"/>
+
+        <!-- The default for allowed vehicle classes -->
+        <default.allow value="" type="STR"/>
 
         <!-- The default for disallowed vehicle classes -->
         <default.disallow value="" type="STR"/>
@@ -363,6 +402,15 @@
         <!-- Use INT as green phase duration for left turns (s). Setting this value to 0 disables additional left-turning phases -->
         <tls.left-green.time value="6" type="INT"/>
 
+        <!-- Set INT as fixed time for intermediate vehext phase after every switch -->
+        <tls.nema.vehExt value="2" type="INT"/>
+
+        <!-- Set INT as fixed time for intermediate NEMA yelow phase after every switch -->
+        <tls.nema.yellow value="3" type="INT"/>
+
+        <!-- Set INT as fixed time for intermediate NEMA red phase after every switch -->
+        <tls.nema.red value="2" type="INT"/>
+
         <!-- Use INT as minimum green duration for pedestrian crossings (s). -->
         <tls.crossing-min.time value="4" type="INT"/>
 
@@ -398,6 +446,9 @@
 
         <!-- Assign a distinct tls link index to every connection -->
         <tls.ungroup-signals value="false" type="BOOL"/>
+
+        <!-- Does not instatiate traffic lights at geometry-like nodes -->
+        <tls.discard-simple value="false" type="BOOL"/>
 
     </tls_building>
 
@@ -471,6 +522,12 @@
         <!-- Determines the maximal distance for joining junctions (defaults to 10) -->
         <junctions.join-dist value="10" type="FLOAT"/>
 
+        <!-- Joins junctions that have the same coordinates even if not connected -->
+        <junctions.join-same value="false" type="BOOL"/>
+
+        <!-- Abbreviate junction or TLS id if it joins more than INT junctions -->
+        <max-join-ids value="4" type="INT"/>
+
         <!-- Generate INT intermediate points to smooth out intersection corners -->
         <junctions.corner-detail value="5" type="INT"/>
 
@@ -500,6 +557,12 @@
 
         <!-- Default radius for junctions that do not require wide vehicle turns -->
         <junctions.small-radius value="1.5" type="FLOAT"/>
+
+        <!-- Use maximum value of incoming and outgoing edge speed on junction instead of average -->
+        <junctions.higher-speed value="false" type="BOOL"/>
+
+        <!-- Assumed vehicle width for computing internal junction positions -->
+        <internal-junctions.vehicle-width value="1.8" type="FLOAT"/>
 
         <!-- Forces rectangular cuts between lanes and intersections -->
         <rectangular-lane-cut value="false" type="BOOL"/>
@@ -573,8 +636,8 @@
         <!-- Prints the current version -->
         <version value="false" synonymes="V" type="BOOL"/>
 
-        <!-- Set schema validation scheme of XML inputs (&quot;never&quot;, &quot;auto&quot; or &quot;always&quot;) -->
-        <xml-validation value="auto" synonymes="X" type="STR"/>
+        <!-- Set schema validation scheme of XML inputs (&quot;never&quot;, &quot;local&quot;, &quot;auto&quot; or &quot;always&quot;) -->
+        <xml-validation value="local" synonymes="X" type="STR"/>
 
         <!-- Disables output of warnings -->
         <no-warnings value="false" synonymes="W suppress-warnings" type="BOOL"/>

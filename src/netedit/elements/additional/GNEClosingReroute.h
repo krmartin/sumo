@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -18,6 +18,7 @@
 //
 /****************************************************************************/
 #pragma once
+#include <config.h>
 #include "GNEAdditional.h"
 
 // ===========================================================================
@@ -37,21 +38,32 @@ class GNERerouterIntervalDialog;
 class GNEClosingReroute : public GNEAdditional {
 
 public:
+    /// @brief default constructor
+    GNEClosingReroute(GNENet* net);
+
     /// @brief parameter constructor
     GNEClosingReroute(GNEAdditional* rerouterIntervalParent, GNEEdge* closedEdge, SVCPermissions permissions);
 
     /// @brief destructor
     ~GNEClosingReroute();
 
-    /**@brief get move operation for the given shapeOffset
+    /**@brief write additional element into a xml file
+     * @param[in] device device in which write parameters of additional element
+     */
+    void writeAdditional(OutputDevice& device) const;
+
+    /**@brief get move operation
     * @note returned GNEMoveOperation can be nullptr
     */
-    GNEMoveOperation* getMoveOperation(const double shapeOffset);
+    GNEMoveOperation* getMoveOperation();
 
     /// @name Functions related with geometry of element
     /// @{
     /// @brief update pre-computed geometry information
     void updateGeometry();
+
+    /// @brief Returns position of additional in view
+    Position getPositionInView() const;
 
     /// @brief update centering boundary (implies change in RTREE)
     void updateCenteringBoundary(const bool updateGrid);
@@ -77,9 +89,9 @@ public:
     /// @name inherited from GNEAttributeCarrier
     /// @{
     /* @brief method for getting the Attribute of an XML key
-    * @param[in] key The attribute key
-    * @return string with the value associated to key
-    */
+     * @param[in] key The attribute key
+     * @return string with the value associated to key
+     */
     std::string getAttribute(SumoXMLAttr key) const;
 
     /* @brief method for getting the Attribute of an XML key in double format (to avoid unnecessary parse<double>(...) for certain attributes)
@@ -88,24 +100,22 @@ public:
      */
     double getAttributeDouble(SumoXMLAttr key) const;
 
+    /// @brief get parameters map
+    const Parameterised::Map& getACParametersMap() const;
+
     /* @brief method for setting the attribute and letting the object perform additional changes
-    * @param[in] key The attribute key
-    * @param[in] value The new value
-    * @param[in] undoList The undoList on which to register changes
-    */
+     * @param[in] key The attribute key
+     * @param[in] value The new value
+     * @param[in] undoList The undoList on which to register changes
+     */
     void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList);
 
     /* @brief method for checking if the key and their correspond attribute are valids
-    * @param[in] key The attribute key
-    * @param[in] value The value asociated to key key
-    * @return true if the value is valid, false in other case
-    */
-    bool isValid(SumoXMLAttr key, const std::string& value);
-
-    /* @brief method for check if the value for certain attribute is set
      * @param[in] key The attribute key
+     * @param[in] value The value associated to key key
+     * @return true if the value is valid, false in other case
      */
-    bool isAttributeEnabled(SumoXMLAttr key) const;
+    bool isValid(SumoXMLAttr key, const std::string& value);
 
     /// @brief get PopPup ID (Used in AC Hierarchy)
     std::string getPopUpID() const;

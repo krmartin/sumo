@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -39,7 +39,7 @@ FXIMPLEMENT_ABSTRACT(GNEChange_EdgeType, GNEChange, nullptr, 0)
 
 /// @brief constructor for creating an edgeType
 GNEChange_EdgeType::GNEChange_EdgeType(GNEEdgeType* edgeType, bool forward):
-    GNEChange(edgeType, forward, edgeType->isAttributeCarrierSelected()),
+    GNEChange(Supermode::NETWORK, edgeType, forward, edgeType->isAttributeCarrierSelected()),
     myEdgeType(edgeType) {
     edgeType->incRef("GNEChange_EdgeType");
 }
@@ -105,21 +105,21 @@ GNEChange_EdgeType::redo() {
 }
 
 
-FXString
+std::string
 GNEChange_EdgeType::undoName() const {
     if (myForward) {
-        return "Undo create edgeType";
+        return "Undo create edgeType '" + myEdgeType->getID() + "'";
     } else {
-        return "Undo delete edgeType";
+        return "Undo delete edgeType '" + myEdgeType->getID() + "'";
     }
 }
 
 
-FXString
+std::string
 GNEChange_EdgeType::redoName() const {
     if (myForward) {
-        return "Redo create laneType";
+        return "Redo create edgeType '" + myEdgeType->getID() + "'";
     } else {
-        return "Redo delete laneType";
+        return "Redo delete edgeType '" + myEdgeType->getID() + "'";
     }
 }

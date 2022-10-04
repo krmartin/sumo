@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,7 +21,9 @@
 // Some static methods for string processing
 /****************************************************************************/
 #pragma once
+#include <config.h>
 #include <string>
+#include <chrono>
 #include <xercesc/util/XMLString.hpp>
 #include <utils/common/UtilExceptions.h>
 
@@ -38,8 +40,11 @@ public:
     /// Removes trailing and leading whitechars
     static std::string prune(const std::string& str);
 
+    /// Removes trailing zeros (at most 'max')
+    static std::string pruneZeros(const std::string& str, int max);
+
     /// Transfers the content to lower case
-    static std::string to_lower_case(std::string str);
+    static std::string to_lower_case(const std::string& str);
 
     /// Transfers from Latin 1 (ISO-8859-1) to UTF-8
     static std::string latin1_to_utf8(std::string str);
@@ -49,21 +54,20 @@ public:
 
     /** Replaces all occurences of the second string by the third
         string within the first string */
-    static std::string replace(std::string str, const char* what,
-                               const char* by);
+    static std::string replace(std::string str, const std::string& what, const std::string& by);
 
     /** Replaces an environment variable with its value (similar to bash);
         syntax for a variable is ${NAME} */
-    static std::string substituteEnvironment(std::string str);
-
-    /// Builds a time string (hh:mm:ss) from the given seconds
-    static std::string toTimeString(int time);
+    static std::string substituteEnvironment(const std::string& str, const std::chrono::time_point<std::chrono::system_clock>* const timeRef = nullptr);
 
     /// Checks whether a given string starts with the prefix
     static bool startsWith(const std::string& str, const std::string prefix);
 
     /// Checks whether a given string ends with the suffix
     static bool endsWith(const std::string& str, const std::string suffix);
+
+    //// @brief pads the given string with padding character up to the given total length
+    static std::string padFront(const std::string& str, int length, char padding);
 
     /**
      * @brief Replaces the standard escapes by their XML entities.
@@ -139,6 +143,12 @@ public:
      */
     static std::string transcode(const XMLCh* const data, int length);
 
+    /// @brief convert a string from the local codepage to UTF-8
+    static std::string transcodeFromLocal(const std::string& localString);
+
+    /// @brief convert a string from UTF-8 to the local codepage
+    static std::string transcodeToLocal(const std::string& utf8String);
+
     /// @brief remove leading whitespace from string
     static std::string trim_left(const std::string s, const std::string& t = " \t\n");
 
@@ -147,5 +157,11 @@ public:
 
     /// @brief remove leading and trailing whitespace
     static std::string trim(const std::string s, const std::string& t = " \t\n");
+
+    /// @brief must be called when shutting down the xml subsystem
+    static void resetTranscoder();
+private:
+    static XERCES_CPP_NAMESPACE::XMLLCPTranscoder* myLCPTranscoder;
+
 
 };

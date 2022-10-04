@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2006-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2006-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,7 +21,7 @@
 #define MFXUtils_h
 #include <config.h>
 
-#include <fx.h>
+#include "fxheader.h"
 
 // ===========================================================================
 // class declaration
@@ -76,7 +76,7 @@ public:
     /** @brief Returns the document name
      *
      * Removes the path first. Then, returns the part before the first '.'
-     *  occurence of the so obtained string.
+     *  occurrence of the so obtained string.
      *
      * @param[in] filename The file name (including the path) to obtain the name of
      * @return The name (without the path and the extension)

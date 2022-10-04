@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -76,7 +76,7 @@ class SUMOTrafficObject;
  */
 
 
-class MSE2Collector : public MSMoveReminder, public MSDetectorFileOutput, public Parameterised {
+class MSE2Collector : public MSMoveReminder, public MSDetectorFileOutput {
 public:
     /** @brief A VehicleInfo stores values that are tracked for the individual vehicles on the detector,
      *         e.g., accumulated timeloss. These infos are stored in myVehicles. If a vehicle leaves the detector
@@ -232,7 +232,9 @@ public:
     MSE2Collector(const std::string& id,
                   DetectorUsage usage, MSLane* lane, double startPos, double endPos, double length,
                   SUMOTime haltingTimeThreshold, double haltingSpeedThreshold, double jamDistThreshold,
-                  const std::string& vTypes);
+                  const std::string name, const std::string& vTypes,
+                  const std::string& nextEdges,
+                  int detectPersons);
 
 
     /** @brief Constructor with a sequence of lanes and given start and end position on the first and last lanes
@@ -250,7 +252,9 @@ public:
     MSE2Collector(const std::string& id,
                   DetectorUsage usage, std::vector<MSLane*> lanes, double startPos, double endPos,
                   SUMOTime haltingTimeThreshold, double haltingSpeedThreshold, double jamDistThreshold,
-                  const std::string& vTypes);
+                  const std::string name, const std::string& vTypes,
+                  const std::string& nextEdges,
+                  int detectPersons);
 
 
     /// @brief Destructor
@@ -359,6 +363,10 @@ public:
 
     /// @}
 
+    /// @brief get name
+    const std::string & getName() {
+        return myName;
+    }
 
     /** @brief Returns the begin position of the detector
      *
@@ -515,8 +523,16 @@ public:
     virtual void setVisible(bool /*show*/) {};
 
     /** @brief Remove all vehicles before quick-loading state */
-    virtual void clearState();
+    virtual void clearState(SUMOTime step);
 
+    /** @brief Persistently overrides the number of vehicles on top of the detector
+     * Setting a negative value removes the override
+    */
+    void overrideVehicleNumber(int num);
+
+    double getOverrideVehNumber() const {
+        return myOverrideVehNumber;
+    }
 private:
 
     /** @brief checks whether the vehicle stands in a jam
@@ -554,7 +570,7 @@ private:
      * @param[in/out] timeOnDetector Total time spent on the detector during the last step
      * @param[in/out] timeLoss Total time loss suffered during the last integration step
      */
-    void calculateTimeLossAndTimeOnDetector(const SUMOVehicle& veh, double oldPos, double newPos, const VehicleInfo& vi, double& timeOnDetector, double& timeLoss) const;
+    void calculateTimeLossAndTimeOnDetector(const SUMOTrafficObject& veh, double oldPos, double newPos, const VehicleInfo& vi, double& timeOnDetector, double& timeLoss) const;
 
     /** @brief Checks integrity of myLanes, adds internal-lane information, inits myLength, myFirstLane, myLastLane, myOffsets
      *         Called once at construction.
@@ -616,7 +632,7 @@ private:
      * @param vehInfo Info on the detector's memory of the vehicle
      * @return A MoveNotificationInfo containing quantities of interest for the detector
      */
-    MoveNotificationInfo* makeMoveNotification(const SUMOVehicle& veh, double oldPos, double newPos, double newSpeed, const VehicleInfo& vehInfo) const;
+    MoveNotificationInfo* makeMoveNotification(const SUMOTrafficObject& veh, double oldPos, double newPos, double newSpeed, const VehicleInfo& vehInfo) const;
 
     /** @brief Creates and returns a VehicleInfo (called at the vehicle's entry)
      *
@@ -624,7 +640,7 @@ private:
      * @param enteredLane The entry lane
      * @return A vehicle info which can be used to store information about the vehicle's stay on the detector
      */
-    VehicleInfo* makeVehicleInfo(const SUMOVehicle& veh, const MSLane* enteredLane) const;
+    VehicleInfo* makeVehicleInfo(const SUMOTrafficObject& veh, const MSLane* enteredLane) const;
 
     /** @brief Calculates the time loss for a segment with constant vmax
      *
@@ -642,6 +658,7 @@ private:
         return mni1->distToDetectorEnd < mni2->distToDetectorEnd;
     }
 
+    void notifyMovePerson(MSTransportable* p, int dir, double pos);
 
 private:
 
@@ -650,6 +667,8 @@ private:
 
     /// @name Detector parameter
     /// @{
+    /// @brief name
+    const std::string myName;
     /// @brief The detector's lane sequence
     std::vector<std::string> myLanes;
     /// @brief The distances of the lane-beginnings from the detector start-point
@@ -771,6 +790,9 @@ private:
     int myCurrentHaltingsNumber;
     /// @}
 
+
+    /// @brief stores the overriden (via Traci) number of vehicles on detector
+    int myOverrideVehNumber;
 
 private:
     /// @brief Invalidated copy constructor.

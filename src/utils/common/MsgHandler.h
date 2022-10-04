@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2003-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2003-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -20,6 +20,7 @@
 // Retrieves messages about the process and gives them further to output
 /****************************************************************************/
 #pragma once
+#include <config.h>
 #include <string>
 #include <vector>
 #include <map>
@@ -40,16 +41,16 @@ public:
      * An enumeration to differ between different types of messages
      * (errors, warning and information)
      */
-    enum MsgType {
+    enum class MsgType {
         /// The message is only something to show
         MT_MESSAGE,
         /// The message is a warning
         MT_WARNING,
         /// The message is an error
         MT_ERROR,
-        /// The message is an debug
+        /// The message is debug output
         MT_DEBUG,
-        /// The message is an debug
+        /// The message is GL debug output
         MT_GLDEBUG
     };
 
@@ -163,18 +164,18 @@ protected:
     inline std::string build(const std::string& msg, bool addType) {
         if (addType) {
             switch (myType) {
-                case MT_MESSAGE:
+                case MsgType::MT_MESSAGE:
                     break;
-                case MT_WARNING:
+                case MsgType::MT_WARNING:
                     return "Warning: " + msg;
                     break;
-                case MT_ERROR:
+                case MsgType::MT_ERROR:
                     return "Error: " + msg;
                     break;
-                case MT_DEBUG:
+                case MsgType::MT_DEBUG:
                     return "Debug: " + msg;
                     break;
-                case MT_GLDEBUG:
+                case MsgType::MT_GLDEBUG:
                     return "GLDebug: " + msg;
                     break;
                 default:
@@ -253,6 +254,9 @@ private:
 
     /// @brief The list of retrievers that shall be informed about new messages or errors
     std::vector<OutputDevice*> myRetrievers;
+
+    /// @brief storage for initial messages
+    std::vector<std::string> myInitialMessages;
 
 private:
     /// @brief invalid copy constructor

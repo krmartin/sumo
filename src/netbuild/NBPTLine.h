@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -19,6 +19,7 @@
 // The representation of one direction of a single pt line
 /****************************************************************************/
 #pragma once
+#include <config.h>
 
 
 #include <string>
@@ -32,13 +33,14 @@
 class OutputDevice;
 class NBPTStop;
 class NBEdgeCont;
+class NBPTStopCont;
 
 class NBPTLine {
 
 public:
-    explicit NBPTLine(const std::string& id, const std::string& name,
-                      const std::string& type, const std::string& ref, int interval, const std::string& nightService,
-                      SUMOVehicleClass vClass);
+    NBPTLine(const std::string& id, const std::string& name,
+             const std::string& type, const std::string& ref, int interval, const std::string& nightService,
+             SUMOVehicleClass vClass, RGBColor color);
 
     void addPTStop(NBPTStop* pStop);
 
@@ -55,7 +57,7 @@ public:
     }
 
     std::vector<NBPTStop*> getStops();
-    void write(OutputDevice& device, NBEdgeCont& ec);
+    void write(OutputDevice& device);
     void addWayNode(long long int way, long long int node);
 
     void setMyNumOfStops(int numStops);
@@ -77,32 +79,47 @@ public:
     /// @brief return last valid edge of myRoute (if it doest not lie before the last stop)
     NBEdge* getRouteEnd(const NBEdgeCont& ec) const;
 
+    /// @brief return whether the mentioned edges appear in that order in the route
+    bool isConsistent(const std::vector<NBEdge*>& stops) const;
+
+    SUMOVehicleClass getVClass() const {
+        return myVClass;
+    }
+
     /// @brief replace the given stop
     void replaceStop(NBPTStop* oldStop, NBPTStop* newStop);
 
     /// @brief replace the edge with the given edge list
     void replaceEdge(const std::string& edgeID, const EdgeVector& replacement);
 
+    /// @brief remove invalid stops from the line
+    void deleteInvalidStops(const NBEdgeCont& ec, const NBPTStopCont& sc);
+    void deleteDuplicateStops();
+
+    /// @brief remove invalid edges from the line
+    void removeInvalidEdges(const NBEdgeCont& ec);
+
     void setName(const std::string& name) {
         myName = name;
     }
+
+    inline const std::vector<std::string>& getWays() const {
+        return myWays;
+    }
+
+    std::vector<long long int>* getWaysNodes(std::string wayId);
 
 private:
     std::string myName;
     std::string myType;
     std::vector<NBPTStop*> myPTStops;
-
-private:
     std::map<std::string, std::vector<long long int> > myWaysNodes;
     std::vector<std::string> myWays;
-public:
-    const std::vector<std::string>& getMyWays() const;
-    std::vector<long long int>* getWaysNodes(std::string wayId);
-private:
-
     std::string myCurrentWay;
     std::string myPTLineId;
     std::string myRef;
+    // official line color
+    RGBColor myColor;
 
     // @brief the service interval in minutes
     int myInterval;

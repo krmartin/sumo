@@ -9,3 +9,8 @@ multiple_files
 
 # plot person trajectories
 persons
+kilometrage
+
+# handle missing distance attrs
+kilometrage_missing
+leaderGap

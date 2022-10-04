@@ -1,6 +1,5 @@
 ---
-title: Networks/Import/OpenDRIVE
-permalink: /Networks/Import/OpenDRIVE/
+title: OpenDRIVE
 ---
 
 For reading [OpenDRIVE networks](http://www.opendrive.org/), give
@@ -70,6 +69,14 @@ file like this:
 
 </types>
 ```
+
+## Pre-Defined type maps
+
+The following edge-type files are available in {{SUMO_HOME}}/data/typemap for OpenDRIVE import:
+
+- **opendriveNetconvert.typ.xml**: default typemap for importing automotive networks. This will be used if option **--type-files** is not set.
+- **opendriveNetconvertBicycle.typ.xml**: can be combined with default typemap to also import bicycle lanes
+- **opendriveNetconvertPedestrians.typ.xml**: can be combined with default typemap to also import sidewalks
 
 # Import Process
 

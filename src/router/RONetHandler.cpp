@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -89,6 +89,8 @@ RONetHandler::myStartElement(int element,
         case SUMO_TAG_TRAIN_STOP:
         case SUMO_TAG_CONTAINER_STOP:
         case SUMO_TAG_PARKING_AREA:
+        case SUMO_TAG_CHARGING_STATION:
+        case SUMO_TAG_OVERHEAD_WIRE_SEGMENT:
             parseStoppingPlace(attrs, (SumoXMLTag)element);
             break;
         case SUMO_TAG_ACCESS:
@@ -162,9 +164,8 @@ RONetHandler::parseEdge(const SUMOSAXAttributes& attrs) {
     if (!ok) {
         throw ProcessError();
     }
-    const SumoXMLEdgeFunc func = attrs.getEdgeFunc(ok);
+    const SumoXMLEdgeFunc func = attrs.getOpt<SumoXMLEdgeFunc>(SUMO_ATTR_FUNCTION, myCurrentName.c_str(), ok, SumoXMLEdgeFunc::NORMAL);
     if (!ok) {
-        WRITE_ERROR("Edge '" + myCurrentName + "' has an unknown type.");
         return;
     }
     // get the edge
@@ -174,10 +175,10 @@ RONetHandler::parseEdge(const SUMOSAXAttributes& attrs) {
     myCurrentEdge = nullptr;
     if (func == SumoXMLEdgeFunc::INTERNAL || func == SumoXMLEdgeFunc::CROSSING || func == SumoXMLEdgeFunc::WALKINGAREA) {
         assert(myCurrentName[0] == ':');
-        const std::string junctionID = myCurrentName.substr(1, myCurrentName.rfind('_') - 1);
+        const std::string junctionID = SUMOXMLDefinitions::getJunctionIDFromInternalEdge(myCurrentName);
         from = junctionID;
         to = junctionID;
-        priority = 0;
+        priority = -1;
     } else {
         from = attrs.get<std::string>(SUMO_ATTR_FROM, myCurrentName.c_str(), ok);
         to = attrs.get<std::string>(SUMO_ATTR_TO, myCurrentName.c_str(), ok);
@@ -262,7 +263,8 @@ RONetHandler::parseJunction(const SUMOSAXAttributes& attrs) {
     bool ok = true;
     // get the id, report an error if not given or empty...
     std::string id = attrs.get<std::string>(SUMO_ATTR_ID, nullptr, ok);
-    if (attrs.getNodeType(ok) == SumoXMLNodeType::INTERNAL) {
+    const SumoXMLNodeType type = attrs.get<SumoXMLNodeType>(SUMO_ATTR_TYPE, id.c_str(), ok);
+    if (type == SumoXMLNodeType::INTERNAL) {
         return;
     }
     myUnseenNodeIDs.erase(id);
@@ -309,7 +311,7 @@ RONetHandler::parseConnection(const SUMOSAXAttributes& attrs) {
         from->getLanes()[fromLane]->addOutgoingLane(to->getLanes()[toLane]);
         from->addSuccessor(to, nullptr, dir);
     }  else {
-        ROEdge* const via = myNet.getEdge(viaID.substr(0, viaID.rfind('_')));
+        ROEdge* const via = myNet.getEdge(SUMOXMLDefinitions::getEdgeIDFromLane(viaID));
         if (via == nullptr) {
             throw ProcessError("unknown via-edge '" + viaID + "' in connection");
         }
@@ -348,6 +350,8 @@ RONetHandler::parseStoppingPlace(const SUMOSAXAttributes& attrs, const SumoXMLTa
     }
     // this is a hack: the busstop attribute is meant to hold the id within the simulation context but this is not used within the router context
     myCurrentStoppingPlace->busstop = attrs.getOpt<std::string>(SUMO_ATTR_NAME, id.c_str(), ok, "");
+    // this is a hack: the actType is not used when using this to encode a stopping place
+    myCurrentStoppingPlace->actType = toString(element);
     myNet.addStoppingPlace(id, element, myCurrentStoppingPlace);
 }
 
@@ -365,13 +369,19 @@ RONetHandler::parseAccess(const SUMOSAXAttributes& attrs) {
         return;
     }
     double pos = attrs.getOpt<double>(SUMO_ATTR_POSITION, "access", ok, 0.);
-    const double length = attrs.getOpt<double>(SUMO_ATTR_LENGTH, "access", ok, -1);
+    double length = attrs.getOpt<double>(SUMO_ATTR_LENGTH, "access", ok, -1);
     const bool friendlyPos = attrs.getOpt<bool>(SUMO_ATTR_FRIENDLY_POS, "access", ok, false);
     if (!ok || (SUMORouteHandler::checkStopPos(pos, pos, edge->getLength(), 0., friendlyPos) != SUMORouteHandler::StopPos::STOPPOS_VALID)) {
         throw InvalidArgument("Invalid position " + toString(pos) + " for access on lane '" + lane + "'.");
     }
     if (!ok) {
         throw ProcessError();
+    }
+    if (length < 0) {
+        const Position accPos = myNet.getLane(lane)->geometryPositionAtOffset(pos);
+        const double stopCenter = (myCurrentStoppingPlace->startPos + myCurrentStoppingPlace->endPos) / 2;
+        const Position stopPos = myNet.getLane(myCurrentStoppingPlace->lane)->geometryPositionAtOffset(stopCenter);
+        length  = accPos.distanceTo(stopPos);
     }
     myCurrentStoppingPlace->accessPos.push_back(std::make_tuple(lane, pos, length));
 }
@@ -387,10 +397,10 @@ RONetHandler::parseDistrict(const SUMOSAXAttributes& attrs) {
     }
     myNet.addDistrict(myCurrentName, myEdgeBuilder.buildEdge(myCurrentName + "-source", nullptr, nullptr, 0), myEdgeBuilder.buildEdge(myCurrentName + "-sink", nullptr, nullptr, 0));
     if (attrs.hasAttribute(SUMO_ATTR_EDGES)) {
-        std::vector<std::string> desc = attrs.getStringVector(SUMO_ATTR_EDGES);
-        for (std::vector<std::string>::const_iterator i = desc.begin(); i != desc.end(); ++i) {
-            myNet.addDistrictEdge(myCurrentName, *i, true);
-            myNet.addDistrictEdge(myCurrentName, *i, false);
+        const std::vector<std::string>& desc = attrs.get<std::vector<std::string> >(SUMO_ATTR_EDGES, myCurrentName.c_str(), ok);
+        for (const std::string& eID : desc) {
+            myNet.addDistrictEdge(myCurrentName, eID, true);
+            myNet.addDistrictEdge(myCurrentName, eID, false);
         }
     }
 }

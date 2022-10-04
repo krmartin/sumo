@@ -1,6 +1,6 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2011-2020 German Aerospace Center (DLR) and others.
+// Copyright (C) 2011-2022 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -96,6 +96,11 @@ NGFrame::fillOptions() {
     oc.addSynonyme("grid.attach-length", "attach-length", true);
     oc.addDescription("grid.attach-length", "Grid Network", "The length of streets attached at the boundary; 0 means no streets are attached");
 
+    oc.doRegister("grid.x-attach-length", new Option_Float(0));
+    oc.addDescription("grid.x-attach-length", "Grid Network", "The length of streets attached at the boundary in x direction; 0 means no streets are attached");
+    oc.doRegister("grid.y-attach-length", new Option_Float(0));
+    oc.addDescription("grid.y-attach-length", "Grid Network", "The length of streets attached at the boundary in y direction; 0 means no streets are attached");
+
     //  register spider-net options
     oc.doRegister("spider", 's', new Option_Bool(false));
     oc.addSynonyme("spider", "spider-net", true);
@@ -132,10 +137,11 @@ NGFrame::fillOptions() {
     oc.addSynonyme("rand.iterations", "iterations");
     oc.addDescription("rand.iterations", "Random Network", "Describes how many times an edge shall be added to the net");
 
-    oc.doRegister("rand.bidi-probability", new Option_Float(1));
-    oc.addSynonyme("rand.bidi-probability", "rand-bidi-probability", true);
-    oc.addSynonyme("rand.bidi-probability", "bidi");
-    oc.addDescription("rand.bidi-probability", "Random Network", "Defines the probability to build a reverse edge");
+    oc.doRegister("bidi-probability", new Option_Float(1));
+    oc.addSynonyme("bidi-probability", "rand-bidi-probability", true);
+    oc.addSynonyme("bidi-probability", "bidi");
+    oc.addSynonyme("bidi-probability", "rand.bidi-probability");
+    oc.addDescription("bidi-probability", "Random Network", "Defines the probability to build a reverse edge");
 
     oc.doRegister("rand.max-distance", new Option_Float(250));
     oc.addSynonyme("rand.max-distance", "rand-max-distance", true);
@@ -192,11 +198,16 @@ NGFrame::fillOptions() {
     oc.addSynonyme("rand.neighbor-dist6", "dist6");
     oc.addDescription("rand.neighbor-dist6", "Random Network", "Probability for a node having exactly 6 neighbors");
 
-    oc.doRegister("rand.random-lanenumber", new Option_Bool(false));
-    oc.addDescription("rand.random-lanenumber", "Random Network", "Draw lane numbers randomly from [1,default.lanenumber]");
+    oc.doRegister("random-lanenumber", new Option_Bool(false));
+    oc.addSynonyme("random-lanenumber", "rand.random-lanenumber", false);
+    oc.addDescription("random-lanenumber", "Random Network", "Draw lane numbers randomly from [1,default.lanenumber]");
 
-    oc.doRegister("rand.random-priority", new Option_Bool(false));
-    oc.addDescription("rand.random-priority", "Random Network", "Draw edge priority randomly from [1,default.priority]");
+    oc.doRegister("random-priority", new Option_Bool(false));
+    oc.addSynonyme("random-priority", "rand.random-priority", false);
+    oc.addDescription("random-priority", "Random Network", "Draw edge priority randomly from [1,default.priority]");
+
+    oc.doRegister("random-type", new Option_Bool(false));
+    oc.addDescription("random-type", "Random Network", "Draw edge type randomly from all loaded types");
 
     oc.doRegister("rand.grid", new Option_Bool(false));
     oc.addDescription("rand.grid", "Random Network", "Place nodes on a regular grid with spacing rand.min-distance");
@@ -254,6 +265,9 @@ NGFrame::checkOptions() {
                         toString(SumoXMLNodeType::RIGHT_BEFORE_LEFT));
             ok = false;
         }
+    }
+    if (oc.getBool("random-type") && !oc.isSet("type-files")) {
+        WRITE_WARNING("Option 'random-type' takes no effect unless 'type-files' are loaded");
     }
     return ok;
 }
