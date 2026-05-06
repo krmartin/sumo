@@ -5,7 +5,7 @@ title: TraaS
 # TraaS
 
 !!! caution
-    TraaS is no longer maintained. Use the [java bindings for libtraci](../Libtraci.md#java) or [libsumo](../Libsumo.md#java) instead. 
+    TraaS is no longer maintained. Use the [java bindings for libtraci](../Libtraci.md#java) or [libsumo](../Libsumo.md#java) instead.
 
 TraaS is a java library for working with TraCI. The name **TraaS**
 stands for *TraCI as a Service*. It was developed by Mario Krumnow and
@@ -21,7 +21,7 @@ TraaS provides three things which are explained below.
 - A web service client
 
 In contrast to the native TraCI [multi-client
-support](../TraCI.md#multiple_clients), TraaS does not require the
+support](../TraCI/index.md#multiple_clients), TraaS does not require the
 number of clients to be known beforehand. It also cannot impose any
 ordering on client command execution which leaves client synchronization
 to be managed on the user side.
@@ -34,7 +34,7 @@ major difference is, that the method return values must be casted in the
 calling code:
 
 ```
-double timeSeconds = (double)conn.do_job_get(Simulation.getTime());
+double timeSeconds = (double)conn.do_job_get(Simulation.getTime());
 ```
 
 ## Examples
@@ -83,4 +83,4 @@ JavaDoc for TraaS can be found at <https://sumo.dlr.de/javadoc/traas/>
 
 The file {{SUMO}}*/bin/TraaS.jar* is included in every SUMO release. To build
 TraaS locally, Apache [Maven](https://maven.apache.org/) is required. To build,
-simply call *mvn package* within the traas folder or call make traas when you have a configured cmake build. 
+simply call *mvn package* within the traas folder or call make traas when you have a configured cmake build.

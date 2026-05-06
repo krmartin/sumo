@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
 
-    <xsd:include schemaLocation="baseTypes.xsd"/>
+    <xsd:include schemaLocation="types/base.xsd"/>
 
     <xsd:element name="collisions">
         <xsd:complexType>
@@ -16,13 +16,17 @@
             <xsd:attribute name="time" use="required" type="timeType"/>
             <xsd:attribute name="type" use="required" type="xsd:string"/>
             <xsd:attribute name="lane" use="required" type="xsd:string"/>
-            <xsd:attribute name="pos" use="optional" type="xsd:float"/>
+            <xsd:attribute name="pos" use="optional" type="floatType"/>
             <xsd:attribute name="collider" use="required" type="xsd:string"/>
             <xsd:attribute name="victim" use="required" type="xsd:string"/>
             <xsd:attribute name="colliderType" use="required" type="xsd:string"/>
             <xsd:attribute name="victimType" use="required" type="xsd:string"/>
             <xsd:attribute name="colliderSpeed" use="required" type="xsd:string"/>
             <xsd:attribute name="victimSpeed" use="required" type="xsd:string"/>
+            <xsd:attribute name="colliderFront" use="optional" type="positionType"/>
+            <xsd:attribute name="victimFront" use="optional" type="positionType"/>
+            <xsd:attribute name="colliderBack" use="optional" type="positionType"/>
+            <xsd:attribute name="victimBack" use="optional" type="positionType"/>
         </xsd:complexType>
     </xsd:element>
 

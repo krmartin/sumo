@@ -2,7 +2,7 @@
 title: Edit Data Modes
 ---
 
-# Data specific modes ![](../images/supermodedata.png)
+# Data specific modes ![](../images/icon_supermodedata.png)
 
 EdgeData are elements associated with one or several edges, used for multiple purposes (especially Demand). They have their own mode, selectable through the top button or by pressing F4.
 
@@ -16,9 +16,9 @@ Edge datas are defined within a general set (DataSet), and within a certain time
 
 ![](../images/DataMode3.png)Defining a data interval
 
-![](../images/DataMode4.png)Defining parameters 
+![](../images/DataMode4.png)Defining parameters
 
-## Edge data mode ![](../images/edgedata.png)
+## Edge data mode ![](../images/icon_modeedgedata.png)
 
 EdgeData are created over a single edge.
 
@@ -26,7 +26,7 @@ EdgeData are created over a single edge.
 
 ![](../images/DataMode6.png)Inspecting an edge data
 
-## Edge relation mode ![](../images/edgereldata.png)
+## Edge relation mode ![](../images/icon_modeedgereldata.png)
 
 EdgeRelDatas are created over two edges
 
@@ -36,7 +36,7 @@ EdgeRelDatas are created over two edges
 
 ![](../images/DataMode9.png)Press enter to create edge rel data
 
-## TAZ relation mode ![](../images/modetazreldata.png)
+## TAZ relation mode ![](../images/icon_modetazreldata.png)
 
 This mode helps to visualize the existing relation and the traffic demand amount between any two TAZ (Traffic Analysis Zone) after loading the respective xml file containing the information about start TAZ, end TAZ, interval, vehicle type and demand count. So, with this mode, users can have a better overview about the distribution of traffic demand between Tazs. The first steps are:
  1. load the network file.
@@ -57,7 +57,7 @@ The basic data format is as following:
         <tazRelation from="22" to="20" count="4575"/> \
         <tazRelation from="22" to="24" count="3576"/> \
         <tazRelation from="23" to="35" count="3267"/> \
-      
+
     ... information about further TAZs ...
 </data>
 ```
@@ -69,7 +69,7 @@ Before loading the data related to TAZ-relations the respective network should b
 <additional>
     <taz id="1" shape="23356.47,20662.79 22463.50,20524.87 22401.18,21140.95 23162.64,21353.48 23356.47,20662.79" color="51,128,255"> \
         <param key="Id" value="59"/> \
-      
+
     ... information about further TAZs ...
     </taz>
 
@@ -94,18 +94,23 @@ The way to draw the relation line can be either from centroid to centroid or fro
 
 ![](../images/centroid.png)
 
-### Display the relation lines by color according to the amount of TAZ demands 
+### Display the relation lines by color according to the amount of TAZ demands
 It is also possible to display the relation lines with different colors according to the respective amount of TAZ demands. The way to set it is shown below.
 
 ![](../images/coloredDemand.png)
 
 The demand range for each color can be further adjusted/customized as well.
 
-### Change the width size of the TAZ relation lines
-The width of the relation lines can be adjusted. It is especially useful for better visualisation when there are many edges in the given network. Firstly, you click "Data" in the window shown after selecting *Edit-\>Edit Visualisation* or after clicking the color palette icon "View Settings". After inputting the desired width size in the rubric "Exaggerate tazRelation width by" you click "openGL", press the button "Recalculate boundaries" and then press "OK" so that the adjusted relation lines can be properly shown. The buttons/rubrics you need to click are illustrated below.
+### Change the width size of the TAZ relation lines to a uniform width
+The width of the relation lines can be uniformly adjusted. It is especially useful for better visualisation when there are many edges in the given network. Firstly, you click "Data" in the window shown after selecting *Edit-\>Edit Visualisation* or after clicking the color palette icon "View Settings". After inputting the desired width size in the rubric "Exaggerate tazRelation width by" you click "openGL", press the button "Recalculate boundaries" and then press "OK" so that the adjusted relation lines can be properly shown. The buttons/rubrics you need to click are illustrated below.
 
 ![](../images/setWidth_0.png)
 ![](../images/setWidth.png)
+
+### Change the width of all lines, scaling them according to the demand of each OD pair
+TAZ relation lines can also be displayed with varying widths according to demand. Like above mentioned, firstly, you click "Data" in the window shown after selecting *Edit-\>Edit Visualisation* or after clicking the color palette icon "View Settings". Then choose "by attribute (numericval)" in the drop-down window of "Scale size" and adjust the wished scale size for each demand category. This setting can be used together with the setting to display the TAZ polygons by different colors (see above). The buttons/rubrics you need to click are illustrated below.
+
+![](../images/setScaledWidth.png)
 
 ### Inspect a specific TAZ relation
 A TAZ can be selected under the Mode "Inspect". It is easier to do the selection when (1) the icon "Draw TAZ fill" is activated, and (2) the display of TAZ-relation lines is off. The latter one is under implementation. So, you firstly click some TAZ which can be seen after (1) under the inspect mode. Then you click the desired TAZ. After that, you can see the TAZ-relation lines from/to the selected TAZ. You can also choose only to show the relation lines either to or from the selected TAZ. The respective illustration is shown below.
@@ -132,8 +137,8 @@ To only see the selected TAZ relations you need to further press the button "Red
 
 ![](../images/select_2.png)
 
-!!! caution 
-The "Reduce" action is mainly to help to get a better view about the demand distribution of the selected TAZ. Only the data of the selected TAZ relations will be kept after clicking "Reduce". If the save action (not save as) is made after the action "Reduce", the respective file will be overwritten and the data of other unselected TAZ will be lost. You can of course save the selected data with the "save as" action if it is your intention (see the next section).  
+!!! caution
+    The "Reduce" action is mainly to help to get a better view about the demand distribution of the selected TAZ. Only the data of the selected TAZ relations will be kept after clicking "Reduce". If the save action (not save as) is made after the action "Reduce", the respective file will be overwritten and the data of other unselected TAZ will be lost. You can of course save the selected data with the "save as" action if it is your intention (see the next section).
 
 
 ### Save the selected TAZ relations
@@ -141,4 +146,3 @@ The "Reduce" action is mainly to help to get a better view about the demand dist
 The selected TAZ relations after the "Reduce" action and the respective attributes can be easily saved in XML format (see the illustration below).
 
 ![](../images/saveSelected.png)
-

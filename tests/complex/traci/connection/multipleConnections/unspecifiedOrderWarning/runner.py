@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2008-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -24,7 +24,7 @@ import os
 import subprocess
 import sys
 import time
-from multiprocessing import Process, freeze_support
+import multiprocessing
 
 if "SUMO_HOME" in os.environ:
     sys.path.append(os.path.join(os.environ["SUMO_HOME"], "tools"))
@@ -33,7 +33,9 @@ import traci  # noqa
 
 PORT = sumolib.miscutils.getFreeSocketPort()
 DELTA_T = 1000
-sumoBinary = sumolib.checkBinary(sys.argv[1])
+sumoOptions = [a for a in sys.argv[1:] if a.startswith('--')]
+positionalArgs = [a for a in sys.argv[1:] if not a.startswith('--')]
+sumoBinary = sumolib.checkBinary(positionalArgs[0])
 
 
 def traciLoop(port, traciEndTime, index, orderOdd):
@@ -75,9 +77,11 @@ def runSingle(sumoEndTime, traciEndTime, numClients, orderOdd=False):
     fdi.close()
     fdo.close()
     sumoProcess = subprocess.Popen(
-        "%s -v --num-clients %s -c used.sumocfg -S -Q --remote-port %s" %
-        (sumoBinary, numClients, PORT), shell=True, stdout=sys.stdout)  # Alternate ordering
-    procs = [Process(target=traciLoop, args=(PORT, traciEndTime, i + 1, orderOdd)) for i in range(numClients)]
+        [sumoBinary, "-v", "--num-clients", str(numClients),
+         "-c", "used.sumocfg", "-S", "-Q", "--remote-port", str(PORT)] + sumoOptions, stdout=sys.stdout)
+    # Alternate ordering
+    procs = [multiprocessing.Process(target=traciLoop, args=(PORT, traciEndTime, i + 1, orderOdd))
+             for i in range(numClients)]
     for p in procs:
         p.start()
     for p in procs:
@@ -87,7 +91,7 @@ def runSingle(sumoEndTime, traciEndTime, numClients, orderOdd=False):
 
 
 if __name__ == '__main__':
-    freeze_support()
+    multiprocessing.set_start_method('spawn')
     print("----------- Warning Test -----------")
     print(" Run 1")
     sys.stdout.flush()

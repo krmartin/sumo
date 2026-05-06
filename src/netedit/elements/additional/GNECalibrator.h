@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -15,10 +15,11 @@
 /// @author  Pablo Alvarez Lopez
 /// @date    Nov 2015
 ///
-//
+// Calibrator over edge or lane
 /****************************************************************************/
 #pragma once
 #include <config.h>
+
 #include "GNEAdditional.h"
 
 // ===========================================================================
@@ -32,10 +33,7 @@ class GNERoute;
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @class GNECalibrator
- * class for represent Calibrators in netedit
- */
+
 class GNECalibrator : public GNEAdditional, public Parameterised {
 
 public:
@@ -45,6 +43,7 @@ public:
     /**@brief Constructor using edge
      * @param[in] id The storage of gl-ids to get the one for this lane representation from
      * @param[in] net pointer to GNENet of this additional element belongs
+     * @param[in] fileBucket file in which this element is stored
      * @param[in] edge Edge of this calibrator belongs
      * @param[in] pos position of the calibrator on the edge (Currently not used)
      * @param[in] frequency the aggregation interval in which to calibrate the flows
@@ -54,12 +53,13 @@ public:
      * @param[in] vTypes space separated list of vehicle type ids to consider
      * @param[in] parameters generic parameters
      */
-    GNECalibrator(const std::string& id, GNENet* net, GNEEdge* edge, double pos, SUMOTime frequency, const std::string& name, const std::string& output,
-                  const double jamThreshold, const std::vector<std::string>& vTypes, const Parameterised::Map& parameters);
+    GNECalibrator(const std::string& id, GNENet* net, FileBucket* fileBucket, GNEEdge* edge, double pos, SUMOTime frequency, const std::string& name,
+                  const std::string& output, const double jamThreshold, const std::vector<std::string>& vTypes, const Parameterised::Map& parameters);
 
     /**@brief Constructor using edge and routeProbe
      * @param[in] id The storage of gl-ids to get the one for this lane representation from
      * @param[in] net pointer to GNENet of this additional element belongs
+     * @param[in] fileBucket file in which this element is stored
      * @param[in] edge Edge of this calibrator belongs
      * @param[in] pos position of the calibrator on the edge (Currently not used)
      * @param[in] frequency the aggregation interval in which to calibrate the flows
@@ -70,12 +70,13 @@ public:
      * @param[in] vTypes space separated list of vehicle type ids to consider
      * @param[in] parameters generic parameters
      */
-    GNECalibrator(const std::string& id, GNENet* net, GNEEdge* edge, double pos, SUMOTime frequency, const std::string& name, const std::string& output,
-                  GNEAdditional* routeProbe, const double jamThreshold, const std::vector<std::string>& vTypes, const Parameterised::Map& parameters);
+    GNECalibrator(const std::string& id, GNENet* net, FileBucket* fileBucket, GNEEdge* edge, double pos, SUMOTime frequency, const std::string& name,
+                  const std::string& output, GNEAdditional* routeProbe, const double jamThreshold, const std::vector<std::string>& vTypes, const Parameterised::Map& parameters);
 
     /**@brief Constructor using lane
      * @param[in] id The storage of gl-ids to get the one for this lane representation from
      * @param[in] net pointer to GNENet of this additional element belongs
+     * @param[in] fileBucket file in which this element is stored
      * @param[in] lane Lane of this calibrator belongs
      * @param[in] pos position of the calibrator on the edge (Currently not used)
      * @param[in] frequency the aggregation interval in which to calibrate the flows
@@ -85,12 +86,13 @@ public:
      * @param[in] vTypes space separated list of vehicle type ids to consider
      * @param[in] parameters generic parameters
      */
-    GNECalibrator(const std::string& id, GNENet* net, GNELane* lane, double pos, SUMOTime frequency, const std::string& name, const std::string& output,
-                  const double jamThreshold, const std::vector<std::string>& vTypes, const Parameterised::Map& parameters);
+    GNECalibrator(const std::string& id, GNENet* net, FileBucket* fileBucket, GNELane* lane, double pos, SUMOTime frequency, const std::string& name,
+                  const std::string& output, const double jamThreshold, const std::vector<std::string>& vTypes, const Parameterised::Map& parameters);
 
     /**@brief Constructor using lane and routeProbe
      * @param[in] id The storage of gl-ids to get the one for this lane representation from
      * @param[in] net pointer to GNENet of this additional element belongs
+     * @param[in] fileBucket file in which this element is stored
      * @param[in] lane Lane of this calibrator belongs
      * @param[in] pos position of the calibrator on the edge (Currently not used)
      * @param[in] frequency the aggregation interval in which to calibrate the flows
@@ -101,123 +103,168 @@ public:
      * @param[in] vTypes space separated list of vehicle type ids to consider
      * @param[in] parameters generic parameters
      */
-    GNECalibrator(const std::string& id, GNENet* net, GNELane* lane, double pos, SUMOTime frequency, const std::string& name, const std::string& output,
-                  GNEAdditional* routeProbe, const double jamThreshold, const std::vector<std::string>& vTypes, const Parameterised::Map& parameters);
+    GNECalibrator(const std::string& id, GNENet* net, FileBucket* fileBucket, GNELane* lane, double pos, SUMOTime frequency, const std::string& name,
+                  const std::string& output, GNEAdditional* routeProbe, const double jamThreshold, const std::vector<std::string>& vTypes, const Parameterised::Map& parameters);
 
     /// @brief Destructor
     ~GNECalibrator();
 
-    /**@brief write additional element into a xml file
-     * @param[in] device device in which write parameters of additional element
-     */
-    void writeAdditional(OutputDevice& device) const;
+    /// @brief methods to retrieve the elements linked to this calibrator
+    /// @{
 
-    /**@brief get move operation
-    * @note returned GNEMoveOperation can be nullptr
+    /// @brief get GNEMoveElement associated with this calibrator
+    GNEMoveElement* getMoveElement() const override;
+
+    /// @brief get parameters associated with this calibrator
+    Parameterised* getParameters() override;
+
+    /// @brief get parameters associated with this calibrator
+    const Parameterised* getParameters() const override;
+
+    /// @}
+
+    /// @name members and functions relative to write additionals into XML
+    /// @{
+
+    /**@brief write additional element into a xml file
+    * @param[in] device device in which write parameters of additional element
     */
-    GNEMoveOperation* getMoveOperation();
+    void writeAdditional(OutputDevice& device) const override;
+
+    /// @brief check if current additional is valid to be written into XML (must be reimplemented in all detector children)
+    bool isAdditionalValid() const override;
+
+    /// @brief return a string with the current additional problem (must be reimplemented in all detector children)
+    std::string getAdditionalProblem() const override;
+
+    /// @brief fix additional problem (must be reimplemented in all detector children)
+    void fixAdditionalProblem() override;
+
+    /// @}
+
+    /// @name Function related with contour drawing
+    /// @{
+
+    /// @brief check if draw move contour (red)
+    bool checkDrawMoveContour() const override;
+
+    /// @}
 
     /// @brief open Calibrator Dialog
-    void openAdditionalDialog();
+    void openAdditionalDialog(FXWindow* restoringFocusWindow) override;
 
     /// @name Functions related with geometry of element
     /// @{
+
     /// @brief update pre-computed geometry information
-    void updateGeometry();
+    void updateGeometry() override;
 
     /// @brief Returns position of additional in view
-    Position getPositionInView() const;
+    Position getPositionInView() const override;
 
     /// @brief update centering boundary (implies change in RTREE)
-    void updateCenteringBoundary(const bool updateGrid);
+    void updateCenteringBoundary(const bool updateGrid) override;
 
     /// @brief split geometry
-    void splitEdgeGeometry(const double splitPosition, const GNENetworkElement* originalElement, const GNENetworkElement* newElement, GNEUndoList* undoList);
+    void splitEdgeGeometry(const double splitPosition, const GNENetworkElement* originalElement, const GNENetworkElement* newElement, GNEUndoList* undoList) override;
+
     /// @}
 
     /// @name inherited from GUIGlObject
     /// @{
+
     /**@brief Returns the name of the parent object
      * @return This object's parent id
      */
-    std::string getParentName() const;
+    std::string getParentName() const override;
 
     /**@brief Draws the object
      * @param[in] s The settings for the current view (may influence drawing)
      * @see GUIGlObject::drawGL
      */
-    void drawGL(const GUIVisualizationSettings& s) const;
+    void drawGL(const GUIVisualizationSettings& s) const override;
+
     /// @}
 
     /// @name inherited from GNEAttributeCarrier
     /// @{
+
     /* @brief method for getting the Attribute of an XML key
      * @param[in] key The attribute key
      * @return string with the value associated to key
      */
-    std::string getAttribute(SumoXMLAttr key) const;
+    std::string getAttribute(SumoXMLAttr key) const override;
 
-    /* @brief method for getting the Attribute of an XML key in double format (to avoid unnecessary parse<double>(...) for certain attributes)
+    /* @brief method for getting the Attribute of an XML key in double format
      * @param[in] key The attribute key
      * @return double with the value associated to key
      */
-    double getAttributeDouble(SumoXMLAttr key) const;
+    double getAttributeDouble(SumoXMLAttr key) const override;
 
-    /// @brief get parameters map
-    const Parameterised::Map& getACParametersMap() const;
+    /* @brief method for getting the Attribute of an XML key in position format
+     * @param[in] key The attribute key
+     * @return position with the value associated to key
+     */
+    Position getAttributePosition(SumoXMLAttr key) const override;
+
+    /* @brief method for getting the Attribute of an XML key in positionVector format
+     * @param[in] key The attribute key
+     * @return positionVector with the value associated to key
+     */
+    PositionVector getAttributePositionVector(SumoXMLAttr key) const override;
 
     /* @brief method for setting the attribute and letting the object perform additional changes
      * @param[in] key The attribute key
      * @param[in] value The new value
      * @param[in] undoList The undoList on which to register changes
      */
-    void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList);
+    void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList) override;
 
     /* @brief method for checking if the key and their correspond attribute are valids
      * @param[in] key The attribute key
      * @param[in] value The value associated to key key
      * @return true if the value is valid, false in other case
      */
-    bool isValid(SumoXMLAttr key, const std::string& value);
+    bool isValid(SumoXMLAttr key, const std::string& value) override;
 
     /// @brief get PopPup ID (Used in AC Hierarchy)
-    std::string getPopUpID() const;
+    std::string getPopUpID() const override;
 
     /// @brief get Hierarchy Name (Used in AC Hierarchy)
-    std::string getHierarchyName() const;
+    std::string getHierarchyName() const override;
+
     /// @}
 
 protected:
     /// @brief position over Lane
-    double myPositionOverLane;
+    double myPositionOverLane = 0;
 
     /// @brief Frequency of calibrator
-    SUMOTime myFrequency;
+    SUMOTime myFrequency = 0;
 
     /// @brief output of calibrator
     std::string myOutput;
 
     /// @brief jamThreshold
-    double myJamThreshold;
+    double myJamThreshold = 0;
 
     /// @brief vTypes
     std::vector<std::string> myVTypes;
 
-    /// @brief extra calibrator geometries
+    /// @brief edge calibrator geometries
     std::vector<GUIGeometry> myEdgeCalibratorGeometries;
+
+    /// @brief edge calibrator contours
+    std::vector<GNEContour*>* myEdgeCalibratorContours;
 
 private:
     /// @brief draw calibrator symbol
-    void drawCalibratorSymbol(const GUIVisualizationSettings& s, const double exaggeration, const Position& pos, const double rot) const;
+    void drawCalibratorSymbol(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                              const double exaggeration, const Position& pos, const double rot,
+                              const int symbolIndex) const;
 
     /// @brief set attribute after validation
-    void setAttribute(SumoXMLAttr key, const std::string& value);
-
-    /// @brief set move shape
-    void setMoveShape(const GNEMoveResult& moveResult);
-
-    /// @brief commit move shape
-    void commitMoveShape(const GNEMoveResult& moveResult, GNEUndoList* undoList);
+    void setAttribute(SumoXMLAttr key, const std::string& value) override;
 
     /// @brief Invalidated copy constructor.
     GNECalibrator(const GNECalibrator&) = delete;

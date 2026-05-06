@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,20 +17,19 @@
 ///
 // The Widget for remove network-elements
 /****************************************************************************/
-#include <config.h>
 
-#include <netedit/GNENet.h>
-#include <netedit/GNEUndoList.h>
-#include <netedit/GNEViewNet.h>
-#include <netedit/GNEViewParent.h>
 #include <netedit/GNEApplicationWindow.h>
+#include <netedit/GNENet.h>
+#include <netedit/GNEInternalTest.h>
+#include <netedit/GNEViewParent.h>
+#include <netedit/GNETagProperties.h>
+#include <netedit/GNEUndoList.h>
+#include <netedit/dialogs/basic/GNEWarningBasicDialog.h>
 #include <netedit/elements/additional/GNEPoly.h>
 #include <netedit/elements/additional/GNETAZ.h>
 #include <netedit/elements/network/GNEConnection.h>
 #include <netedit/elements/network/GNECrossing.h>
 #include <utils/gui/div/GUIDesigns.h>
-#include <utils/gui/windows/GUIAppEnum.h>
-#include <utils/foxtools/MFXMenuHeader.h>
 
 #include "GNEDeleteFrame.h"
 
@@ -39,21 +38,29 @@
 // ===========================================================================
 
 FXDEFMAP(GNEDeleteFrame::DeleteOptions) DeleteOptionsMap[] = {
-    FXMAPFUNC(SEL_COMMAND, MID_GNE_SET_ATTRIBUTE, GNEDeleteFrame::DeleteOptions::onCmdSetOption),
+    FXMAPFUNC(SEL_COMMAND,  MID_GNE_SET_ATTRIBUTE,  GNEDeleteFrame::DeleteOptions::onCmdSetOption),
+};
+
+FXDEFMAP(GNEDeleteFrame::ProtectElements) ProtectElementsMap[] = {
+    FXMAPFUNC(SEL_COMMAND,  MID_GNE_PROTECT_ALL,    GNEDeleteFrame::ProtectElements::onCmdProtectAll),
+    FXMAPFUNC(SEL_UPDATE,   MID_GNE_PROTECT_ALL,    GNEDeleteFrame::ProtectElements::onUpdProtectAll),
+    FXMAPFUNC(SEL_COMMAND,  MID_GNE_UNPROTECT_ALL,  GNEDeleteFrame::ProtectElements::onCmdUnprotectAll),
+    FXMAPFUNC(SEL_UPDATE,   MID_GNE_UNPROTECT_ALL,  GNEDeleteFrame::ProtectElements::onUpdUnprotectAll),
 };
 
 // Object implementation
-FXIMPLEMENT(GNEDeleteFrame::DeleteOptions,      MFXGroupBoxModule, DeleteOptionsMap,      ARRAYNUMBER(DeleteOptionsMap))
+FXIMPLEMENT(GNEDeleteFrame::DeleteOptions,      GNEGroupBoxModule, DeleteOptionsMap,    ARRAYNUMBER(DeleteOptionsMap))
+FXIMPLEMENT(GNEDeleteFrame::ProtectElements,    GNEGroupBoxModule, ProtectElementsMap,  ARRAYNUMBER(ProtectElementsMap))
 
 // ---------------------------------------------------------------------------
 // GNEDeleteFrame::DeleteOptions - methods
 // ---------------------------------------------------------------------------
 
 GNEDeleteFrame::DeleteOptions::DeleteOptions(GNEDeleteFrame* deleteFrameParent) :
-    MFXGroupBoxModule(deleteFrameParent, "Options"),
+    GNEGroupBoxModule(deleteFrameParent, TL("Options")),
     myDeleteFrameParent(deleteFrameParent) {
     // Create checkbox for enable/disable delete only geomtery point(by default, disabled)
-    myDeleteOnlyGeometryPoints = new FXCheckButton(getCollapsableFrame(), "Delete geometry points", this, MID_GNE_SET_ATTRIBUTE, GUIDesignCheckButton);
+    myDeleteOnlyGeometryPoints = new FXCheckButton(getCollapsableFrame(), TL("Delete geometry points"), this, MID_GNE_SET_ATTRIBUTE, GUIDesignCheckButton);
     myDeleteOnlyGeometryPoints->setCheck(FALSE);
 }
 
@@ -89,7 +96,7 @@ GNEDeleteFrame::SubordinatedElements::SubordinatedElements(const GNEJunction* ju
 GNEDeleteFrame::SubordinatedElements::SubordinatedElements(const GNEEdge* edge) :
     SubordinatedElements(edge, edge->getNet()->getViewNet(), edge) {
     // add the number of subodinated elements of child lanes
-    for (const auto& lane : edge->getLanes()) {
+    for (const auto& lane : edge->getChildLanes()) {
         addValuesFromSubordinatedElements(this, lane);
     }
 }
@@ -120,19 +127,22 @@ GNEDeleteFrame::SubordinatedElements::~SubordinatedElements() {}
 
 bool
 GNEDeleteFrame::SubordinatedElements::checkElements(const ProtectElements* protectElements) {
+    // check if running internal tests
+    const auto internalTest = protectElements->getDeleteFrameParent()->getViewNet()->getViewParent()->getGNEAppWindows()->getInternalTest();
+    const bool runningInternalTests = internalTest ? internalTest->isRunning() : false;
     // check every parent/child
     if ((myAdditionalParents > 0) && protectElements->protectAdditionals()) {
-        openWarningDialog("additional", myAdditionalParents, false);
+        openWarningDialog("additional", myAdditionalParents, false, runningInternalTests);
     } else if ((myAdditionalChilds > 0) && protectElements->protectAdditionals()) {
-        openWarningDialog("additional", myAdditionalChilds, true);
+        openWarningDialog("additional", myAdditionalChilds, true, runningInternalTests);
     } else if ((myDemandElementParents > 0) && protectElements->protectDemandElements()) {
-        openWarningDialog("demand", myDemandElementParents, false);
+        openWarningDialog("demand", myDemandElementParents, false, runningInternalTests);
     } else if ((myDemandElementChilds > 0) && protectElements->protectDemandElements()) {
-        openWarningDialog("demand", myDemandElementChilds, true);
+        openWarningDialog("demand", myDemandElementChilds, true, runningInternalTests);
     } else if ((myGenericDataParents > 0) && protectElements->protectGenericDatas()) {
-        openWarningDialog("data", myGenericDataParents, false);
+        openWarningDialog("data", myGenericDataParents, false, runningInternalTests);
     } else if ((myGenericDataChilds > 0) && protectElements->protectGenericDatas()) {
-        openWarningDialog("data", myGenericDataChilds, true);
+        openWarningDialog("data", myGenericDataChilds, true, runningInternalTests);
     } else {
         // all checks ok, then return true, to remove element
         return true;
@@ -197,29 +207,27 @@ GNEDeleteFrame::SubordinatedElements::addValuesFromSubordinatedElements(Subordin
 
 
 void
-GNEDeleteFrame::SubordinatedElements::openWarningDialog(const std::string& type, const size_t number, const bool isChild) {
+GNEDeleteFrame::SubordinatedElements::openWarningDialog(const std::string& type, const size_t number, const bool isChild, const bool runningInternalTests) {
     // declare plural depending of "number"
     const std::string plural = (number > 1) ? "s" : "";
     // declare header
-    const std::string header = "Problem deleting " + myAttributeCarrier->getTagProperty().getTagStr() + " '" + myAttributeCarrier->getID() + "'";
+    const std::string header = "Problem deleting " + myAttributeCarrier->getTagProperty()->getTagStr() + " '" + myAttributeCarrier->getID() + "'";
     // declare message
     std::string msg;
     // set message depending of isChild
     if (isChild) {
-        msg = myAttributeCarrier->getTagProperty().getTagStr() + " '" + myAttributeCarrier->getID() +
+        msg = myAttributeCarrier->getTagProperty()->getTagStr() + " '" + myAttributeCarrier->getID() +
               "' cannot be deleted because it has " + toString(number) + " " + type + " element" + plural + ".\n" +
               "To delete it, uncheck 'protect " + type + " elements'.";
     } else {
-        msg = myAttributeCarrier->getTagProperty().getTagStr() + " '" + myAttributeCarrier->getID() +
+        msg = myAttributeCarrier->getTagProperty()->getTagStr() + " '" + myAttributeCarrier->getID() +
               "' cannot be deleted because it is part of " + toString(number) + " " + type + " element" + plural + ".\n" +
               "To delete it, uncheck 'protect " + type + " elements'.";
     }
-    // write warning
-    WRITE_DEBUG("Opened FXMessageBox " + header);
-    // open message box
-    FXMessageBox::warning(myViewNet->getApp(), MBOX_OK, header.c_str(), "%s", msg.c_str());
-    // write warning if netedit is running in testing mode
-    WRITE_DEBUG("Closed FXMessageBox " + header);
+    // open message box only if we're not running internal tests
+    if (!runningInternalTests) {
+        GNEWarningBasicDialog(myViewNet->getViewParent()->getGNEAppWindows(), header, msg);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -227,23 +235,36 @@ GNEDeleteFrame::SubordinatedElements::openWarningDialog(const std::string& type,
 // ---------------------------------------------------------------------------
 
 GNEDeleteFrame::ProtectElements::ProtectElements(GNEDeleteFrame* deleteFrameParent) :
-    MFXGroupBoxModule(deleteFrameParent, "Protect Elements") {
+    GNEGroupBoxModule(deleteFrameParent, TL("Protect Elements")),
+    myDeleteFrameParent(deleteFrameParent) {
+    // Create "Protect all" Button
+    myProtectAllButton = GUIDesigns::buildFXButton(getCollapsableFrame(), TL("Protect all"), "", TL("Protect all elements"), nullptr, this, MID_GNE_PROTECT_ALL, GUIDesignButton);
+    // start disabled (because allelements are protected)
+    myProtectAllButton->disable();
+    // Create "Unprotect all" Button
+    myUnprotectAllButton = GUIDesigns::buildFXButton(getCollapsableFrame(), TL("Unprotect all"), "", TL("Unprotect all elements"), nullptr, this, MID_GNE_UNPROTECT_ALL, GUIDesignButton);
     // Create checkbox for enable/disable delete only geomtery point(by default, disabled)
-    myProtectAdditionals = new FXCheckButton(getCollapsableFrame(), "Protect additional elements", deleteFrameParent, MID_GNE_SET_ATTRIBUTE, GUIDesignCheckButton);
+    myProtectAdditionals = new FXCheckButton(getCollapsableFrame(), TL("Protect additional elements"), deleteFrameParent, MID_GNE_SET_ATTRIBUTE, GUIDesignCheckButton);
     myProtectAdditionals->setCheck(TRUE);
     // Create checkbox for enable/disable delete only geomtery point(by default, disabled)
-    myProtectTAZs = new FXCheckButton(getCollapsableFrame(), "Protect TAZ elements", deleteFrameParent, MID_GNE_SET_ATTRIBUTE, GUIDesignCheckButton);
+    myProtectTAZs = new FXCheckButton(getCollapsableFrame(), TL("Protect TAZ elements"), deleteFrameParent, MID_GNE_SET_ATTRIBUTE, GUIDesignCheckButton);
     myProtectTAZs->setCheck(TRUE);
     // Create checkbox for enable/disable delete only geomtery point(by default, disabled)
-    myProtectDemandElements = new FXCheckButton(getCollapsableFrame(), "Protect demand elements", deleteFrameParent, MID_GNE_SET_ATTRIBUTE, GUIDesignCheckButton);
+    myProtectDemandElements = new FXCheckButton(getCollapsableFrame(), TL("Protect demand elements"), deleteFrameParent, MID_GNE_SET_ATTRIBUTE, GUIDesignCheckButton);
     myProtectDemandElements->setCheck(TRUE);
     // Create checkbox for enable/disable delete only geomtery point(by default, disabled)
-    myProtectGenericDatas = new FXCheckButton(getCollapsableFrame(), "Protect data elements", deleteFrameParent, MID_GNE_SET_ATTRIBUTE, GUIDesignCheckButton);
+    myProtectGenericDatas = new FXCheckButton(getCollapsableFrame(), TL("Protect data elements"), deleteFrameParent, MID_GNE_SET_ATTRIBUTE, GUIDesignCheckButton);
     myProtectGenericDatas->setCheck(TRUE);
 }
 
 
 GNEDeleteFrame::ProtectElements::~ProtectElements() {}
+
+
+GNEDeleteFrame*
+GNEDeleteFrame::ProtectElements::getDeleteFrameParent() const {
+    return myDeleteFrameParent;
+}
 
 
 bool
@@ -269,15 +290,59 @@ GNEDeleteFrame::ProtectElements::protectGenericDatas() const {
     return (myProtectGenericDatas->getCheck() == TRUE);
 }
 
+
+long
+GNEDeleteFrame::ProtectElements::onCmdProtectAll(FXObject*, FXSelector, void*) {
+    myProtectAdditionals->setCheck(TRUE);
+    myProtectTAZs->setCheck(TRUE);
+    myProtectDemandElements->setCheck(TRUE);
+    myProtectGenericDatas->setCheck(TRUE);
+    myUnprotectAllButton->enable();
+    return 1;
+}
+
+
+long
+GNEDeleteFrame::ProtectElements::onCmdUnprotectAll(FXObject*, FXSelector, void*) {
+    myProtectAdditionals->setCheck(FALSE);
+    myProtectTAZs->setCheck(FALSE);
+    myProtectDemandElements->setCheck(FALSE);
+    myProtectGenericDatas->setCheck(FALSE);
+    myProtectAllButton->enable();
+    return 1;
+}
+
+
+long
+GNEDeleteFrame::ProtectElements::onUpdProtectAll(FXObject* sender, FXSelector, void*) {
+    if (myProtectAdditionals->getCheck() && myProtectTAZs->getCheck() &&
+            myProtectDemandElements->getCheck() && myProtectGenericDatas->getCheck()) {
+        return sender->handle(this, FXSEL(SEL_COMMAND, ID_DISABLE), nullptr);
+    } else {
+        return sender->handle(this, FXSEL(SEL_COMMAND, ID_ENABLE), nullptr);
+    }
+}
+
+
+long
+GNEDeleteFrame::ProtectElements::onUpdUnprotectAll(FXObject* sender, FXSelector, void*) {
+    if (!myProtectAdditionals->getCheck() && !myProtectTAZs->getCheck() &&
+            !myProtectDemandElements->getCheck() && !myProtectGenericDatas->getCheck()) {
+        return sender->handle(this, FXSEL(SEL_COMMAND, ID_DISABLE), nullptr);
+    } else {
+        return sender->handle(this, FXSEL(SEL_COMMAND, ID_ENABLE), nullptr);
+    }
+}
+
 // ===========================================================================
 // method definitions
 // ===========================================================================
 
-GNEDeleteFrame::GNEDeleteFrame(GNEViewParent *viewParent, GNEViewNet* viewNet) :
-    GNEFrame(viewParent, viewNet, "Delete") {
-    // create delete options modul
+GNEDeleteFrame::GNEDeleteFrame(GNEViewParent* viewParent, GNEViewNet* viewNet) :
+    GNEFrame(viewParent, viewNet, TL("Delete")) {
+    // create delete options module
     myDeleteOptions = new DeleteOptions(this);
-    // create protect elements modul
+    // create protect elements module
     myProtectElements = new ProtectElements(this);
 }
 
@@ -304,8 +369,8 @@ GNEDeleteFrame::removeSelectedAttributeCarriers() {
     const auto& attributeCarriers = myViewNet->getNet()->getAttributeCarriers();
     // first check if there is additional to remove
     if (selectedACsToDelete()) {
-        // remove all selected attribute carrier susing the following parent-child sequence
-        myViewNet->getUndoList()->begin(GUIIcon::MODEDELETE, "remove selected items");
+        // remove all selected attribute carriers using the following parent-child sequence
+        myViewNet->getUndoList()->begin(GUIIcon::MODEDELETE, TL("remove selected items"));
         // disable update geometry
         myViewNet->getNet()->disableUpdateGeometry();
         // delete selected attribute carriers depending of current supermode
@@ -360,15 +425,15 @@ GNEDeleteFrame::removeSelectedAttributeCarriers() {
 
 
 void
-GNEDeleteFrame::removeAttributeCarrier(const GNEViewNetHelper::ObjectsUnderCursor& objectsUnderCursor) {
+GNEDeleteFrame::removeAttributeCarrier(const GNEViewNetHelper::ViewObjectsSelector& viewObjects) {
     // disable update geometry
     myViewNet->getNet()->disableUpdateGeometry();
     // first check if there more than one clicked GL object under cursor
-    if (objectsUnderCursor.getClickedGLObjects().size() > 1) {
+    if (viewObjects.getGLObjects().size() > 1) {
         std::vector<GUIGlObject*> filteredGLObjects;
         // filter objects
-        for (const auto &glObject : objectsUnderCursor.getClickedGLObjects()) {
-            if(glObject->isGLObjectLocked()) {
+        for (const auto& glObject : viewObjects.getGLObjects()) {
+            if (glObject->isGLObjectLocked()) {
                 continue;
             }
             filteredGLObjects.push_back(glObject);
@@ -382,29 +447,33 @@ GNEDeleteFrame::removeAttributeCarrier(const GNEViewNetHelper::ObjectsUnderCurso
         } else if (filteredGLObjects.size() > 0) {
             filteredGLObjects.front()->deleteGLObject();
         }
-    } else if ((objectsUnderCursor.getClickedGLObjects().size() > 0) && 
-        !objectsUnderCursor.getClickedGLObjects().front()->isGLObjectLocked()) {
-        objectsUnderCursor.getClickedGLObjects().front()->deleteGLObject();
+    } else if ((viewObjects.getGLObjects().size() > 0) &&
+               !viewObjects.getGLObjects().front()->isGLObjectLocked()) {
+        viewObjects.getGLObjects().front()->deleteGLObject();
     }
     // enable update geometry
     myViewNet->getNet()->enableUpdateGeometry();
-    // update view to show changes
-    myViewNet->updateViewNet();
 }
 
 
-void
-GNEDeleteFrame::removeGeometryPoint(const GNEViewNetHelper::ObjectsUnderCursor& objectsUnderCursor) {
+bool
+GNEDeleteFrame::removeGeometryPoint(const GNEViewNetHelper::ViewObjectsSelector& viewObjects) {
     // get clicked position
     const Position clickedPosition = myViewNet->getPositionInformation();
-    // check type of of object under cursor object with geometry points
-    if (objectsUnderCursor.getAttributeCarrierFront()->getTagProperty().isNetworkElement()) {
-        objectsUnderCursor.getNetworkElementFront()->removeGeometryPoint(clickedPosition, myViewNet->getUndoList());
-    } else if (objectsUnderCursor.getAttributeCarrierFront()->getTagProperty().getTag() == SUMO_TAG_POLY) {
-        objectsUnderCursor.getPolyFront()->removeGeometryPoint(clickedPosition, myViewNet->getUndoList());
-    } else if (objectsUnderCursor.getAttributeCarrierFront()->getTagProperty().getTag() == SUMO_TAG_TAZ) {
-        objectsUnderCursor.getTAZFront()->removeGeometryPoint(clickedPosition, myViewNet->getUndoList());
+    // filter elements with geometry points
+    for (const auto& AC : viewObjects.getAttributeCarriers()) {
+        if (AC->getTagProperty()->getTag() == SUMO_TAG_EDGE) {
+            viewObjects.getEdgeFront()->getMoveElement()->removeGeometryPoint(clickedPosition, myViewNet->getUndoList());
+            return true;
+        } else if (AC->getTagProperty()->getTag() == SUMO_TAG_POLY) {
+            viewObjects.getPolyFront()->getMoveElement()->removeGeometryPoint(clickedPosition, myViewNet->getUndoList());
+            return true;
+        } else if (AC->getTagProperty()->getTag() == SUMO_TAG_TAZ) {
+            viewObjects.getTAZFront()->getMoveElement()->removeGeometryPoint(clickedPosition, myViewNet->getUndoList());
+            return true;
+        }
     }
+    return false;
 }
 
 
@@ -432,13 +501,13 @@ GNEDeleteFrame::selectedACsToDelete() const {
             if (junction.second->isAttributeCarrierSelected()) {
                 return true;
             }
-            // due we iterate over all junctions, only it's neccesary iterate over incoming edges
+            // since we iterate over all junctions, it's only necessary to iterate over incoming edges
             for (const auto& edge : junction.second->getGNEIncomingEdges()) {
                 if (edge->isAttributeCarrierSelected()) {
                     return true;
                 }
                 // check lanes
-                for (const auto& lane : edge->getLanes()) {
+                for (const auto& lane : edge->getChildLanes()) {
                     if (lane->isAttributeCarrierSelected()) {
                         return true;
                     }
@@ -460,7 +529,7 @@ GNEDeleteFrame::selectedACsToDelete() const {
         // check additionals
         for (const auto& additionalTag : myViewNet->getNet()->getAttributeCarriers()->getAdditionals()) {
             for (const auto& additional : additionalTag.second) {
-                if (additional->isAttributeCarrierSelected()) {
+                if (additional.second->isAttributeCarrierSelected()) {
                     return true;
                 }
             }
@@ -469,7 +538,7 @@ GNEDeleteFrame::selectedACsToDelete() const {
         // check demand elements
         for (const auto& demandElementTag : myViewNet->getNet()->getAttributeCarriers()->getDemandElements()) {
             for (const auto& demandElement : demandElementTag.second) {
-                if (demandElement->isAttributeCarrierSelected()) {
+                if (demandElement.second->isAttributeCarrierSelected()) {
                     return true;
                 }
             }
@@ -478,7 +547,7 @@ GNEDeleteFrame::selectedACsToDelete() const {
         // iterate over all generic datas
         for (const auto& genericDataTag : myViewNet->getNet()->getAttributeCarriers()->getGenericDatas()) {
             for (const auto& genericData : genericDataTag.second) {
-                if (genericData->isAttributeCarrierSelected()) {
+                if (genericData.second->isAttributeCarrierSelected()) {
                     return true;
                 }
             }

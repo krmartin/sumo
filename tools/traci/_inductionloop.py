@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2011-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2011-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -32,7 +32,7 @@ def readVehicleData(result):
         leaveTime = result.readTypedDouble()
         typeID = result.readTypedString()
         data.append((vehID, length, entryTime, leaveTime, typeID))
-    return data
+    return tuple(data)
 
 
 _RETURN_VALUE_FUNC = {tc.LAST_STEP_VEHICLE_DATA: readVehicleData}
@@ -76,9 +76,9 @@ class InductionLoopDomain(Domain):
         return self._getUniversal(tc.LAST_STEP_MEAN_SPEED, loopID)
 
     def getLastStepVehicleIDs(self, loopID):
-        """getLastStepVehicleIDs(string) -> list(string)
+        """getLastStepVehicleIDs(string) -> tuple(string)
 
-        Returns the list of ids of vehicles that were on the named induction loop in the last simulation step.
+        Returns the tuple of ids of vehicles that were on the named induction loop in the last simulation step.
         """
         return self._getUniversal(tc.LAST_STEP_VEHICLE_ID_LIST, loopID)
 
@@ -104,11 +104,69 @@ class InductionLoopDomain(Domain):
         return self._getUniversal(tc.LAST_STEP_TIME_SINCE_DETECTION, loopID)
 
     def getVehicleData(self, loopID):
-        """getVehicleData(string) -> [(veh_id, veh_length, entry_time, exit_time, vType), ...]
+        """getVehicleData(string) -> tuple((veh_id, veh_length, entry_time, exit_time, vType), ...)
 
         Returns a complex structure containing several information about vehicles which passed the detector.
         """
         return self._getUniversal(tc.LAST_STEP_VEHICLE_DATA, loopID)
+
+    def getIntervalOccupancy(self, loopID):
+        """getIntervalOccupancy(string) -> double
+
+        Returns the percentage of time the detector was occupied by a vehicle
+        during the current interval.
+        """
+        return self._getUniversal(tc.VAR_INTERVAL_OCCUPANCY, loopID)
+
+    def getIntervalMeanSpeed(self, loopID):
+        """getIntervalMeanSpeed(string) -> double
+
+        Returns the average speed of vehicles during the current interval.
+        """
+        return self._getUniversal(tc.VAR_INTERVAL_SPEED, loopID)
+
+    def getIntervalVehicleNumber(self, loopID):
+        """getIntervalVehicleNumber(string) -> integer
+
+        Returns the number of vehicles that passed the detector during the current interval
+        """
+        return self._getUniversal(tc.VAR_INTERVAL_NUMBER, loopID)
+
+    def getIntervalVehicleIDs(self, loopID):
+        """getIntervalVehicleIDs(string) -> tuple(string)
+
+        Returns the ids of vehicles that passed the detector during the current interval
+        """
+        return self._getUniversal(tc.VAR_INTERVAL_IDS, loopID)
+
+    def getLastIntervalOccupancy(self, loopID):
+        """getLastIntervalOccupancy(string) -> double
+
+        Returns the percentage of time the detector was occupied by a vehicle
+        during the previous interval.
+        """
+        return self._getUniversal(tc.VAR_LAST_INTERVAL_OCCUPANCY, loopID)
+
+    def getLastIntervalMeanSpeed(self, loopID):
+        """getLastIntervalMeanSpeed(string) -> double
+
+        Returns the average speed of vehicles during the previous interval.
+        """
+        return self._getUniversal(tc.VAR_LAST_INTERVAL_SPEED, loopID)
+
+    def getLastIntervalVehicleNumber(self, loopID):
+        """getLastIntervalVehicleNumber(string) -> integer
+
+        Returns the number of vehicles that passed the detector during the previous interval
+        """
+        return self._getUniversal(tc.VAR_LAST_INTERVAL_NUMBER, loopID)
+
+    def getLastIntervalVehicleIDs(self, loopID):
+        """getLastIntervalVehicleIDs(string) -> tuple(string)
+
+        Returns the ids of vehicles that passed the detector during the previous interval
+        """
+        return self._getUniversal(tc.VAR_LAST_INTERVAL_IDS, loopID)
 
     def overrideTimeSinceDetection(self, loopID, time):
         """overrideTimeSinceDetection(string, double) -> None

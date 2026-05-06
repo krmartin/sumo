@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2002-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -109,6 +109,9 @@ public:
     /// @brief whether a stopped vehicle is leader
     bool hasStoppedVehicle() const;
 
+    /// @brief whether the given vehicle is part of this leaderInfo
+    bool hasVehicle(const MSVehicle* veh) const;
+
     /// @brief remove vehicles that are driving in the opposite direction (fully or partially) on the given lane
     void removeOpposite(const MSLane* lane);
 
@@ -166,8 +169,11 @@ public:
         UNUSED_PARAMETER(veh);
         UNUSED_PARAMETER(beyond);
         UNUSED_PARAMETER(latOffset);
-        throw ProcessError("Method not supported");
+        throw ProcessError(TL("Method not supported"));
     }
+
+    /// @brief updatd empty sublanes with vehicles and gaps from other
+    virtual void addLeaders(MSLeaderDistanceInfo& other);
 
     /// @brief discard all information
     virtual void clear();
@@ -192,6 +198,10 @@ public:
     CLeaderDist getClosest() const;
 
     void moveSamePosTo(const MSVehicle* ego, MSLeaderDistanceInfo& other);
+
+    /// @brief return minimum distance to a stopped vehicle or max double
+    double getMinDistToStopped() const;
+
 
 protected:
 
@@ -226,14 +236,14 @@ public:
         UNUSED_PARAMETER(gap);
         UNUSED_PARAMETER(latOffset);
         UNUSED_PARAMETER(sublane);
-        throw ProcessError("Method not supported");
+        throw ProcessError(TL("Method not supported"));
     }
 
     virtual int addLeader(const MSVehicle* veh, bool beyond, double latOffset = 0) {
         UNUSED_PARAMETER(veh);
         UNUSED_PARAMETER(beyond);
         UNUSED_PARAMETER(latOffset);
-        throw ProcessError("Method not supported");
+        throw ProcessError(TL("Method not supported"));
     }
 
     /// @brief discard all information

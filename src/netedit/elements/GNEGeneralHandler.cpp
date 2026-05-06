@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -15,27 +15,22 @@
 /// @author  Pablo Alvarez Lopez
 /// @date    Sep 2021
 ///
-// General element handler for NETEDIT
+// General element handler for netedit
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 
 #include <utils/xml/XMLSubSys.h>
 
 #include "GNEGeneralHandler.h"
 
-
 // ===========================================================================
 // method definitions
 // ===========================================================================
 
-GNEGeneralHandler::GNEGeneralHandler(GNENet* net, const std::string& file, const bool allowUndoRedo, const bool overwrite) :
-    GeneralHandler(file),
-    myAdditionalHandler(net, allowUndoRedo, overwrite),
-    myDemandHandler(file, net, allowUndoRedo, overwrite) {
+GNEGeneralHandler::GNEGeneralHandler(GNENet* net, FileBucket* fileBucket, const bool allowUndoRedo) :
+    GeneralHandler(fileBucket),
+    myAdditionalHandler(net, fileBucket, allowUndoRedo),
+    myDemandHandler(net, fileBucket, allowUndoRedo, true),
+    myMeanDataHandler(net, fileBucket, allowUndoRedo) {
 }
 
 
@@ -43,49 +38,86 @@ GNEGeneralHandler::~GNEGeneralHandler() {}
 
 
 void
+GNEGeneralHandler::forceOverwriteElements() {
+    myAdditionalHandler.forceOverwriteElements();
+    myDemandHandler.forceOverwriteElements();
+    myMeanDataHandler.forceOverwriteElements();
+}
+
+
+bool
+GNEGeneralHandler::isErrorCreatingElement() const {
+    return (myAdditionalHandler.isErrorCreatingElement() ||
+            myDemandHandler.isErrorCreatingElement() ||
+            myMeanDataHandler.isErrorCreatingElement());
+}
+
+
+bool
+GNEGeneralHandler::isAdditionalFile() const {
+    return fileType == TagType::Type::ADDITIONAL;
+}
+
+
+bool
+GNEGeneralHandler::isRouteFile() const {
+    return fileType == TagType::Type::DEMAND;
+}
+
+
+bool
+GNEGeneralHandler::isMeanDataFile() const {
+    return fileType == TagType::Type::MEANDATA;
+}
+
+
+void
 GNEGeneralHandler::beginTag(SumoXMLTag tag, const SUMOSAXAttributes& attrs) {
+    // continue depending of tag
     switch (tag) {
         case SUMO_TAG_LOCATION:
             // process in Network handler
-            myQueue.push_back(TagType(tag, true, false, false));
+            myQueue.push_back(TagType(tag, TagType::Type::NETWORK));
             break;
         case SUMO_TAG_PARAM:
         case SUMO_TAG_INTERVAL:
             if (myQueue.size() > 0) {
                 // try to parse additional or demand element depending of last inserted tag
-                if (myQueue.back().additional && myAdditionalHandler.beginParseAttributes(tag, attrs)) {
-                    myQueue.push_back(TagType(tag, false, true, false));
-                } else if (myQueue.back().demand && myDemandHandler.beginParseAttributes(tag, attrs)) {
-                    myQueue.push_back(TagType(tag, false, false, true));
+                if (myQueue.back().isAdditional() && myAdditionalHandler.beginParseAttributes(tag, attrs)) {
+                    myQueue.push_back(TagType(tag, TagType::Type::ADDITIONAL));
+                } else if (myQueue.back().isDemand() && myDemandHandler.beginParseAttributes(tag, attrs)) {
+                    myQueue.push_back(TagType(tag, TagType::Type::DEMAND));
                 } else {
-                    myQueue.push_back(TagType(tag, false, false, false));
+                    myQueue.push_back(TagType(tag, TagType::Type::NONE));
                 }
             } else {
-                myQueue.push_back(TagType(tag, false, false, false));
+                myQueue.push_back(TagType(tag, TagType::Type::NONE));
             }
             break;
         case SUMO_TAG_FLOW:
             if (myQueue.size() > 0) {
                 // try to parse additional or demand element depending of last inserted tag
-                if (myQueue.back().additional && myAdditionalHandler.beginParseAttributes(tag, attrs)) {
-                    myQueue.push_back(TagType(tag, false, true, false));
+                if (myQueue.back().isAdditional() && myAdditionalHandler.beginParseAttributes(tag, attrs)) {
+                    myQueue.push_back(TagType(tag, TagType::Type::ADDITIONAL));
                 } else if (myDemandHandler.beginParseAttributes(tag, attrs)) {
-                    myQueue.push_back(TagType(tag, false, false, true));
+                    myQueue.push_back(TagType(tag, TagType::Type::DEMAND));
                 } else {
-                    myQueue.push_back(TagType(tag, false, false, false));
+                    myQueue.push_back(TagType(tag, TagType::Type::NONE));
                 }
             } else {
-                myQueue.push_back(TagType(tag, false, false, false));
+                myQueue.push_back(TagType(tag, TagType::Type::NONE));
             }
             break;
         default:
             // try to parse additional or demand element
             if (myAdditionalHandler.beginParseAttributes(tag, attrs)) {
-                myQueue.push_back(TagType(tag, false, true, false));
+                myQueue.push_back(TagType(tag, TagType::Type::ADDITIONAL));
             } else if (myDemandHandler.beginParseAttributes(tag, attrs)) {
-                myQueue.push_back(TagType(tag, false, false, true));
+                myQueue.push_back(TagType(tag, TagType::Type::DEMAND));
+            } else if (myMeanDataHandler.beginParseAttributes(tag, attrs)) {
+                myQueue.push_back(TagType(tag, TagType::Type::MEANDATA));
             } else {
-                myQueue.push_back(TagType(tag, false, false, false));
+                myQueue.push_back(TagType(tag, TagType::Type::NONE));
             }
             break;
     }
@@ -93,31 +125,92 @@ GNEGeneralHandler::beginTag(SumoXMLTag tag, const SUMOSAXAttributes& attrs) {
     if (myQueue.size() > 10) {
         myQueue.pop_front();
     }
+    // check if update handlers
+    const bool abortLoading = myAdditionalHandler.isAbortLoading() ||
+                              myDemandHandler.isAbortLoading() ||
+                              myMeanDataHandler.isAbortLoading();
+    const bool forceOverwrite = myAdditionalHandler.isForceOverwriteElements() ||
+                                myDemandHandler.isForceOverwriteElements() ||
+                                myMeanDataHandler.isForceOverwriteElements();
+    const bool forceRemain = myAdditionalHandler.isForceRemainElements() ||
+                             myDemandHandler.isForceRemainElements() ||
+                             myMeanDataHandler.isForceRemainElements();
+    if (abortLoading) {
+        myAdditionalHandler.abortLoading();
+        myDemandHandler.abortLoading();
+        myMeanDataHandler.abortLoading();
+    } else if (forceOverwrite) {
+        myAdditionalHandler.forceOverwriteElements();
+        myDemandHandler.forceOverwriteElements();
+        myMeanDataHandler.forceOverwriteElements();
+    } else if (forceRemain) {
+        myAdditionalHandler.forceRemainElements();
+        myDemandHandler.forceRemainElements();
+        myMeanDataHandler.forceRemainElements();
+    }
 }
 
 
 void
 GNEGeneralHandler::endTag() {
     // check tagType
-    if (myQueue.back().network) {
+    if (myQueue.back().isNetwork()) {
         // currently ignored (will be implemented in the future)
-    } else if (myQueue.back().additional) {
+    } else if (myQueue.back().isAdditional()) {
         // end parse additional elements
         myAdditionalHandler.endParseAttributes();
-    } else if (myQueue.back().demand) {
+        // mark file as additional
+        fileType = TagType::Type::ADDITIONAL;
+    } else if (myQueue.back().isDemand()) {
         // end parse demand elements
         myDemandHandler.endParseAttributes();
+        // mark file as demand
+        fileType = TagType::Type::DEMAND;
+    } else if (myQueue.back().isMeanData()) {
+        // end parse meanData elements
+        myMeanDataHandler.endParseAttributes();
+        // mark file as mean data
+        fileType = TagType::Type::MEANDATA;
     } else {
-        WRITE_ERROR(toString(myQueue.back().tag) + " cannot be processed either with additional handler nor with demand handler");
+        // mark file as demand
+        fileType = TagType::Type::NONE;
     }
 }
 
 
-GNEGeneralHandler::TagType::TagType(SumoXMLTag tag_, const bool network_, const bool additional_, const bool demand_) :
+GNEGeneralHandler::TagType::TagType(SumoXMLTag tag_, GNEGeneralHandler::TagType::Type type) :
     tag(tag_),
-    network(network_),
-    additional(additional_),
-    demand(demand_) {
+    myType(type) {
+}
+
+
+bool
+GNEGeneralHandler::TagType::isNetwork() const {
+    return (myType == Type::NETWORK);
+}
+
+
+bool
+GNEGeneralHandler::TagType::isAdditional() const {
+    return (myType == Type::ADDITIONAL);
+}
+
+
+bool
+GNEGeneralHandler::TagType::isDemand() const {
+    return (myType == Type::DEMAND);
+}
+
+
+bool
+GNEGeneralHandler::TagType::isData() const {
+    return (myType == Type::DATA);
+}
+
+
+bool
+GNEGeneralHandler::TagType::isMeanData() const {
+    return (myType == Type::MEANDATA);
 }
 
 /****************************************************************************/

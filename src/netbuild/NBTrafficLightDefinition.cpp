@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -45,6 +45,8 @@ const std::string NBTrafficLightDefinition::DefaultProgramID = "0";
 const std::string NBTrafficLightDefinition::DummyID = "dummy";
 const SUMOTime NBTrafficLightDefinition::UNSPECIFIED_DURATION(-1);
 const int NBTrafficLightDefinition::MIN_YELLOW_SECONDS(3);
+const std::string NBTrafficLightDefinition::OSM_DIRECTION("osm:direction");
+const std::string NBTrafficLightDefinition::OSM_SIGNAL_DIRECTION("railway:signal:direction");
 
 
 // ===========================================================================
@@ -58,7 +60,7 @@ NBTrafficLightDefinition::NBTrafficLightDefinition(const std::string& id,
     mySubID(programID), myOffset(offset),
     myType(type),
     myNeedsContRelationReady(false),
-    myRightOnRedConflictsReady(false) {
+    myExtraConflictsReady(false) {
     std::vector<NBNode*>::iterator i = myControlledNodes.begin();
     while (i != myControlledNodes.end()) {
         for (std::vector<NBNode*>::iterator j = i + 1; j != myControlledNodes.end();) {
@@ -84,7 +86,7 @@ NBTrafficLightDefinition::NBTrafficLightDefinition(const std::string& id,
     myOffset(offset),
     myType(type),
     myNeedsContRelationReady(false),
-    myRightOnRedConflictsReady(false) {
+    myExtraConflictsReady(false) {
     addNode(junction);
 }
 
@@ -96,7 +98,7 @@ NBTrafficLightDefinition::NBTrafficLightDefinition(const std::string& id, const 
     myOffset(offset),
     myType(type),
     myNeedsContRelationReady(false),
-    myRightOnRedConflictsReady(false) {
+    myExtraConflictsReady(false) {
 }
 
 
@@ -104,7 +106,7 @@ NBTrafficLightDefinition::~NBTrafficLightDefinition() {}
 
 
 NBTrafficLightLogic*
-NBTrafficLightDefinition::compute(OptionsCont& oc) {
+NBTrafficLightDefinition::compute(const OptionsCont& oc) {
     // it is not really a traffic light if no incoming edge exists
     if (amInvalid()) {
         // make a copy of myControlledNodes because it will be modified;
@@ -112,7 +114,7 @@ NBTrafficLightDefinition::compute(OptionsCont& oc) {
         for (auto it : nodes) {
             it->removeTrafficLight(this);
         }
-        WRITE_WARNING("The traffic light '" + getID() + "' does not control any links; it will not be build.");
+        WRITE_WARNINGF(TL("The traffic light '%' does not control any links; it will not be build."), getID());
         return nullptr;
     }
     // compute the time needed to brake
@@ -226,7 +228,7 @@ NBTrafficLightDefinition::collectEdges() {
         }
         if (reachable2.count(edge) == 0 && edge->getFirstNonPedestrianLaneIndex(NBNode::FORWARD, true) >= 0
                 && getID() != DummyID) {
-            WRITE_WARNING("Unreachable edge '" + edge->getID() + "' within tlLogic '" + getID() + "'");
+            WRITE_WARNINGF(TL("Unreachable edge '%' within tlLogic '%'"), edge->getID(), getID());
         }
     }
 }
@@ -291,7 +293,7 @@ NBTrafficLightDefinition::forbids(const NBEdge* const possProhibitorFrom,
 
 #ifdef DEBUG_RIGHT_OF_WAY
     if (DEBUGCOND) {
-        std::cout << "foribds tls=" << getID() << " from=" << possProhibitedFrom->getID() << " to=" << possProhibitedTo->getID() << " foeFrom=" << possProhibitorFrom->getID() << " foeTo=" << possProhibitorTo->getID() << " rnslp=" << regardNonSignalisedLowerPriority << " sameNodeOnly=" << sameNodeOnly;
+        std::cout << "forbids tls=" << getID() << " from=" << possProhibitedFrom->getID() << " to=" << possProhibitedTo->getID() << " foeFrom=" << possProhibitorFrom->getID() << " foeTo=" << possProhibitorTo->getID() << " rnslp=" << regardNonSignalisedLowerPriority << " sameNodeOnly=" << sameNodeOnly;
     }
 #endif
     if (incnode != outnode) {
@@ -452,7 +454,7 @@ NBTrafficLightDefinition::getIncomingEdges() const {
 void
 NBTrafficLightDefinition::collectAllLinks(NBConnectionVector& into) {
     int tlIndex = 0;
-    // build the list of links which are controled by the traffic light
+    // build the list of links which are controlled by the traffic light
     std::vector<int> indirectLeft;
     for (EdgeVector::iterator i = myIncomingEdges.begin(); i != myIncomingEdges.end(); i++) {
         NBEdge* incoming = *i;
@@ -471,8 +473,15 @@ NBTrafficLightDefinition::collectAllLinks(NBConnectionVector& into) {
                         // must be registered in MSRailCrossing
                         into.push_back(NBConnection(incoming, el.fromLane, el.toEdge, el.toLane, -1));
                     } else if (incoming->getToNode()->getType() == SumoXMLNodeType::RAIL_SIGNAL
-                               && incoming->getToNode()->getDirection(incoming, el.toEdge) == LinkDirection::TURN) {
+                               && incoming->getToNode()->getDirection(incoming, el.toEdge) == LinkDirection::TURN
+                               // assume explicit connections at sharp turn-arounds are either for reversal or due to a geometry glitch
+                               // (the might also be due to faulty connection
+                               // input but they would not come from guessing)
+                               && (incoming->getBidiEdge() == el.toEdge)
+                              ) {
                         // turnarounds stay uncontrolled at rail signal
+                    } else if (incoming->getToNode()->getType() == SumoXMLNodeType::RAIL_SIGNAL && railSignalUncontrolled(incoming, el.toEdge)) {
+                        // rail signals may stay uncontrolled in a particular direction
                     } else {
                         into.push_back(NBConnection(incoming, el.fromLane, el.toEdge, el.toLane, tlIndex++));
                         if (el.indirectLeft) {
@@ -501,10 +510,27 @@ NBTrafficLightDefinition::collectAllLinks(NBConnectionVector& into) {
     }
 
     if (into.size() > 0 && tlIndex == 0) {
-        WRITE_WARNINGF("The rail crossing '%' does not have any roads.", getID());
+        WRITE_WARNINGF(TL("The rail crossing '%' does not have any roads."), getID());
     }
 }
 
+bool
+NBTrafficLightDefinition::railSignalUncontrolled(const NBEdge* in, const NBEdge* out) {
+    const NBNode* n = in->getToNode();
+    if (n->hasParameter(OSM_SIGNAL_DIRECTION) && in->hasParameter(OSM_DIRECTION) && out->hasParameter(OSM_DIRECTION)) {
+        if (in->getParameter(OSM_DIRECTION) == out->getParameter(OSM_DIRECTION)) {
+            if (n->getParameter(OSM_SIGNAL_DIRECTION) != in->getParameter(OSM_DIRECTION)) {
+                return true;
+            }
+        } else {
+            WRITE_WARNINGF(TL("Could not interpret rail signal direction at junction '%' due to inconsistent directions of edge '%' (%) and edge '%' (%)"),
+                           n->getID(),
+                           in->getID(), in->getParameter(OSM_DIRECTION),
+                           out->getID(), out->getParameter(OSM_DIRECTION));
+        }
+    }
+    return false;
+}
 
 bool
 NBTrafficLightDefinition::needsCont(const NBEdge* fromE, const NBEdge* toE, const NBEdge* otherFromE, const NBEdge* otherToE) const {
@@ -531,24 +557,30 @@ NBTrafficLightDefinition::initNeedsContRelation() const {
 }
 
 
-bool
-NBTrafficLightDefinition::rightOnRedConflict(int index, int foeIndex) const {
-    if (!myRightOnRedConflictsReady) {
+void
+NBTrafficLightDefinition::initExtraConflicts() const {
+    if (!myExtraConflictsReady) {
         NBOwnTLDef dummy(DummyID, myControlledNodes, 0, TrafficLightType::STATIC);
         dummy.setParticipantsInformation();
         NBTrafficLightLogic* tllDummy = dummy.computeLogicAndConts(0, true);
         delete tllDummy;
-        myRightOnRedConflicts = dummy.myRightOnRedConflicts;
+        myExtraConflicts = dummy.myExtraConflicts;
         for (std::vector<NBNode*>::const_iterator i = myControlledNodes.begin(); i != myControlledNodes.end(); i++) {
             (*i)->removeTrafficLight(&dummy);
         }
-        myRightOnRedConflictsReady = true;
-        //std::cout << " rightOnRedConflicts tls=" << getID() << " pro=" << getProgramID() << "\n";
-        //for (RightOnRedConflicts::const_iterator it = myRightOnRedConflicts.begin(); it != myRightOnRedConflicts.end(); ++it) {
-        //    std::cout << "   " << it->first << ", " << it->second << "\n";
+        myExtraConflictsReady = true;
+        //std::cout << " extraConflicts tls=" << getID() << " pro=" << getProgramID() << "\n";
+        //for (auto item : myExtraConflicts) {
+        //    std::cout << "   " << item.first << ", " << item.second << "\n";
         //}
     }
-    return std::find(myRightOnRedConflicts.begin(), myRightOnRedConflicts.end(), std::make_pair(index, foeIndex)) != myRightOnRedConflicts.end();
+}
+
+
+bool
+NBTrafficLightDefinition::extraConflict(int index, int foeIndex) const {
+    initExtraConflicts();
+    return std::find(myExtraConflicts.begin(), myExtraConflicts.end(), std::make_pair(index, foeIndex)) != myExtraConflicts.end();
 }
 
 std::string

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,17 +17,17 @@
 /// @date    Mar 2011
 ///
 /****************************************************************************/
+
+#include <netedit/GNETagProperties.h>
 #include <netedit/GNEViewNet.h>
 #include <netedit/GNEViewParent.h>
 #include <netedit/changes/GNEChange_Attribute.h>
-#include <netedit/dialogs/GNEUndoListDialog.h>
+#include <netedit/frames/common/GNEInspectorFrame.h>
 #include <netedit/frames/common/GNESelectorFrame.h>
-#include <utils/gui/images/GUIIconSubSys.h>
-#include <utils/gui/windows/GUIAppEnum.h>
+#include <utils/gui/div/GUIGlobalViewUpdater.h>
 
 #include "GNEApplicationWindow.h"
 #include "GNEUndoList.h"
-
 
 // ===========================================================================
 // FOX callback mapping
@@ -72,11 +72,13 @@ GNEUndoList::Iterator::getIndex() const {
 const std::string
 GNEUndoList::Iterator::getDescription() const {
     std::string redoName = myCurrentChange->redoName();
-    // remove "redo "
-    if (redoName.size() >= 5) {
-        redoName.erase(0, 5);
-    }
     return redoName;
+}
+
+
+const std::string
+GNEUndoList::Iterator::getTimeStamp() const {
+    return dynamic_cast<GNEChangeGroup*>(myCurrentChange)->getTimeStamp();
 }
 
 
@@ -137,7 +139,6 @@ GNEUndoList::~GNEUndoList() {}
 
 void
 GNEUndoList::undo() {
-    WRITE_DEBUG("Calling GNEUndoList::undo()");
     GNEChange* change = nullptr;
     if (group) {
         throw ProcessError("GNEUndoList::undo() cannot call undo inside begin-end block");
@@ -152,6 +153,8 @@ GNEUndoList::undo() {
         change->next = redoList;
         redoList = change;
         myWorking = false;
+        // update view net (is called only if gViewUpdater.allowUpdate() is enable)
+        myGNEApplicationWindowParent->getViewNet()->updateViewNet(false);
     }
     // update specific controls
     myGNEApplicationWindowParent->updateControls();
@@ -160,7 +163,6 @@ GNEUndoList::undo() {
 
 void
 GNEUndoList::redo() {
-    WRITE_DEBUG("Calling GNEUndoList::redo()");
     GNEChange* change = nullptr;
     if (group) {
         throw ProcessError("GNEUndoList::redo() cannot call undo inside begin-end block");
@@ -175,6 +177,8 @@ GNEUndoList::redo() {
         change->next = undoList;
         undoList = change;
         myWorking = false;
+        // update view net (is called only if gViewUpdater.allowUpdate() is enable)
+        myGNEApplicationWindowParent->getViewNet()->updateViewNet(false);
     }
     // update specific controls
     myGNEApplicationWindowParent->updateControls();
@@ -212,6 +216,12 @@ GNEUndoList::begin(GUIIcon icon, const std::string& description) {
 
 
 void
+GNEUndoList::begin(const GNEAttributeCarrier* AC, const std::string& description) {
+    begin(AC->getTagProperty()->getGUIIcon(), description);
+}
+
+
+void
 GNEUndoList::begin(Supermode supermode, GUIIcon icon, const std::string& description) {
     myChangeGroups.push(new GNEChangeGroup(supermode, icon, description));
     // get this reference
@@ -228,21 +238,31 @@ GNEUndoList::begin(Supermode supermode, GUIIcon icon, const std::string& descrip
     }
     // Add to end
     changeGroup->group = myChangeGroups.top();
+    // disable update
+    gViewUpdater.disableUpdate();
 }
 
 
 void
 GNEUndoList::end() {
     myChangeGroups.pop();
-    // check if net has to be updated
+    // enable update
+    gViewUpdater.enableUpdate();
+    // update view without ignoring viewUpdater (used to avoid slowdows during massive edits)
+    myGNEApplicationWindowParent->getViewNet()->updateViewNet(false);
+    // check if net has to be updated (called only if this is the last end
     if (myChangeGroups.empty() && myGNEApplicationWindowParent->getViewNet()) {
-        // update view
-        myGNEApplicationWindowParent->getViewNet()->updateViewNet();
         // check if we have to update selector frame
         const auto& editModes = myGNEApplicationWindowParent->getViewNet()->getEditModes();
-        if ((editModes.isCurrentSupermodeNetwork() && editModes.networkEditMode == NetworkEditMode::NETWORK_SELECT) ||
-                (editModes.isCurrentSupermodeDemand() && editModes.demandEditMode == DemandEditMode::DEMAND_SELECT) ||
-                (editModes.isCurrentSupermodeData() && editModes.dataEditMode == DataEditMode::DATA_SELECT)) {
+        if ((editModes.isCurrentSupermodeNetwork() && editModes.networkEditMode == NetworkEditMode::NETWORK_INSPECT) ||
+                (editModes.isCurrentSupermodeDemand() && editModes.demandEditMode == DemandEditMode::DEMAND_INSPECT) ||
+                (editModes.isCurrentSupermodeData() && editModes.dataEditMode == DataEditMode::DATA_INSPECT)) {
+            // refresh inspect frame
+            myGNEApplicationWindowParent->getViewNet()->getViewParent()->getInspectorFrame()->refreshInspection();
+        } else if ((editModes.isCurrentSupermodeNetwork() && editModes.networkEditMode == NetworkEditMode::NETWORK_SELECT) ||
+                   (editModes.isCurrentSupermodeDemand() && editModes.demandEditMode == DemandEditMode::DEMAND_SELECT) ||
+                   (editModes.isCurrentSupermodeData() && editModes.dataEditMode == DataEditMode::DATA_SELECT)) {
+            // update informacion label in selection frame
             myGNEApplicationWindowParent->getViewNet()->getViewParent()->getSelectorFrame()->getSelectionInformation()->updateInformationLabel();
         }
     }
@@ -356,16 +376,6 @@ GNEUndoList::add(GNEChange* change, bool doit, bool merge) {
 }
 
 
-void
-GNEUndoList::changeAttribute(GNEChange_Attribute* change) {
-    if (change->trueChange()) {
-        add(change, true);
-    } else {
-        delete change;
-    }
-}
-
-
 int
 GNEUndoList::currentCommandGroupSize() const {
     if (myChangeGroups.size() > 0) {
@@ -430,21 +440,23 @@ GNEUndoList::onCmdUndo(FXObject*, FXSelector, void*) {
 long
 GNEUndoList::onUpdUndo(FXObject* sender, FXSelector, void*) {
     // first check if Undo Menu command or button has to be disabled
-    const bool enable = canUndo() && !hasCommandGroup() && myGNEApplicationWindowParent->isUndoRedoEnabled().empty();
-    // cast button (see #6209)
+    const bool buttonEnabled = canUndo() && !hasCommandGroup() &&
+                               myGNEApplicationWindowParent->isUndoRedoEnabledTemporally().empty() &&
+                               myGNEApplicationWindowParent->isUndoRedoAllowed();
+    // cast button (see flickering problem #6209)
     const FXButton* button = dynamic_cast<FXButton*>(sender);
     // enable or disable depending of "enable" flag
     if (button) {
-        // avoid unnnecesary enables/disables (due flickering)
-        if (enable && !button->isEnabled()) {
+        // avoid unnecessary enables/disables (due flickering)
+        if (buttonEnabled && !button->isEnabled()) {
             sender->handle(this, FXSEL(SEL_COMMAND, FXWindow::ID_ENABLE), nullptr);
             button->update();
-        } else if (!enable && button->isEnabled()) {
+        } else if (!buttonEnabled && button->isEnabled()) {
             sender->handle(this, FXSEL(SEL_COMMAND, FXWindow::ID_DISABLE), nullptr);
             button->update();
         }
     } else {
-        sender->handle(this, enable ? FXSEL(SEL_COMMAND, FXWindow::ID_ENABLE) : FXSEL(SEL_COMMAND, FXWindow::ID_DISABLE), nullptr);
+        sender->handle(this, buttonEnabled ? FXSEL(SEL_COMMAND, FXWindow::ID_ENABLE) : FXSEL(SEL_COMMAND, FXWindow::ID_DISABLE), nullptr);
     }
     // cast menu command
     FXMenuCommand* menuCommand = dynamic_cast<FXMenuCommand*>(sender);
@@ -453,12 +465,14 @@ GNEUndoList::onUpdUndo(FXObject* sender, FXSelector, void*) {
         // change caption of FXMenuCommand
         std::string caption = undoName();
         // set caption of FXmenuCommand edit/undo
-        if (myGNEApplicationWindowParent->isUndoRedoEnabled().size() > 0) {
-            caption = "Cannot Undo in the middle of " + myGNEApplicationWindowParent->isUndoRedoEnabled();
+        if (!myGNEApplicationWindowParent->isUndoRedoAllowed()) {
+            caption = TL("Disabled undo");
+        } else if (myGNEApplicationWindowParent->isUndoRedoEnabledTemporally().size() > 0) {
+            caption = TL("Cannot Undo in the middle of ") + myGNEApplicationWindowParent->isUndoRedoEnabledTemporally();
         } else if (hasCommandGroup()) {
-            caption = "Cannot Undo in the middle of " + myChangeGroups.top()->getDescription();
+            caption = TL("Cannot Undo in the middle of ") + myChangeGroups.top()->getDescription();
         } else if (!canUndo()) {
-            caption = "Undo";
+            caption = TL("Undo");
         }
         menuCommand->setText(caption.c_str());
         menuCommand->update();
@@ -477,12 +491,14 @@ GNEUndoList::onCmdRedo(FXObject*, FXSelector, void*) {
 long
 GNEUndoList::onUpdRedo(FXObject* sender, FXSelector, void*) {
     // first check if Redo Menu command or button has to be disabled
-    const bool enable = canRedo() && !hasCommandGroup() && myGNEApplicationWindowParent->isUndoRedoEnabled().empty();
+    const bool enable = canRedo() && !hasCommandGroup() &&
+                        myGNEApplicationWindowParent->isUndoRedoEnabledTemporally().empty() &&
+                        myGNEApplicationWindowParent->isUndoRedoAllowed();
     // cast button (see #6209)
     const FXButton* button = dynamic_cast<FXButton*>(sender);
     // enable or disable depending of "enable" flag
     if (button) {
-        // avoid unnnecesary enables/disables (due flickering)
+        // avoid unnecessary enables/disables (due flickering)
         if (enable && !button->isEnabled()) {
             sender->handle(this, FXSEL(SEL_COMMAND, FXWindow::ID_ENABLE), nullptr);
             button->update();
@@ -500,12 +516,14 @@ GNEUndoList::onUpdRedo(FXObject* sender, FXSelector, void*) {
         // change caption of FXMenuCommand
         std::string caption = redoName();
         // set caption of FXmenuCommand edit/undo
-        if (myGNEApplicationWindowParent->isUndoRedoEnabled().size() > 0) {
-            caption = "Cannot Redo in the middle of " + myGNEApplicationWindowParent->isUndoRedoEnabled();
+        if (!myGNEApplicationWindowParent->isUndoRedoAllowed()) {
+            caption = TL("Disabled redo");
+        } else if (myGNEApplicationWindowParent->isUndoRedoEnabledTemporally().size() > 0) {
+            caption = TL("Cannot Redo in the middle of ") + myGNEApplicationWindowParent->isUndoRedoEnabledTemporally();
         } else if (hasCommandGroup()) {
-            caption = "Cannot Redo in the middle of " + myChangeGroups.top()->getDescription();
+            caption = TL("Cannot Redo in the middle of ") + myChangeGroups.top()->getDescription();
         } else if (!canRedo()) {
-            caption = "Redo";
+            caption = TL("Redo");
         }
         menuCommand->setText(caption.c_str());
         menuCommand->update();

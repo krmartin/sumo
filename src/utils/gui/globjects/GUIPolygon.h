@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -44,14 +44,13 @@ class TesselatedPolygon : public SUMOPolygon {
 
 public:
 
-    /** @brief Constructor
+    /**@brief Constructor
      * @param[in] id The name of the polygon
      * @param[in] type The (abstract) type of the polygon
      * @param[in] color The color of the polygon
      * @param[in] layer The layer of the polygon
      * @param[in] angle The rotation of the polygon
      * @param[in] imgFile The raster image of the polygon
-     * @param[in] relativePath set image file as relative path
      * @param[in] shape The shape of the polygon
      * @param[in] geo specify if shape was loaded as GEO
      * @param[in] fill Whether the polygon shall be filled
@@ -59,23 +58,18 @@ public:
      */
     TesselatedPolygon(const std::string& id, const std::string& type, const RGBColor& color, const PositionVector& shape,
                       bool geo, bool fill, double lineWidth, double layer = 0, double angle = 0, const std::string& imgFile = "",
-                      bool relativePath = false, const std::string& name = DEFAULT_NAME,
-                      const Parameterised::Map& parameters = DEFAULT_PARAMETERS):
-        SUMOPolygon(id, type, color, shape, geo, fill, lineWidth, layer, angle, imgFile, relativePath, name, parameters)
+                      const std::string& name = DEFAULT_NAME, const Parameterised::Map& parameters = DEFAULT_PARAMETERS):
+        SUMOPolygon(id, type, color, shape, geo, fill, lineWidth, layer, angle, imgFile, name, parameters)
     {}
 
     /// @brief Destructor
     ~TesselatedPolygon() {}
 
-    // @brief perform the tesselation / drawing
+    /// @brief perform the tesselation / drawing
     void drawTesselation(const PositionVector& shape) const;
 
     /// @brief id of the display list for the cached tesselation
     mutable std::vector<GLPrimitive> myTesselation;
-
-    PositionVector& getShapeRef() {
-        return myShape;
-    }
 };
 
 /*
@@ -92,7 +86,6 @@ public:
      * @param[in] layer The layer of the polygon
      * @param[in] angle The rotation of the polygon
      * @param[in] imgFile The raster image of the polygon
-     * @param[in] relativePath set image file as relative path
      * @param[in] shape The shape of the polygon
      * @param[in] geo specify if shape was loaded as GEO
      * @param[in] fill Whether the polygon shall be filled
@@ -100,7 +93,7 @@ public:
      */
     GUIPolygon(const std::string& id, const std::string& type, const RGBColor& color, const PositionVector& shape,
                bool geo, bool fill, double lineWidth, double layer = 0, double angle = 0, const std::string& imgFile = "",
-               bool relativePath = false, const std::string& name = DEFAULT_NAME);
+               const std::string& name = DEFAULT_NAME);
 
     /// @brief Destructor
     ~GUIPolygon();
@@ -145,6 +138,11 @@ public:
     double getClickPriority() const override {
         return getShapeLayer();
     }
+
+    /// @brief Returns the name of the object (default "")
+    virtual const std::string getOptionalName() const override {
+        return getShapeName();
+    }
     //@}
 
     /// @brief set a new shape and update the tesselation
@@ -173,10 +171,21 @@ public:
                                  const int alphaOverride = -1,
                                  const bool disableText = false);
 
+    inline void activate(bool isActive) {
+        myIsActive = isActive;
+    }
+
+    inline bool isActive(void) const {
+        return myIsActive;
+    }
+
 private:
     /// The mutex used to avoid concurrent updates of the shape
     mutable FXMutex myLock;
 
     /// @brief shape rotated on the centroid, if rotation is needed, nullptr otherwise
     PositionVector* myRotatedShape;
+
+    /// @brief Is the polygon will be drawn or not
+    bool myIsActive;
 };

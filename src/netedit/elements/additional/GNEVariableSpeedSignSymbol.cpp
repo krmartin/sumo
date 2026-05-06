@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,12 +17,9 @@
 ///
 //
 /****************************************************************************/
-#include <config.h>
 
 #include <netedit/GNENet.h>
-#include <netedit/GNEViewNet.h>
 #include <utils/gui/div/GLHelper.h>
-#include <utils/gui/globjects/GLIncludes.h>
 
 #include "GNEVariableSpeedSignSymbol.h"
 
@@ -30,9 +27,16 @@
 // member method definitions
 // ===========================================================================
 
+GNEVariableSpeedSignSymbol::GNEVariableSpeedSignSymbol(GNENet* net) :
+    GNEAdditional(net, GNE_TAG_VSS_SYMBOL) {
+}
+
+
 GNEVariableSpeedSignSymbol::GNEVariableSpeedSignSymbol(GNEAdditional* VSSParent, GNELane* lane) :
-    GNEAdditional(VSSParent->getNet(), GLO_VSS, GNE_TAG_VSS_SYMBOL, GUIIconSubSys::getIcon(GUIIcon::VARIABLESPEEDSIGN), "",
-{}, {}, {lane}, {VSSParent}, {}, {}) {
+    GNEAdditional(VSSParent, GNE_TAG_VSS_SYMBOL, "") {
+    // set parents
+    setParent<GNELane*>(lane);
+    setParent<GNEAdditional*>(VSSParent);
     // update centering boundary without updating grid
     updateCenteringBoundary(false);
 }
@@ -42,15 +46,50 @@ GNEVariableSpeedSignSymbol::~GNEVariableSpeedSignSymbol() {
 }
 
 
-GNEMoveOperation*
-GNEVariableSpeedSignSymbol::getMoveOperation() {
-    // GNEVariableSpeedSignSymbols cannot be moved
+GNEMoveElement*
+GNEVariableSpeedSignSymbol::getMoveElement() const {
+    return nullptr;
+}
+
+
+Parameterised*
+GNEVariableSpeedSignSymbol::getParameters() {
+    return nullptr;
+}
+
+
+const Parameterised*
+GNEVariableSpeedSignSymbol::getParameters() const {
     return nullptr;
 }
 
 
 void GNEVariableSpeedSignSymbol::writeAdditional(OutputDevice& /*device*/) const {
     // nothing to write
+}
+
+
+bool
+GNEVariableSpeedSignSymbol::isAdditionalValid() const {
+    return true;
+}
+
+
+std::string
+GNEVariableSpeedSignSymbol::getAdditionalProblem() const {
+    return "";
+}
+
+
+void
+GNEVariableSpeedSignSymbol::fixAdditionalProblem() {
+    // nothing to fix
+}
+
+
+bool
+GNEVariableSpeedSignSymbol::checkDrawMoveContour() const {
+    return false;
 }
 
 
@@ -63,11 +102,7 @@ GNEVariableSpeedSignSymbol::updateGeometry() {
 
 void
 GNEVariableSpeedSignSymbol::updateCenteringBoundary(const bool /*updateGrid*/) {
-    myAdditionalBoundary.reset();
-    // add center
-    myAdditionalBoundary.add(getPositionInView());
-    // grow
-    myAdditionalBoundary.grow(10);
+    // nothing to do
 }
 
 
@@ -92,69 +127,26 @@ GNEVariableSpeedSignSymbol::getParentName() const {
 
 void
 GNEVariableSpeedSignSymbol::drawGL(const GUIVisualizationSettings& s) const {
-    // Obtain exaggeration of the draw
-    const double VSSExaggeration = s.addSize.getExaggeration(s, getParentAdditionals().front());
     // first check if additional has to be drawn
-    if (s.drawAdditionals(VSSExaggeration) && myNet->getViewNet()->getDataViewOptions().showAdditionals() &&
-            (myAdditionalGeometry.getShape().size() > 0) && (myAdditionalGeometry.getShapeRotations().size() > 0)) {
-        // draw parent and child lines
-        drawParentChildLines(s, s.additionalSettings.connectionColor);
-        // Start drawing adding an gl identificator (except in Move mode)
-        if (myNet->getViewNet()->getEditModes().networkEditMode != NetworkEditMode::NETWORK_MOVE) {
-            GLHelper::pushName(getParentAdditionals().front()->getGlID());
+    if (myNet->getViewNet()->getDataViewOptions().showAdditionals() &&
+            (myAdditionalGeometry.getShape().size() > 0) &&
+            (myAdditionalGeometry.getShapeRotations().size() > 0)) {
+        // Obtain exaggeration of the draw
+        const double VSSExaggeration = s.addSize.getExaggeration(s, getParentAdditionals().front());
+        // get detail level
+        const auto d = s.getDetailLevel(VSSExaggeration);
+        // draw geometry only if we'rent in drawForObjectUnderCursor mode
+        if (s.checkDrawAdditional(d, isAttributeCarrierSelected())) {
+            // draw variable speed sign symbol
+            drawVSSSymbol(s, d, VSSExaggeration);
+            // draw parent and child lines
+            drawParentChildLines(s, s.additionalSettings.connectionColor);
+            // draw dotted contour
+            myAdditionalContour.drawDottedContours(s, d, this, s.dottedContourSettings.segmentWidth, true);
         }
-        // start drawing symbol
-        GLHelper::pushMatrix();
-        // translate to front
-        myNet->getViewNet()->drawTranslateFrontAttributeCarrier(getParentAdditionals().front(), GLO_VSS);
-        // translate to position
-        glTranslated(myAdditionalGeometry.getShape().front().x(), myAdditionalGeometry.getShape().front().y(), 0);
-        // rotate over lane
-        GUIGeometry::rotateOverLane(myAdditionalGeometry.getShapeRotations().front() + 90);
-        // scale
-        glScaled(VSSExaggeration, VSSExaggeration, 1);
-        // set color
-        if (getParentAdditionals().front()->isAttributeCarrierSelected()) {
-            GLHelper::setColor(s.colorSettings.selectedAdditionalColor);
-        } else {
-            GLHelper::setColor(RGBColor::RED);
-        }
-        // draw circle
-        GLHelper::drawFilledCircle((double) 1.3, s.getCircleResolution());
-        // draw details
-        if (!s.forceDrawForPositionSelection && (s.scale >= 5)) {
-            // move to front
-            glTranslated(0, 0, 0.1);
-            // set color
-            if (getParentAdditionals().front()->isAttributeCarrierSelected()) {
-                GLHelper::setColor(s.colorSettings.selectedAdditionalColor.changedBrightness(-32));
-            } else {
-                GLHelper::setColor(RGBColor::BLACK);
-            }
-            // draw another circle
-            GLHelper::drawFilledCircle((double) 1.1, s.getCircleResolution());
-            // move to front
-            glTranslated(0, 0, 0.1);
-            // draw speed
-            if (getParentAdditionals().front()->isAttributeCarrierSelected()) {
-                GLHelper::drawText("S", Position(0, 0), .1, 1.2, s.colorSettings.selectedAdditionalColor, 180);
-            } else {
-                GLHelper::drawText("S", Position(0, 0), .1, 1.2, RGBColor::YELLOW, 180);
-            }
-        }
-        // Pop symbol matrix
-        GLHelper::popMatrix();
-        // Pop VSS name
-        if (myNet->getViewNet()->getEditModes().networkEditMode != NetworkEditMode::NETWORK_MOVE) {
-            GLHelper::popName();
-        }
-        // check if dotted contour has to be drawn
-        if (myNet->getViewNet()->isAttributeCarrierInspected(getParentAdditionals().front())) {
-            GUIDottedGeometry::drawDottedContourCircle(s, GUIDottedGeometry::DottedContourType::INSPECT, myAdditionalGeometry.getShape().front(), 1.3, VSSExaggeration);
-        }
-        if ((myNet->getViewNet()->getFrontAttributeCarrier() == getParentAdditionals().front())) {
-            GUIDottedGeometry::drawDottedContourCircle(s, GUIDottedGeometry::DottedContourType::FRONT, myAdditionalGeometry.getShape().front(), 1.3, VSSExaggeration);
-        }
+        // calculate contour circle
+        myAdditionalContour.calculateContourCircleShape(s, d, this, myAdditionalGeometry.getShape().front(), 1.3, getType(),
+                VSSExaggeration, getParentLanes().front()->getParentEdge());
     }
 }
 
@@ -166,32 +158,38 @@ GNEVariableSpeedSignSymbol::getAttribute(SumoXMLAttr key) const {
         case SUMO_ATTR_LANE:
             return getParentLanes().front()->getID();
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return getCommonAttribute(key);
     }
 }
 
 
 double
-GNEVariableSpeedSignSymbol::getAttributeDouble(SumoXMLAttr /*key*/) const {
-    throw InvalidArgument("Symbols cannot be edited");
+GNEVariableSpeedSignSymbol::getAttributeDouble(SumoXMLAttr key) const {
+    return getCommonAttributeDouble(key);
 }
 
 
-const Parameterised::Map&
-GNEVariableSpeedSignSymbol::getACParametersMap() const {
-    return PARAMETERS_EMPTY;
+Position
+GNEVariableSpeedSignSymbol::getAttributePosition(SumoXMLAttr key) const {
+    return getCommonAttributePosition(key);
+}
+
+
+PositionVector
+GNEVariableSpeedSignSymbol::getAttributePositionVector(SumoXMLAttr key) const {
+    return getCommonAttributePositionVector(key);
 }
 
 
 void
-GNEVariableSpeedSignSymbol::setAttribute(SumoXMLAttr /*key*/, const std::string& /*value*/, GNEUndoList* /*undoList*/) {
-    throw InvalidArgument("Symbols cannot be edited");
+GNEVariableSpeedSignSymbol::setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList) {
+    setCommonAttribute(key, value, undoList);
 }
 
 
 bool
-GNEVariableSpeedSignSymbol::isValid(SumoXMLAttr /*key*/, const std::string& /*value*/) {
-    throw InvalidArgument("Symbols cannot be edited");
+GNEVariableSpeedSignSymbol::isValid(SumoXMLAttr key, const std::string& value) {
+    return isCommonAttributeValid(key, value);
 }
 
 
@@ -211,19 +209,58 @@ GNEVariableSpeedSignSymbol::getHierarchyName() const {
 // ===========================================================================
 
 void
-GNEVariableSpeedSignSymbol::setAttribute(SumoXMLAttr /*key*/, const std::string& /*value*/) {
-    throw InvalidArgument("Symbols cannot be edited");
+GNEVariableSpeedSignSymbol::drawVSSSymbol(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+        const double exaggeration) const {
+    // start drawing symbol
+    GLHelper::pushMatrix();
+    // translate to front
+    getParentAdditionals().front()->drawInLayer(GLO_VSS);
+    // translate to position
+    glTranslated(myAdditionalGeometry.getShape().front().x(), myAdditionalGeometry.getShape().front().y(), 0);
+    // rotate over lane
+    GUIGeometry::rotateOverLane(myAdditionalGeometry.getShapeRotations().front() + 90);
+    // scale
+    glScaled(exaggeration, exaggeration, 1);
+    // set color
+    RGBColor color;
+    if (getParentAdditionals().front()->isAttributeCarrierSelected()) {
+        GLHelper::setColor(s.colorSettings.selectedAdditionalColor);
+    } else {
+        GLHelper::setColor(RGBColor::RED);
+    }
+    // draw circle
+    GLHelper::drawFilledCircleDetailled(d, (double) 1.3);
+    // draw details
+    if (d <= GUIVisualizationSettings::Detail::AdditionalDetails) {
+        // move to front
+        glTranslated(0, 0, 0.1);
+        // set color
+        if (getParentAdditionals().front()->isAttributeCarrierSelected()) {
+            GLHelper::setColor(s.colorSettings.selectedAdditionalColor.changedBrightness(-32));
+        } else {
+            GLHelper::setColor(RGBColor::BLACK);
+        }
+        // draw another circle
+        GLHelper::drawFilledCircleDetailled(d, (double) 1.1);
+        // move to front
+        glTranslated(0, 0, 0.1);
+        // draw speed
+        if (d <= GUIVisualizationSettings::Detail::Text) {
+            if (getParentAdditionals().front()->isAttributeCarrierSelected()) {
+                GLHelper::drawText("S", Position(0, 0), .1, 1.2, s.colorSettings.selectedAdditionalColor, 180);
+            } else {
+                GLHelper::drawText("S", Position(0, 0), .1, 1.2, RGBColor::YELLOW, 180);
+            }
+        }
+    }
+    // Pop symbol matrix
+    GLHelper::popMatrix();
 }
 
 
 void
-GNEVariableSpeedSignSymbol::setMoveShape(const GNEMoveResult& /*moveResult*/) {
-    // nothing to do
-}
-
-void
-GNEVariableSpeedSignSymbol::commitMoveShape(const GNEMoveResult& /*moveResult*/, GNEUndoList* /*undoList*/) {
-    // nothing to do
+GNEVariableSpeedSignSymbol::setAttribute(SumoXMLAttr key, const std::string& value) {
+    setCommonAttribute(key, value);
 }
 
 /****************************************************************************/

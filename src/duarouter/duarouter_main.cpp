@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -38,6 +38,7 @@
 #include <utils/common/SystemFrame.h>
 #include <utils/common/RandHelper.h>
 #include <utils/common/ToString.h>
+#include <utils/vehicle/SUMORouteHandler.h>
 #ifdef HAVE_FOX
 #include <utils/foxtools/MsgHandlerSynchronized.h>
 #endif
@@ -46,9 +47,11 @@
 #include <utils/options/OptionsCont.h>
 #include <utils/options/OptionsIO.h>
 #include <utils/router/DijkstraRouter.h>
+#include <utils/router/AFRouter.h>
 #include <utils/router/AStarRouter.h>
 #include <utils/router/CHRouter.h>
 #include <utils/router/CHRouterWrapper.h>
+#include <utils/vehicle/SUMOVehicleParserHelper.h>
 #include <utils/xml/XMLSubSys.h>
 #include <router/ROFrame.h>
 #include <router/ROLoader.h>
@@ -82,6 +85,9 @@ initNet(RONet& net, ROLoader& loader, OptionsCont& oc) {
     if (oc.isSet("lane-weight-files")) {
         loader.loadWeights(net, "lane-weight-files", oc.getString("weight-attribute"), true, oc.getBool("weights.expand"));
     }
+    if (oc.getBool("skip-new-routes")) {
+        RORouteDef::setSkipNew();
+    }
 }
 
 
@@ -104,14 +110,14 @@ computeRoutes(RONet& net, ROLoader& loader, OptionsCont& oc) {
 
     if (oc.isSet("restriction-params") &&
             (routingAlgorithm == "CH" || routingAlgorithm == "CHWrapper")) {
-        throw ProcessError("Routing algorithm '" + routingAlgorithm + "' does not support restriction-params");
+        throw ProcessError(TLF("Routing algorithm '%' does not support restriction-params", routingAlgorithm));
     }
 
     if (measure == "traveltime" && priorityFactor == 0) {
         if (routingAlgorithm == "dijkstra") {
             router = new DijkstraRouter<ROEdge, ROVehicle>(ROEdge::getAllEdges(), oc.getBool("ignore-errors"), ttFunction, nullptr, false, nullptr, net.hasPermissions(), oc.isSet("restriction-params"));
         } else if (routingAlgorithm == "astar") {
-            typedef AStarRouter<ROEdge, ROVehicle> AStar;
+            typedef AStarRouter<ROEdge, ROVehicle, ROMapMatcher> AStar;
             std::shared_ptr<const AStar::LookupTable> lookup;
             if (oc.isSet("astar.all-distances")) {
                 lookup = std::make_shared<const AStar::FLT>(oc.getString("astar.all-distances"), (int)ROEdge::getAllEdges().size());
@@ -129,26 +135,37 @@ computeRoutes(RONet& net, ROLoader& loader, OptionsCont& oc) {
                 }
                 DijkstraRouter<ReversedEdge<ROEdge, ROVehicle>, ROVehicle> backward(reversed, true, &ReversedEdge<ROEdge, ROVehicle>::getTravelTimeStatic);
                 ROVehicle defaultVehicle(SUMOVehicleParameter(), nullptr, net.getVehicleTypeSecure(DEFAULT_VTYPE_ID), &net);
+                ROMapMatcher* mapMatcher = dynamic_cast<ROMapMatcher*>(loader.getRouteHandler());
                 lookup = std::make_shared<const AStar::LMLT>(oc.getString("astar.landmark-distances"), ROEdge::getAllEdges(), &forward, &backward, &defaultVehicle,
-                         oc.isSet("astar.save-landmark-distances") ? oc.getString("astar.save-landmark-distances") : "", oc.getInt("routing-threads"));
+                         oc.isSet("astar.save-landmark-distances") ? oc.getString("astar.save-landmark-distances") : "", oc.getInt("routing-threads"), mapMatcher);
             }
             router = new AStar(ROEdge::getAllEdges(), oc.getBool("ignore-errors"), ttFunction, lookup, net.hasPermissions(), oc.isSet("restriction-params"));
-        } else if (routingAlgorithm == "CH" && !net.hasPermissions()) {
+        } else if (routingAlgorithm == "CH" && !net.hasPermissions() && !gRoutingPreferences && !net.hasSpeedRestrictions()) {
             const SUMOTime weightPeriod = (oc.isSet("weight-files") ?
                                            string2time(oc.getString("weight-period")) :
                                            SUMOTime_MAX);
             router = new CHRouter<ROEdge, ROVehicle>(
                 ROEdge::getAllEdges(), oc.getBool("ignore-errors"), ttFunction, SVC_IGNORING, weightPeriod, net.hasPermissions(), oc.isSet("restriction-params"));
         } else if (routingAlgorithm == "CHWrapper" || routingAlgorithm == "CH") {
-            // use CHWrapper instead of CH if the net has permissions
+            // use CHWrapper instead of CH if the net has permissions, preferences or speed restriction
             const SUMOTime weightPeriod = (oc.isSet("weight-files") ?
                                            string2time(oc.getString("weight-period")) :
                                            SUMOTime_MAX);
             router = new CHRouterWrapper<ROEdge, ROVehicle>(
                 ROEdge::getAllEdges(), oc.getBool("ignore-errors"), ttFunction,
                 begin, end, weightPeriod, net.hasPermissions(), oc.getInt("routing-threads"));
+        } else if (routingAlgorithm == "arcflag") {
+            /// @brief The number of levels in the k-d tree partition
+            constexpr auto NUMBER_OF_LEVELS = 5; //or 4 or 8
+            ROVehicle defaultVehicle(SUMOVehicleParameter(), nullptr, net.getVehicleTypeSecure(DEFAULT_VTYPE_ID), &net);
+            KDTreePartition<ROEdge, RONode, ROVehicle>* partition = new KDTreePartition<ROEdge, RONode, ROVehicle>(NUMBER_OF_LEVELS, ROEdge::getAllEdges(), net.hasPermissions(), oc.isSet("restriction-params"));
+            partition->init(&defaultVehicle);
+            auto reversedTtFunction = gWeightsRandomFactor > 1 ? &FlippedEdge<ROEdge, RONode, ROVehicle>::getTravelTimeStaticRandomized : &FlippedEdge<ROEdge, RONode, ROVehicle>::getTravelTimeStatic;
+            router = new AFRouter<ROEdge, RONode, ROVehicle, ROMapMatcher>(ROEdge::getAllEdges(),
+                    partition, oc.getBool("ignore-errors"), ttFunction, reversedTtFunction, (oc.isSet("weight-files") ? string2time(oc.getString("weight-period")) : SUMOTime_MAX),
+                    nullptr, nullptr, net.hasPermissions(), oc.isSet("restriction-params"));
         } else {
-            throw ProcessError("Unknown routing Algorithm '" + routingAlgorithm + "'!");
+            throw ProcessError(TLF("Unknown routing Algorithm '%'!", routingAlgorithm));
         }
     } else {
         if (measure == "traveltime") {
@@ -175,42 +192,20 @@ computeRoutes(RONet& net, ROLoader& loader, OptionsCont& oc) {
             op = &ROEdge::getStoredEffort;
         }
         if (measure != "traveltime" && !net.hasLoadedEffort()) {
-            WRITE_WARNING("No weight data was loaded for attribute '" + measure + "'.");
+            WRITE_WARNINGF(TL("No weight data was loaded for attribute '%'."), measure);
         }
         router = new DijkstraRouter<ROEdge, ROVehicle>(
             ROEdge::getAllEdges(), oc.getBool("ignore-errors"), op, ttFunction, false, nullptr, net.hasPermissions(), oc.isSet("restriction-params"));
     }
-    int carWalk = 0;
-    for (const std::string& opt : oc.getStringVector("persontrip.transfer.car-walk")) {
-        if (opt == "parkingAreas") {
-            carWalk |= ROIntermodalRouter::Network::PARKING_AREAS;
-        } else if (opt == "ptStops") {
-            carWalk |= ROIntermodalRouter::Network::PT_STOPS;
-        } else if (opt == "allJunctions") {
-            carWalk |= ROIntermodalRouter::Network::ALL_JUNCTIONS;
-        }
-    }
-    for (const std::string& opt : oc.getStringVector("persontrip.transfer.taxi-walk")) {
-        if (opt == "ptStops") {
-            carWalk |= ROIntermodalRouter::Network::TAXI_DROPOFF_PT;
-        } else if (opt == "allJunctions") {
-            carWalk |= ROIntermodalRouter::Network::TAXI_DROPOFF_ANYWHERE;
-        }
-    }
-    for (const std::string& opt : oc.getStringVector("persontrip.transfer.walk-taxi")) {
-        if (opt == "ptStops") {
-            carWalk |= ROIntermodalRouter::Network::TAXI_PICKUP_PT;
-        } else if (opt == "allJunctions") {
-            carWalk |= ROIntermodalRouter::Network::TAXI_PICKUP_ANYWHERE;
-        }
-    }
+    const int carWalk = SUMOVehicleParserHelper::parseCarWalkTransfer(oc, true);
     double taxiWait = STEPS2TIME(string2time(OptionsCont::getOptions().getString("persontrip.taxi.waiting-time")));
 
     RailwayRouter<ROEdge, ROVehicle>* railRouter = nullptr;
     if (net.hasBidiEdges()) {
         railRouter = new RailwayRouter<ROEdge, ROVehicle>(ROEdge::getAllEdges(), true, op, ttFunction, false, net.hasPermissions(),
                 oc.isSet("restriction-params"),
-                oc.getFloat("railway.max-train-length"));
+                oc.getFloat("railway.max-train-length"),
+                oc.getFloat("weights.reversal-penalty"));
     }
     RORouterProvider provider(router, new PedestrianRouter<ROEdge, ROLane, RONode, ROVehicle>(),
                               new ROIntermodalRouter(RONet::adaptIntermodalRouter, carWalk, taxiWait, routingAlgorithm),
@@ -235,9 +230,8 @@ computeRoutes(RONet& net, ROLoader& loader, OptionsCont& oc) {
 int
 main(int argc, char** argv) {
     OptionsCont& oc = OptionsCont::getOptions();
-    // give some application descriptions
-    oc.setApplicationDescription("Shortest path router and DUE computer for the microscopic, multi-modal traffic simulation SUMO.");
-    oc.setApplicationName("duarouter", "Eclipse SUMO duarouter Version " VERSION_STRING);
+    oc.setApplicationDescription(TL("Shortest path router and DUE computer for the microscopic, multi-modal traffic simulation SUMO."));
+    oc.setApplicationName("duarouter", "Eclipse SUMO duarouter " VERSION_STRING);
     int ret = 0;
     RONet* net = nullptr;
     try {
@@ -249,7 +243,7 @@ main(int argc, char** argv) {
             SystemFrame::close();
             return 0;
         }
-        SystemFrame::checkOptions();
+        SystemFrame::checkOptions(oc);
         XMLSubSys::setValidation(oc.getString("xml-validation"), oc.getString("xml-validation.net"), oc.getString("xml-validation.routes"));
 #ifdef HAVE_FOX
         if (oc.getInt("routing-threads") > 1) {

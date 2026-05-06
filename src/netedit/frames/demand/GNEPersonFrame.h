@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,20 +21,22 @@
 #include <config.h>
 
 #include <netedit/frames/GNEFrame.h>
-#include <netedit/elements/demand/GNERouteHandler.h>
-#include <netedit/frames/GNEAttributesCreator.h>
-#include <netedit/frames/GNEPathCreator.h>
-#include <netedit/frames/GNETagSelector.h>
-#include <netedit/frames/GNEDemandSelector.h>
-#include <netedit/frames/GNENeteditAttributes.h>
 
+// ===========================================================================
+// class declaration
+// ===========================================================================
+
+class GNEAttributesEditor;
+class GNEDemandElementSelector;
+class GNEPlanCreator;
+class GNEPlanCreatorLegend;
+class GNEPlanSelector;
+class GNETagSelector;
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @class GNEPersonFrame
- */
+
 class GNEPersonFrame : public GNEFrame {
 
 public:
@@ -42,7 +44,7 @@ public:
      * @brief viewParent GNEViewParent in which this GNEFrame is placed
      * @brief viewNet viewNet that uses this GNEFrame
      */
-    GNEPersonFrame(GNEViewParent *viewParent, GNEViewNet* viewNet);
+    GNEPersonFrame(GNEViewParent* viewParent, GNEViewNet* viewNet);
 
     /// @brief Destructor
     ~GNEPersonFrame();
@@ -54,13 +56,22 @@ public:
     void hide();
 
     /**@brief add vehicle element
-     * @param objectsUnderCursor collection of objects under cursor after click over view
+     * @param viewObjects collection of objects under cursor after click over view
      * @return true if vehicle was successfully added
      */
-    bool addPerson(const GNEViewNetHelper::ObjectsUnderCursor& objectsUnderCursor, const GNEViewNetHelper::MouseButtonKeyPressed& mouseButtonKeyPressed);
+    bool addPerson(const GNEViewNetHelper::ViewObjectsSelector& viewObjects);
 
-    /// @brief get GNEPathCreator module
-    GNEPathCreator* getPathCreator() const;
+    /// @brief get plan creator module
+    GNEPlanCreator* getPlanCreator() const;
+
+    /// @brief get Type selectors
+    GNEDemandElementSelector* getTypeSelector() const;
+
+    /// @brief get personPlan selector
+    GNEPlanSelector* getPlanSelector() const;
+
+    /// @brief get attributes creator
+    GNEAttributesEditor* getPersonAttributesEditor() const;
 
 protected:
     /// @brief Tag selected in GNETagSelector
@@ -70,35 +81,32 @@ protected:
     void demandElementSelected();
 
     /// @brief create path
-    void createPath(const bool useLastRoute);
+    bool createPath(const bool useLastRoute);
 
 private:
-    /// @brief route handler
-    GNERouteHandler myRouteHandler;
-
     /// @brief person base object
-    CommonXMLStructure::SumoBaseObject* myPersonBaseObject;
+    CommonXMLStructure::SumoBaseObject* myPersonBaseObject = nullptr;
 
     /// @brief person tag selector (used to select diffent kind of persons)
-    GNETagSelector* myPersonTagSelector;
+    GNETagSelector* myPersonTagSelector = nullptr;
 
     /// @brief Person Type selectors
-    DemandElementSelector* myTypeSelector;
+    GNEDemandElementSelector* myTypeSelector = nullptr;
 
-    /// @brief person plan selector (used to select diffent kind of person plan)
-    GNETagSelector* myPersonPlanTagSelector;
+    /// @brief personPlan selector
+    GNEPlanSelector* myPlanSelector = nullptr;
 
-    /// @brief internal vehicle attributes
-    GNEAttributesCreator* myPersonAttributes;
+    /// @brief person attributes editor
+    GNEAttributesEditor* myPersonAttributesEditor = nullptr;
 
-    /// @brief internal person plan attributes
-    GNEAttributesCreator* myPersonPlanAttributes;
+    /// @brief person plan attributes editor
+    GNEAttributesEditor* myPersonPlanAttributesEditor = nullptr;
 
-    /// @brief Netedit parameter
-    GNENeteditAttributes* myNeteditAttributes;
+    /// @brief plan creator
+    GNEPlanCreator* myPlanCreator = nullptr;
 
-    /// @brief edge path creator (used for Walks, rides and trips)
-    GNEPathCreator* myPathCreator;
+    /// @brief plan creator legend
+    GNEPlanCreatorLegend* myPlanCreatorLegend = nullptr;
 
     /// @brief build person and return it (note: function includes a call to begin(...), but NOT a call to end(...))
     GNEDemandElement* buildPerson();

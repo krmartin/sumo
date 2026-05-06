@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,12 +21,16 @@
 #include <config.h>
 
 #include <netedit/frames/GNEFrame.h>
-#include <netedit/elements/demand/GNERouteHandler.h>
-#include <netedit/frames/GNEAttributesCreator.h>
-#include <netedit/frames/GNEElementTree.h>
-#include <netedit/frames/GNEDemandSelector.h>
-#include <netedit/frames/GNETagSelector.h>
 
+// ===========================================================================
+// class declaration
+// ===========================================================================
+
+class GNEAttributesEditor;
+class GNEDemandElementSelector;
+class GNEElementTree;
+class GNEPlanCreator;
+class GNEPlanSelector;
 
 // ===========================================================================
 // class definitions
@@ -37,12 +41,11 @@
 class GNEPersonPlanFrame : public GNEFrame {
 
 public:
-
     /**@brief Constructor
      * @brief viewParent GNEViewParent in which this GNEFrame is placed
      * @brief viewNet viewNet that uses this GNEFrame
      */
-    GNEPersonPlanFrame(GNEViewParent *viewParent, GNEViewNet* viewNet);
+    GNEPersonPlanFrame(GNEViewParent* viewParent, GNEViewNet* viewNet);
 
     /// @brief Destructor
     ~GNEPersonPlanFrame();
@@ -54,20 +57,25 @@ public:
     void hide();
 
     /**@brief add person plan element
-     * @param objectsUnderCursor collection of objects under cursor after click over view
-     * @param mouseButtonKeyPressed key pressed during click
+     * @param viewObjects collection of objects under cursor after click over view
      * @return true if element was successfully added
      */
-    bool addPersonPlanElement(const GNEViewNetHelper::ObjectsUnderCursor& objectsUnderCursor, const GNEViewNetHelper::MouseButtonKeyPressed& mouseButtonKeyPressed);
+    bool addPersonPlanElement(const GNEViewNetHelper::ViewObjectsSelector& viewObjects);
 
     /// @brief reset selected person
     void resetSelectedPerson();
 
-    /// @brief get path creator module
-    GNEPathCreator* getPathCreator() const;
+    /// @brief get plan creator module
+    GNEPlanCreator* getPlanCreator() const;
 
     /// @brief get Person Hierarchy
     GNEElementTree* getPersonHierarchy() const;
+
+    /// @brief get person selectors
+    GNEDemandElementSelector* getPersonSelector() const;
+
+    /// @brief get personPlan selector
+    GNEPlanSelector* getPlanSelector() const;
 
 protected:
     /// @brief Tag selected in GNETagSelector
@@ -77,24 +85,24 @@ protected:
     void demandElementSelected();
 
     /// @brief create path
-    void createPath(const bool useLastRoute);
+    bool createPath(const bool useLastRoute);
 
 private:
-    /// @brief route handler
-    GNERouteHandler myRouteHandler;
-
     /// @brief Person selectors
-    DemandElementSelector* myPersonSelector;
+    GNEDemandElementSelector* myPersonSelector = nullptr;
 
     /// @brief personPlan selector
-    GNETagSelector* myPersonPlanTagSelector;
+    GNEPlanSelector* myPlanSelector = nullptr;
 
-    /// @brief internal vehicle attributes
-    GNEAttributesCreator* myPersonPlanAttributes;
+    /// @brief person plan attributes editor
+    GNEAttributesEditor* myPersonPlanAttributesEditor = nullptr;
 
-    /// @brief Path Creator
-    GNEPathCreator* myPathCreator;
+    /// @brief plan Creator
+    GNEPlanCreator* myPlanCreator = nullptr;
 
     /// @brief Person Hierarchy
-    GNEElementTree* myPersonHierarchy;
+    GNEElementTree* myPersonHierarchy = nullptr;
+
+    /// @brief plan creator legend
+    GNEPlanCreatorLegend* myPlanCreatorLegend = nullptr;
 };

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -26,12 +26,18 @@
 #include <microsim/MSStop.h>
 #include <microsim/MSVehicleControl.h>
 #include <microsim/output/MSDetectorControl.h>
+#include <utils/xml/SUMOXMLDefinitions.h>
 #include <utils/options/OptionsCont.h>
 #include <utils/emissions/PollutantsInterface.h>
 #include <utils/emissions/HelpersEnergy.h>
 #include <utils/iodevices/OutputDevice.h>
 #include "MSDevice_Emissions.h"
 
+// ===========================================================================
+// static members
+// ===========================================================================
+SumoXMLAttrMask MSDevice_Emissions::myWrittenAttributes(getDefaultMask());
+bool MSDevice_Emissions::myAmInitialized = false;
 
 // ===========================================================================
 // method definitions
@@ -44,10 +50,10 @@ MSDevice_Emissions::insertOptions(OptionsCont& oc) {
     insertDefaultAssignmentOptions("emissions", "Emissions", oc);
 
     oc.doRegister("device.emissions.begin", new Option_String("-1"));
-    oc.addDescription("device.emissions.begin", "Emissions", "Recording begin time for emission-data");
+    oc.addDescription("device.emissions.begin", "Emissions", TL("Recording begin time for emission-data"));
 
     oc.doRegister("device.emissions.period", new Option_String("0"));
-    oc.addDescription("device.emissions.period", "Emissions", "Recording period for emission-output");
+    oc.addDescription("device.emissions.period", "Emissions", TL("Recording period for emission-output"));
 }
 
 
@@ -58,6 +64,46 @@ MSDevice_Emissions::buildVehicleDevices(SUMOVehicle& v, std::vector<MSVehicleDev
         into.push_back(new MSDevice_Emissions(v));
     }
 }
+
+
+SumoXMLAttrMask
+MSDevice_Emissions::getDefaultMask() {
+    SumoXMLAttrMask mask;
+    // set all bits to 1
+    mask.set();
+    return mask;
+}
+
+void
+MSDevice_Emissions::cleanup() {
+    myWrittenAttributes = getDefaultMask();
+    myAmInitialized = false;
+}
+
+void
+MSDevice_Emissions::initOnce() {
+    if (myAmInitialized) {
+        return;
+    }
+    myAmInitialized = true;
+    const OptionsCont& oc = OptionsCont::getOptions();
+    if (oc.isSet("emission-output.attributes")) {
+        myWrittenAttributes.reset();
+        for (std::string attrName : oc.getStringVector("emission-output.attributes")) {
+            if (!SUMOXMLDefinitions::Attrs.hasString(attrName)) {
+                if (attrName == "all") {
+                    myWrittenAttributes.set();
+                } else {
+                    WRITE_ERRORF(TL("Unknown attribute '%' to write in emission output."), attrName);
+                }
+                continue;
+            }
+            int attr = SUMOXMLDefinitions::Attrs.get(attrName);
+            myWrittenAttributes.set(attr);
+        }
+    }
+}
+
 
 
 // ---------------------------------------------------------------------------
@@ -108,19 +154,17 @@ MSDevice_Emissions::notifyMoveInternal(const SUMOTrafficObject& veh,
 void
 MSDevice_Emissions::generateOutput(OutputDevice* tripinfoOut) const {
     if (tripinfoOut != nullptr) {
-        const OptionsCont& oc = OptionsCont::getOptions();
-        const int precision = MAX2(
-                oc.isDefault("emission-output.precision") ? 6 : oc.getInt("emission-output.precision"),
-                gPrecision);
+        tripinfoOut->setPrecision(gPrecisionEmissions);
         tripinfoOut->openTag("emissions");
-        tripinfoOut->writeAttr("CO_abs", OutputDevice::realString(myEmissions.CO, precision));
-        tripinfoOut->writeAttr("CO2_abs", OutputDevice::realString(myEmissions.CO2, precision));
-        tripinfoOut->writeAttr("HC_abs", OutputDevice::realString(myEmissions.HC, precision));
-        tripinfoOut->writeAttr("PMx_abs", OutputDevice::realString(myEmissions.PMx, precision));
-        tripinfoOut->writeAttr("NOx_abs", OutputDevice::realString(myEmissions.NOx, precision));
-        tripinfoOut->writeAttr("fuel_abs", OutputDevice::realString(myEmissions.fuel, precision));
-        tripinfoOut->writeAttr("electricity_abs", OutputDevice::realString(myEmissions.electricity, precision));
+        tripinfoOut->writeAttr(SUMO_ATTR_CO_ABS, myEmissions.CO);
+        tripinfoOut->writeAttr(SUMO_ATTR_CO2_ABS, myEmissions.CO2);
+        tripinfoOut->writeAttr(SUMO_ATTR_HC_ABS, myEmissions.HC);
+        tripinfoOut->writeAttr(SUMO_ATTR_PMX_ABS, myEmissions.PMx);
+        tripinfoOut->writeAttr(SUMO_ATTR_NOX_ABS, myEmissions.NOx);
+        tripinfoOut->writeAttr(SUMO_ATTR_FUEL_ABS, myEmissions.fuel);
+        tripinfoOut->writeAttr(SUMO_ATTR_ELECTRICITY_ABS, myEmissions.electricity);
         tripinfoOut->closeTag();
+        tripinfoOut->setPrecision(gPrecision);
     }
 }
 

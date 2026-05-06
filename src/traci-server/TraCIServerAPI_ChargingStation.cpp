@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -32,31 +32,17 @@
 // method definitions
 // ===========================================================================
 bool
-TraCIServerAPI_ChargingStation::processGet(TraCIServer& server, tcpip::Storage& inputStorage,
-        tcpip::Storage& outputStorage) {
-    const int variable = inputStorage.readUnsignedByte();
-    const std::string id = inputStorage.readString();
-    server.initWrapper(libsumo::RESPONSE_GET_CHARGINGSTATION_VARIABLE, variable, id);
-    try {
-        if (!libsumo::ChargingStation::handleVariable(id, variable, &server, &inputStorage)) {
-            return server.writeErrorStatusCmd(libsumo::CMD_GET_CHARGINGSTATION_VARIABLE, "Get ChargingStation Variable: unsupported variable " + toHex(variable, 2) + " specified", outputStorage);
-        }
-    } catch (libsumo::TraCIException& e) {
-        return server.writeErrorStatusCmd(libsumo::CMD_GET_CHARGINGSTATION_VARIABLE, e.what(), outputStorage);
-    }
-    server.writeStatusCmd(libsumo::CMD_GET_CHARGINGSTATION_VARIABLE, libsumo::RTYPE_OK, "", outputStorage);
-    server.writeResponseWithLength(outputStorage, server.getWrapperStorage());
-    return true;
-}
-
-
-bool
 TraCIServerAPI_ChargingStation::processSet(TraCIServer& server, tcpip::Storage& inputStorage,
         tcpip::Storage& outputStorage) {
     std::string warning = ""; // additional description for response
     // variable
     int variable = inputStorage.readUnsignedByte();
-    if (variable != libsumo::VAR_PARAMETER) {
+    if (variable != libsumo::VAR_PARAMETER &&
+            variable != libsumo::VAR_CS_POWER &&
+            variable != libsumo::VAR_CS_EFFICIENCY &&
+            variable != libsumo::VAR_CS_CHARGE_DELAY &&
+            variable != libsumo::VAR_CS_CHARGE_IN_TRANSIT &&
+            variable != libsumo::VAR_CS_TOTAL_POWER) {
         return server.writeErrorStatusCmd(libsumo::CMD_SET_CHARGINGSTATION_VARIABLE, "Change ChargingStation State: unsupported variable " + toHex(variable, 2) + " specified", outputStorage);
     }
     // id
@@ -70,8 +56,28 @@ TraCIServerAPI_ChargingStation::processSet(TraCIServer& server, tcpip::Storage& 
                 const std::string name = StoHelp::readTypedString(inputStorage, "The name of the parameter must be given as a string.");
                 const std::string value = StoHelp::readTypedString(inputStorage, "The value of the parameter must be given as a string.");
                 libsumo::ChargingStation::setParameter(id, name, value);
-                break;
             }
+            break;
+            case libsumo::VAR_CS_POWER: {
+                libsumo::ChargingStation::setChargingPower(id, StoHelp::readTypedDouble(inputStorage, "Setting chargingPower requires a double."));
+            }
+            break;
+            case libsumo::VAR_CS_EFFICIENCY: {
+                libsumo::ChargingStation::setEfficiency(id, StoHelp::readTypedDouble(inputStorage, "Setting efficiency requires a double."));
+            }
+            break;
+            case libsumo::VAR_CS_CHARGE_DELAY: {
+                libsumo::ChargingStation::setChargeDelay(id, StoHelp::readTypedDouble(inputStorage, "Setting charge delay requires a double."));
+            }
+            break;
+            case libsumo::VAR_CS_CHARGE_IN_TRANSIT: {
+                libsumo::ChargingStation::setChargeInTransit(id, StoHelp::readTypedInt(inputStorage, "Setting charge in transit requires an integer.") != 0);
+            }
+            break;
+            case libsumo::VAR_CS_TOTAL_POWER: {
+                libsumo::ChargingStation::setTotalPower(id, StoHelp::readTypedDouble(inputStorage, "Setting totalPower requires a double."));
+            }
+            break;
             default:
                 break;
         }

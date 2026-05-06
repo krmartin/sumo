@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2008-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -51,6 +51,10 @@ if '--mesosim' in saveParams and '--mesosim' not in loadParams:
 # last entry
 saveParams = [p for p in saveParams if 'runner.py' not in p]
 loadParams = [p for p in loadParams if 'runner.py' not in p]
+
+legacyDefaults = ["--default.departspeed", "0", "--default.departlane", "first"]
+saveParams += legacyDefaults
+loadParams += legacyDefaults
 
 # print("save:", saveParams)
 # print("load:", loadParams)

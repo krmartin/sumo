@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2011-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2011-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -174,24 +174,54 @@ class EdgeDomain(Domain):
         return self._getUniversal(tc.LAST_STEP_VEHICLE_HALTING_NUMBER, edgeID)
 
     def getLastStepVehicleIDs(self, edgeID):
-        """getLastStepVehicleIDs(string) -> list(string)
+        """getLastStepVehicleIDs(string) -> tuple(string)
 
         Returns the ids of the vehicles for the last time step on the given edge.
         """
         return self._getUniversal(tc.LAST_STEP_VEHICLE_ID_LIST, edgeID)
 
     def getLastStepPersonIDs(self, edgeID):
-        """getLastStepPersonIDs(string) -> list(string)
+        """getLastStepPersonIDs(string) -> tuple(string)
 
         Returns the ids of the persons on the given edge during the last time step.
         """
         return self._getUniversal(tc.LAST_STEP_PERSON_ID_LIST, edgeID)
 
     def getPendingVehicles(self, edgeID):
-        """getPendingVehicles(string) -> list(string)
-        Returns a list of all vehicle ids waiting for insertion on this edge (with depart delay)
+        """getPendingVehicles(string) -> tuple(string)
+        Returns a tuple of all vehicle ids waiting for insertion on this edge (with depart delay)
         """
         return self._getUniversal(tc.VAR_PENDING_VEHICLES, edgeID)
+
+    def getAngle(self, edgeID, relativePosition=tc.INVALID_DOUBLE_VALUE):
+        """getAngle(string, double) -> double
+        Returns the heading of the straight line segment formed by the first lane of the edge at the given position.
+        If the given position equals TraCI constant INVALID_DOUBLE_VALUE, it returns the total angle
+        formed by the edge, from its start point to its end point. If the edge doesn't have any lanes,
+        then INVALID_DOUBLE_VALUE is returned.
+        """
+        return self._getUniversal(tc.VAR_ANGLE, edgeID, "d", relativePosition)
+
+    def getFromJunction(self, edgeID):
+        """getFromJunction(string) -> string
+
+        Returns the id of the junction at the start of this edge
+        """
+        return self._getUniversal(tc.FROM_JUNCTION, edgeID)
+
+    def getToJunction(self, edgeID):
+        """getToJunction(string) -> string
+
+        Returns the id of the junction at the end of this edge
+        """
+        return self._getUniversal(tc.TO_JUNCTION, edgeID)
+
+    def getBidiEdge(self, edgeID):
+        """getBidiEdge(string) -> string
+
+        Returns the id of the bidi edge or ""
+        """
+        return self._getUniversal(tc.VAR_BIDI, edgeID)
 
     def adaptTraveltime(self, edgeID, time, begin=None, end=None):
         """adaptTraveltime(string, double, double, double) -> None

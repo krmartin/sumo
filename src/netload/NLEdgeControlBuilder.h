@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -77,6 +77,7 @@ public:
      */
     void beginEdgeParsing(const std::string& id, const SumoXMLEdgeFunc function,
                           const std::string& streetName, const std::string& edgeType,
+                          const std::string& routingType,
                           int priority,
                           const std::string& bidi,
                           double distance);
@@ -101,7 +102,8 @@ public:
                             SVCPermissions permissions,
                             SVCPermissions changeLeft, SVCPermissions changeRight,
                             int index, bool isRampAccel,
-                            const std::string& type);
+                            const std::string& type,
+                            const PositionVector& outlineShape);
 
     /** @brief process a stopOffset element (originates either from the active edge or lane).
      */
@@ -127,7 +129,7 @@ public:
     void closeLane();
 
     /// builds the MSEdgeControl-class which holds all edges
-    MSEdgeControl* build(double networkVersion);
+    MSEdgeControl* build(const MMVersion& networkVersion);
 
 
     /** @brief Builds an edge instance (MSEdge in this case)
@@ -140,13 +142,16 @@ public:
      * @param[in] streetName The street name of the edge to build
      */
     virtual MSEdge* buildEdge(const std::string& id, const SumoXMLEdgeFunc function,
-                              const std::string& streetName, const std::string& edgeType, const int priority, const double distance);
+                              const std::string& streetName, const std::string& edgeType,
+                              const std::string& routingType, const int priority, const double distance);
 
     /** @brief add the crossingEdges in a crossing edge if present
      *
      * @param[in] the vector of crossed edges id
      */
     virtual void addCrossingEdges(const std::vector<std::string>&);
+
+    SumoXMLEdgeFunc getCurrentEdgeFunction() const;
 
 protected:
     /// @brief A running number for lane numbering
@@ -171,7 +176,7 @@ protected:
     std::vector<MSLane*>* myLaneStorage;
 
     /// @brief temporary storage for bidi attributes (to be resolved after loading all edges)
-    std::map<MSEdge*, std::string> myBidiEdges;
+    std::map<MSEdge*, std::string, ComparatorNumericalIdLess> myBidiEdges;
 
     std::vector<std::pair<MSLane*, std::string> > myOppositeLanes;
 

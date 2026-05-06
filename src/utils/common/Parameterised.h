@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2002-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -71,11 +71,16 @@ public:
      */
     void updateParameters(const Parameterised::Map& mapArg);
 
-    /**@brief Returns whether the parameter is known
+    /**@brief Adds or appends all given parameters from the map
+     * @param[in] mapArg The keys/values to insert
+     */
+    void mergeParameters(const Parameterised::Map& mapArg, const std::string separator = " ", bool uniqueValues = true);
+
+    /**@brief Returns whether the parameter is set
      * @param[in] key The key to ask for
      * @return Whether the key is known
      */
-    bool knowsParameter(const std::string& key) const;
+    bool hasParameter(const std::string& key) const;
 
     /**@brief Returns the value for a given key
      * @param[in] key The key to ask for
@@ -91,13 +96,6 @@ public:
      */
     double getDouble(const std::string& key, const double defaultValue) const;
 
-    /**@brief Returns the value for a given key converted to a list of doubles
-     * @param[in] key The key to ask for
-     * @param[in] defaultValue The default value to return if no value is stored under the key
-     * @return The value stored under the key
-     */
-    std::vector<double> getDoubles(const std::string& key, std::vector<double> defaultValue = std::vector<double>()) const;
-
     /// @brief Clears the parameter map
     void clearParameter();
 
@@ -107,11 +105,11 @@ public:
     /// @brief Returns the inner key/value map in string format "key1=value1|key2=value2|...|keyN=valueN"
     std::string getParametersStr(const std::string kvsep = "=", const std::string sep = "|") const;
 
-    /// @brief set the inner key/value map in map<string, string> format
+    /// @brief set the given key/value map in map<string, string> format
     void setParameters(const Parameterised& params);
 
-    /// @brief set the inner key/value map in map<string, string> format
-    void setParametersMap(const Parameterised::Map& paramsMap);
+    /// @brief set the given key/value vector in map<string, string> format
+    void setParameters(const std::vector<std::pair<std::string, std::string> >& params);
 
     /**@brief set the inner key/value map in string format "key1=value1|key2=value2|...|keyN=valueN"
      * @param[in] paramsString A serialized key-value map

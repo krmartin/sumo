@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2008-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -28,7 +28,9 @@ import sumolib  # noqa
 import traci  # noqa
 
 PORT = sumolib.miscutils.getFreeSocketPort()
-sumoBinary = sumolib.checkBinary(sys.argv[1])
+sumoOptions = [a for a in sys.argv[1:] if a.startswith('--')]
+positionalArgs = [a for a in sys.argv[1:] if not a.startswith('--')]
+sumoBinary = sumolib.checkBinary(positionalArgs[0])
 
 
 def runSingle(sumoEndTime, traciEndTime, label):
@@ -38,7 +40,8 @@ def runSingle(sumoEndTime, traciEndTime, label):
     fdi.close()
     fdo.close()
     step = 0
-    traci.start([sumoBinary, "-c", "used.sumocfg", "-S", "-Q"], port=PORT, label=label, stdout=sys.stdout)
+    traci.start([sumoBinary, "-c", "used.sumocfg", "-S", "-Q"] + sumoOptions,
+                port=PORT, label=str(label), stdout=sys.stdout)
     while not step > traciEndTime:
         traci.simulationStep()
         vehs = traci.vehicle.getIDList()
@@ -53,7 +56,7 @@ for i in range(3):
     print(" Run %s" % i)
     runSingle(50, 99, i)
 for i in range(3):
-    traci.switch(i)
+    traci.switch(str(i))
     print("Print ended at step %s" % traci.simulation.getTime())
     traci.close()
 try:
@@ -68,11 +71,11 @@ for i in range(3):
     print(" Run %s" % i)
     runSingle(101, 99, i)
 for i in range(3):
-    traci.switch(i)
+    traci.switch(str(i))
     print("Print ended at step %s" % traci.simulation.getTime())
     traci.close()
 try:
     # should throw because label isnot known
-    traci.switch(i)
+    traci.switch(str(i))
 except traci.TraCIException as e:
     print(e)

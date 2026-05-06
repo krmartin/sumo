@@ -4,7 +4,7 @@ title: Tests
 
 # Introduction
 
-We use [TextTest](http://texttest.org/) to test whether the software
+We use [TextTest](https://texttest.org/) to test whether the software
 still behaves as expected. TextTest compares an application's file
 output, including the output to stdout and stderr with predefined
 outputs from files.
@@ -22,58 +22,91 @@ with the results on this [summary webpage](https://sumo.dlr.de/daily/).
 
 # Setup
 
-We use [TextTest](http://texttest.org/) 4.x as our testing environment which
+We use [TextTest](https://texttest.org/) 4.x as our testing environment which
 is Python based and currently available for Python 3. To install
 it on Linux / MacOS, you can open a terminal and type:
 
-```
-pip3 install texttest
-```
+`pip3 install texttest`
+
+For a "naked" python installation, the following may be needed to allow TextTest to work:
+
+`pip3 install gobject PyGObject psutil`
+
 For Windows you should download and run the installer from the
 [SourceForge project page](https://sourceforge.net/projects/texttest/).
 
 It might not pull in all the dependencies, so in some cases you need
 to follow the [TextTest installation
-instructions](http://texttest.sourceforge.net/index.php?page=documentation_trunk&n=install_texttest)
+instructions](https://texttest.sourceforge.net/index.php?page=documentation_trunk&n=install_texttest)
 and the additional info there.
 
 For MacOS the following command should install all dependencies:
-   `brew install python py3cairo pygobject3 gtk+3 adwaita-icon-theme`
 
-If the installation was successful, this window will appear after execution of `runAllTests.bat`
+`brew install python py3cairo pygobject3 gtk+3 adwaita-icon-theme`
 
-![](../images/TestInstall8.png "If Installation was successfully, this window will appear after execution of `runAllTests.bat`")
+You will need to install a diff viewer and text editor for viewing and comparing test results. These tools are required on all operating systems.
+
+**Recommended tools** (preferred by SUMO developers):
+- **Diff viewer:** `meld` - for comparing file differences
+- **Text editor:** `geany` - for viewing and editing files
+
+Installation commands:
+
+**On macOS:**
+```
+brew install meld geany
+```
+
+**On Linux (Debian/Ubuntu):**
+```
+sudo apt-get install meld geany
+```
+
+**On Windows:**
+
+Download and install from
+[Geany project page](https://www.geany.org/) by following the provided installation instructions.
+
+After installing these tools, you need to configure TextTest to use them by creating or editing `$HOME/.texttest/config` (see [Customize configuration](#customize_configuration) section below).
+
+**Alternative (TextTest defaults):** If you prefer, you can install `tkdiff` and `emacs` instead, which are TextTest's default programs and don't require additional configuration. However, we recommend using meld and geany for a better experience.
+
+If the installation was successful, this window will appear after execution of `{{SUMO}}/tests/runAllTests.bat` (Windows) or
+`{{SUMO}}/tests/runTests.sh` (Linux, macOS)
+
+![](../images/TestInstall8.png "If the installation was successful, this window will appear after execution of `runAllTests.bat`")
 
 
 ## Customize configuration
 
-Common options added to the personal config file
-`$HOME/.texttest/config` are the used diff-viewer, editor, and the flag
-to collapse the static test suites on program start. E.g.:
+You need to configure TextTest to use your installed diff viewer and text editor. Create or edit the personal config file
+`$HOME/.texttest/config` (on Windows: `%USERPROFILE%\.texttest\config`) and add the following options:
 
 ```
-   diff_program:meld
-   view_program:geany
-   static_collapse_suites:1
+   diff_program:meld
+   view_program:geany
+   static_collapse_suites:1
 ```
+
+The `diff_program` setting specifies which tool to use for comparing files, and `view_program` specifies the text editor for viewing files. The `static_collapse_suites` flag collapses the static test suites on program start.
+
+**Note:** If you do not overwrite the `diff_program` and `view_program` lines, TextTest will try to use tkdiff and emacs automatically.
 
 ## Recommended python packages
 
-The following packes are used by some of the tools under test
+There are several packages being used by the tools under test. So if you want to run
+the "tools" and/or "complex" tests please do
 
-`pip install pyproj rtree numpy scipy`
-
-For a "naked" python installation, the following may be needed to allow TextTest to work:
-
-`pip install gobject PyGObject psutil`
+`pip3 install -r $SUMO_HOME/tools/requirements.txt -r $SUMO_HOME/tools/req_dev.txt`
 
 # Running the Tests
 
 Within the  `$SUMO_HOME/tests` folder you can find batch files for Windows and shell files for Linux & macOS which start
-[TextTest](http://texttest.org/) with our test suites. `runAllTests.bat` (Windows) or `runTests.sh` (Linux, macOS)
+[TextTest](https://texttest.org/) with our test suites. `runAllTests.bat` (Windows) or `runTests.sh` (Linux, macOS)
 starts TextTest for testing all applications located in the folder,
 `runNetconvertTests.bat` (Windows) will only show tests for netconvert,
-`runDuarouterTests.bat`(Windows) only those for duarouter etc.
+`runDuarouterTests.bat`(Windows) only those for duarouter etc. For Linux and macOS you can do this via the
+command line using e.g. `runTests.sh -a duarouter`.
 
 # Adding a Test to an existing Application
 
@@ -90,15 +123,15 @@ To add a test suite for a new application, you have to perform the
 following steps. For the examples below we'll use "polyconvert" as the
 example application.
 
-- go to {{SUMO}}*/tests*
+- go to `$SUMO_HOME/tests`
 - copy one of the **run...Tests.bat**-files and rename it properly
   (**runPolyconvertTests.bat** in our case); change the name of the
   application within it. In our case the resulting file will look as
   this:
 
 ```
-call %~dp0\testEnv.bat %1
-start %TEXTTESTPY% -a polyconvert
+call %~dp0\testEnv.bat %1
+start %TEXTTESTPY% -a polyconvert
 ```
 
 - add the application to the list of applications that are tested each
@@ -107,13 +140,13 @@ night by
     was added:
 
 ```
-export POLYCONVERT_BINARY="$SUMO_BINDIR/polyconvert"
+export POLYCONVERT_BINARY="$SUMO_BINDIR/polyconvert"
 ```
 
 - adding it to **testEnv.bat**; in our case, the following line was added:
 
 ```
-set POLYCONVERT_BINARY=%~dp0\..\bin\polyconvert%1.exe
+set POLYCONVERT_BINARY=%~dp0\..\bin\polyconvert%1.exe
 ```
 
 - build a test folder for the application, named as the application
@@ -123,7 +156,7 @@ set POLYCONVERT_BINARY=%~dp0\..\bin\polyconvert%1.exe
 - build a configuration file; its name is "config", the extension is
   the application's to test name, so in our case it's
   **config.polyconvert**. Please consult
-  [TextTest](http://texttest.org/) documentation about the content,
+  [TextTest](https://texttest.org/) documentation about the content,
   nonetheless, here are some notes
   - do not forget the import of the main config file (config_all)
   - name the binary correct
@@ -141,7 +174,7 @@ copy_test_path:input_net.net.xml
 config:config.cfg
 log:log.txt
 [run_dependent_text]
-output:polyconvert.exe{REPLACE polyconvert}
+output:polyconvert.exe{REPLACE polyconvert}
 net:Version
 ```
 
@@ -176,8 +209,8 @@ a different battery output than expected. If the file marked in red was
 *errors.sumo*, it means that our modification of SUMO has caused a
 *runtime error*, and finally if the file marked in red is *output.sumo*,
 it means that SUMO generated some warning during execution.
-Double-clicking on the red box *battery.sumo* opens ''TkDiffv
-automatically, and displays the differences of our battery output with
+Double-clicking on the red box *battery.sumo* opens your configured diff
+viewer (e.g. `meld`) automatically, and displays the differences of our battery output with
 respect to the original *battery output control file*.
 
 ![](../images/TestError3.png "Error in battery.sumo")
@@ -263,7 +296,7 @@ Different methods to extract TextTest tests (offline and online) are explained [
 
 ## Developing for Python2 and Python3
 
-SUMO is downwards compatible, hence contributed code should be able to 
+SUMO is downwards compatible, hence contributed code should be able to
 run with both Python 2.7 and Python 3.5 and above. On Windows you can either use python launcher
 to have access to both Python versions, or use free online tools
 like [paiza.io](https://paiza.io/en/languages/python) to check for compatibility.

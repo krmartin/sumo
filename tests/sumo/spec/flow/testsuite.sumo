@@ -2,6 +2,9 @@ period
 
 # test combining 'period' and 'end'
 period_end
+
+# test combining 'period' and 'end'
+period_end_high
 vehs_per_hour
 vehs_per_hour_none
 no
@@ -36,5 +39,8 @@ poisson_0.1
 # no end value
 poisson_0.1_number
 poisson_1
+
+# test for #14664
+poisson_0.0001
 2flows_scaled
 errors

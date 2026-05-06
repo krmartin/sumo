@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2009-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2009-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -19,51 +19,45 @@
 import os
 import sys
 
-testRoot = os.path.join(os.environ.get('SUMO_HOME', '.'), 'tests')
-neteditTestRoot = os.path.join(
-    os.environ.get('TEXTTEST_HOME', testRoot), 'netedit')
-sys.path.append(neteditTestRoot)
+sys.path.append(os.path.join(os.environ.get("SUMO_HOME", "."), "tools"))
 import neteditTestFunctions as netedit  # noqa
 
 # Open netedit
-neteditProcess, referencePosition = netedit.setupAndStart(neteditTestRoot)
+neteditProcess, referencePosition = netedit.setupAndStart()
 
 # first rebuild network
-netedit.rebuildNetwork()
-
-# force save additionals
-netedit.forceSaveAdditionals()
+netedit.computeJunctions()
 
 # go to select mode
-netedit.selectMode()
+netedit.changeMode("select")
+
+# lock edges
+netedit.lockSelection(netedit.attrs.selection.lockSelectionNetwork.junctions)
+
+# lock edges
+netedit.lockSelection(netedit.attrs.selection.lockSelectionNetwork.edges)
+
+# lock edges
+netedit.lockSelection(netedit.attrs.selection.lockSelectionNetwork.crossings)
 
 # show connections
 netedit.changeEditMode(netedit.attrs.modes.network.showConnections)
 
-# use a rectangle to check add mode
-netedit.selectionRectangle(referencePosition, 25, 0, 550, 470)
+# Rebuild network
+netedit.computeJunctions()
 
-# clear selection
-netedit.selectionClear()
+# use a rectangle to select central elements
+netedit.selectionRectangle(referencePosition, netedit.positions.selection.rectangleSmallA,
+                           netedit.positions.selection.rectangleSmallB)
 
-# hidde connections
-netedit.changeEditMode(netedit.attrs.modes.network.showConnections)
-
-# use a rectangle to check add mode
-netedit.selectionRectangle(referencePosition, 25, 0, 550, 470)
-
-# clear selection
-netedit.selectionClear()
+# remove elements
+netedit.delete()
 
 # check undo and redo
-netedit.undo(referencePosition, 4)
-netedit.redo(referencePosition, 4)
+netedit.checkUndoRedo(referencePosition)
 
-# save additionals and shapes
-netedit.saveAdditionals(referencePosition)
-
-# save network
-netedit.saveNetwork(referencePosition)
+# save Netedit config
+netedit.saveExistentFile("neteditConfig")
 
 # quit netedit
 netedit.quit(neteditProcess)

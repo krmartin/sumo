@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -13,6 +13,7 @@
 /****************************************************************************/
 /// @file    ReversedEdge.h
 /// @author  Michael Behrisch
+/// @author  Ruediger Ebendt
 /// @date    29.01.2020
 ///
 // The ReversedEdge is a wrapper around a ROEdge or a MSEdge used for
@@ -48,6 +49,11 @@ public:
                 revSource->myViaSuccessors.push_back(std::make_pair(this, preVia));
             }
         }
+    }
+
+    /// @brief Returns the original edge
+    const E* getOriginalEdge() const {
+        return myOriginal;
     }
 
     /** @brief Returns the index (numeric id) of the edge
@@ -91,7 +97,8 @@ public:
         return edge->myOriginal->getTravelTime(veh, time);
     }
 
-    const ConstEdgePairVector& getViaSuccessors(SUMOVehicleClass vClass = SVC_IGNORING) const {
+    const ConstEdgePairVector& getViaSuccessors(SUMOVehicleClass vClass = SVC_IGNORING, bool ignoreTransientPermissions = false) const {
+        UNUSED_PARAMETER(ignoreTransientPermissions); // @todo this should be changed (somewhat hidden by #14756)
         if (vClass == SVC_IGNORING || myOriginal->isTazConnector()) { // || !MSNet::getInstance()->hasPermissions()) {
             return myViaSuccessors;
         }
@@ -115,7 +122,7 @@ public:
     }
 
 private:
-    const E* myOriginal;
+    const E* const myOriginal;
     /// @brief The successors available for a given vClass
     mutable std::map<SUMOVehicleClass, ConstEdgePairVector> myClassesViaSuccessorMap;
 

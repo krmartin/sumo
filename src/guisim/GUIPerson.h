@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -150,7 +150,10 @@ public:
     /// @brief get edge ID
     std::string getEdgeID() const;
 
-    /// @brief ger from edge ID
+    /// @brief get lane ID
+    std::string getLaneID() const;
+
+    /// @brief get from edge ID
     std::string getFromEdgeID() const;
 
     /// @brief get destination edge ID
@@ -173,6 +176,16 @@ public:
     /// @brief whether this person is selected in the GUI
     bool isSelected() const override;
 
+    /// @brief sets the color according to the current scheme index and some vehicle function
+    static bool setFunctionalColor(int activeScheme, const MSPerson* person, RGBColor& col);
+
+    /// @brief gets the color value according to the current scheme index
+    double getColorValue(const GUIVisualizationSettings& s, int activeScheme) const override;
+
+    double getScaleVisual() const override {
+        return getVehicleType().getParameter().scaleVisual;
+    }
+
     /**
      * @class GUIPersonPopupMenu
      *
@@ -188,7 +201,7 @@ public:
          * @param[in] parent The parent view for changing it
          * @param[in] o The object of interest
          */
-        GUIPersonPopupMenu(GUIMainWindow& app, GUISUMOAbstractView& parent, GUIGlObject& o);
+        GUIPersonPopupMenu(GUIMainWindow& app, GUISUMOAbstractView& parent, GUIGlObject* o);
 
         /// @brief Destructor
         ~GUIPersonPopupMenu();
@@ -260,12 +273,6 @@ public:
 private:
     /// @brief sets the color according to the currente settings
     void setColor(const GUIVisualizationSettings& s) const;
-
-    /// @brief gets the color value according to the current scheme index
-    double getColorValue(const GUIVisualizationSettings& s, int activeScheme) const override;
-
-    /// @brief sets the color according to the current scheme index and some vehicle function
-    bool setFunctionalColor(int activeScheme) const;
 
     /// @brief draw walking area path
     void drawAction_drawWalkingareaPath(const GUIVisualizationSettings& s) const;

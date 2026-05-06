@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -120,15 +120,15 @@ public:
         return myHaveSeenAdditionalSpeedRestrictions;
     }
 
-    bool haveSeenMesoEdgeType() const {
-        return myHaveSeenMesoEdgeType;
+    bool haveSeenTLSParams() const {
+        return myHaveSeenTLSParams;
     }
 
-    double networkVersion() const {
+    MMVersion networkVersion() const {
         return myNetworkVersion;
     }
 
-    static void addPredecessorConstraint(int element, const SUMOSAXAttributes& attrs, MSRailSignal* rs);
+    static Parameterised* addPredecessorConstraint(int element, const SUMOSAXAttributes& attrs, MSRailSignal* rs);
 
 protected:
     /// @name inherited from GenericSAXHandler
@@ -209,10 +209,10 @@ protected:
      */
     virtual void addEdgeLaneMeanData(const SUMOSAXAttributes& attrs, int objecttype);
 
-    /** @brief Loads edge type specific meso parameters
+    /** @brief Loads deadlock information for preparing additional rail signal checks
      * @param[in] attrs The attributes that hold the parameters
      */
-    virtual void addMesoEdgeType(const SUMOSAXAttributes& attrs);
+    virtual void addDeadlock(const SUMOSAXAttributes& attrs);
 
     /// Closes the process of building an edge
     virtual void closeEdge();
@@ -256,6 +256,8 @@ private:
     /// adds a connection
     void addConnection(const SUMOSAXAttributes& attrs);
 
+    void addConflict(const SUMOSAXAttributes& attrs);
+
     virtual void openWAUT(const SUMOSAXAttributes& attrs);
     void addWAUTSwitch(const SUMOSAXAttributes& attrs);
     void addWAUTJunction(const SUMOSAXAttributes& attrs);
@@ -265,7 +267,7 @@ private:
 
     /** @begin Parses a district and creates a pseudo edge for it
      *
-     * Called on the occurence of a "district" element, this method
+     * Called on the occurrence of a "district" element, this method
      *  retrieves the id of the district and creates a district type
      *  edge with this id.
      *
@@ -277,7 +279,7 @@ private:
 
     /** @begin Parses a district edge and connects it to the district
      *
-     * Called on the occurence of a "dsource" or "dsink" element, this method
+     * Called on the occurrence of a "dsource" or "dsink" element, this method
      *  retrieves the id of the approachable edge. If this edge is known
      *  and valid, the approaching edge is informed about it.
      *
@@ -300,6 +302,8 @@ private:
 
     /// @brief Parses the given character into an enumeration typed link state
     LinkState parseLinkState(const std::string& state);
+
+    int parseDetectPersons(const std::string& detectPersonsString, const std::string& id, bool& ok);
 
 protected:
     /// @brief The net to fill (preinitialised)
@@ -364,17 +368,20 @@ protected:
     /// @brief whether additional files contained type-specific speed limits
     bool myHaveSeenAdditionalSpeedRestrictions;
 
-    /// @brief whether edge type specific meso paramters were loaded
-    bool myHaveSeenMesoEdgeType;
+    /// @brief whether tls params were loaded
+    bool myHaveSeenTLSParams;
 
     /// @brief the loaded network version
-    double myNetworkVersion;
+    MMVersion myNetworkVersion;
 
     /// @brief whether the location element was already loadee
     bool myNetIsLoaded;
 
     /// @brief rail signal for which constraints are being loaded
     MSRailSignal* myConstrainedSignal;
+
+    /// @brief the link element for the connection currently being parsed
+    MSLink* myCurrentLink = nullptr;
 
     /// @brief temporary data for building the junction graph after network parsing is finished
     typedef std::map<std::string, std::pair<std::string, std::string> > JunctionGraph;

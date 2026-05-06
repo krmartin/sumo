@@ -1,3 +1,6 @@
+# load trips specified with coordinates
+trips_geo
+
 # tests for using plain inserted vehicles, all sharing the same base route (should be replaced)
 routes_same_route
 
@@ -32,6 +35,9 @@ stops
 # test routing if vehicle speeds on the same edge strongly differ by turning direction
 turn_specific_speeds
 
+# test edge type and vClass/vType specific routing preferences
+preference
+
 # handle input errors
 invalid_adaptation_interval
 
@@ -43,3 +49,6 @@ disconnected
 
 # faulty routes with a single edge
 single_edge
+
+# testing the person rerouting device
+person

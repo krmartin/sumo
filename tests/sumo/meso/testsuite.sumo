@@ -1,3 +1,6 @@
+# see #17416
+jam_resolution_shortEdge
+
 # placing multiple ques on a segment
 multique
 
@@ -19,7 +22,6 @@ minor_penalty_routing
 
 # minor_penalty should affect empty-network travel times but ignore traffic light states
 minor_penalty_routing_tls
-bugs
 
 # test edge type specific meso parameters
 edge_type
@@ -29,3 +31,4 @@ lane_queue
 
 # ignoring lanes by vclass
 ignore_lanes
+bugs

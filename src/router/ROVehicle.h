@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2002-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -36,6 +36,7 @@
 // ===========================================================================
 class OutputDevice;
 class ROEdge;
+class RORoute;
 class RONet;
 class RORouteDef;
 
@@ -94,26 +95,24 @@ public:
     }
 
 
-    inline const ConstROEdgeVector& getStopEdges() const {
-        return myStopEdges;
-    }
+    /// @brief information for mandatory edges
+    struct Mandatory {
+        Mandatory(const ROEdge* e, double p, SUMOTime jump = -1):
+            edge(e),
+            pos(p),
+            isJump(jump >= 0) {}
 
+        const ROEdge* edge;
+        double pos;
+        bool isJump;
+    };
 
-    /// @brief compute mandatory edges
-    ConstROEdgeVector getMandatoryEdges(const ROEdge* requiredStart, const ROEdge* requiredEnd) const;
-
-    /** @brief Returns an upper bound for the speed factor of this vehicle
-     *
-     * @return the maximum speed factor
-     */
-    inline double getChosenSpeedFactor() const {
-        return getType()->speedFactor.getMax();
-    }
+    std::vector<Mandatory> getMandatoryEdges(const ROEdge* requiredStart, const ROEdge* requiredEnd) const;
 
     /** @brief Returns the vehicle's type definition
      * @return The vehicle's type definition
      */
-    inline const SUMOVTypeParameter& getVehicleType() const  {
+    inline const SUMOVTypeParameter& getVTypeParameter() const  {
         return *getType();
     }
 
@@ -122,6 +121,13 @@ public:
         return getType()->length;
     }
 
+    inline bool hasJumps() const {
+        return myJumpTime >= 0;
+    }
+
+    inline SUMOTime getJumpTime() const {
+        return myJumpTime;
+    }
 
     /** @brief Saves the complete vehicle description.
      *
@@ -133,7 +139,7 @@ public:
      * @param[in] options to find out about defaults and whether exit times for the edges shall be written
      * @exception IOError If something fails (not yet implemented)
      */
-    void saveAsXML(OutputDevice& os, OutputDevice* const typeos, bool asAlternatives, OptionsCont& options) const;
+    void saveAsXML(OutputDevice& os, OutputDevice* const typeos, bool asAlternatives, OptionsCont& options, int cloneIndex = 0) const;
 
 
 private:
@@ -145,12 +151,15 @@ private:
     void addStop(const SUMOVehicleParameter::Stop& stopPar,
                  const RONet* net, MsgHandler* errorHandler);
 
+    /// @brief update departEdge / arrivalEdge
+    void updateIndex(const std::shared_ptr<RORoute> replaced, const std::shared_ptr<RORoute> current, int& attr);
+
 private:
     /// @brief The route the vehicle takes
     RORouteDef* const myRoute;
 
-    /// @brief The edges where the vehicle stops
-    ConstROEdgeVector myStopEdges;
+    /// @brief Whether this vehicle has any jumps defined
+    SUMOTime myJumpTime;
 
     /// @brief map of all routes that were already saved with a name
     static std::map<ConstROEdgeVector, std::string> mySavedRoutes;

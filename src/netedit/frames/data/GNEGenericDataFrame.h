@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,23 +21,22 @@
 #include <config.h>
 
 #include <netedit/frames/GNEFrame.h>
-#include <netedit/frames/GNEPathCreator.h>
-
+#include <netedit/frames/common/GNEGroupBoxModule.h>
 
 // ===========================================================================
 // class declaration
 // ===========================================================================
+
+class GNEAttributesEditor;
+class GNEAttributesEditorType;
 class GNEDataInterval;
 class GNEDataSet;
-
+class GNEPathCreator;
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @class GNEGenericDataFrame
- * The Widget for setting internal attributes of additional elements
- */
+
 class GNEGenericDataFrame : public GNEFrame {
 
 public:
@@ -45,7 +44,7 @@ public:
     // class DataSetSelector
     // ===========================================================================
 
-    class DataSetSelector : public MFXGroupBoxModule {
+    class DataSetSelector : public GNEGroupBoxModule {
         /// @brief FOX-declaration
         FXDECLARE(GNEGenericDataFrame::DataSetSelector)
 
@@ -98,14 +97,14 @@ public:
         FXButton* myCreateDataSetButton;
 
         /// @brief comboBox with intervals
-        FXComboBox* myDataSetsComboBox;
+        MFXComboBoxIcon* myDataSetsComboBox;
     };
 
     // ===========================================================================
     // class IntervalSelector
     // ===========================================================================
 
-    class IntervalSelector : public MFXGroupBoxModule {
+    class IntervalSelector : public GNEGroupBoxModule {
         /// @brief FOX-declaration
         FXDECLARE(GNEGenericDataFrame::IntervalSelector)
 
@@ -115,6 +114,12 @@ public:
 
         /// @brief destructor
         ~IntervalSelector();
+
+        /// @brief enable contents
+        void enableContents() const;
+
+        /// @brief disable contents
+        void disableContents() const;
 
         /// @brief refresh interval selector
         void refreshIntervalSelector();
@@ -139,6 +144,7 @@ public:
         /// @}
 
     protected:
+        /// @brief FOX needs this
         FOX_CONSTRUCTOR(IntervalSelector)
 
     private:
@@ -177,7 +183,7 @@ public:
     // class AttributeSelector
     // ===========================================================================
 
-    class AttributeSelector : public MFXGroupBoxModule {
+    class AttributeSelector : public GNEGroupBoxModule {
         /// @brief FOX-declaration
         FXDECLARE(GNEGenericDataFrame::AttributeSelector)
 
@@ -197,6 +203,9 @@ public:
         /// @brief get color for the given value
         const RGBColor& getScaledColor(const double min, const double max, const double value) const;
 
+        /// @brief getgeneric data tag
+        SumoXMLTag getGenericDataTag() const;
+
         /// @name FOX-callbacks
         /// @{
 
@@ -213,7 +222,7 @@ public:
         GNEGenericDataFrame* myGenericDataFrameParent;
 
         /// @brief combo box for attributes
-        FXComboBox* myAttributesComboBox;
+        MFXComboBoxIcon* myAttributesComboBox;
 
         /// @brief label for min/max attribute
         FXLabel* myMinMaxLabel;
@@ -234,9 +243,6 @@ public:
     /// @brief get GNEPathCreator modul
     GNEPathCreator* getPathCreator() const;
 
-    /// @bried get element type of this data frame
-    SumoXMLTag getTag() const;
-
     /// @brief show Frame
     void show();
 
@@ -253,7 +259,7 @@ protected:
      * @brief tag generic data tag
      * @brief pathCreator flag to create pathCreator
      */
-    GNEGenericDataFrame(GNEViewParent *viewParent, GNEViewNet* viewNet, SumoXMLTag tag, const bool pathCreator);
+    GNEGenericDataFrame(GNEViewParent* viewParent, GNEViewNet* viewNet, SumoXMLTag tag, const bool pathCreator);
 
     /// @brief Destructor
     ~GNEGenericDataFrame();
@@ -262,25 +268,22 @@ protected:
     void intervalSelected();
 
     /// @brief create path
-    virtual void createPath(const bool useLastRoute);
+    virtual bool createPath(const bool useLastRoute);
 
     /// @brief dataSet selector modul
-    DataSetSelector* myDataSetSelector;
+    DataSetSelector* myDataSetSelector = nullptr;
 
     /// @brief interval selector modul
-    IntervalSelector* myIntervalSelector;
+    IntervalSelector* myIntervalSelector = nullptr;
 
     /// @brief attribute selector modul
-    AttributeSelector* myAttributeSelector;
+    AttributeSelector* myAttributeSelector = nullptr;
 
     /// @brief parameters editor creator
-    GNEFrameAttributeModules::GenericDataAttributes* myGenericDataAttributes;
+    GNEAttributesEditor* myGenericDataAttributesEditor = nullptr;
 
     /// @brief edge path creator (used for Walks, rides and trips)
-    GNEPathCreator* myPathCreator;
-
-    /// @brief generic data tag
-    SumoXMLTag myGenericDataTag;
+    GNEPathCreator* myPathCreator = nullptr;
 
 private:
     /// @brief Invalidated copy constructor.

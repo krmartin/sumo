@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -23,7 +23,9 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include <utils/foxtools/fxheader.h>
+#include <utils/gui/div/GUIPersistentWindowPos.h>
 
 
 // ===========================================================================
@@ -45,16 +47,22 @@ public:
     /** @brief Constructor
      * @param[in] parent The parent window
      */
-    GUIDialog_Breakpoints(GUIApplicationWindow* parent, std::vector<SUMOTime>& breakpoints, FXMutex& breakpointLock);
+    GUIDialog_Breakpoints(GUIApplicationWindow* parent, std::vector<SUMOTime>& breakpoints, FXMutex& breakpointLock, const SUMOTime simBegin);
 
     /// @brief Destructor
     ~GUIDialog_Breakpoints();
 
     /// @brief sets the focus after the window is created
     void show();
+    using FXMainWindow::show; // to silence the warning C4266 about a hidden function
 
     /// @name FOX-callbacks
     /// @{
+
+    /// @brief keyboard functions
+    //@{
+    long onKeyPress(FXObject* o, FXSelector sel, void* data);
+    //@}
 
     /// @brief Called when the user presses the Load-button
     long onCmdLoad(FXObject*, FXSelector, void*);
@@ -81,6 +89,7 @@ public:
     void rebuildList();
 
 protected:
+    /// @brief FOX need this
     FOX_CONSTRUCTOR(GUIDialog_Breakpoints)
 
 private:
@@ -101,4 +110,10 @@ private:
 
     /// @brief Lock for modifying the list of breakpoints
     FXMutex* myBreakpointLock;
+
+    /// @brief simulation begin
+    SUMOTime mySimBegin;
+
+    /// @brief persisting the position on close
+    std::unique_ptr<GUIPersistentWindowPos> myPersistentPos;
 };

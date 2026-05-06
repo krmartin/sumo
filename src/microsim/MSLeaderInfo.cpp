@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2002-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -71,7 +71,10 @@ MSLeaderInfo::addLeader(const MSVehicle* veh, bool beyond, double latOffset) {
     // map center-line based coordinates into [0, myWidth] coordinates
     int rightmost, leftmost;
     getSubLanes(veh, latOffset, rightmost, leftmost);
-    //if (gDebugFlag1) std::cout << " addLeader veh=" << veh->getID() << " beyond=" << beyond << " latOffset=" << latOffset << " rightmost=" << rightmost << " leftmost=" << leftmost << " myFreeSublanes=" << myFreeSublanes << "\n";
+    //if (gDebugFlag1) std::cout << " addLeader veh=" << veh->getID() << " beyond=" << beyond << " latOffset=" << latOffset << " sublaneOffset=" << myOffset
+    //    << " rightmost=" << rightmost << " leftmost=" << leftmost
+    //    << " eRM=" << egoRightMost << " eLM=" << egoLeftMost
+    //        << " myFreeSublanes=" << myFreeSublanes << "\n";
     for (int sublane = rightmost; sublane <= leftmost; ++sublane) {
         if ((egoRightMost < 0 || (egoRightMost <= sublane && sublane <= egoLeftMost))
                 && (!beyond || myVehicles[sublane] == 0)) {
@@ -200,6 +203,20 @@ MSLeaderInfo::hasStoppedVehicle() const {
     return false;
 }
 
+
+bool
+MSLeaderInfo::hasVehicle(const MSVehicle* veh) const {
+    if (!myHasVehicles) {
+        return false;
+    }
+    for (int i = 0; i < (int)myVehicles.size(); ++i) {
+        if (myVehicles[i] == veh) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void
 MSLeaderInfo::removeOpposite(const MSLane* lane) {
     for (int i = 0; i < (int)myVehicles.size(); ++i) {
@@ -259,6 +276,10 @@ MSLeaderDistanceInfo::addLeader(const MSVehicle* veh, double gap, double latOffs
     }
     int rightmost, leftmost;
     getSubLanes(veh, latOffset, rightmost, leftmost);
+    //if (gDebugFlag1) std::cout << " addLeader veh=" << veh->getID() << " gap=" << gap << " latOffset=" << latOffset << " sublaneOffset=" << myOffset
+    //    << " rightmost=" << rightmost << " leftmost=" << leftmost
+    //    << " eRM=" << egoRightMost << " eLM=" << egoLeftMost
+    //        << " myFreeSublanes=" << myFreeSublanes << "\n";
     for (int sublaneIdx = rightmost; sublaneIdx <= leftmost; ++sublaneIdx) {
         if ((egoRightMost < 0 || (egoRightMost <= sublaneIdx && sublaneIdx <= egoLeftMost))
                 && gap < myDistances[sublaneIdx]) {
@@ -271,6 +292,19 @@ MSLeaderDistanceInfo::addLeader(const MSVehicle* veh, double gap, double latOffs
         }
     }
     return myFreeSublanes;
+}
+
+
+void
+MSLeaderDistanceInfo::addLeaders(MSLeaderDistanceInfo& other) {
+    const int maxSubLane = MIN2(numSublanes(), other.numSublanes());
+    for (int i = 0; i < maxSubLane; i++) {
+        addLeader(other[i].first, other[i].second, 0, i);
+        //if ((myDistances[i] > 0 && myDistances[i] > other.myDistances[i])
+        //        || (other.myDistances[i] < 0 && myDistances[i] < other.myDistances[i])) {
+        //    addLeader(other[i].first, other[i].second, 0, i);
+        //}
+    }
 }
 
 
@@ -364,6 +398,22 @@ MSLeaderDistanceInfo::moveSamePosTo(const MSVehicle* ego, MSLeaderDistanceInfo& 
         }
     }
 }
+
+
+double
+MSLeaderDistanceInfo::getMinDistToStopped() const {
+    double result = std::numeric_limits<double>::max();
+    if (!myHasVehicles) {
+        return result;
+    }
+    for (int i = 0; i < (int)myVehicles.size(); ++i) {
+        if (myVehicles[i] != 0 && myVehicles[i]->isStopped()) {
+            result = MIN2(result, myDistances[i]);
+        }
+    }
+    return result;
+}
+
 
 // ===========================================================================
 // MSCriticalFollowerDistanceInfo member method definitions

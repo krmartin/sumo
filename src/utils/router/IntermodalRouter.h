@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -28,6 +28,7 @@
 #include <utils/common/MsgHandler.h>
 #include <utils/common/SUMOTime.h>
 #include <utils/common/ToString.h>
+#include <utils/vehicle/SUMOVehicle.h>
 #include <utils/iodevices/OutputDevice.h>
 #include "SUMOAbstractRouter.h"
 #include "DijkstraRouter.h"
@@ -52,14 +53,16 @@ template<class E, class L, class N, class V>
 class IntermodalRouter : public SUMOAbstractRouter<E, IntermodalTrip<E, N, V> > {
 public:
     typedef IntermodalNetwork<E, L, N, V> Network;
+    typedef typename SUMOAbstractRouter<E, SUMOVehicle>::Prohibitions _Prohibitions;
 
 private:
     typedef void(*CreateNetCallback)(IntermodalRouter <E, L, N, V>&);
     typedef IntermodalEdge<E, L, N, V> _IntermodalEdge;
     typedef IntermodalTrip<E, N, V> _IntermodalTrip;
     typedef SUMOAbstractRouter<_IntermodalEdge, _IntermodalTrip> _InternalRouter;
+    typedef MapMatcher<E, L, N> _MapMatcher;
     typedef DijkstraRouter<_IntermodalEdge, _IntermodalTrip> _InternalDijkstra;
-    typedef AStarRouter<_IntermodalEdge, _IntermodalTrip> _InternalAStar;
+    typedef AStarRouter<_IntermodalEdge, _IntermodalTrip, _MapMatcher> _InternalAStar;
 
 public:
     struct TripItem {
@@ -112,17 +115,21 @@ public:
     bool compute(const E* from, const E* to,
                  const double departPos, const std::string& originStopID,
                  const double arrivalPos, const std::string& stopID,
-                 const double speed, const V* const vehicle, const SVCPermissions modeSet, const SUMOTime msTime,
+                 const double speed, const V* const vehicle,
+                 const SUMOVTypeParameter& pars,
+                 const SVCPermissions modeSet, const SUMOTime msTime,
                  std::vector<TripItem>& into, const double externalFactor = 0.) {
         createNet();
-        _IntermodalTrip trip(from, to, departPos, arrivalPos, speed, msTime, 0, vehicle, modeSet, myExternalEffort, externalFactor);
+        _IntermodalTrip trip(from, to, departPos, arrivalPos, speed, msTime, nullptr, pars, vehicle, modeSet, myExternalEffort, externalFactor);
         std::vector<const _IntermodalEdge*> intoEdges;
         //std::cout << "compute from=" << from->getID() << " to=" << to->getID() << " dPos=" << departPos << " aPos=" << arrivalPos << " stopID=" << stopID << " speed=" << speed << " veh=" << Named::getIDSecure(vehicle) << " modeSet=" << modeSet << " t=" << msTime << " iFrom=" << myIntermodalNet->getDepartEdge(from, trip.departPos)->getID() << " iTo=" << (stopID != "" ? myIntermodalNet->getStopEdge(stopID) : myIntermodalNet->getArrivalEdge(to, trip.arrivalPos))->getID() << "\n";
         const _IntermodalEdge* iFrom = originStopID != "" ? myIntermodalNet->getStopEdge(originStopID) : myIntermodalNet->getDepartEdge(from, trip.departPos);
         const _IntermodalEdge* iTo = stopID != "" ? myIntermodalNet->getStopEdge(stopID) : myIntermodalNet->getArrivalEdge(to, trip.arrivalPos);
-        const bool success = myInternalRouter->compute(iFrom, iTo, &trip, msTime, intoEdges);
+        const bool success = myInternalRouter->compute(iFrom, iTo, &trip, msTime, intoEdges, true);
         if (success) {
             std::string lastLine = "";
+            const _IntermodalEdge* lastLineEdge = nullptr;
+            double lastLineTime = STEPS2TIME(msTime);
             double time = STEPS2TIME(msTime);
             double effort = 0.;
             double length = 0.;
@@ -147,8 +154,10 @@ public:
                             into.back().destStop = iEdge->getID();
                         }
                     } else {
-                        if (iEdge->getLine() != lastLine) {
+                        if (iEdge->getLine() != lastLine || loopedLineTransfer(lastLineEdge, iEdge, lastLineTime, time)) {
                             lastLine = iEdge->getLine();
+                            lastLineEdge = iEdge;
+                            lastLineTime = time;
                             if (lastLine == "!car") {
                                 into.push_back(TripItem(vehicle->getID()));
                                 into.back().vType = vehicle->getParameter().vtypeid;
@@ -167,7 +176,9 @@ public:
                         }
                     }
                 }
-                const double prevTime = time, prevEffort = effort, prevLength = length;
+                const double prevTime = time;
+                const double prevEffort = effort;
+                const double prevLength = length;
                 myInternalRouter->updateViaCost(prev, iEdge, &trip, time, effort, length);
                 // correct intermodal length:
                 length += iEdge->getPartialLength(&trip) - iEdge->getLength();
@@ -184,6 +195,13 @@ public:
                     }
                 }
             }
+        } else {
+            const std::string oType = originStopID != "" ? "stop" : "edge";
+            const std::string oID = originStopID != "" ? originStopID : from->getID();
+            const std::string dType = stopID != "" ? "stop" : "edge";
+            const std::string dID = stopID != "" ? stopID : to->getID();
+            const std::string vClass = vehicle == nullptr ? "" : (" with vClass " + getVehicleClassNames(vehicle->getVClass()));
+            this->myErrorMsgHandler->informf(TL("No connection between % '%' and % '%' found%."), oType, oID, dType, dID, vClass);
         }
         if (into.size() > 0) {
             into.back().arrivalPos = arrivalPos;
@@ -199,6 +217,7 @@ public:
                   << " departPos=" << trip.departPos
                   << " arrivalPos=" << trip.arrivalPos
                   << " modes=" << getVehicleClassNames(modeSet)
+                  << " vehType=" << (vehicle == nullptr ? "NULL" : vehicle->getVTypeParameter().id)
                   << " edges=" << toString(intoEdges)
 //                  << " resultEdges=" << toString(into)
                   << " time=" << time
@@ -211,7 +230,7 @@ public:
         The definition of the effort depends on the wished routing scheme */
     bool compute(const E*, const E*, const _IntermodalTrip* const,
                  SUMOTime, std::vector<const E*>&, bool) {
-        throw ProcessError("Do not use this method");
+        throw ProcessError(TL("Do not use this method"));
     }
 
     inline void setBulkMode(const bool mode) {
@@ -221,13 +240,13 @@ public:
         }
     }
 
-    void prohibit(const std::vector<E*>& toProhibit) {
+    void prohibit(const _Prohibitions& toProhibit) {
         createNet();
-        std::vector<_IntermodalEdge*> toProhibitPE;
-        for (typename std::vector<E*>::const_iterator it = toProhibit.begin(); it != toProhibit.end(); ++it) {
-            toProhibitPE.push_back(myIntermodalNet->getBothDirections(*it).first);
-            toProhibitPE.push_back(myIntermodalNet->getBothDirections(*it).second);
-            toProhibitPE.push_back(myIntermodalNet->getCarEdge(*it));
+        typename _InternalRouter::Prohibitions toProhibitPE;
+        for (auto item : toProhibit) {
+            toProhibitPE[myIntermodalNet->getBothDirections(item.first).first] = item.second;
+            toProhibitPE[myIntermodalNet->getBothDirections(item.first).second] = item.second;
+            toProhibitPE[myIntermodalNet->getCarEdge(item.first)] = item.second;
         }
         myInternalRouter->prohibit(toProhibitPE);
     }
@@ -246,7 +265,9 @@ public:
 
     void writeWeights(OutputDevice& dev) {
         createNet();
-        _IntermodalTrip trip(nullptr, nullptr, 0., 0., DEFAULT_PEDESTRIAN_SPEED, 0, 0, nullptr, SVC_PASSENGER | SVC_BICYCLE | SVC_BUS);
+        SUMOVTypeParameter dummyVT(DEFAULT_PEDTYPE_ID, SVC_PEDESTRIAN);
+        _IntermodalTrip trip(nullptr, nullptr, 0., 0., DEFAULT_PEDESTRIAN_SPEED, 0, nullptr,
+                             dummyVT, nullptr, SVC_PASSENGER | SVC_BICYCLE | SVC_BUS);
         for (_IntermodalEdge* e : myIntermodalNet->getAllEdges()) {
             dev.openTag(SUMO_TAG_EDGE);
             dev.writeAttr(SUMO_ATTR_ID, e->getID());
@@ -314,6 +335,20 @@ private:
                     break;
             }
         }
+    }
+
+
+    bool loopedLineTransfer(const _IntermodalEdge* prev, const _IntermodalEdge* cur, double prevTime, double time) {
+        assert(prev != nullptr);
+        if (myIntermodalNet->isLooped(cur->getLine())) {
+            // check if the last two edges are served by different vehicles
+            std::string intended1;
+            std::string intended2;
+            prev->getIntended(prevTime, intended1);
+            cur->getIntended(time, intended2);
+            return intended1 != intended2;
+        }
+        return false;
     }
 
 private:

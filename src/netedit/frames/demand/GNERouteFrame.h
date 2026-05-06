@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,23 +21,20 @@
 #include <config.h>
 
 #include <netedit/frames/GNEFrame.h>
-#include <netedit/elements/demand/GNERouteHandler.h>
-#include <netedit/frames/GNEPathLegend.h>
-
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
 
+class GNEAttributesEditor;
+class GNEPathLegendModule;
 class GNERoute;
+class GNEPathCreator;
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @class GNERouteFrame
- * The Widget for create route elements
- */
+
 class GNERouteFrame : public GNEFrame {
 
 public:
@@ -53,7 +50,7 @@ public:
     // class RouteModeSelector
     // ===========================================================================
 
-    class RouteModeSelector : public MFXGroupBoxModule {
+    class RouteModeSelector : public GNEGroupBoxModule {
         /// @brief FOX-declaration
         FXDECLARE(GNERouteFrame::RouteModeSelector)
 
@@ -93,16 +90,13 @@ public:
         GNERouteFrame* myRouteFrameParent;
 
         /// @brief comboBox with the list of route modes
-        FXComboBox* myRouteModeMatchBox = nullptr;
+        MFXComboBoxIcon* myRouteModeMatchBox = nullptr;
 
         /// @brief comboBox with the list of VClass
-        FXComboBox* myVClassMatchBox = nullptr;
+        MFXComboBoxIcon* myVClassMatchBox = nullptr;
 
         /// @brief current selected route mode
         RouteMode myCurrentRouteMode = RouteMode::NONCONSECUTIVE_EDGES;
-
-        /// @brief route template
-        GNERoute* myRouteTemplate = nullptr;
 
         /// @brief flag to check if VClass is Valid
         bool myValidVClass = true;
@@ -115,7 +109,7 @@ public:
      * @brief viewParent GNEViewParent in which this GNEFrame is placed
      * @brief viewNet viewNet that uses this GNEFrame
      */
-    GNERouteFrame(GNEViewParent *viewParent, GNEViewNet* viewNet);
+    GNERouteFrame(GNEViewParent* viewParent, GNEViewNet* viewNet);
 
     /// @brief Destructor
     ~GNERouteFrame();
@@ -138,24 +132,21 @@ public:
 
 protected:
     /// @brief create path
-    void createPath(const bool useLastRoute);
+    bool createPath(const bool useLastRoute);
 
 private:
-    /// @brief route handler
-    GNERouteHandler myRouteHandler;
-
     /// @brief route base object
-    CommonXMLStructure::SumoBaseObject* myRouteBaseObject;
+    CommonXMLStructure::SumoBaseObject* myRouteBaseObject = nullptr;
 
     /// @brief route mode selector
-    RouteModeSelector* myRouteModeSelector;
+    RouteModeSelector* myRouteModeSelector = nullptr;
 
-    /// @brief internal route attributes
-    GNEAttributesCreator* myRouteAttributes;
+    /// @brief internal route attributes editor
+    GNEAttributesEditor* myRouteAttributesEditor = nullptr;
 
     /// @brief path creator modul
-    GNEPathCreator* myPathCreator;
+    GNEPathCreator* myPathCreator = nullptr;
 
     /// @brief path legend modul
-    GNEM_PathLegend* myPathLegend;
+    GNEPathLegendModule* myPathLegend = nullptr;
 };

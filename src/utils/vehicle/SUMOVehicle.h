@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -42,10 +42,13 @@ class MSPerson;
 class MSStop;
 class MSTransportable;
 class MSParkingArea;
+class MSChargingStation;
 class MSStoppingPlace;
 class MSVehicleDevice;
 class SUMOSAXAttributes;
 class EnergyParams;
+class PositionVector;
+class MFXOptionalLock;
 
 typedef std::vector<const MSEdge*> ConstMSEdgeVector;
 
@@ -80,8 +83,8 @@ public:
     /// Returns the current route
     virtual const MSRoute& getRoute() const = 0;
 
-    /// @brief return index of edge within route
-    virtual int getRoutePosition() const = 0;
+    /// Returns the current route
+    virtual ConstMSRoutePtr getRoutePtr() const = 0;
 
     /** @brief Returns the nSuccs'th successor of edge the vehicle is currently at
      *
@@ -94,10 +97,10 @@ public:
 
     /** @brief Returns the starting point for reroutes (usually the current edge)
      *
-     * This differs from *myCurrEdge only if the vehicle is on an internal edge
+     * This differs from myCurrEdge depending on braking distance and rail signals
      * @return The rerouting start point
      */
-    virtual const MSEdge* getRerouteOrigin() const = 0;
+    virtual ConstMSEdgeVector::const_iterator getRerouteOrigin() const = 0;
 
     /** @brief Replaces the current route by the given edges
      *
@@ -113,9 +116,6 @@ public:
      */
     virtual bool replaceRouteEdges(ConstMSEdgeVector& edges, double cost, double savings, const std::string& info, bool onInit = false, bool check = false, bool removeStops = true, std::string* msgReturn = nullptr) = 0;
 
-    /// Replaces the current route by the given one
-    virtual bool replaceRoute(const MSRoute* route, const std::string& info, bool onInit = false, int offset = 0, bool addStops = true, bool removeStops = true, std::string* msgReturn = nullptr) = 0;
-
     /** @brief Performs a rerouting using the given router
      *
      * Tries to find a new route between the current edge and the destination edge, first.
@@ -123,16 +123,17 @@ public:
      *
      * @param[in] t The time for which the route is computed
      * @param[in] router The router to use
+     * @return whether a valid route was found
      * @see replaceRoute
      */
-    virtual void reroute(SUMOTime t, const std::string& info, SUMOAbstractRouter<MSEdge, SUMOVehicle>& router, const bool onInit = false, const bool withTaz = false, const bool silent = false) = 0;
+    virtual bool reroute(SUMOTime t, const std::string& info, SUMOAbstractRouter<MSEdge, SUMOVehicle>& router, const bool onInit = false, const bool withTaz = false, const bool silent = false, const MSEdge* sink = nullptr) = 0;
 
     /** @brief Validates the current or given route
      * @param[out] msg Description why the route is not valid (if it is the case)
      * @param[in] route The route to check (or 0 if the current route shall be checked)
      * @return Whether the vehicle's current route is valid
      */
-    virtual bool hasValidRoute(std::string& msg, const MSRoute* route = 0) const = 0;
+    virtual bool hasValidRoute(std::string& msg, ConstMSRoutePtr route = 0) const = 0;
     /// @brief checks wether the vehicle can depart on the first edge
     virtual bool hasValidRouteStart(std::string& msg) = 0;
 
@@ -143,6 +144,9 @@ public:
      * @return The current route pointer
      */
     virtual const ConstMSEdgeVector::const_iterator& getCurrentRouteEdge() const = 0;
+
+    /// @return the current edge which may be internal
+    virtual const MSEdge* getCurrentEdge() const = 0;
 
     /** @brief Returns the vehicle's emission model parameter
      *
@@ -217,6 +221,10 @@ public:
      */
     virtual bool hasDeparted() const = 0;
 
+    /** @brief Returns the edge on which this vehicle shall depart
+     */
+    virtual int getDepartEdge() const = 0;
+
     /** @brief Returns the distance that was already driven by this vehicle
      * @return the distance driven [m]
      */
@@ -254,6 +262,9 @@ public:
     /// @brief removes a person or container
     virtual void removeTransportable(MSTransportable* t) = 0;
 
+    /// @brief removes a person or containers mass
+    virtual void removeTransportableMass(MSTransportable* t) = 0;
+
     /// @brief retrieve riding persons
     virtual const std::vector<MSTransportable*>& getPersons() const = 0;
 
@@ -266,7 +277,7 @@ public:
      * @param[in] stop The stop to add
      * @return Whether the stop could be added
      */
-    virtual bool addStop(const SUMOVehicleParameter::Stop& stopPar, std::string& errorMsg, SUMOTime untilOffset = 0, bool collision = false,
+    virtual bool addStop(const SUMOVehicleParameter::Stop& stopPar, std::string& errorMsg, SUMOTime untilOffset = 0,
                          ConstMSEdgeVector::const_iterator* searchStart = 0) = 0;
 
     /// @brief return list of route indices and stop positions for the remaining stops
@@ -293,9 +304,14 @@ public:
       */
     virtual bool replaceParkingArea(MSParkingArea* parkingArea, std::string& errorMsg) = 0;
 
+    virtual const std::vector<std::string>& getParkingBadges() const = 0;
+
     /// @brief Returns the remaining stop duration for a stopped vehicle or 0
     virtual SUMOTime remainingStopDuration() const = 0;
 
+    /** @brief Returns whether the vehicle is at a stop and waiting for a person or container to continue
+     */
+    virtual bool isStopped() const = 0;
     /** @brief Returns whether the vehicle is at a stop and waiting for a person or container to continue
      */
     virtual bool isStoppedTriggered() const = 0;
@@ -328,10 +344,22 @@ public:
     * returns the next imminent stop in the stop queue
     * @return the upcoming stop
     */
-    virtual MSStop& getNextStop() = 0;
+    virtual const MSStop& getNextStop() const = 0;
+
+    /**
+    * returns the next imminent stop in the stop queue
+    * @return the upcoming stop
+    */
+    virtual MSStop& getNextStopMutable() = 0;
+
+    /// @brief mark vehicle as active
+    virtual void unregisterWaiting() = 0;
 
     /** @brief Returns parameters of the next stop or nullptr **/
     virtual const SUMOVehicleParameter::Stop* getNextStopParameter() const = 0;
+
+    /// @brief get remaining stop duration or 0 if the vehicle isn't stopped
+    virtual SUMOTime getStopDuration() const = 0;
 
     /**
      * schedule a new stop for the vehicle; each time a stop is reached, the vehicle
@@ -342,8 +370,6 @@ public:
     virtual bool addTraciStop(SUMOVehicleParameter::Stop stop, std::string& errorMsg) = 0;
 
     virtual void setChosenSpeedFactor(const double factor) = 0;
-
-    virtual SUMOTime getAccumulatedWaitingTime() const = 0;
 
     virtual SUMOTime getDepartDelay() const = 0;
 
@@ -360,23 +386,33 @@ public:
      */
     virtual const std::vector<MSVehicleDevice*>& getDevices() const = 0;
 
-    /// @brief Returns a device of the given type if it exists or 0
-    virtual MSVehicleDevice* getDevice(const std::type_info& type) const = 0;
-
-    /// @brief @return The index of the vehicle's associated RNG
-    virtual int getRNGIndex() const = 0;
-
     /// @brief Returns the vehicles's length
     virtual double getLength() const = 0;
 
+    /* @brief Return whether this vehicle must be treated like a railway vehicle
+     * either due to its vClass or the vClass of it's edge */
+    virtual bool isRail() const = 0;
+
+    virtual SUMOTime getLastActionTime() const = 0;
+
+    /// @brief get bounding rectangle
+    virtual PositionVector getBoundingBox(double offset = 0) const = 0;
+
+    virtual std::unique_ptr<MFXOptionalLock> getScopeLock() = 0;
+
     /// @name parking memory io
     //@{
-    virtual void rememberBlockedParkingArea(const MSParkingArea* pa, bool local) = 0;
-    virtual SUMOTime sawBlockedParkingArea(const MSParkingArea* pa, bool local) const = 0;
-    virtual void rememberParkingAreaScore(const MSParkingArea* pa, const std::string& score) = 0;
+    virtual void rememberBlockedParkingArea(const MSStoppingPlace* pa, bool local) = 0;
+    virtual SUMOTime sawBlockedParkingArea(const MSStoppingPlace* pa, bool local) const = 0;
+    virtual void rememberParkingAreaScore(const MSStoppingPlace* pa, const std::string& score) = 0;
     virtual void resetParkingAreaScores() = 0;
     virtual int getNumberParkingReroutes() const = 0;
     virtual void setNumberParkingReroutes(int value) = 0;
+
+    virtual void rememberBlockedChargingStation(const MSStoppingPlace* cs, bool local) = 0;
+    virtual SUMOTime sawBlockedChargingStation(const MSStoppingPlace* cs, bool local) const = 0;
+    virtual void rememberChargingStationScore(const MSStoppingPlace* cs, const std::string& score) = 0;
+    virtual void resetChargingStationScores() = 0;
     //@}
 
     /// @name state io

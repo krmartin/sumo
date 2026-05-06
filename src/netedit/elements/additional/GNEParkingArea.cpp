@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -13,51 +13,42 @@
 /****************************************************************************/
 /// @file    GNEParkingArea.cpp
 /// @author  Pablo Alvarez Lopez
+/// @author  Mirko Barthauer
 /// @date    Feb 2018
 ///
 // A lane area vehicles can park at (GNE version)
 /****************************************************************************/
-#include <netedit/GNENet.h>
-#include <netedit/GNEUndoList.h>
-#include <netedit/GNEViewNet.h>
+
 #include <netedit/changes/GNEChange_Attribute.h>
+#include <netedit/GNENet.h>
+#include <netedit/GNETagProperties.h>
 #include <utils/gui/div/GLHelper.h>
 #include <utils/options/OptionsCont.h>
-#include <utils/gui/globjects/GLIncludes.h>
-#include <utils/vehicle/SUMORouteHandler.h>
-#include <utils/gui/div/GUIGlobalPostDrawing.h>
 
 #include "GNEParkingArea.h"
-
 
 // ===========================================================================
 // method definitions
 // ===========================================================================
 
 GNEParkingArea::GNEParkingArea(GNENet* net) :
-    GNEStoppingPlace("", net, GLO_PARKING_AREA, SUMO_TAG_PARKING_AREA, GUIIconSubSys::getIcon(GUIIcon::PARKINGAREA), 
-        nullptr, 0, 0, "", false, Parameterised::Map()),
-    myRoadSideCapacity(0),
-    myOnRoad(false),
-    myWidth(0),
-    myLength(0),
-    myAngle(0) {
-    // reset default values
-    resetDefaultValues();
+    GNEStoppingPlace(net, SUMO_TAG_PARKING_AREA) {
 }
 
 
-GNEParkingArea::GNEParkingArea(const std::string& id, GNELane* lane, GNENet* net, const double startPos, const double endPos,
-                               const std::string& departPos, const std::string& name, bool friendlyPosition, int roadSideCapacity, bool onRoad, double width,
-                               const double length, double angle, const Parameterised::Map& parameters) :
-    GNEStoppingPlace(id, net, GLO_PARKING_AREA, SUMO_TAG_PARKING_AREA, GUIIconSubSys::getIcon(GUIIcon::PARKINGAREA), 
-        lane, startPos, endPos, name, friendlyPosition, parameters),
+GNEParkingArea::GNEParkingArea(const std::string& id, GNENet* net, FileBucket* fileBucket, GNELane* lane, const double startPos, const double endPos,
+                               const std::string& departPos, const std::string& name, const std::vector<std::string>& badges,
+                               const bool friendlyPosition, const int roadSideCapacity, const bool onRoad, const double width,
+                               const double length, const double angle, const bool lefthand, const Parameterised::Map& parameters) :
+    GNEStoppingPlace(id, net, fileBucket, SUMO_TAG_PARKING_AREA, lane, startPos,
+                     endPos, name, friendlyPosition, RGBColor::INVISIBLE, angle, parameters),
     myDepartPos(departPos),
     myRoadSideCapacity(roadSideCapacity),
     myOnRoad(onRoad),
     myWidth(width),
     myLength(length),
-    myAngle(angle) {
+    myLefthand(lefthand),
+    myAcceptedBadges(badges) {
     // update centering boundary without updating grid
     updateCenteringBoundary(false);
 }
@@ -68,42 +59,34 @@ GNEParkingArea::~GNEParkingArea() {}
 
 void
 GNEParkingArea::writeAdditional(OutputDevice& device) const {
-    device.openTag(getTagProperty().getTag());
-    device.writeAttr(SUMO_ATTR_ID, getID());
-    if (!myAdditionalName.empty()) {
-        device.writeAttr(SUMO_ATTR_NAME, StringUtils::escapeXML(myAdditionalName));
+    device.openTag(getTagProperty()->getTag());
+    // write common attributes
+    writeStoppingPlaceAttributes(device);
+    // write specific attributes
+    if (myRoadSideCapacity != myTagProperty->getDefaultIntValue(SUMO_ATTR_ROADSIDE_CAPACITY)) {
+        device.writeAttr(SUMO_ATTR_ROADSIDE_CAPACITY, myRoadSideCapacity);
     }
-    device.writeAttr(SUMO_ATTR_LANE, getParentLanes().front()->getID());
-    if (myStartPosition != INVALID_DOUBLE) {
-        device.writeAttr(SUMO_ATTR_STARTPOS, myStartPosition);
-    }
-    if (myEndPosition != INVALID_DOUBLE) {
-        device.writeAttr(SUMO_ATTR_ENDPOS, myEndPosition);
-    }
-    if (myFriendlyPosition) {
-        device.writeAttr(SUMO_ATTR_FRIENDLY_POS, "true");
-    }
-    if (getAttribute(SUMO_ATTR_ROADSIDE_CAPACITY) != myTagProperty.getDefaultValue(SUMO_ATTR_ROADSIDE_CAPACITY)) {
-        device.writeAttr(SUMO_ATTR_ROADSIDE_CAPACITY, toString(myRoadSideCapacity));
-    }
-    if (getAttribute(SUMO_ATTR_ONROAD) != myTagProperty.getDefaultValue(SUMO_ATTR_ONROAD)) {
+    if (myOnRoad != myTagProperty->getDefaultBoolValue(SUMO_ATTR_ONROAD)) {
         device.writeAttr(SUMO_ATTR_ONROAD, myOnRoad);
     }
-    if (getAttribute(SUMO_ATTR_WIDTH) != myTagProperty.getDefaultValue(SUMO_ATTR_WIDTH)) {
+    if (myWidth != myTagProperty->getDefaultDoubleValue(SUMO_ATTR_WIDTH)) {
         device.writeAttr(SUMO_ATTR_WIDTH, myWidth);
     }
-    if (getAttribute(SUMO_ATTR_LENGTH) != myTagProperty.getDefaultValue(SUMO_ATTR_LENGTH)) {
+    if (myLength != myTagProperty->getDefaultDoubleValue(SUMO_ATTR_LENGTH)) {
         device.writeAttr(SUMO_ATTR_LENGTH, myLength);
     }
-    if (getAttribute(SUMO_ATTR_ANGLE) != myTagProperty.getDefaultValue(SUMO_ATTR_ANGLE)) {
-        device.writeAttr(SUMO_ATTR_ANGLE, myAngle);
-    }
-    if (getAttribute(SUMO_ATTR_DEPARTPOS) != myTagProperty.getDefaultValue(SUMO_ATTR_DEPARTPOS)) {
+    if (myDepartPos != myTagProperty->getDefaultStringValue(SUMO_ATTR_DEPARTPOS)) {
         device.writeAttr(SUMO_ATTR_DEPARTPOS, myDepartPos);
+    }
+    if (myLefthand != myTagProperty->getDefaultBoolValue(SUMO_ATTR_LEFTHAND)) {
+        device.writeAttr(SUMO_ATTR_LEFTHAND, myLefthand);
+    }
+    if (getAttribute(SUMO_ATTR_ACCEPTED_BADGES) != myTagProperty->getDefaultStringValue(SUMO_ATTR_ACCEPTED_BADGES)) {
+        device.writeAttr(SUMO_ATTR_ACCEPTED_BADGES, toString(myAcceptedBadges));
     }
     // write all parking spaces
     for (const auto& space : getChildAdditionals()) {
-        if (space->getTagProperty().getTag() == SUMO_TAG_PARKING_SPACE) {
+        if (space->getTagProperty()->getTag() == SUMO_TAG_PARKING_SPACE) {
             space->writeAdditional(device);
         }
     }
@@ -116,19 +99,19 @@ GNEParkingArea::writeAdditional(OutputDevice& device) const {
 void
 GNEParkingArea::updateGeometry() {
     // Get value of option "lefthand"
-    const double offsetSign = OptionsCont::getOptions().getBool("lefthand") ? -1 : 1;
+    const double offsetSign = OptionsCont::getOptions().getBool("lefthand") != myLefthand ? -1 : 1;
     // calculate spaceDim
     const double spaceDim = myRoadSideCapacity > 0 ? (getAttributeDouble(SUMO_ATTR_ENDPOS) - getAttributeDouble(SUMO_ATTR_STARTPOS)) / myRoadSideCapacity * getParentLanes().front()->getLengthGeometryFactor() : 7.5;
     // calculate length
     const double length = (myLength > 0) ? myLength : spaceDim;
     // Update common geometry of stopping place
-    setStoppingPlaceGeometry(myWidth);
+    setStoppingPlaceGeometry((myOnRoad)? 0 : myWidth);
     // Obtain a copy of the shape
     PositionVector tmpShape = myAdditionalGeometry.getShape();
     // Move shape to side
-    tmpShape.move2side(1.5 * offsetSign + myWidth);
+    tmpShape.move2side(offsetSign * (1.5 + myWidth));
     // Get position of the sign
-    mySignPos = tmpShape.getLineCenter();
+    mySymbolPosition = tmpShape.getLineCenter();
     // clear LotSpaceDefinitions
     myLotSpaceDefinitions.clear();
     // iterate over
@@ -145,12 +128,16 @@ GNEParkingArea::updateGeometry() {
 
 void
 GNEParkingArea::drawGL(const GUIVisualizationSettings& s) const {
-    // Obtain exaggeration of the draw
-    const double parkingAreaExaggeration = getExaggeration(s);
     // first check if additional has to be drawn
     if (myNet->getViewNet()->getDataViewOptions().showAdditionals()) {
-        // check exaggeration
-        if (s.drawAdditionals(parkingAreaExaggeration)) {
+        // Obtain exaggeration of the draw
+        const double parkingAreaExaggeration = getExaggeration(s);
+        // check if draw moving geometry points
+        const bool movingGeometryPoints = drawMovingGeometryPoints();
+        // get detail level
+        const auto d = s.getDetailLevel(parkingAreaExaggeration);
+        // draw geometry only if we'rent in drawForObjectUnderCursor mode
+        if (s.checkDrawAdditional(d, isAttributeCarrierSelected())) {
             // declare colors
             RGBColor baseColor, signColor;
             // set colors
@@ -166,74 +153,52 @@ GNEParkingArea::drawGL(const GUIVisualizationSettings& s) const {
             }
             // draw parent and child lines
             drawParentChildLines(s, s.additionalSettings.connectionColor);
-            // Start drawing adding an gl identificator
-            GLHelper::pushName(getGlID());
             // Add a layer matrix
             GLHelper::pushMatrix();
             // translate to front
-            myNet->getViewNet()->drawTranslateFrontAttributeCarrier(this, GLO_PARKING_AREA);
+            drawInLayer(GLO_PARKING_AREA);
             // set base color
             GLHelper::setColor(baseColor);
             // Draw the area using shape, shapeRotations, shapeLengths and value of exaggeration
-            GUIGeometry::drawGeometry(s, myNet->getViewNet()->getPositionInformation(), myAdditionalGeometry, myWidth * 0.5 * MIN2(1.0, parkingAreaExaggeration));
-            // draw detail
-            if (s.drawDetail(s.detailSettings.stoppingPlaceDetails, parkingAreaExaggeration)) {
-                // draw sign
-                drawSign(s, parkingAreaExaggeration, baseColor, signColor, "P");
-                // Traslate to front
-                glTranslated(0, 0, 0.1);
-                // draw lotSpaceDefinitions
+            GUIGeometry::drawGeometry(d, myAdditionalGeometry, myWidth * 0.5 * MIN2(1.0, parkingAreaExaggeration));
+            // draw sign
+            drawSign(s, d, parkingAreaExaggeration, baseColor, signColor, "P");
+            // Traslate to front
+            glTranslated(0, 0, 0.1);
+            // draw lotSpaceDefinitions
+            if (d <= GUIVisualizationSettings::Detail::AdditionalDetails) {
                 for (const auto& lsd : myLotSpaceDefinitions) {
                     GLHelper::drawSpaceOccupancies(parkingAreaExaggeration, lsd.position, lsd.rotation, lsd.width, lsd.length, true);
                 }
             }
             // draw geometry points
-            if (myStartPosition != INVALID_DOUBLE) {
-                drawLeftGeometryPoint(myNet->getViewNet(), myAdditionalGeometry.getShape().front(), myAdditionalGeometry.getShapeRotations().front(), baseColor);
+            if (movingGeometryPoints && (myStartPosOverLane != INVALID_DOUBLE)) {
+                drawLeftGeometryPoint(s, d, myAdditionalGeometry.getShape().front(), myAdditionalGeometry.getShapeRotations().front(), baseColor);
             }
-            if (myEndPosition != INVALID_DOUBLE) {
-                drawRightGeometryPoint(myNet->getViewNet(), myAdditionalGeometry.getShape().back(), myAdditionalGeometry.getShapeRotations().back(), baseColor);
+            if (movingGeometryPoints && (myEndPosPosOverLane != INVALID_DOUBLE)) {
+                drawRightGeometryPoint(s, d, myAdditionalGeometry.getShape().back(), myAdditionalGeometry.getShapeRotations().back(), baseColor);
             }
             // pop layer matrix
             GLHelper::popMatrix();
-            // Pop name
-            GLHelper::popName();
             // draw lock icon
-            GNEViewNetHelper::LockIcon::drawLockIcon(this, getType(), getPositionInView(), parkingAreaExaggeration);
-            // check if mouse is over element
-            mouseWithinGeometry(myAdditionalGeometry.getShape(), myWidth * 0.5 * MIN2(1.0, parkingAreaExaggeration));
-            mouseWithinGeometry(mySignPos, myCircleWidth);
-            // inspect contour
-            if (myNet->getViewNet()->isAttributeCarrierInspected(this)) {
-                GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::INSPECT, myAdditionalGeometry.getShape(), myWidth * 0.5,
-                        parkingAreaExaggeration, true, true);
-            }
-            // front element contour
-            if (myNet->getViewNet()->getFrontAttributeCarrier() == this) {
-                GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::FRONT, myAdditionalGeometry.getShape(), myWidth * 0.5,
-                        parkingAreaExaggeration, true, true);
-            }
-            // delete contour
-            if (myNet->getViewNet()->drawDeleteContour(this, this)) {
-                GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::REMOVE, myAdditionalGeometry.getShape(), myWidth * 0.5,
-                        parkingAreaExaggeration, true, true);
-            }
-            // select contour
-            if (myNet->getViewNet()->drawDeleteContour(this, this)) {
-                GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::SELECT, myAdditionalGeometry.getShape(), myWidth * 0.5,
-                        parkingAreaExaggeration, true, true);
-            }
-            // draw child demand elements
-            for (const auto& demandElement : getChildDemandElements()) {
-                if (!demandElement->getTagProperty().isPlacedInRTree()) {
-                    demandElement->drawGL(s);
-                }
+            GNEViewNetHelper::LockIcon::drawLockIcon(d, this, getType(), getPositionInView(), parkingAreaExaggeration);
+            // Draw additional ID
+            drawAdditionalID(s);
+            // draw additional name
+            drawAdditionalName(s);
+            // draw dotted contours
+            if (movingGeometryPoints) {
+                myAdditionalContour.drawDottedContourGeometryPoints(s, d, this, myAdditionalGeometry.getShape(), s.neteditSizeSettings.additionalGeometryPointRadius,
+                        1, s.dottedContourSettings.segmentWidthSmall);
+            } else {
+                myAdditionalContour.drawDottedContours(s, d, this, s.dottedContourSettings.segmentWidth, true);
+                mySymbolContour.drawDottedContours(s, d, this, s.dottedContourSettings.segmentWidthSmall, true);
             }
         }
-        // Draw additional ID
-        drawAdditionalID(s);
-        // draw additional name
-        drawAdditionalName(s);
+        // draw demand element children
+        drawDemandElementChildren(s);
+        // calculate contours
+        calculateStoppingPlaceContour(s, d, myWidth * 0.5, parkingAreaExaggeration, movingGeometryPoints);
     }
 }
 
@@ -241,28 +206,10 @@ GNEParkingArea::drawGL(const GUIVisualizationSettings& s) const {
 std::string
 GNEParkingArea::getAttribute(SumoXMLAttr key) const {
     switch (key) {
-        case SUMO_ATTR_ID:
-            return getMicrosimID();
-        case SUMO_ATTR_LANE:
-            return getParentLanes().front()->getID();
-        case SUMO_ATTR_STARTPOS:
-            if (myStartPosition != INVALID_DOUBLE) {
-                return toString(myStartPosition);
-            } else {
-                return "";
-            }
-        case SUMO_ATTR_ENDPOS:
-            if (myEndPosition != INVALID_DOUBLE) {
-                return toString(myEndPosition);
-            } else {
-                return "";
-            }
         case SUMO_ATTR_DEPARTPOS:
             return myDepartPos;
-        case SUMO_ATTR_NAME:
-            return myAdditionalName;
-        case SUMO_ATTR_FRIENDLY_POS:
-            return toString(myFriendlyPosition);
+        case SUMO_ATTR_ACCEPTED_BADGES:
+            return joinToString(myAcceptedBadges, " ");
         case SUMO_ATTR_ROADSIDE_CAPACITY:
             return toString(myRoadSideCapacity);
         case SUMO_ATTR_ONROAD:
@@ -271,16 +218,10 @@ GNEParkingArea::getAttribute(SumoXMLAttr key) const {
             return toString(myWidth);
         case SUMO_ATTR_LENGTH:
             return toString(myLength);
-        case SUMO_ATTR_ANGLE:
-            return toString(myAngle);
-        case GNE_ATTR_SELECTED:
-            return toString(isAttributeCarrierSelected());
-        case GNE_ATTR_PARAMETERS:
-            return getParametersStr();
-        case GNE_ATTR_SHIFTLANEINDEX:
-            return "";
+        case SUMO_ATTR_LEFTHAND:
+            return toString(myLefthand);
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return getStoppingPlaceAttribute(key);
     }
 }
 
@@ -288,20 +229,6 @@ GNEParkingArea::getAttribute(SumoXMLAttr key) const {
 double
 GNEParkingArea::getAttributeDouble(SumoXMLAttr key) const {
     switch (key) {
-        case SUMO_ATTR_STARTPOS:
-            if (myStartPosition != INVALID_DOUBLE) {
-                return myStartPosition;
-            } else {
-                return 0;
-            }
-        case SUMO_ATTR_ENDPOS:
-            if (myEndPosition != INVALID_DOUBLE) {
-                return myEndPosition;
-            } else {
-                return getParentLanes().front()->getParentEdge()->getNBEdge()->getFinalLength();
-            }
-        case SUMO_ATTR_CENTER:
-            return ((getAttributeDouble(SUMO_ATTR_ENDPOS) - getAttributeDouble(SUMO_ATTR_STARTPOS)) * 0.5) + getAttributeDouble(SUMO_ATTR_STARTPOS);
         case SUMO_ATTR_WIDTH:
             return myWidth;
         case SUMO_ATTR_LENGTH: {
@@ -309,10 +236,8 @@ GNEParkingArea::getAttributeDouble(SumoXMLAttr key) const {
             const double spaceDim = myRoadSideCapacity > 0 ? (getAttributeDouble(SUMO_ATTR_ENDPOS) - getAttributeDouble(SUMO_ATTR_STARTPOS)) / myRoadSideCapacity * getParentLanes().front()->getLengthGeometryFactor() : 7.5;
             return (myLength > 0) ? myLength : spaceDim;
         }
-        case SUMO_ATTR_ANGLE:
-            return myAngle;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have a double attribute of type '" + toString(key) + "'");
+            return getStoppingPlaceAttributeDouble(key);
     }
 }
 
@@ -320,25 +245,18 @@ GNEParkingArea::getAttributeDouble(SumoXMLAttr key) const {
 void
 GNEParkingArea::setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList) {
     switch (key) {
-        case SUMO_ATTR_ID:
-        case SUMO_ATTR_LANE:
-        case SUMO_ATTR_STARTPOS:
-        case SUMO_ATTR_ENDPOS:
         case SUMO_ATTR_DEPARTPOS:
-        case SUMO_ATTR_NAME:
-        case SUMO_ATTR_FRIENDLY_POS:
+        case SUMO_ATTR_ACCEPTED_BADGES:
         case SUMO_ATTR_ROADSIDE_CAPACITY:
         case SUMO_ATTR_ONROAD:
         case SUMO_ATTR_WIDTH:
         case SUMO_ATTR_LENGTH:
-        case SUMO_ATTR_ANGLE:
-        case GNE_ATTR_SELECTED:
-        case GNE_ATTR_PARAMETERS:
-        case GNE_ATTR_SHIFTLANEINDEX:
-            undoList->changeAttribute(new GNEChange_Attribute(this, key, value));
+        case SUMO_ATTR_LEFTHAND:
+            GNEChange_Attribute::changeAttribute(this, key, value, undoList);
             break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setStoppingPlaceAttribute(key, value, undoList);
+            break;
     }
 }
 
@@ -346,30 +264,6 @@ GNEParkingArea::setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoL
 bool
 GNEParkingArea::isValid(SumoXMLAttr key, const std::string& value) {
     switch (key) {
-        case SUMO_ATTR_ID:
-            return isValidAdditionalID(value);
-        case SUMO_ATTR_LANE:
-            if (myNet->getAttributeCarriers()->retrieveLane(value, false) != nullptr) {
-                return true;
-            } else {
-                return false;
-            }
-        case SUMO_ATTR_STARTPOS:
-            if (value.empty()) {
-                return true;
-            } else if (canParse<double>(value)) {
-                return SUMORouteHandler::isStopPosValid(parse<double>(value), getAttributeDouble(SUMO_ATTR_ENDPOS), getParentLanes().front()->getParentEdge()->getNBEdge()->getFinalLength(), POSITION_EPS, myFriendlyPosition);
-            } else {
-                return false;
-            }
-        case SUMO_ATTR_ENDPOS:
-            if (value.empty()) {
-                return true;
-            } else if (canParse<double>(value)) {
-                return SUMORouteHandler::isStopPosValid(getAttributeDouble(SUMO_ATTR_STARTPOS), parse<double>(value), getParentLanes().front()->getParentEdge()->getNBEdge()->getFinalLength(), POSITION_EPS, myFriendlyPosition);
-            } else {
-                return false;
-            }
         case SUMO_ATTR_DEPARTPOS:
             if (value.empty()) {
                 return true;
@@ -388,10 +282,8 @@ GNEParkingArea::isValid(SumoXMLAttr key, const std::string& value) {
             } else {
                 return false;
             }
-        case SUMO_ATTR_NAME:
-            return SUMOXMLDefinitions::isValidAttribute(value);
-        case SUMO_ATTR_FRIENDLY_POS:
-            return canParse<bool>(value);
+        case SUMO_ATTR_ACCEPTED_BADGES:
+            return true;
         case SUMO_ATTR_ROADSIDE_CAPACITY:
             return canParse<int>(value) && (parse<int>(value) >= 0);
         case SUMO_ATTR_ONROAD:
@@ -404,14 +296,10 @@ GNEParkingArea::isValid(SumoXMLAttr key, const std::string& value) {
             } else {
                 return canParse<double>(value) && (parse<double>(value) > 0);
             }
-        case SUMO_ATTR_ANGLE:
-            return canParse<double>(value);
-        case GNE_ATTR_SELECTED:
+        case SUMO_ATTR_LEFTHAND:
             return canParse<bool>(value);
-        case GNE_ATTR_PARAMETERS:
-            return areParametersValid(value);
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return isStoppingPlaceValid(key, value);
     }
 }
 
@@ -440,47 +328,11 @@ GNEParkingArea::GNELotSpaceDefinition::GNELotSpaceDefinition(double x, double y,
 void
 GNEParkingArea::setAttribute(SumoXMLAttr key, const std::string& value) {
     switch (key) {
-        case SUMO_ATTR_ID:
-            // update microsimID
-            setMicrosimID(value);
-            // Change IDs of all parking Spaces
-            for (const auto& parkingSpace : getChildAdditionals()) {
-                parkingSpace->setMicrosimID(getID());
-            }
-            // enable save demand elements if there are stops
-            for (const auto& stop : getChildDemandElements()) {
-                if (stop->getTagProperty().isStop() || stop->getTagProperty().isStopPerson()) {
-                    myNet->requireSaveDemandElements(true);
-                }
-            }
-            break;
-        case SUMO_ATTR_LANE:
-            replaceAdditionalParentLanes(value);
-            break;
-        case SUMO_ATTR_STARTPOS:
-            if (value == "") {
-                myStartPosition = INVALID_DOUBLE;
-            } else {
-                myStartPosition = parse<double>(value);
-            }
-            updateCenteringBoundary(false);
-            break;
-        case SUMO_ATTR_ENDPOS:
-            if (value == "") {
-                myEndPosition = INVALID_DOUBLE;
-            } else {
-                myEndPosition = parse<double>(value);
-            }
-            updateCenteringBoundary(false);
-            break;
         case SUMO_ATTR_DEPARTPOS:
             myDepartPos = value;
             break;
-        case SUMO_ATTR_NAME:
-            myAdditionalName = value;
-            break;
-        case SUMO_ATTR_FRIENDLY_POS:
-            myFriendlyPosition = parse<bool>(value);
+        case SUMO_ATTR_ACCEPTED_BADGES:
+            myAcceptedBadges = GNEAttributeCarrier::parse<std::vector<std::string> >(value);
             break;
         case SUMO_ATTR_ROADSIDE_CAPACITY:
             myRoadSideCapacity = parse<int>(value);
@@ -511,24 +363,15 @@ GNEParkingArea::setAttribute(SumoXMLAttr key, const std::string& value) {
                 space->updateGeometry();
             }
             break;
-        case SUMO_ATTR_ANGLE:
-            myAngle = parse<double>(value);
-            break;
-        case GNE_ATTR_SELECTED:
-            if (parse<bool>(value)) {
-                selectAttributeCarrier();
-            } else {
-                unselectAttributeCarrier();
+        case SUMO_ATTR_LEFTHAND:
+            myLefthand = parse<bool>(value);
+            if (!isTemplate()) {
+                updateGeometry();
             }
             break;
-        case GNE_ATTR_PARAMETERS:
-            setParametersStr(value);
-            break;
-        case GNE_ATTR_SHIFTLANEINDEX:
-            shiftLaneIndex();
-            break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setStoppingPlaceAttribute(key, value);
+            break;
     }
 }
 

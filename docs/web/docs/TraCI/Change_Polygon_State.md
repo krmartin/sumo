@@ -17,14 +17,14 @@ changed, the parameter which must be given are also shown in the table.
 
 | Variable          | ValueType                             | Description              | [Python Method](../TraCI/Interfacing_TraCI_from_Python.md)                          |
 | ----------------- | ------------------------------------- | ------------------------------------------------- | ----------------------------------------- |
-| type (0x4f)       | string                                | Sets the polygon's type to the given value                                                                   | [setType](https://sumo.dlr.de/pydoc/traci._polygon.html#PolygonDomain-setType)           |
-| color (0x45)      | color (ubyte,ubyte,ubyte,ubyte)       | Sets the polygon's color to the given value (r,g,b,a) - please note that a(lpha) = 0 means fully transparent | [setColor](https://sumo.dlr.de/pydoc/traci._polygon.html#PolygonDomain-setColor)         |
-| shape (0x4e)      | 2D-polygon                            | Sets the polygon's shape to the given value                                                                  | [setShape](https://sumo.dlr.de/pydoc/traci._polygon.html#PolygonDomain-setShape)         |
-| filled (0x55)     | ubyte                                 | Marks that the polygon shall be filled if the value is \!=0.                                                 | [setFilled](https://sumo.dlr.de/pydoc/traci._polygon.html#PolygonDomain-setFilled)       |
-| lineWidth (0x4d)  | double                                | Sets drawing width for unfilled polygon                                                                      | [setLineWidth](https://sumo.dlr.de/pydoc/traci._polygon.html#PolygonDomain-setLineWidth) |
-| ADD (0x80)        | Polygon-definition, see below         | Adds the defined Polygon                                                                                     | [add](https://sumo.dlr.de/pydoc/traci._polygon.html#PolygonDomain-add)                   |
-| REMOVE (0x81)     | int (layer), see below                | Removes the defined Polygon                                                                                  | [remove](https://sumo.dlr.de/pydoc/traci._polygon.html#PolygonDomain-remove)             |
-| addDynamics(0x5c) | polygonDynamics definition, see below | Adds the specified dynamics for the Polygon                                                                  | [addDynamics](https://sumo.dlr.de/pydoc/traci._polygon.html#PolygonDomain-addDynamics)   |
+| type (0x4f)       | string                                | Sets the polygon's type to the given value                                                                   | [setType](https://sumo.dlr.de/pydoc/traci/_polygon.html#PolygonDomain.setType)           |
+| color (0x45)      | color (ubyte,ubyte,ubyte,ubyte)       | Sets the polygon's color to the given value (r,g,b,a) - please note that a(lpha) = 0 means fully transparent | [setColor](https://sumo.dlr.de/pydoc/traci/_polygon.html#PolygonDomain.setColor)         |
+| shape (0x4e)      | 2D-polygon                            | Sets the polygon's shape to the given value                                                                  | [setShape](https://sumo.dlr.de/pydoc/traci/_polygon.html#PolygonDomain.setShape)         |
+| filled (0x55)     | ubyte                                 | Marks that the polygon shall be filled if the value is \!=0.                                                 | [setFilled](https://sumo.dlr.de/pydoc/traci/_polygon.html#PolygonDomain.setFilled)       |
+| lineWidth (0x4d)  | double                                | Sets drawing width for unfilled polygon                                                                      | [setLineWidth](https://sumo.dlr.de/pydoc/traci/_polygon.html#PolygonDomain.setLineWidth) |
+| ADD (0x80)        | Polygon-definition, see below         | Adds the defined Polygon                                                                                     | [add](https://sumo.dlr.de/pydoc/traci/_polygon.html#PolygonDomain.add)                   |
+| REMOVE (0x81)     | int (layer), see below                | Removes the defined Polygon                                                                                  | [remove](https://sumo.dlr.de/pydoc/traci/_polygon.html#PolygonDomain.remove)             |
+| addDynamics(0x5c) | polygonDynamics definition, see below | Adds the specified dynamics for the Polygon                                                                  | [addDynamics](https://sumo.dlr.de/pydoc/traci/_polygon.html#PolygonDomain.addDynamics)   |
 
 The message contents are as following:
 
@@ -44,7 +44,7 @@ The message contents are as following:
 
 |        ubyte         |      ubyte       |     double      |     double      | ... |      double       |      double       |
 | :------------------: | :--------------: | :-------------: | :-------------: | :-: | :---------------: | :---------------: |
-| value type *polygon* | entry number (n) | x-coordinate\#0 | y-ccordinate\#0 | ... | x-coordinate\#n-1 | y-coordinate\#n-1 |
+| value type *polygon* | entry number (n) | x-coordinate\#0 | y-coordinate\#0 | ... | x-coordinate\#n-1 | y-coordinate\#n-1 |
 
 ### filled (0x55)
 
@@ -75,7 +75,7 @@ given ID could be found, an error message is generated.
 
 |         ubyte         |       int       |        ubyte        |                             string                             |          ubyte           |                                      color                                       |          ubyte           |                     ubyte                      |       ubyte        |                        int                        |       ubyte        |                                shape                                 |
 | :-------------------: | :-------------: | :-----------------: | :---------------------: | :----------------------: | :---------------------------: | :----------------------: | :---------------: | :----------------: | :-----------------------: | :----------------: | :------------------: |
-| value type *compound* | item number = 5 | value type *string* | ID of a tracked object (empty string for setting tracking off) | value type *double list* | time line (anchor times for animation, give empty list for stting animation off) | value type *double list* | alpha span (anchor values for alpha animation) | value type *ubyte* | flag indicating whether animation shall be looped | value type *ubyte* | flag indicating whether polygon shall be rotated with tracked object |
+| value type *compound* | item number = 5 | value type *string* | ID of a tracked object (empty string for setting tracking off) | value type *double list* | time line (anchor times for animation, give empty list for setting animation off) | value type *double list* | alpha span (anchor values for alpha animation) | value type *ubyte* | flag indicating whether animation shall be looped | value type *ubyte* | flag indicating whether polygon shall be rotated with tracked object |
 
 For the dynamics, either a tracked object must be specified, inducing
 the polygon to follow the objects movements in the simulation, or the

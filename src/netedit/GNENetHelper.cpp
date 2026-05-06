@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -18,27 +18,90 @@
 // Helper for GNENet
 /****************************************************************************/
 
-#include <netbuild/NBAlgorithms.h>
 #include <netbuild/NBNetBuilder.h>
-#include <netedit/GNENet.h>
-#include <netedit/GNEViewNet.h>
-#include <netedit/GNEViewParent.h>
+#include <netedit/dialogs/basic/GNEQuestionBasicDialog.h>
+#include <netedit/dialogs/GNESaveDialog.h>
+#include <netedit/elements/additional/GNEAccess.h>
+#include <netedit/elements/additional/GNEBusStop.h>
+#include <netedit/elements/additional/GNECalibrator.h>
+#include <netedit/elements/additional/GNECalibratorFlow.h>
+#include <netedit/elements/additional/GNEChargingStation.h>
+#include <netedit/elements/additional/GNEClosingLaneReroute.h>
+#include <netedit/elements/additional/GNEClosingReroute.h>
+#include <netedit/elements/additional/GNEContainerStop.h>
+#include <netedit/elements/additional/GNEDestProbReroute.h>
+#include <netedit/elements/additional/GNEEntryExitDetector.h>
+#include <netedit/elements/additional/GNEInductionLoopDetector.h>
+#include <netedit/elements/additional/GNEInstantInductionLoopDetector.h>
+#include <netedit/elements/additional/GNELaneAreaDetector.h>
+#include <netedit/elements/additional/GNEMultiEntryExitDetector.h>
+#include <netedit/elements/additional/GNEOverheadWire.h>
+#include <netedit/elements/additional/GNEParkingArea.h>
+#include <netedit/elements/additional/GNEParkingAreaReroute.h>
+#include <netedit/elements/additional/GNEParkingSpace.h>
 #include <netedit/elements/additional/GNEPOI.h>
 #include <netedit/elements/additional/GNEPoly.h>
+#include <netedit/elements/additional/GNERerouter.h>
+#include <netedit/elements/additional/GNERerouterInterval.h>
+#include <netedit/elements/additional/GNERerouterSymbol.h>
+#include <netedit/elements/additional/GNERouteProbe.h>
+#include <netedit/elements/additional/GNERouteProbReroute.h>
 #include <netedit/elements/additional/GNETAZ.h>
+#include <netedit/elements/additional/GNETAZSourceSink.h>
+#include <netedit/elements/additional/GNETractionSubstation.h>
+#include <netedit/elements/additional/GNEVaporizer.h>
+#include <netedit/elements/additional/GNEVariableSpeedSign.h>
+#include <netedit/elements/additional/GNEVariableSpeedSignStep.h>
+#include <netedit/elements/additional/GNEVariableSpeedSignSymbol.h>
 #include <netedit/elements/data/GNEDataInterval.h>
+#include <netedit/elements/data/GNEEdgeData.h>
+#include <netedit/elements/data/GNEEdgeRelData.h>
+#include <netedit/elements/data/GNEMeanData.h>
+#include <netedit/elements/data/GNETAZRelData.h>
+#include <netedit/elements/demand/GNEContainer.h>
+#include <netedit/elements/demand/GNEPerson.h>
+#include <netedit/elements/demand/GNEPersonTrip.h>
+#include <netedit/elements/demand/GNERide.h>
+#include <netedit/elements/demand/GNERoute.h>
+#include <netedit/elements/demand/GNERouteDistribution.h>
+#include <netedit/elements/demand/GNERouteRef.h>
+#include <netedit/elements/demand/GNEStop.h>
+#include <netedit/elements/demand/GNEStopPlan.h>
+#include <netedit/elements/demand/GNETranship.h>
+#include <netedit/elements/demand/GNETransport.h>
+#include <netedit/elements/demand/GNEVehicle.h>
 #include <netedit/elements/demand/GNEVType.h>
+#include <netedit/elements/demand/GNEVTypeDistribution.h>
+#include <netedit/elements/demand/GNEVTypeRef.h>
+#include <netedit/elements/demand/GNEWalk.h>
 #include <netedit/elements/network/GNEConnection.h>
 #include <netedit/elements/network/GNECrossing.h>
-#include <netedit/elements/network/GNEWalkingArea.h>
 #include <netedit/elements/network/GNEEdgeTemplate.h>
 #include <netedit/elements/network/GNEEdgeType.h>
+#include <netedit/elements/network/GNEInternalLane.h>
+#include <netedit/elements/network/GNEWalkingArea.h>
 #include <netedit/frames/common/GNEInspectorFrame.h>
+#include <netedit/frames/demand/GNEContainerFrame.h>
+#include <netedit/frames/demand/GNEContainerPlanFrame.h>
+#include <netedit/frames/demand/GNEPersonFrame.h>
 #include <netedit/frames/demand/GNEPersonPlanFrame.h>
+#include <netedit/frames/demand/GNERouteDistributionFrame.h>
+#include <netedit/frames/demand/GNEStopFrame.h>
+#include <netedit/frames/demand/GNETypeDistributionFrame.h>
+#include <netedit/frames/demand/GNETypeFrame.h>
+#include <netedit/frames/demand/GNEVehicleFrame.h>
+#include <netedit/frames/GNEDemandSelector.h>
+#include <netedit/frames/GNEElementTree.h>
 #include <netedit/frames/network/GNECreateEdgeFrame.h>
+#include <netedit/GNEApplicationWindow.h>
+#include <netedit/GNENet.h>
+#include <netedit/GNETagPropertiesDatabase.h>
+#include <netedit/GNEViewNet.h>
+#include <netedit/GNEViewParent.h>
 #include <utils/gui/div/GUIGlobalSelection.h>
 #include <utils/gui/globjects/GUIGlObjectStorage.h>
 #include <utils/options/OptionsCont.h>
+#include <utils/xml/NamespaceIDs.h>
 
 #include "GNENetHelper.h"
 
@@ -50,24 +113,37 @@ GNENetHelper::AttributeCarriers::AttributeCarriers(GNENet* net) :
     myNet(net),
     myStopIndex(0) {
     // fill additionals with tags
-    auto additionalTags = GNEAttributeCarrier::getTagPropertiesByType(GNETagProperties::TagType::ADDITIONALELEMENT |
-                          GNETagProperties::TagType::SHAPE | GNETagProperties::TagType::SYMBOL | GNETagProperties::TagType::TAZELEMENT | GNETagProperties::TagType::WIRE);
-    for (const auto& additionalTag : additionalTags) {
-        myAdditionals.insert(std::make_pair(additionalTag.getTag(), std::set<GNEAdditional*>()));
+    auto additionalTagProperties = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::ADDITIONALELEMENT |
+                                   GNETagProperties::Type::SHAPE | GNETagProperties::Type::TAZELEMENT | GNETagProperties::Type::WIRE);
+    for (const auto& additionalTagProperty : additionalTagProperties) {
+        myAdditionals.insert(std::make_pair(additionalTagProperty->getTag(), std::unordered_map<const GUIGlObject*, GNEAdditional*>()));
+        if (additionalTagProperty->hasAttribute(SUMO_ATTR_ID) || (additionalTagProperty->getTag() == SUMO_TAG_VAPORIZER)) {
+            myAdditionalIDs.insert(std::make_pair(additionalTagProperty->getTag(), std::map<const std::string, GNEAdditional*>()));
+        }
     }
+    myTAZSourceSinks.insert(std::make_pair(SUMO_TAG_TAZSOURCE, std::unordered_map<const GNEAttributeCarrier*, GNETAZSourceSink*>()));
+    myTAZSourceSinks.insert(std::make_pair(SUMO_TAG_TAZSINK, std::unordered_map<const GNEAttributeCarrier*, GNETAZSourceSink*>()));
     // fill demand elements with tags
-    auto demandElementTags = GNEAttributeCarrier::getTagPropertiesByType(GNETagProperties::TagType::DEMANDELEMENT);
-    for (const auto& demandElementTag : demandElementTags) {
-        myDemandElements.insert(std::make_pair(demandElementTag.getTag(), std::set<GNEDemandElement*>()));
+    auto demandElementTagProperties = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::DEMANDELEMENT);
+    for (const auto& demandElementTagProperty : demandElementTagProperties) {
+        myDemandElements.insert(std::make_pair(demandElementTagProperty->getTag(), std::unordered_map<const GUIGlObject*, GNEDemandElement*>()));
+        if (demandElementTagProperty->hasAttribute(SUMO_ATTR_ID)) {
+            myDemandElementIDs.insert(std::make_pair(demandElementTagProperty->getTag(), std::map<const std::string, GNEDemandElement*>()));
+        }
     }
-    auto stopTags = GNEAttributeCarrier::getTagPropertiesByType(GNETagProperties::TagType::STOP);
-    for (const auto& stopTag : stopTags) {
-        myDemandElements.insert(std::make_pair(stopTag.getTag(), std::set<GNEDemandElement*>()));
+    auto stopTagProperties = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::STOP_VEHICLE);
+    for (const auto& stopTagProperty : stopTagProperties) {
+        myDemandElements.insert(std::make_pair(stopTagProperty->getTag(), std::unordered_map<const GUIGlObject*, GNEDemandElement*>()));
     }
     // fill data elements with tags
-    auto genericDataElementTags = GNEAttributeCarrier::getTagPropertiesByType(GNETagProperties::TagType::GENERICDATA);
-    for (const auto& genericDataElementTag : genericDataElementTags) {
-        myGenericDatas.insert(std::make_pair(genericDataElementTag.getTag(), std::set<GNEGenericData*>()));
+    auto genericDataElementTagProperties = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::GENERICDATA);
+    for (const auto& genericDataElementTagProperty : genericDataElementTagProperties) {
+        myGenericDatas.insert(std::make_pair(genericDataElementTagProperty->getTag(), std::unordered_map<const GUIGlObject*, GNEGenericData*>()));
+    }
+    // fill meanDatas with tags
+    auto meanDataTagProperties = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::MEANDATA);
+    for (const auto& meanDataTagProperty : meanDataTagProperties) {
+        myMeanDatas.insert(std::make_pair(meanDataTagProperty->getTag(), std::map<const std::string, GNEMeanData*>()));
     }
 }
 
@@ -76,58 +152,47 @@ GNENetHelper::AttributeCarriers::~AttributeCarriers() {
     // Drop EdgeTypes
     for (const auto& edgeType : myEdgeTypes) {
         edgeType.second->decRef("GNENetHelper::~GNENet");
-        // show extra information for tests
-        WRITE_DEBUG("Deleting unreferenced " + edgeType.second->getTagStr() + " '" + edgeType.second->getID() + "' in AttributeCarriers destructor");
         delete edgeType.second;
     }
     // Drop Edges
     for (const auto& edge : myEdges) {
         edge.second->decRef("GNENetHelper::~GNENet");
-        // show extra information for tests
-        WRITE_DEBUG("Deleting unreferenced " + edge.second->getTagStr() + " '" + edge.second->getID() + "' in AttributeCarriers destructor");
         delete edge.second;
     }
     // Drop myJunctions
     for (const auto& junction : myJunctions) {
         junction.second->decRef("GNENetHelper::~GNENet");
-        // show extra information for tests
-        WRITE_DEBUG("Deleting unreferenced " + junction.second->getTagStr() + " '" + junction.second->getID() + "' in AttributeCarriers destructor");
         delete junction.second;
     }
     // Drop Additionals (Only used for additionals that were inserted without using GNEChange_Additional)
     for (const auto& additionalTag : myAdditionals) {
         for (const auto& additional : additionalTag.second) {
             // decrease reference manually (because it was increased manually in GNEAdditionalHandler)
-            additional->decRef();
-            // show extra information for tests
-            WRITE_DEBUG("Deleting unreferenced " + additional->getTagStr() + " in AttributeCarriers destructor");
-            delete additional;
+            additional.second->decRef();
+            delete additional.second;
         }
     }
     // Drop demand elements (Only used for demand elements that were inserted without using GNEChange_DemandElement, for example the default VType")
     for (const auto& demandElementTag : myDemandElements) {
         for (const auto& demandElement : demandElementTag.second) {
             // decrease reference manually (because it was increased manually in GNERouteHandler)
-            demandElement->decRef();
-            // show extra information for tests
-            if (demandElement->getTagProperty().isVehicleType()) {
-                // special case for default VTypes
-                if (DEFAULT_VTYPES.count(demandElement->getID()) == 0) {
-                    WRITE_DEBUG("Deleting unreferenced " + demandElement->getTagStr() + " in AttributeCarriers destructor");
-                }
-            } else {
-                WRITE_DEBUG("Deleting unreferenced " + demandElement->getTagStr() + " in AttributeCarriers destructor");
-            }
-            delete demandElement;
+            demandElement.second->decRef();
+            delete demandElement.second;
         }
     }
     // Drop dataSets (Only used for TAZElements that were inserted without using GNEChange_DataSets)
     for (const auto& dataSet : myDataSets) {
         // decrease reference manually (because it was increased manually in GNEDataHandler)
-        dataSet->decRef();
-        // show extra information for tests
-        WRITE_DEBUG("Deleting unreferenced " + dataSet->getTagStr() + " in AttributeCarriers destructor");
-        delete dataSet;
+        dataSet.second->decRef();
+        delete dataSet.second;
+    }
+    // Drop MeanDatas (Only used for meanDatas that were inserted without using GNEChange_MeanData)
+    for (const auto& meanDataTag : myMeanDatas) {
+        for (const auto& meanData : meanDataTag.second) {
+            // decrease reference manually (because it was increased manually in GNEMeanDataHandler)
+            meanData.second->decRef();
+            delete meanData.second;
+        }
     }
 }
 
@@ -138,12 +203,12 @@ GNENetHelper::AttributeCarriers::remapJunctionAndEdgeIds() {
     std::map<std::string, GNEJunction*> newJunctionMap;
     // fill newEdgeMap
     for (const auto& edge : myEdges) {
-        edge.second->setMicrosimID(edge.second->getNBEdge()->getID());
+        edge.second->setEdgeID(edge.second->getNBEdge()->getID());
         newEdgeMap[edge.second->getNBEdge()->getID()] = edge.second;
     }
     for (const auto& junction : myJunctions) {
         newJunctionMap[junction.second->getNBNode()->getID()] = junction.second;
-        junction.second->setMicrosimID(junction.second->getNBNode()->getID());
+        junction.second->setNetworkElementID(junction.second->getNBNode()->getID());
     }
     myEdges = newEdgeMap;
     myJunctions = newJunctionMap;
@@ -151,44 +216,62 @@ GNENetHelper::AttributeCarriers::remapJunctionAndEdgeIds() {
 
 
 bool
-GNENetHelper::AttributeCarriers::isNetworkElementAroundShape(GNEAttributeCarrier* AC, const PositionVector& shape) const {
-    // check what tipe of AC
-    if (AC->getTagProperty().getTag() == SUMO_TAG_JUNCTION) {
+GNENetHelper::AttributeCarriers::isNetworkElementAroundTriangle(GNEAttributeCarrier* AC, const Triangle& triangle) const {
+    // check what type of AC
+    if (AC->getTagProperty()->getTag() == SUMO_TAG_JUNCTION) {
         // Junction
         const GNEJunction* junction = myJunctions.at(AC->getID());
         if (junction->getNBNode()->getShape().size() == 0) {
-            return shape.around(junction->getNBNode()->getCenter());
+            return triangle.isPositionWithin(junction->getNBNode()->getCenter());
         } else {
-            return (shape.overlapsWith(junction->getNBNode()->getShape()));
+            return (triangle.intersectWithShape(junction->getNBNode()->getShape()));
         }
-    } else if (AC->getTagProperty().getTag() == SUMO_TAG_EDGE) {
+    } else if (AC->getTagProperty()->getTag() == SUMO_TAG_EDGE) {
         // Edge
-        for (const auto& lane : myEdges.at(AC->getID())->getLanes()) {
-            if (shape.overlapsWith(lane->getLaneShape())) {
+        for (const auto& lane : myEdges.at(AC->getID())->getChildLanes()) {
+            if (triangle.intersectWithShape(lane->getLaneShape())) {
                 return true;
             }
         }
         return false;
-    } else if (AC->getTagProperty().getTag() == SUMO_TAG_LANE) {
+    } else if (AC->getTagProperty()->getTag() == SUMO_TAG_LANE) {
         // Lane
-        return shape.overlapsWith(retrieveLane(AC->getID())->getLaneShape());
-    } else if (AC->getTagProperty().getTag() == SUMO_TAG_CONNECTION) {
+        return triangle.intersectWithShape(retrieveLane(AC->getID())->getLaneShape());
+    } else if (AC->getTagProperty()->getTag() == SUMO_TAG_CONNECTION) {
         // connection
-        return shape.overlapsWith(dynamic_cast<GNEConnection*>(AC)->getConnectionShape());
-    } else if (AC->getTagProperty().getTag() == SUMO_TAG_CROSSING) {
+        return triangle.intersectWithShape(myConnections.at(AC->getGUIGlObject())->getConnectionShape());
+    } else if (AC->getTagProperty()->getTag() == SUMO_TAG_CROSSING) {
         // crossing
-        return shape.overlapsWith(dynamic_cast<GNECrossing*>(AC)->getCrossingShape());
-    } else if (AC->getTagProperty().isAdditionalElement()) {
+        return triangle.intersectWithShape(myCrossings.at(AC->getGUIGlObject())->getCrossingShape());
+    } else if (AC->getTagProperty()->isAdditionalElement()) {
         // Additional (including shapes and TAZs
-        const GNEAdditional* additional = retrieveAdditional(AC);
+        const GNEAdditional* additional = retrieveAdditional(AC->getGUIGlObject());
         if (additional->getAdditionalGeometry().getShape().size() <= 1) {
-            return shape.around(additional->getPositionInView());
+            return triangle.isPositionWithin(additional->getPositionInView());
         } else {
-            return shape.overlapsWith(additional->getAdditionalGeometry().getShape());
+            return triangle.intersectWithShape(additional->getAdditionalGeometry().getShape());
         }
     } else {
         return false;
     }
+}
+
+
+int
+GNENetHelper::AttributeCarriers::getNumberOfNetworkElements() const {
+    return myNumberOfNetworkElements;
+}
+
+
+int
+GNENetHelper::AttributeCarriers::getNumberOfDemandElements() const {
+    return myNumberOfDemandElements;
+}
+
+
+int
+GNENetHelper::AttributeCarriers::getNumberOfDataElements() const {
+    return myNumberOfDataElements;
 }
 
 
@@ -217,53 +300,25 @@ GNENetHelper::AttributeCarriers::retrieveAttributeCarrier(const GUIGlID id, bool
 
 std::vector<GNEAttributeCarrier*>
 GNENetHelper::AttributeCarriers::retrieveAttributeCarriers(SumoXMLTag tag) {
-    std::vector<GNEAttributeCarrier*> result;
-    if ((tag == SUMO_TAG_NOTHING) || (tag == SUMO_TAG_JUNCTION)) {
-        for (const auto& junction : myJunctions) {
-            result.push_back(junction.second);
+    std::vector<GNEAttributeCarrier*> ACs;
+    // first check if we have to return all ACs
+    if (tag == SUMO_TAG_NOTHING) {
+        const auto rootTagProperty = myNet->getTagPropertiesDatabase()->getTagProperty(SUMO_TAG_ROOTFILE, true);
+        ACs.reserve(myNumberOfNetworkElements + myNumberOfDemandElements + myNumberOfDataElements);
+        retrieveAttributeCarriersRecursively(rootTagProperty, ACs);
+    } else {
+        const auto tagProperty = myNet->getTagPropertiesDatabase()->getTagProperty(tag, true);
+        // reserve space
+        if (tagProperty->getSupermode() == Supermode::NETWORK) {
+            ACs.reserve(myNumberOfNetworkElements);
+        } else if (tagProperty->getSupermode() == Supermode::DEMAND) {
+            ACs.reserve(myNumberOfDemandElements);
+        } else if (tagProperty->getSupermode() == Supermode::DATA) {
+            ACs.reserve(myNumberOfDataElements + myNumberOfMeanDataElements);
         }
-    } else if ((tag == SUMO_TAG_NOTHING) || (tag == SUMO_TAG_EDGE)) {
-        for (const auto& edge : myEdges) {
-            result.push_back(edge.second);
-        }
-    } else if ((tag == SUMO_TAG_NOTHING) || (tag == SUMO_TAG_LANE)) {
-        for (const auto& lane : myLanes) {
-            result.push_back(lane);
-        }
-    } else if ((tag == SUMO_TAG_NOTHING) || (tag == SUMO_TAG_CONNECTION)) {
-        for (const auto& connection : myConnections) {
-            result.push_back(connection);
-        }
-    } else if ((tag == SUMO_TAG_NOTHING) || (tag == SUMO_TAG_CROSSING)) {
-        for (const auto& crossing : myCrossings) {
-            result.push_back(crossing);
-        }
-    } else if ((tag == SUMO_TAG_NOTHING) || (tag == SUMO_TAG_WALKINGAREA)) {
-        for (const auto& walkingArea : myWalkingAreas) {
-            result.push_back(walkingArea);
-        }
-    } else if ((tag == SUMO_TAG_NOTHING) || (GNEAttributeCarrier::getTagProperty(tag).isAdditionalElement())) {
-        for (const auto& additional : myAdditionals.at(tag)) {
-            result.push_back(additional);
-        }
-    } else if ((tag == SUMO_TAG_NOTHING) || (GNEAttributeCarrier::getTagProperty(tag).isDemandElement())) {
-        for (const auto& demandElemet : myDemandElements.at(tag)) {
-            result.push_back(demandElemet);
-        }
-    } else if ((tag == SUMO_TAG_NOTHING) || (tag == SUMO_TAG_DATASET)) {
-        for (const auto& dataSet : myDataSets) {
-            result.push_back(dataSet);
-        }
-    } else if ((tag == SUMO_TAG_NOTHING) || (tag == SUMO_TAG_DATAINTERVAL)) {
-        for (const auto& dataInterval : myDataIntervals) {
-            result.push_back(dataInterval);
-        }
-    } else if ((tag == SUMO_TAG_NOTHING) || (GNEAttributeCarrier::getTagProperty(tag).isGenericData())) {
-        for (const auto& genericData : myGenericDatas.at(tag)) {
-            result.push_back(genericData);
-        }
+        retrieveAttributeCarriersRecursively(tagProperty, ACs);
     }
-    return result;
+    return ACs;
 }
 
 
@@ -279,8 +334,8 @@ GNENetHelper::AttributeCarriers::retrieveAttributeCarriers(Supermode supermode, 
             }
         }
         for (const auto& crossing : myCrossings) {
-            if (!onlySelected || crossing->isAttributeCarrierSelected()) {
-                result.push_back(crossing);
+            if (!onlySelected || crossing.second->isAttributeCarrierSelected()) {
+                result.push_back(crossing.second);
             }
         }
         for (const auto& edge : myEdges) {
@@ -289,45 +344,52 @@ GNENetHelper::AttributeCarriers::retrieveAttributeCarriers(Supermode supermode, 
             }
         }
         for (const auto& lane : myLanes) {
-            if (!onlySelected || lane->isAttributeCarrierSelected()) {
-                result.push_back(lane);
+            if (!onlySelected || lane.second->isAttributeCarrierSelected()) {
+                result.push_back(lane.second);
             }
         }
         for (const auto& connection : myConnections) {
-            if (!onlySelected || connection->isAttributeCarrierSelected()) {
-                result.push_back(connection);
+            if (!onlySelected || connection.second->isAttributeCarrierSelected()) {
+                result.push_back(connection.second);
             }
         }
         for (const auto& additionalSet : myAdditionals) {
             for (const auto& additional : additionalSet.second) {
-                if (!onlySelected || additional->isAttributeCarrierSelected()) {
-                    result.push_back(additional);
+                if (!onlySelected || additional.second->isAttributeCarrierSelected()) {
+                    result.push_back(additional.second);
                 }
             }
         }
     } else if (supermode == Supermode::DEMAND) {
         for (const auto& demandElementSet : myDemandElements) {
             for (const auto& demandElement : demandElementSet.second) {
-                if (!onlySelected || demandElement->isAttributeCarrierSelected()) {
-                    result.push_back(demandElement);
+                if (!onlySelected || demandElement.second->isAttributeCarrierSelected()) {
+                    result.push_back(demandElement.second);
                 }
             }
         }
     } else if (supermode == Supermode::DATA) {
         for (const auto& dataSet : myDataSets) {
-            if (!onlySelected || dataSet->isAttributeCarrierSelected()) {
-                result.push_back(dataSet);
+            if (!onlySelected || dataSet.second->isAttributeCarrierSelected()) {
+                result.push_back(dataSet.second);
             }
         }
         for (const auto& dataInterval : myDataIntervals) {
-            if (!onlySelected || dataInterval->isAttributeCarrierSelected()) {
-                result.push_back(dataInterval);
+            if (!onlySelected || dataInterval.second->isAttributeCarrierSelected()) {
+                result.push_back(dataInterval.second);
             }
         }
         for (const auto& genericDataSet : myGenericDatas) {
             for (const auto& genericData : genericDataSet.second) {
-                if (!onlySelected || genericData->isAttributeCarrierSelected()) {
-                    result.push_back(genericData);
+                if (!onlySelected || genericData.second->isAttributeCarrierSelected()) {
+                    result.push_back(genericData.second);
+                }
+            }
+        }
+        for (const auto& meanDataSet : myMeanDatas) {
+            for (const auto& meanData : meanDataSet.second) {
+                if (!onlySelected || meanData.second->isAttributeCarrierSelected()) {
+                    result.push_back(meanData.second);
                 }
             }
         }
@@ -349,17 +411,14 @@ GNENetHelper::AttributeCarriers::getSelectedAttributeCarriers(const bool ignoreC
         GNEAttributeCarrier* AC = retrieveAttributeCarrier(glID, false);
         // check if attribute carrier exist and is selected
         if (AC && AC->isAttributeCarrierSelected()) {
-            bool insert = false;
             if (ignoreCurrentSupermode) {
-                insert = true;
-            } else if (editModes.isCurrentSupermodeNetwork() && (AC->getTagProperty().isNetworkElement() || AC->getTagProperty().isAdditionalElement())) {
-                insert = true;
-            } else if (editModes.isCurrentSupermodeDemand() && AC->getTagProperty().isDemandElement()) {
-                insert = true;
-            } else if (editModes.isCurrentSupermodeData() && AC->getTagProperty().isDataElement()) {
-                insert = true;
-            }
-            if (insert) {
+                result.push_back(AC);
+            } else if (editModes.isCurrentSupermodeNetwork() && (AC->getTagProperty()->isNetworkElement() ||
+                       AC->getTagProperty()->isAdditionalElement())) {
+                result.push_back(AC);
+            } else if (editModes.isCurrentSupermodeDemand() && AC->getTagProperty()->isDemandElement()) {
+                result.push_back(AC);
+            } else if (editModes.isCurrentSupermodeData() && AC->getTagProperty()->isDataElement()) {
                 result.push_back(AC);
             }
         }
@@ -370,11 +429,13 @@ GNENetHelper::AttributeCarriers::getSelectedAttributeCarriers(const bool ignoreC
 
 GNEJunction*
 GNENetHelper::AttributeCarriers::retrieveJunction(const std::string& id, bool hardFail) const {
-    if (myJunctions.count(id)) {
-        return myJunctions.at(id);
-    } else if (hardFail) {
+    auto it = myJunctions.find(id);
+    if (it != myJunctions.end()) {
+        return it->second;
+    }
+    if (hardFail) {
         // If junction wasn't found, throw exception
-        throw UnknownElement("Junction " + id);
+        throw UnknownElement("Attempted to retrieve non-existant junction " + id);
     } else {
         return nullptr;
     }
@@ -406,6 +467,7 @@ GNENetHelper::AttributeCarriers::registerJunction(GNEJunction* junction) {
     junction->incRef("GNENet::registerJunction");
     junction->setResponsible(false);
     myJunctions[junction->getMicrosimID()] = junction;
+    myNumberOfNetworkElements++;
     // expand net boundary
     myNet->expandBoundary(junction->getCenteringBoundary());
     // add edge into grid
@@ -425,6 +487,22 @@ GNENetHelper::AttributeCarriers::clearJunctions() {
 
 
 void
+GNENetHelper::AttributeCarriers::addPrefixToJunctions(const std::string& prefix) {
+    // make a copy of junctions
+    auto junctionCopy = myJunctions;
+    // clear junctions
+    myJunctions.clear();
+    // fill junctions again
+    for (const auto& junction : junctionCopy) {
+        // update microsim ID
+        junction.second->setNetworkElementID(prefix + junction.first);
+        // insert in myJunctions again
+        myJunctions[prefix + junction.first] = junction.second;
+    }
+}
+
+
+void
 GNENetHelper::AttributeCarriers::updateJunctionID(GNEJunction* junction, const std::string& newID) {
     if (myJunctions.count(junction->getID()) == 0) {
         throw ProcessError(junction->getTagStr() + " with ID='" + junction->getID() + "' doesn't exist in AttributeCarriers.junction");
@@ -436,13 +514,13 @@ GNENetHelper::AttributeCarriers::updateJunctionID(GNEJunction* junction, const s
         // rename in NetBuilder
         myNet->getNetBuilder()->getNodeCont().rename(junction->getNBNode(), newID);
         // update microsim ID
-        junction->setMicrosimID(newID);
+        junction->setNetworkElementID(newID);
         // add it into myJunctions again
         myJunctions[junction->getID()] = junction;
         // build crossings
         junction->getNBNode()->buildCrossings();
         // net has to be saved
-        myNet->requireSaveNet(true);
+        myNet->getSavingStatus()->requireSaveNetwork();
     }
 }
 
@@ -460,20 +538,21 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedJunctions() const {
 
 
 GNECrossing*
-GNENetHelper::AttributeCarriers::retrieveCrossing(GNEAttributeCarrier* AC, bool hardFail) const {
-    // cast crossing
-    GNECrossing* crossing = dynamic_cast<GNECrossing*>(AC);
-    if (crossing && (myCrossings.count(crossing) > 0)) {
-        return crossing;
-    } else if (hardFail) {
-        throw UnknownElement("Crossing " + AC->getID());
+GNENetHelper::AttributeCarriers::retrieveCrossing(const GUIGlObject* glObject, bool hardFail) const {
+    auto it = myCrossings.find(glObject);
+    if (it != myCrossings.end()) {
+        return it->second;
+    }
+    if (hardFail) {
+        // If junction wasn't found, throw exception
+        throw UnknownElement("Attempted to retrieve non-existant crossing " + glObject->getMicrosimID());
     } else {
         return nullptr;
     }
 }
 
 
-const std::set<GNECrossing*>&
+const std::unordered_map<const GUIGlObject*, GNECrossing*>&
 GNENetHelper::AttributeCarriers::getCrossings() const {
     return myCrossings;
 }
@@ -484,30 +563,11 @@ GNENetHelper::AttributeCarriers::getSelectedCrossings() const {
     std::vector<GNECrossing*> result;
     // iterate over crossings
     for (const auto& crossing : myCrossings) {
-        if (crossing->isAttributeCarrierSelected()) {
-            result.push_back(crossing);
+        if (crossing.second->isAttributeCarrierSelected()) {
+            result.push_back(crossing.second);
         }
     }
     return result;
-}
-
-
-void
-GNENetHelper::AttributeCarriers::insertCrossing(GNECrossing* crossing) {
-    if (myCrossings.insert(crossing).second == false) {
-        throw ProcessError(crossing->getTagStr() + " with ID='" + crossing->getID() + "' already exist");
-    }
-}
-
-
-void
-GNENetHelper::AttributeCarriers::deleteCrossing(GNECrossing* crossing) {
-    const auto finder = myCrossings.find(crossing);
-    if (finder == myCrossings.end()) {
-        throw ProcessError(crossing->getTagStr() + " with ID='" + crossing->getID() + "' wasn't previously inserted");
-    } else {
-        myCrossings.erase(finder);
-    }
 }
 
 
@@ -515,7 +575,7 @@ int
 GNENetHelper::AttributeCarriers::getNumberOfSelectedCrossings() const {
     int counter = 0;
     for (const auto& crossing : myCrossings) {
-        if (crossing->isAttributeCarrierSelected()) {
+        if (crossing.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
@@ -524,20 +584,21 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedCrossings() const {
 
 
 GNEWalkingArea*
-GNENetHelper::AttributeCarriers::retrieveWalkingArea(GNEAttributeCarrier* AC, bool hardFail) const {
-    // cast walkingArea
-    GNEWalkingArea* walkingArea = dynamic_cast<GNEWalkingArea*>(AC);
-    if (walkingArea && (myWalkingAreas.count(walkingArea) > 0)) {
-        return walkingArea;
-    } else if (hardFail) {
-        throw UnknownElement("WalkingArea " + AC->getID());
+GNENetHelper::AttributeCarriers::retrieveWalkingArea(const GUIGlObject* glObject, bool hardFail) const {
+    auto it = myWalkingAreas.find(glObject);
+    if (it != myWalkingAreas.end()) {
+        return it->second;
+    }
+    if (hardFail) {
+        // If junction wasn't found, throw exception
+        throw UnknownElement("Attempted to retrieve non-existant walkingArea " + glObject->getMicrosimID());
     } else {
         return nullptr;
     }
 }
 
 
-const std::set<GNEWalkingArea*>&
+const std::unordered_map<const GUIGlObject*, GNEWalkingArea*>&
 GNENetHelper::AttributeCarriers::getWalkingAreas() const {
     return myWalkingAreas;
 }
@@ -548,30 +609,11 @@ GNENetHelper::AttributeCarriers::getSelectedWalkingAreas() const {
     std::vector<GNEWalkingArea*> result;
     // iterate over walkingAreas
     for (const auto& walkingArea : myWalkingAreas) {
-        if (walkingArea->isAttributeCarrierSelected()) {
-            result.push_back(walkingArea);
+        if (walkingArea.second->isAttributeCarrierSelected()) {
+            result.push_back(walkingArea.second);
         }
     }
     return result;
-}
-
-
-void
-GNENetHelper::AttributeCarriers::insertWalkingArea(GNEWalkingArea* walkingArea) {
-    if (myWalkingAreas.insert(walkingArea).second == false) {
-        throw ProcessError(walkingArea->getTagStr() + " with ID='" + walkingArea->getID() + "' already exist");
-    }
-}
-
-
-void
-GNENetHelper::AttributeCarriers::deleteWalkingArea(GNEWalkingArea* walkingArea) {
-    const auto finder = myWalkingAreas.find(walkingArea);
-    if (finder == myWalkingAreas.end()) {
-        throw ProcessError(walkingArea->getTagStr() + " with ID='" + walkingArea->getID() + "' wasn't previously inserted");
-    } else {
-        myWalkingAreas.erase(finder);
-    }
 }
 
 
@@ -579,7 +621,7 @@ int
 GNENetHelper::AttributeCarriers::getNumberOfSelectedWalkingAreas() const {
     int counter = 0;
     for (const auto& walkingArea : myWalkingAreas) {
-        if (walkingArea->isAttributeCarrierSelected()) {
+        if (walkingArea.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
@@ -593,7 +635,7 @@ GNENetHelper::AttributeCarriers::retrieveEdgeType(const std::string& id, bool ha
         return myEdgeTypes.at(id);
     } else if (hardFail) {
         // If edge wasn't found, throw exception
-        throw UnknownElement("EdgeType " + id);
+        throw UnknownElement("Attempted to retrieve non-existant EdgeType " + id);
     } else {
         return nullptr;
     }
@@ -633,11 +675,11 @@ GNENetHelper::AttributeCarriers::updateEdgeTypeID(GNEEdgeType* edgeType, const s
         // rename in typeCont
         myNet->getNetBuilder()->getTypeCont().updateEdgeTypeID(edgeType->getID(), newID);
         // update microsim ID
-        edgeType->setMicrosimID(newID);
+        edgeType->setNetworkElementID(newID);
         // add it into myEdgeTypes again
         myEdgeTypes[edgeType->getID()] = edgeType;
         // net has to be saved
-        myNet->requireSaveNet(true);
+        myNet->getSavingStatus()->requireSaveNetwork();
     }
 }
 
@@ -654,34 +696,32 @@ GNENetHelper::AttributeCarriers::generateEdgeTypeID() const {
 
 GNEEdge*
 GNENetHelper::AttributeCarriers::retrieveEdge(const std::string& id, bool hardFail) const {
-    if (myEdges.count(id) > 0) {
-        return myEdges.at(id);
-    } else if (hardFail) {
+    auto it = myEdges.find(id);
+    if (it != myEdges.end()) {
+        return it->second;
+    }
+    if (hardFail) {
         // If edge wasn't found, throw exception
-        throw UnknownElement("Edge " + id);
+        throw UnknownElement("Attempted to retrieve non-existant edge " + id);
     } else {
         return nullptr;
     }
 }
 
 
-GNEEdge*
-GNENetHelper::AttributeCarriers::retrieveEdge(GNEJunction* from, GNEJunction* to, bool hardFail) const {
+std::vector<GNEEdge*>
+GNENetHelper::AttributeCarriers::retrieveEdges(GNEJunction* from, GNEJunction* to) const {
     if ((from == nullptr) || (to == nullptr)) {
         throw UnknownElement("Junctions cannot be nullptr");
     }
-    // iterate over Junctions
-    for (const auto& edge : myEdges) {
-        if ((edge.second->getFromJunction() == from) && (edge.second->getToJunction() == to)) {
-            return edge.second;
+    std::vector<GNEEdge*> edges;
+    // iterate over outgoing edges of from edge and check to junction
+    for (const auto& edgeTo : from->getGNEOutgoingEdges()) {
+        if (edgeTo->getToJunction() == to) {
+            edges.push_back(edgeTo);
         }
     }
-    // if edge wasn't found, throw exception or return nullptr
-    if (hardFail) {
-        throw UnknownElement("Edge with from='" + from->getID() + "' and to='" + to->getID() + "'");
-    } else {
-        return nullptr;
-    }
+    return edges;
 }
 
 
@@ -710,23 +750,58 @@ GNENetHelper::AttributeCarriers::registerEdge(GNEEdge* edge) {
     edge->setResponsible(false);
     // add edge to internal container of GNENet
     myEdges[edge->getMicrosimID()] = edge;
-    // expand edge boundary
-    myNet->expandBoundary(edge->getCenteringBoundary());
-    // add edge into grid
-    myNet->addGLObjectIntoGrid(edge);
+    myNumberOfNetworkElements++;
     // insert all lanes
-    for (const auto& lane : edge->getLanes()) {
+    for (const auto& lane : edge->getChildLanes()) {
         insertLane(lane);
     }
     // Add references into GNEJunctions
     edge->getFromJunction()->addOutgoingGNEEdge(edge);
     edge->getToJunction()->addIncomingGNEEdge(edge);
+    // update boundaries of both junctions (to remove it from Grid)
+    edge->getFromJunction()->updateCenteringBoundary(true);
+    edge->getToJunction()->updateCenteringBoundary(true);
+    // update edge boundary
+    edge->updateCenteringBoundary(false);
+    // expand edge boundary
+    myNet->expandBoundary(edge->getCenteringBoundary());
+    // finally add edge into grid
+    myNet->addGLObjectIntoGrid(edge);
     return edge;
 }
 
 
-void GNENetHelper::AttributeCarriers::clearEdges() {
+void
+GNENetHelper::AttributeCarriers::clearEdges() {
     myEdges.clear();
+}
+
+
+void
+GNENetHelper::AttributeCarriers::addPrefixToEdges(const std::string& prefix) {
+    // make a copy of edges
+    auto edgeCopy = myEdges;
+    // clear edges
+    myEdges.clear();
+    // fill edges again
+    for (const auto& edge : edgeCopy) {
+        // update microsim ID
+        edge.second->setNetworkElementID(prefix + edge.first);
+        // insert in myEdges again
+        myEdges[prefix + edge.first] = edge.second;
+    }
+}
+
+
+std::string
+GNENetHelper::AttributeCarriers::generateEdgeID() const {
+    // get edge prefix
+    const std::string edgePrefix = OptionsCont::getOptions().getString("prefix") + OptionsCont::getOptions().getString("edge-prefix");
+    // generate new ID
+    while (myEdges.count(edgePrefix + toString(myNet->getEdgeIDCounter())) != 0) {
+        myNet->getEdgeIDCounter()++;
+    }
+    return edgePrefix + toString(myNet->getEdgeIDCounter());
 }
 
 
@@ -742,15 +817,15 @@ GNENetHelper::AttributeCarriers::updateEdgeID(GNEEdge* edge, const std::string& 
         // rename in NetBuilder
         myNet->getNetBuilder()->getEdgeCont().rename(edge->getNBEdge(), newID);
         // update microsim ID
-        edge->setMicrosimID(newID);
+        edge->setEdgeID(newID);
         // add it into myEdges again
         myEdges[edge->getID()] = edge;
         // rename all connections related to this edge
-        for (const auto& lane : edge->getLanes()) {
+        for (const auto& lane : edge->getChildLanes()) {
             lane->updateConnectionIDs();
         }
         // net has to be saved
-        myNet->requireSaveNet(true);
+        myNet->getSavingStatus()->requireSaveNetwork();
     }
 }
 
@@ -774,7 +849,7 @@ GNENetHelper::AttributeCarriers::retrieveLane(const std::string& id, bool hardFa
     if (edge != nullptr) {
         GNELane* lane = nullptr;
         // search  lane in lane's edges
-        for (auto laneIt : edge->getLanes()) {
+        for (auto laneIt : edge->getChildLanes()) {
             if (laneIt->getID() == id) {
                 lane = laneIt;
             }
@@ -788,8 +863,8 @@ GNENetHelper::AttributeCarriers::retrieveLane(const std::string& id, bool hardFa
         } else {
             // check if the recomputing with volatile option has changed the number of lanes (needed for additionals and demand elements)
             if (checkVolatileChange && (myNet->getEdgesAndNumberOfLanes().count(edge_id) == 1) &&
-                    myNet->getEdgesAndNumberOfLanes().at(edge_id) != (int)edge->getLanes().size()) {
-                return edge->getLanes().at(lane->getIndex() + 1);
+                    myNet->getEdgesAndNumberOfLanes().at(edge_id) != (int)edge->getChildLanes().size()) {
+                return edge->getChildLanes().at(lane->getIndex() + 1);
             }
             return lane;
         }
@@ -802,20 +877,21 @@ GNENetHelper::AttributeCarriers::retrieveLane(const std::string& id, bool hardFa
 
 
 GNELane*
-GNENetHelper::AttributeCarriers::retrieveLane(GNEAttributeCarrier* AC, bool hardFail) const {
-    // cast lane
-    GNELane* lane = dynamic_cast<GNELane*>(AC);
-    if (lane && (myLanes.count(lane) > 0)) {
-        return lane;
-    } else if (hardFail) {
-        throw UnknownElement("Lane " + AC->getID());
+GNENetHelper::AttributeCarriers::retrieveLane(const GUIGlObject* glObject, bool hardFail) const {
+    auto it = myLanes.find(glObject);
+    if (it != myLanes.end()) {
+        return it->second;
+    }
+    if (hardFail) {
+        // If junction wasn't found, throw exception
+        throw UnknownElement("Attempted to retrieve non-existant lane " + glObject->getMicrosimID());
     } else {
         return nullptr;
     }
 }
 
 
-const std::set<GNELane*>&
+const std::unordered_map<const GUIGlObject*, GNELane*>&
 GNENetHelper::AttributeCarriers::getLanes() const {
     return myLanes;
 }
@@ -826,30 +902,11 @@ GNENetHelper::AttributeCarriers::getSelectedLanes() const {
     std::vector<GNELane*> result;
     // returns lanes depending of selection
     for (const auto& lane : myLanes) {
-        if (lane->isAttributeCarrierSelected()) {
-            result.push_back(lane);
+        if (lane.second->isAttributeCarrierSelected()) {
+            result.push_back(lane.second);
         }
     }
     return result;
-}
-
-
-void
-GNENetHelper::AttributeCarriers::insertLane(GNELane* lane) {
-    if (myLanes.insert(lane).second == false) {
-        throw ProcessError(lane->getTagStr() + " with ID='" + lane->getID() + "' already exist");
-    }
-}
-
-
-void
-GNENetHelper::AttributeCarriers::deleteLane(GNELane* lane) {
-    const auto finder = myLanes.find(lane);
-    if (finder == myLanes.end()) {
-        throw ProcessError(lane->getTagStr() + " with ID='" + lane->getID() + "' wasn't previously inserted");
-    } else {
-        myLanes.erase(finder);
-    }
 }
 
 
@@ -857,7 +914,7 @@ int
 GNENetHelper::AttributeCarriers::getNumberOfSelectedLanes() const {
     int counter = 0;
     for (const auto& lane : myLanes) {
-        if (lane->isAttributeCarrierSelected()) {
+        if (lane.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
@@ -869,13 +926,13 @@ GNEConnection*
 GNENetHelper::AttributeCarriers::retrieveConnection(const std::string& id, bool hardFail) const {
     // iterate over connections
     for (const auto& connection : myConnections) {
-        if (connection->getID() == id) {
-            return connection;
+        if (connection.second->getID() == id) {
+            return connection.second;
         }
     }
     if (hardFail) {
         // If POI wasn't found, throw exception
-        throw UnknownElement("Connection " + id);
+        throw UnknownElement("Attempted to retrieve non-existant connection " + id);
     } else {
         return nullptr;
     }
@@ -883,20 +940,21 @@ GNENetHelper::AttributeCarriers::retrieveConnection(const std::string& id, bool 
 
 
 GNEConnection*
-GNENetHelper::AttributeCarriers::retrieveConnection(GNEAttributeCarrier* AC, bool hardFail) const {
-    // cast connection
-    GNEConnection* connection = dynamic_cast<GNEConnection*>(AC);
-    if (connection && (myConnections.count(connection) > 0)) {
-        return connection;
-    } else if (hardFail) {
-        throw UnknownElement("Connection " + AC->getID());
+GNENetHelper::AttributeCarriers::retrieveConnection(const GUIGlObject* glObject, bool hardFail) const {
+    auto it = myConnections.find(glObject);
+    if (it != myConnections.end()) {
+        return it->second;
+    }
+    if (hardFail) {
+        // If POI wasn't found, throw exception
+        throw UnknownElement("Attempted to retrieve non-existant connection " + glObject->getMicrosimID());
     } else {
         return nullptr;
     }
 }
 
 
-const std::set<GNEConnection*>&
+const std::unordered_map<const GUIGlObject*, GNEConnection*>&
 GNENetHelper::AttributeCarriers::getConnections() const {
     return myConnections;
 }
@@ -907,30 +965,11 @@ GNENetHelper::AttributeCarriers::getSelectedConnections() const {
     std::vector<GNEConnection*> result;
     // returns connections depending of selection
     for (const auto& connection : myConnections) {
-        if (connection->isAttributeCarrierSelected()) {
-            result.push_back(connection);
+        if (connection.second->isAttributeCarrierSelected()) {
+            result.push_back(connection.second);
         }
     }
     return result;
-}
-
-
-void
-GNENetHelper::AttributeCarriers::insertConnection(GNEConnection* connection) {
-    if (myConnections.insert(connection).second == false) {
-        throw ProcessError(connection->getTagStr() + " with ID='" + connection->getID() + "' already exist");
-    }
-}
-
-
-void
-GNENetHelper::AttributeCarriers::deleteConnection(GNEConnection* connection) {
-    const auto finder = myConnections.find(connection);
-    if (finder == myConnections.end()) {
-        throw ProcessError(connection->getTagStr() + " with ID='" + connection->getID() + "' wasn't previously inserted");
-    } else {
-        myConnections.erase(finder);
-    }
 }
 
 
@@ -938,7 +977,7 @@ int
 GNENetHelper::AttributeCarriers::getNumberOfSelectedConnections() const {
     int counter = 0;
     for (const auto& connection : myConnections) {
-        if (connection->isAttributeCarrierSelected()) {
+        if (connection.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
@@ -946,11 +985,41 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedConnections() const {
 }
 
 
+GNEInternalLane*
+GNENetHelper::AttributeCarriers::retrieveInternalLane(const GUIGlObject* glObject, bool hardFail) const {
+    auto it = myInternalLanes.find(glObject);
+    if (it != myInternalLanes.end()) {
+        return it->second;
+    }
+    if (hardFail) {
+        // If POI wasn't found, throw exception
+        throw UnknownElement("Attempted to retrieve non-existant internalLane " + glObject->getMicrosimID());
+    } else {
+        return nullptr;
+    }
+}
+
+
 GNEAdditional*
 GNENetHelper::AttributeCarriers::retrieveAdditional(SumoXMLTag type, const std::string& id, bool hardFail) const {
-    for (const auto& additional : myAdditionals.at(type)) {
-        if (additional->getID() == id) {
-            return additional;
+    auto it = myAdditionalIDs.at(type).find(id);
+    if (it != myAdditionalIDs.at(type).end()) {
+        return it->second;
+    }
+    if (hardFail) {
+        throw ProcessError("Attempted to retrieve non-existant additional (string)");
+    } else {
+        return nullptr;
+    }
+}
+
+
+GNEAdditional*
+GNENetHelper::AttributeCarriers::retrieveAdditionals(const std::vector<SumoXMLTag> types, const std::string& id, bool hardFail) const {
+    for (const auto& type : types) {
+        auto it = myAdditionalIDs.at(type).find(id);
+        if (it != myAdditionalIDs.at(type).end()) {
+            return it->second;
         }
     }
     if (hardFail) {
@@ -962,13 +1031,16 @@ GNENetHelper::AttributeCarriers::retrieveAdditional(SumoXMLTag type, const std::
 
 
 GNEAdditional*
-GNENetHelper::AttributeCarriers::retrieveAdditional(GNEAttributeCarrier* AC, bool hardFail) const {
-    // cast additional
-    GNEAdditional* additional = dynamic_cast<GNEAdditional*>(AC);
-    if (additional && (myAdditionals.at(AC->getTagProperty().getTag()).count(additional) > 0)) {
-        return additional;
-    } else if (hardFail) {
-        throw ProcessError("Attempted to retrieve non-existant additional (AttributeCarrier)");
+GNENetHelper::AttributeCarriers::retrieveAdditional(const GUIGlObject* glObject, bool hardFail) const {
+    // iterate over all additionals
+    for (const auto& additionalTag : myAdditionals) {
+        auto it = additionalTag.second.find(glObject);
+        if (it != additionalTag.second.end()) {
+            return it->second;
+        }
+    }
+    if (hardFail) {
+        throw ProcessError("Attempted to retrieve non-existant additional (glObject)");
     } else {
         return nullptr;
     }
@@ -985,7 +1057,7 @@ GNENetHelper::AttributeCarriers::retrieveRerouterInterval(const std::string& rer
     // now iterate over all children and check begin and end
     for (const auto& interval : rerouter->getChildAdditionals()) {
         // check tag (to avoid symbols)
-        if (interval->getTagProperty().getTag() == SUMO_TAG_INTERVAL) {
+        if (interval->getTagProperty()->getTag() == SUMO_TAG_INTERVAL) {
             // check begin and end
             if ((interval->getAttribute(SUMO_ATTR_BEGIN) == beginStr) &&
                     (interval->getAttribute(SUMO_ATTR_END) == endStr)) {
@@ -998,7 +1070,7 @@ GNENetHelper::AttributeCarriers::retrieveRerouterInterval(const std::string& rer
 }
 
 
-const std::map<SumoXMLTag, std::set<GNEAdditional*> >&
+const std::unordered_map<SumoXMLTag, std::unordered_map<const GUIGlObject*, GNEAdditional*>, std::hash<int> >&
 GNENetHelper::AttributeCarriers::getAdditionals() const {
     return myAdditionals;
 }
@@ -1010,8 +1082,8 @@ GNENetHelper::AttributeCarriers::getSelectedAdditionals() const {
     // returns additionals depending of selection
     for (const auto& additionalsTags : myAdditionals) {
         for (const auto& additional : additionalsTags.second) {
-            if (additional->isAttributeCarrierSelected()) {
-                result.push_back(additional);
+            if (additional.second->isAttributeCarrierSelected()) {
+                result.push_back(additional.second);
             }
         }
     }
@@ -1025,8 +1097,8 @@ GNENetHelper::AttributeCarriers::getSelectedShapes() const {
     // returns additionals depending of selection
     for (const auto& additionalsTags : myAdditionals) {
         for (const auto& additional : additionalsTags.second) {
-            if (additional->getTagProperty().isShapeElement() && additional->isAttributeCarrierSelected()) {
-                result.push_back(additional);
+            if (additional.second->getTagProperty()->isShapeElement() && additional.second->isAttributeCarrierSelected()) {
+                result.push_back(additional.second);
             }
         }
     }
@@ -1049,12 +1121,31 @@ GNENetHelper::AttributeCarriers::clearAdditionals() {
     // clear elements in grid
     for (const auto& additionalsTags : myAdditionals) {
         for (const auto& additional : additionalsTags.second) {
-            myNet->removeGLObjectFromGrid(additional);
+            myNet->removeGLObjectFromGrid(additional.second);
         }
     }
     // iterate over myAdditionals and clear all additionals
     for (auto& additionals : myAdditionals) {
         additionals.second.clear();
+    }
+    for (auto& additionals : myAdditionalIDs) {
+        additionals.second.clear();
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::updateAdditionalID(GNEAdditional* additional, const std::string& newID) {
+    const auto tag = additional->getTagProperty()->getTag();
+    const auto it = myAdditionalIDs.at(tag).find(additional->getID());
+    if (it == myAdditionalIDs.at(tag).end()) {
+        throw ProcessError(additional->getTagStr() + " with ID='" + additional->getID() + "' doesn't exist in AttributeCarriers.additionals");
+    } else {
+        // remove from container, set new Id, and insert it again
+        myAdditionalIDs.at(tag).erase(it);
+        // set microsim ID
+        additional->setMicrosimID(newID);
+        myAdditionalIDs.at(tag)[newID] = additional;
     }
 }
 
@@ -1062,68 +1153,70 @@ GNENetHelper::AttributeCarriers::clearAdditionals() {
 std::string
 GNENetHelper::AttributeCarriers::generateAdditionalID(SumoXMLTag tag) const {
     // obtain option container
-    OptionsCont& oc = OptionsCont::getOptions();
+    const auto& neteditOptions = OptionsCont::getOptions();
     // get prefix
     std::string prefix;
     if (tag == SUMO_TAG_BUS_STOP) {
-        prefix = oc.getString("busStop-prefix");
+        prefix = neteditOptions.getString("busStop-prefix");
     } else if (tag == SUMO_TAG_TRAIN_STOP) {
-        prefix = oc.getString("trainStop-prefix");
+        prefix = neteditOptions.getString("trainStop-prefix");
     } else if (tag == SUMO_TAG_CONTAINER_STOP) {
-        prefix = oc.getString("containerStop-prefix");
+        prefix = neteditOptions.getString("containerStop-prefix");
     } else if (tag == SUMO_TAG_CHARGING_STATION) {
-        prefix = oc.getString("chargingStation-prefix");
+        prefix = neteditOptions.getString("chargingStation-prefix");
     } else if (tag == SUMO_TAG_PARKING_AREA) {
-        prefix = oc.getString("parkingArea-prefix");
+        prefix = neteditOptions.getString("parkingArea-prefix");
     } else if (tag == SUMO_TAG_INDUCTION_LOOP) {
-        prefix = oc.getString("e1Detector-prefix");
+        prefix = neteditOptions.getString("e1Detector-prefix");
     } else if ((tag == SUMO_TAG_LANE_AREA_DETECTOR) || (tag == GNE_TAG_MULTI_LANE_AREA_DETECTOR)) {
-        prefix = oc.getString("e2Detector-prefix");
+        prefix = neteditOptions.getString("e2Detector-prefix");
     } else if (tag == SUMO_TAG_ENTRY_EXIT_DETECTOR) {
-        prefix = oc.getString("e3Detector-prefix");
+        prefix = neteditOptions.getString("e3Detector-prefix");
     } else if (tag == SUMO_TAG_INSTANT_INDUCTION_LOOP) {
-        prefix = oc.getString("e1InstantDetector-prefix");
+        prefix = neteditOptions.getString("e1InstantDetector-prefix");
     } else if (tag == SUMO_TAG_REROUTER) {
-        prefix = oc.getString("rerouter-prefix");
+        prefix = neteditOptions.getString("rerouter-prefix");
     } else if ((tag == SUMO_TAG_CALIBRATOR) || (tag == GNE_TAG_CALIBRATOR_LANE)) {
-        prefix = oc.getString("calibrator-prefix");
+        prefix = neteditOptions.getString("calibrator-prefix");
     } else if (tag == SUMO_TAG_ROUTEPROBE) {
-        prefix = oc.getString("routeProbe-prefix");
+        prefix = neteditOptions.getString("routeProbe-prefix");
     } else if (tag == SUMO_TAG_VSS) {
-        prefix = oc.getString("vss-prefix");
+        prefix = neteditOptions.getString("vss-prefix");
     } else if (tag == SUMO_TAG_TRACTION_SUBSTATION) {
-        prefix = oc.getString("tractionSubstation-prefix");
+        prefix = neteditOptions.getString("tractionSubstation-prefix");
     } else if (tag == SUMO_TAG_OVERHEAD_WIRE_SECTION) {
-        prefix = oc.getString("overheadWire-prefix");
+        prefix = neteditOptions.getString("overheadWire-prefix");
     } else if (tag == SUMO_TAG_POLY) {
-        prefix = oc.getString("polygon-prefix");
+        prefix = neteditOptions.getString("polygon-prefix");
     } else if ((tag == SUMO_TAG_POI) || (tag == GNE_TAG_POILANE) || (tag == GNE_TAG_POIGEO)) {
-        prefix = oc.getString("poi-prefix");
+        prefix = neteditOptions.getString("poi-prefix");
     } else if (tag == SUMO_TAG_TAZ) {
         prefix = toString(SUMO_TAG_TAZ);
+    } else if (tag == GNE_TAG_JPS_WALKABLEAREA) {
+        prefix = neteditOptions.getString("jps.walkableArea-prefix");
+    } else if (tag == GNE_TAG_JPS_OBSTACLE) {
+        prefix = neteditOptions.getString("jps.obstacle-prefix");
     }
     int counter = 0;
-    // special case for calibrators
-    if ((tag == SUMO_TAG_CALIBRATOR) || (tag == GNE_TAG_CALIBRATOR_LANE)) {
-        while ((retrieveAdditional(SUMO_TAG_CALIBRATOR, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveAdditional(GNE_TAG_CALIBRATOR_LANE, prefix + "_" + toString(counter), false) != nullptr)) {
+    // check namespaces
+    if (std::find(NamespaceIDs::busStops.begin(), NamespaceIDs::busStops.end(), tag) != NamespaceIDs::busStops.end()) {
+        while (retrieveAdditionals(NamespaceIDs::busStops, prefix + "_" + toString(counter), false) != nullptr) {
             counter++;
         }
-    } else if ((tag == SUMO_TAG_POLY) || (tag == SUMO_TAG_TAZ)) {
-        // Polys and TAZs share namespace
-        while ((retrieveAdditional(SUMO_TAG_POLY, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveAdditional(SUMO_TAG_TAZ, prefix + "_" + toString(counter), false) != nullptr)) {
+    } else if (std::find(NamespaceIDs::calibrators.begin(), NamespaceIDs::calibrators.end(), tag) != NamespaceIDs::calibrators.end()) {
+        while (retrieveAdditionals(NamespaceIDs::calibrators, prefix + "_" + toString(counter), false) != nullptr) {
             counter++;
         }
-    } else if ((tag == SUMO_TAG_POI) || (tag == GNE_TAG_POILANE) || (tag == GNE_TAG_POIGEO)) {
-        while ((retrieveAdditional(SUMO_TAG_POI, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveAdditional(GNE_TAG_POILANE, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveAdditional(GNE_TAG_POIGEO, prefix + "_" + toString(counter), false) != nullptr)) {
+    } else if (std::find(NamespaceIDs::polygons.begin(), NamespaceIDs::polygons.end(), tag) != NamespaceIDs::polygons.end()) {
+        while (retrieveAdditionals(NamespaceIDs::polygons, prefix + "_" + toString(counter), false) != nullptr) {
             counter++;
         }
-    } else if ((tag == SUMO_TAG_LANE_AREA_DETECTOR) || (tag == GNE_TAG_MULTI_LANE_AREA_DETECTOR)) {
-        while ((retrieveAdditional(SUMO_TAG_LANE_AREA_DETECTOR, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveAdditional(GNE_TAG_MULTI_LANE_AREA_DETECTOR, prefix + "_" + toString(counter), false) != nullptr)) {
+    } else if (std::find(NamespaceIDs::POIs.begin(), NamespaceIDs::POIs.end(), tag) != NamespaceIDs::POIs.end()) {
+        while (retrieveAdditionals(NamespaceIDs::POIs, prefix + "_" + toString(counter), false) != nullptr) {
+            counter++;
+        }
+    } else if (std::find(NamespaceIDs::laneAreaDetectors.begin(), NamespaceIDs::laneAreaDetectors.end(), tag) != NamespaceIDs::laneAreaDetectors.end()) {
+        while (retrieveAdditionals(NamespaceIDs::laneAreaDetectors, prefix + "_" + toString(counter), false) != nullptr) {
             counter++;
         }
     } else {
@@ -1131,6 +1224,7 @@ GNENetHelper::AttributeCarriers::generateAdditionalID(SumoXMLTag tag) const {
             counter++;
         }
     }
+    // return new element ID
     return (prefix + "_" + toString(counter));
 }
 
@@ -1140,7 +1234,7 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedAdditionals() const {
     int counter = 0;
     for (const auto& additionalsTags : myAdditionals) {
         for (const auto& additional : additionalsTags.second) {
-            if (additional->isAttributeCarrierSelected()) {
+            if (additional.second->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
@@ -1151,9 +1245,15 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedAdditionals() const {
 
 int
 GNENetHelper::AttributeCarriers::getNumberOfSelectedPureAdditionals() const {
-    return getNumberOfSelectedAdditionals() - getNumberOfSelectedPolygons() -
-           getNumberOfSelectedPOIs() - getNumberOfSelectedTAZs() - getNumberOfSelectedTAZSources() -
-           getNumberOfSelectedTAZSinks() - getNumberOfSelectedWires();
+    return getNumberOfSelectedAdditionals() -
+           // shapes
+           getNumberOfSelectedPolygons() - getNumberOfSelectedPOIs() -
+           // JuPedSims
+           getNumberOfSelectedJpsWalkableAreas() - getNumberOfSelectedJpsObstacles() -
+           // TAZ
+           getNumberOfSelectedTAZs() -
+           // wires
+           getNumberOfSelectedWires();
 }
 
 
@@ -1161,7 +1261,31 @@ int
 GNENetHelper::AttributeCarriers::getNumberOfSelectedPolygons() const {
     int counter = 0;
     for (const auto& poly : myAdditionals.at(SUMO_TAG_POLY)) {
-        if (poly->isAttributeCarrierSelected()) {
+        if (poly.second->isAttributeCarrierSelected()) {
+            counter++;
+        }
+    }
+    return counter;
+}
+
+
+int
+GNENetHelper::AttributeCarriers::getNumberOfSelectedJpsWalkableAreas() const {
+    int counter = 0;
+    for (const auto& walkableArea : myAdditionals.at(GNE_TAG_JPS_WALKABLEAREA)) {
+        if (walkableArea.second->isAttributeCarrierSelected()) {
+            counter++;
+        }
+    }
+    return counter;
+}
+
+
+int
+GNENetHelper::AttributeCarriers::getNumberOfSelectedJpsObstacles() const {
+    int counter = 0;
+    for (const auto& obstacle : myAdditionals.at(GNE_TAG_JPS_OBSTACLE)) {
+        if (obstacle.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
@@ -1173,21 +1297,43 @@ int
 GNENetHelper::AttributeCarriers::getNumberOfSelectedPOIs() const {
     int counter = 0;
     for (const auto& POI : myAdditionals.at(SUMO_TAG_POI)) {
-        if (POI->isAttributeCarrierSelected()) {
+        if (POI.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
     for (const auto& POILane : myAdditionals.at(GNE_TAG_POILANE)) {
-        if (POILane->isAttributeCarrierSelected()) {
+        if (POILane.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
     for (const auto& POIGEO : myAdditionals.at(GNE_TAG_POIGEO)) {
-        if (POIGEO->isAttributeCarrierSelected()) {
+        if (POIGEO.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
     return counter;
+}
+
+
+std::vector<std::string>
+GNENetHelper::AttributeCarriers::getPOIParamKeys() const {
+    std::set<std::string> keys;
+    for (const auto& POI : myAdditionals.at(SUMO_TAG_POI)) {
+        for (const auto& parameter : POI.second->getParameters()->getParametersMap()) {
+            keys.insert(parameter.first);
+        }
+    }
+    for (const auto& POILane : myAdditionals.at(GNE_TAG_POILANE)) {
+        for (const auto& parameter : POILane.second->getParameters()->getParametersMap()) {
+            keys.insert(parameter.first);
+        }
+    }
+    for (const auto& POIGEO : myAdditionals.at(GNE_TAG_POIGEO)) {
+        for (const auto& parameter : POIGEO.second->getParameters()->getParametersMap()) {
+            keys.insert(parameter.first);
+        }
+    }
+    return std::vector<std::string>(keys.begin(), keys.end());
 }
 
 
@@ -1195,31 +1341,7 @@ int
 GNENetHelper::AttributeCarriers::getNumberOfSelectedTAZs() const {
     int counter = 0;
     for (const auto& TAZ : myAdditionals.at(SUMO_TAG_TAZ)) {
-        if (TAZ->isAttributeCarrierSelected()) {
-            counter++;
-        }
-    }
-    return counter;
-}
-
-
-int
-GNENetHelper::AttributeCarriers::getNumberOfSelectedTAZSources() const {
-    int counter = 0;
-    for (const auto& TAZSource : myAdditionals.at(SUMO_TAG_TAZSOURCE)) {
-        if (TAZSource->isAttributeCarrierSelected()) {
-            counter++;
-        }
-    }
-    return counter;
-}
-
-
-int
-GNENetHelper::AttributeCarriers::getNumberOfSelectedTAZSinks() const {
-    int counter = 0;
-    for (const auto& TAZSink : myAdditionals.at(SUMO_TAG_TAZSINK)) {
-        if (TAZSink->isAttributeCarrierSelected()) {
+        if (TAZ.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
@@ -1232,7 +1354,7 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedWires() const {
     int counter = 0;
     for (const auto& additionalsTags : myAdditionals) {
         for (const auto& additional : additionalsTags.second) {
-            if (additional->isAttributeCarrierSelected() && additional->getTagProperty().isWireElement()) {
+            if (additional.second->isAttributeCarrierSelected() && additional.second->getTagProperty()->isWireElement()) {
                 counter++;
             }
         }
@@ -1241,11 +1363,68 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedWires() const {
 }
 
 
+GNETAZSourceSink*
+GNENetHelper::AttributeCarriers::retrieveTAZSourceSink(const GNEAttributeCarrier* sourceSink, bool hardFail) const {
+    // iterate over all demand elements
+    for (const auto& TAZSourceSinkTag : myTAZSourceSinks) {
+        auto it = TAZSourceSinkTag.second.find(sourceSink);
+        if (it != TAZSourceSinkTag.second.end()) {
+            return it->second;
+        }
+    }
+    if (hardFail) {
+        throw ProcessError("Attempted to retrieve non-existant sourceSink (glObject)");
+    } else {
+        return nullptr;
+    }
+}
+
+
+const std::unordered_map<SumoXMLTag, std::unordered_map<const GNEAttributeCarrier*, GNETAZSourceSink*>, std::hash<int> >&
+GNENetHelper::AttributeCarriers::getTAZSourceSinks() const {
+    return myTAZSourceSinks;
+}
+
+
+int
+GNENetHelper::AttributeCarriers::getNumberOfTAZSourceSinks() const {
+    int counter = 0;
+    for (const auto& sourceSinksTag : myTAZSourceSinks) {
+        counter += (int)sourceSinksTag.second.size();
+    }
+    return counter;
+}
+
+
+void
+GNENetHelper::AttributeCarriers::clearTAZSourceSinks() {
+    // iterate over myTAZSourceSinks and clear all sourceSinks
+    for (auto& sourceSinksTags : myTAZSourceSinks) {
+        sourceSinksTags.second.clear();
+    }
+}
+
+
 GNEDemandElement*
 GNENetHelper::AttributeCarriers::retrieveDemandElement(SumoXMLTag type, const std::string& id, bool hardFail) const {
-    for (const auto& demandElement : myDemandElements.at(type)) {
-        if (demandElement->getID() == id) {
-            return demandElement;
+    auto it = myDemandElementIDs.at(type).find(id);
+    if (it != myDemandElementIDs.at(type).end()) {
+        return it->second;
+    }
+    if (hardFail) {
+        throw ProcessError("Attempted to retrieve non-existant demand element (string)");
+    } else {
+        return nullptr;
+    }
+}
+
+
+GNEDemandElement*
+GNENetHelper::AttributeCarriers::retrieveDemandElements(std::vector<SumoXMLTag> types, const std::string& id, bool hardFail) const {
+    for (const auto& type : types) {
+        auto it = myDemandElementIDs.at(type).find(id);
+        if (it != myDemandElementIDs.at(type).end()) {
+            return it->second;
         }
     }
     if (hardFail) {
@@ -1257,13 +1436,16 @@ GNENetHelper::AttributeCarriers::retrieveDemandElement(SumoXMLTag type, const st
 
 
 GNEDemandElement*
-GNENetHelper::AttributeCarriers::retrieveDemandElement(GNEAttributeCarrier* AC, bool hardFail) const {
-    // cast demandElement
-    GNEDemandElement* demandElement = dynamic_cast<GNEDemandElement*>(AC);
-    if (demandElement && (myDemandElements.at(AC->getTagProperty().getTag()).count(demandElement) > 0)) {
-        return demandElement;
-    } else if (hardFail) {
-        throw ProcessError("Attempted to retrieve non-existant demand element (AttributeCarrier)");
+GNENetHelper::AttributeCarriers::retrieveDemandElement(const GUIGlObject* glObject, bool hardFail) const {
+    // iterate over all demand elements
+    for (const auto& demandElementTag : myDemandElements) {
+        auto it = demandElementTag.second.find(glObject);
+        if (it != demandElementTag.second.end()) {
+            return it->second;
+        }
+    }
+    if (hardFail) {
+        throw ProcessError("Attempted to retrieve non-existant demandElement (glObject)");
     } else {
         return nullptr;
     }
@@ -1276,8 +1458,8 @@ GNENetHelper::AttributeCarriers::getSelectedDemandElements() const {
     // returns demand elements depending of selection
     for (const auto& demandElementTag : myDemandElements) {
         for (const auto& demandElement : demandElementTag.second) {
-            if (demandElement->isAttributeCarrierSelected()) {
-                result.push_back(demandElement);
+            if (demandElement.second->isAttributeCarrierSelected()) {
+                result.push_back(demandElement.second);
             }
         }
     }
@@ -1285,112 +1467,87 @@ GNENetHelper::AttributeCarriers::getSelectedDemandElements() const {
 }
 
 
-const std::map<SumoXMLTag, std::set<GNEDemandElement*> >&
+const std::unordered_map<SumoXMLTag, std::unordered_map<const GUIGlObject*, GNEDemandElement*>, std::hash<int> >&
 GNENetHelper::AttributeCarriers::getDemandElements() const {
     return myDemandElements;
-}
-
-
-int
-GNENetHelper::AttributeCarriers::getNumberOfDemandElements() const {
-    int counter = 0;
-    for (const auto& demandElementTag : myDemandElements) {
-        if (demandElementTag.first == SUMO_TAG_VTYPE) {
-            // iterate over vehicle types to avoid default vTypes
-            for (const auto& vType : demandElementTag.second) {
-                if (vType->getAttribute(GNE_ATTR_DEFAULT_VTYPE) != GNEAttributeCarrier::True) {
-                    counter++;
-                }
-            }
-        } else {
-            counter += (int)demandElementTag.second.size();
-        }
-    }
-    return counter;
 }
 
 
 std::string
 GNENetHelper::AttributeCarriers::generateDemandElementID(SumoXMLTag tag) const {
     // obtain option container
-    OptionsCont& oc = OptionsCont::getOptions();
+    const auto& neteditOptions = OptionsCont::getOptions();
     // get tag property
-    const auto tagProperty = GNEAttributeCarrier::getTagProperty(tag);
+    const auto tagProperty = myNet->getTagPropertiesDatabase()->getTagProperty(tag, true);
     // get prefix
     std::string prefix;
     if (tag == SUMO_TAG_ROUTE) {
-        prefix = oc.getString("route-prefix");
+        prefix = neteditOptions.getString("route-prefix");
+    } else if (tag == SUMO_TAG_ROUTE_DISTRIBUTION) {
+        prefix = neteditOptions.getString("routeDistribution-prefix");
     } else if (tag == SUMO_TAG_VTYPE) {
-        prefix = oc.getString("vType-prefix");
-    } else if ((tag == SUMO_TAG_TRIP) || (tag == GNE_TAG_TRIP_JUNCTIONS)) {
-        prefix = oc.getString("trip-prefix");
-    } else if (tagProperty.isVehicle() && !tagProperty.isFlow()) {
-        prefix = oc.getString("vehicle-prefix");
-    } else if (tagProperty.isPerson()) {
-        if (tagProperty.isFlow()) {
-            prefix = oc.getString("personflow-prefix"); 
+        prefix = neteditOptions.getString("vType-prefix");
+    } else if (tag == SUMO_TAG_VTYPE_DISTRIBUTION) {
+        prefix = neteditOptions.getString("vTypeDistribution-prefix");
+    } else if ((tag == SUMO_TAG_TRIP) || (tag == GNE_TAG_TRIP_JUNCTIONS) || (tag == GNE_TAG_TRIP_TAZS)) {
+        prefix = neteditOptions.getString("trip-prefix");
+    } else if (tagProperty->isVehicle() && !tagProperty->isFlow()) {
+        prefix = neteditOptions.getString("vehicle-prefix");
+    } else if (tagProperty->isPerson()) {
+        if (tagProperty->isFlow()) {
+            prefix = neteditOptions.getString("personflow-prefix");
         } else {
-            prefix = oc.getString("person-prefix");
+            prefix = neteditOptions.getString("person-prefix");
         }
-    } else if (tagProperty.isContainer()) {
-        if (tagProperty.isFlow()) {
-            prefix = oc.getString("containerflow-prefix"); 
+    } else if (tagProperty->isContainer()) {
+        if (tagProperty->isFlow()) {
+            prefix = neteditOptions.getString("containerflow-prefix");
         } else {
-            prefix = oc.getString("container-prefix");
+            prefix = neteditOptions.getString("container-prefix");
         }
-    } else if (tagProperty.isFlow()) {
-        prefix = oc.getString("flow-prefix");
+    } else if (tagProperty->isFlow()) {
+        prefix = neteditOptions.getString("flow-prefix");
     }
     // declare counter
     int counter = 0;
-    if (tagProperty.isPerson()) {
-        // special case for persons (person and personFlows share nameSpaces)
-        while ((retrieveDemandElement(SUMO_TAG_PERSON, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveDemandElement(SUMO_TAG_PERSONFLOW, prefix + "_" + toString(counter), false) != nullptr)) {
+    if (std::find(NamespaceIDs::types.begin(), NamespaceIDs::types.end(), tag) != NamespaceIDs::types.end()) {
+        while (retrieveDemandElements(NamespaceIDs::types, prefix + "_" + toString(counter), false) != nullptr) {
             counter++;
         }
-        // return new person ID
-        return (prefix + "_" + toString(counter));
-    } else if (tagProperty.isContainer()) {
-        // special case for containers (container and containerFlows share nameSpaces)
-        while ((retrieveDemandElement(SUMO_TAG_CONTAINER, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveDemandElement(SUMO_TAG_CONTAINERFLOW, prefix + "_" + toString(counter), false) != nullptr)) {
+    } else if (std::find(NamespaceIDs::routes.begin(), NamespaceIDs::routes.end(), tag) != NamespaceIDs::routes.end()) {
+        while (retrieveDemandElements(NamespaceIDs::routes, prefix + "_" + toString(counter), false) != nullptr) {
             counter++;
         }
-        // return new container ID
-        return (prefix + "_" + toString(counter));
-    } else if (tagProperty.isVehicle() || tagProperty.isFlow()) {
-        // check all vehicles, because share nameSpaces
-        while ((retrieveDemandElement(SUMO_TAG_VEHICLE, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveDemandElement(SUMO_TAG_TRIP, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveDemandElement(GNE_TAG_VEHICLE_WITHROUTE, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveDemandElement(GNE_TAG_TRIP_JUNCTIONS, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveDemandElement(GNE_TAG_FLOW_ROUTE, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveDemandElement(SUMO_TAG_FLOW, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveDemandElement(GNE_TAG_FLOW_WITHROUTE, prefix + "_" + toString(counter), false) != nullptr) ||
-                (retrieveDemandElement(GNE_TAG_FLOW_JUNCTIONS, prefix + "_" + toString(counter), false) != nullptr)) {
+    } else if (std::find(NamespaceIDs::persons.begin(), NamespaceIDs::persons.end(), tag) != NamespaceIDs::persons.end()) {
+        while (retrieveDemandElements(NamespaceIDs::persons, prefix + "_" + toString(counter), false) != nullptr) {
             counter++;
         }
-        // return new vehicle ID
-        return (prefix + "_" + toString(counter));
+    } else if (std::find(NamespaceIDs::containers.begin(), NamespaceIDs::containers.end(), tag) != NamespaceIDs::containers.end()) {
+        while (retrieveDemandElements(NamespaceIDs::containers, prefix + "_" + toString(counter), false) != nullptr) {
+            counter++;
+        }
+    } else if (std::find(NamespaceIDs::vehicles.begin(), NamespaceIDs::vehicles.end(), tag) != NamespaceIDs::vehicles.end()) {
+        while (retrieveDemandElements(NamespaceIDs::vehicles, prefix + "_" + toString(counter), false) != nullptr) {
+            counter++;
+        }
     } else {
         while (retrieveDemandElement(tag, prefix + "_" + toString(counter), false) != nullptr) {
             counter++;
         }
-        // return new element ID
-        return (prefix + "_" + toString(counter));
     }
+    // return new element ID
+    return (prefix + "_" + toString(counter));
+
 }
 
 
 GNEDemandElement*
 GNENetHelper::AttributeCarriers::getDefaultType() const {
-    for (const auto& vType : myDemandElements.at(SUMO_TAG_VTYPE)) {
-        if (vType->getID() == DEFAULT_VTYPE_ID) {
-            return vType;
-        }
+    auto it = myDemandElementIDs.at(SUMO_TAG_VTYPE).find(DEFAULT_VTYPE_ID);
+    if (it != myDemandElementIDs.at(SUMO_TAG_VTYPE).end()) {
+        return it->second;
     }
-    throw ProcessError("Default vType doesn't exist");
+    throw ProcessError(TL("Default vType doesn't exist"));
 }
 
 
@@ -1399,46 +1556,109 @@ GNENetHelper::AttributeCarriers::clearDemandElements() {
     // clear elements in grid
     for (const auto& demandElementsTags : myDemandElements) {
         for (const auto& demandElement : demandElementsTags.second) {
-            myNet->removeGLObjectFromGrid(demandElement);
+            myNet->removeGLObjectFromGrid(demandElement.second);
         }
     }
-    // iterate over myDemandElements and clear all demand elemnts
+    // iterate over myDemandElements and clear all demand elements
     for (auto& demandElements : myDemandElements) {
+        demandElements.second.clear();
+    }
+    for (auto& demandElements : myDemandElementIDs) {
         demandElements.second.clear();
     }
 }
 
 
 void
-GNENetHelper::AttributeCarriers::addDefaultVTypes() {
-    // Create default vehicle Type (it has to be created here due myViewNet was previously nullptr)
-    GNEVType* defaultVehicleType = new GNEVType(myNet, DEFAULT_VTYPE_ID, SVC_PASSENGER);
-    myDemandElements.at(defaultVehicleType->getTagProperty().getTag()).insert(defaultVehicleType);
-    defaultVehicleType->incRef("GNENet::DEFAULT_VEHTYPE");
-
-    // Create default Bike Type (it has to be created here due myViewNet was previously nullptr)
-    GNEVType* defaultBikeType = new GNEVType(myNet, DEFAULT_BIKETYPE_ID, SVC_BICYCLE);
-    myDemandElements.at(defaultBikeType->getTagProperty().getTag()).insert(defaultBikeType);
-    defaultBikeType->incRef("GNENet::DEFAULT_BIKETYPE_ID");
-
-    // Create default taxi Type (it has to be created here due myViewNet was previously nullptr)
-    GNEVType* defaultTaxiType = new GNEVType(myNet, DEFAULT_TAXITYPE_ID, SVC_TAXI);
-    myDemandElements.at(defaultBikeType->getTagProperty().getTag()).insert(defaultTaxiType);
-    defaultTaxiType->incRef("GNENet::DEFAULT_TAXITYPE_ID");
-
-    // Create default person Type (it has to be created here due myViewNet was previously nullptr)
-    GNEVType* defaultPersonType = new GNEVType(myNet, DEFAULT_PEDTYPE_ID, SVC_PEDESTRIAN);
-    myDemandElements.at(defaultPersonType->getTagProperty().getTag()).insert(defaultPersonType);
-    defaultPersonType->incRef("GNENet::DEFAULT_PEDTYPE_ID");
-
-    // Create default container Type (it has to be created here due myViewNet was previously nullptr)
-    GNEVType* defaultContainerType = new GNEVType(myNet, DEFAULT_CONTAINERTYPE_ID, SVC_IGNORING);
-    myDemandElements.at(defaultContainerType->getTagProperty().getTag()).insert(defaultContainerType);
-    defaultContainerType->incRef("GNENet::DEFAULT_CONTAINERTYPE_ID");
+GNENetHelper::AttributeCarriers::updateDemandElementID(GNEDemandElement* demandElement, const std::string& newID) {
+    const auto tag = demandElement->getTagProperty()->getTag();
+    const auto it = myDemandElementIDs.at(tag).find(demandElement->getID());
+    if (it == myDemandElementIDs.at(tag).end()) {
+        throw ProcessError(demandElement->getTagStr() + " with ID='" + demandElement->getID() + "' doesn't exist in AttributeCarriers.demandElements");
+    } else {
+        // remove from container, set new Id, and insert it again
+        myDemandElementIDs.at(tag).erase(it);
+        // set microsim ID
+        demandElement->setMicrosimID(newID);
+        myDemandElementIDs.at(tag)[newID] = demandElement;
+    }
 }
 
 
-int GNENetHelper::AttributeCarriers::getStopIndex() {
+void
+GNENetHelper::AttributeCarriers::addDefaultVTypes() {
+    // get default bucket
+    auto bucket = myNet->getGNEApplicationWindow()->getFileBucketHandler()->getDefaultBucket(FileBucket::Type::DEMAND);
+    // Create default vehicle Type (it has to be created here due myViewNet was previously nullptr)
+    GNEVType* defaultVehicleType = new GNEVType(DEFAULT_VTYPE_ID, myNet, bucket, SVC_PASSENGER);
+    myDemandElements.at(defaultVehicleType->getTagProperty()->getTag()).insert(std::make_pair(defaultVehicleType->getGUIGlObject(), defaultVehicleType));
+    myDemandElementIDs.at(defaultVehicleType->getTagProperty()->getTag()).insert(std::make_pair(defaultVehicleType->getID(), defaultVehicleType));
+    defaultVehicleType->incRef("GNENet::DEFAULT_VEHTYPE");
+    bucket->addDefaultVType();
+
+    // Create default Bike Type (it has to be created here due myViewNet was previously nullptr)
+    GNEVType* defaultBikeType = new GNEVType(DEFAULT_BIKETYPE_ID, myNet, bucket, SVC_BICYCLE);
+    myDemandElements.at(defaultBikeType->getTagProperty()->getTag()).insert(std::make_pair(defaultBikeType->getGUIGlObject(), defaultBikeType));
+    myDemandElementIDs.at(defaultBikeType->getTagProperty()->getTag()).insert(std::make_pair(defaultBikeType->getID(), defaultBikeType));
+    defaultBikeType->parametersSet |= VTYPEPARS_VEHICLECLASS_SET;
+    defaultBikeType->incRef("GNENet::DEFAULT_BIKETYPE_ID");
+    bucket->addDefaultVType();
+
+    // Create default taxi Type (it has to be created here due myViewNet was previously nullptr)
+    GNEVType* defaultTaxiType = new GNEVType(DEFAULT_TAXITYPE_ID, myNet, bucket, SVC_TAXI);
+    myDemandElements.at(defaultTaxiType->getTagProperty()->getTag()).insert(std::make_pair(defaultTaxiType->getGUIGlObject(), defaultTaxiType));
+    myDemandElementIDs.at(defaultTaxiType->getTagProperty()->getTag()).insert(std::make_pair(defaultTaxiType->getID(), defaultTaxiType));
+    defaultTaxiType->parametersSet |= VTYPEPARS_VEHICLECLASS_SET;
+    defaultTaxiType->incRef("GNENet::DEFAULT_TAXITYPE_ID");
+    bucket->addDefaultVType();
+
+    // Create default rail Type (it has to be created here due myViewNet was previously nullptr)
+    GNEVType* defaultRailType = new GNEVType(DEFAULT_RAILTYPE_ID, myNet, bucket, SVC_RAIL);
+    myDemandElements.at(defaultRailType->getTagProperty()->getTag()).insert(std::make_pair(defaultRailType->getGUIGlObject(), defaultRailType));
+    myDemandElementIDs.at(defaultRailType->getTagProperty()->getTag()).insert(std::make_pair(defaultRailType->getID(), defaultRailType));
+    defaultRailType->parametersSet |= VTYPEPARS_VEHICLECLASS_SET;
+    defaultRailType->incRef("GNENet::DEFAULT_RAILTYPE_ID");
+    bucket->addDefaultVType();
+
+    // Create default person Type (it has to be created here due myViewNet was previously nullptr)
+    GNEVType* defaultPersonType = new GNEVType(DEFAULT_PEDTYPE_ID, myNet, bucket, SVC_PEDESTRIAN);
+    myDemandElements.at(defaultPersonType->getTagProperty()->getTag()).insert(std::make_pair(defaultPersonType->getGUIGlObject(), defaultPersonType));
+    myDemandElementIDs.at(defaultPersonType->getTagProperty()->getTag()).insert(std::make_pair(defaultPersonType->getID(), defaultPersonType));
+    defaultPersonType->parametersSet |= VTYPEPARS_VEHICLECLASS_SET;
+    defaultPersonType->incRef("GNENet::DEFAULT_PEDTYPE_ID");
+    bucket->addDefaultVType();
+
+    // Create default container Type (it has to be created here due myViewNet was previously nullptr)
+    GNEVType* defaultContainerType = new GNEVType(DEFAULT_CONTAINERTYPE_ID, myNet, bucket, SVC_IGNORING);
+    myDemandElements.at(defaultContainerType->getTagProperty()->getTag()).insert(std::make_pair(defaultContainerType->getGUIGlObject(), defaultContainerType));
+    myDemandElementIDs.at(defaultContainerType->getTagProperty()->getTag()).insert(std::make_pair(defaultContainerType->getID(), defaultContainerType));
+    defaultContainerType->parametersSet |= VTYPEPARS_VEHICLECLASS_SET;
+    defaultContainerType->incRef("GNENet::DEFAULT_CONTAINERTYPE_ID");
+    bucket->addDefaultVType();
+}
+
+
+bool
+GNENetHelper::AttributeCarriers::requireJunctionTazOption() const {
+    if (myDemandElements.at(GNE_TAG_TRIP_JUNCTIONS).size() > 0) {
+        return true;
+    } else if (myDemandElements.at(GNE_TAG_FLOW_JUNCTIONS).size() > 0) {
+        return true;
+    } else {
+        // iterate over all tags and check if start or ends in junctions
+        for (const auto& mapValue : myDemandElements) {
+            const auto tagProperty = myNet->getTagPropertiesDatabase()->getTagProperty(mapValue.first, true);
+            if ((tagProperty->planFromJunction() || tagProperty->planToJunction()) && (myDemandElements.at(tagProperty->getTag()).size() > 0)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+
+int
+GNENetHelper::AttributeCarriers::getStopIndex() {
     return myStopIndex++;
 }
 
@@ -1448,7 +1668,7 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedDemandElements() const {
     int counter = 0;
     for (const auto& demandElementsTags : myDemandElements) {
         for (const auto& demandElement : demandElementsTags.second) {
-            if (demandElement->isAttributeCarrierSelected()) {
+            if (demandElement.second->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
@@ -1462,18 +1682,18 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedRoutes() const {
     int counter = 0;
     // iterate over routes
     for (const auto& route : myDemandElements.at(SUMO_TAG_ROUTE)) {
-        if (route->isAttributeCarrierSelected()) {
+        if (route.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
     // iterate over vehicles with embedded routes
     for (const auto& vehicle : myDemandElements.at(GNE_TAG_VEHICLE_WITHROUTE)) {
-        if (vehicle->getChildDemandElements().front()->isAttributeCarrierSelected()) {
+        if (vehicle.second->getChildDemandElements().front()->isAttributeCarrierSelected()) {
             counter++;
         }
     }
     for (const auto& flow : myDemandElements.at(GNE_TAG_FLOW_WITHROUTE)) {
-        if (flow->getChildDemandElements().front()->isAttributeCarrierSelected()) {
+        if (flow.second->getChildDemandElements().front()->isAttributeCarrierSelected()) {
             counter++;
         }
     }
@@ -1486,32 +1706,32 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedVehicles() const {
     int counter = 0;
     // iterate over all vehicles and flows
     for (const auto& vehicle : myDemandElements.at(SUMO_TAG_VEHICLE)) {
-        if (vehicle->isAttributeCarrierSelected()) {
+        if (vehicle.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
     for (const auto& trip : myDemandElements.at(SUMO_TAG_TRIP)) {
-        if (trip->isAttributeCarrierSelected()) {
+        if (trip.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
     for (const auto& vehicle : myDemandElements.at(GNE_TAG_VEHICLE_WITHROUTE)) {
-        if (vehicle->isAttributeCarrierSelected()) {
+        if (vehicle.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
     for (const auto& flow : myDemandElements.at(SUMO_TAG_FLOW)) {
-        if (flow->isAttributeCarrierSelected()) {
+        if (flow.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
     for (const auto& flow : myDemandElements.at(GNE_TAG_FLOW_ROUTE)) {
-        if (flow->isAttributeCarrierSelected()) {
+        if (flow.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
     for (const auto& flow : myDemandElements.at(GNE_TAG_FLOW_WITHROUTE)) {
-        if (flow->isAttributeCarrierSelected()) {
+        if (flow.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
@@ -1524,12 +1744,12 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedPersons() const {
     int counter = 0;
     // iterate over all persons
     for (const auto& person : myDemandElements.at(SUMO_TAG_PERSON)) {
-        if (person->isAttributeCarrierSelected()) {
+        if (person.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
     for (const auto& personFlow : myDemandElements.at(SUMO_TAG_PERSONFLOW)) {
-        if (personFlow->isAttributeCarrierSelected()) {
+        if (personFlow.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
@@ -1542,15 +1762,15 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedPersonTrips() const {
     int counter = 0;
     // iterate over all person plans
     for (const auto& person : myDemandElements.at(SUMO_TAG_PERSON)) {
-        for (const auto& personPlan : person->getChildDemandElements()) {
-            if (personPlan->getTagProperty().isPersonTrip() && personPlan->isAttributeCarrierSelected()) {
+        for (const auto& personPlan : person.second->getChildDemandElements()) {
+            if (personPlan->getTagProperty()->isPlanPersonTrip() && personPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
     }
     for (const auto& personFlow : myDemandElements.at(SUMO_TAG_PERSONFLOW)) {
-        for (const auto& personPlan : personFlow->getChildDemandElements()) {
-            if (personPlan->getTagProperty().isPersonTrip() && personPlan->isAttributeCarrierSelected()) {
+        for (const auto& personPlan : personFlow.second->getChildDemandElements()) {
+            if (personPlan->getTagProperty()->isPlanPersonTrip() && personPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
@@ -1564,15 +1784,15 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedWalks() const {
     int counter = 0;
     // iterate over all person plans
     for (const auto& person : myDemandElements.at(SUMO_TAG_PERSON)) {
-        for (const auto& personPlan : person->getChildDemandElements()) {
-            if (personPlan->getTagProperty().isWalk() && personPlan->isAttributeCarrierSelected()) {
+        for (const auto& personPlan : person.second->getChildDemandElements()) {
+            if (personPlan->getTagProperty()->isPlanWalk() && personPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
     }
     for (const auto& personFlow : myDemandElements.at(SUMO_TAG_PERSONFLOW)) {
-        for (const auto& personPlan : personFlow->getChildDemandElements()) {
-            if (personPlan->getTagProperty().isWalk() && personPlan->isAttributeCarrierSelected()) {
+        for (const auto& personPlan : personFlow.second->getChildDemandElements()) {
+            if (personPlan->getTagProperty()->isPlanWalk() && personPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
@@ -1586,15 +1806,15 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedRides() const {
     int counter = 0;
     // iterate over all person plans
     for (const auto& person : myDemandElements.at(SUMO_TAG_PERSON)) {
-        for (const auto& personPlan : person->getChildDemandElements()) {
-            if (personPlan->getTagProperty().isRide() && personPlan->isAttributeCarrierSelected()) {
+        for (const auto& personPlan : person.second->getChildDemandElements()) {
+            if (personPlan->getTagProperty()->isPlanRide() && personPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
     }
     for (const auto& personFlow : myDemandElements.at(SUMO_TAG_PERSONFLOW)) {
-        for (const auto& personPlan : personFlow->getChildDemandElements()) {
-            if (personPlan->getTagProperty().isRide() && personPlan->isAttributeCarrierSelected()) {
+        for (const auto& personPlan : personFlow.second->getChildDemandElements()) {
+            if (personPlan->getTagProperty()->isPlanRide() && personPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
@@ -1608,12 +1828,12 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedContainers() const {
     int counter = 0;
     // iterate over all containers
     for (const auto& container : myDemandElements.at(SUMO_TAG_CONTAINER)) {
-        if (container->isAttributeCarrierSelected()) {
+        if (container.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
     for (const auto& containerFlow : myDemandElements.at(SUMO_TAG_CONTAINERFLOW)) {
-        if (containerFlow->isAttributeCarrierSelected()) {
+        if (containerFlow.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
@@ -1626,15 +1846,15 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedTransport() const {
     int counter = 0;
     // iterate over all container plans
     for (const auto& container : myDemandElements.at(SUMO_TAG_CONTAINER)) {
-        for (const auto& containerPlan : container->getChildDemandElements()) {
-            if (containerPlan->getTagProperty().isTransportPlan() && containerPlan->isAttributeCarrierSelected()) {
+        for (const auto& containerPlan : container.second->getChildDemandElements()) {
+            if (containerPlan->getTagProperty()->isPlanTransport() && containerPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
     }
     for (const auto& containerFlow : myDemandElements.at(SUMO_TAG_CONTAINERFLOW)) {
-        for (const auto& containerPlan : containerFlow->getChildDemandElements()) {
-            if (containerPlan->getTagProperty().isTransportPlan() && containerPlan->isAttributeCarrierSelected()) {
+        for (const auto& containerPlan : containerFlow.second->getChildDemandElements()) {
+            if (containerPlan->getTagProperty()->isPlanTransport() && containerPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
@@ -1648,15 +1868,15 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedTranships() const {
     int counter = 0;
     // iterate over all container plans
     for (const auto& container : myDemandElements.at(SUMO_TAG_CONTAINER)) {
-        for (const auto& containerPlan : container->getChildDemandElements()) {
-            if (containerPlan->getTagProperty().isTranshipPlan() && containerPlan->isAttributeCarrierSelected()) {
+        for (const auto& containerPlan : container.second->getChildDemandElements()) {
+            if (containerPlan->getTagProperty()->isPlanTranship() && containerPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
     }
     for (const auto& containerFlow : myDemandElements.at(SUMO_TAG_CONTAINERFLOW)) {
-        for (const auto& containerPlan : containerFlow->getChildDemandElements()) {
-            if (containerPlan->getTagProperty().isTranshipPlan() && containerPlan->isAttributeCarrierSelected()) {
+        for (const auto& containerPlan : containerFlow.second->getChildDemandElements()) {
+            if (containerPlan->getTagProperty()->isPlanTranship() && containerPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
@@ -1670,65 +1890,65 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedStops() const {
     int counter = 0;
     // iterate over routes
     for (const auto& route : myDemandElements.at(SUMO_TAG_ROUTE)) {
-        if (route->isAttributeCarrierSelected()) {
+        if (route.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
     // vehicles
     for (const auto& trip : myDemandElements.at(SUMO_TAG_TRIP)) {
-        for (const auto& stop : trip->getChildDemandElements()) {
-            if (stop->getTagProperty().isStop() && stop->isAttributeCarrierSelected()) {
+        for (const auto& stop : trip.second->getChildDemandElements()) {
+            if (stop->getTagProperty()->isVehicleStop() && stop->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
     }
     for (const auto& vehicle : myDemandElements.at(GNE_TAG_VEHICLE_WITHROUTE)) {
-        for (const auto& stop : vehicle->getChildDemandElements().front()->getChildDemandElements()) {
-            if (stop->getTagProperty().isStop() && stop->isAttributeCarrierSelected()) {
+        for (const auto& stop : vehicle.second->getChildDemandElements().front()->getChildDemandElements()) {
+            if (stop->getTagProperty()->isVehicleStop() && stop->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
     }
     for (const auto& flow : myDemandElements.at(SUMO_TAG_FLOW)) {
-        for (const auto& stop : flow->getChildDemandElements()) {
-            if (stop->getTagProperty().isStop() && stop->isAttributeCarrierSelected()) {
+        for (const auto& stop : flow.second->getChildDemandElements()) {
+            if (stop->getTagProperty()->isVehicleStop() && stop->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
     }
     for (const auto& flow : myDemandElements.at(GNE_TAG_FLOW_WITHROUTE)) {
-        for (const auto& stop : flow->getChildDemandElements().front()->getChildDemandElements()) {
-            if (stop->getTagProperty().isStop() && stop->isAttributeCarrierSelected()) {
+        for (const auto& stop : flow.second->getChildDemandElements().front()->getChildDemandElements()) {
+            if (stop->getTagProperty()->isVehicleStop() && stop->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
     }
     // persons
     for (const auto& person : myDemandElements.at(SUMO_TAG_PERSON)) {
-        for (const auto& personPlan : person->getChildDemandElements()) {
-            if (personPlan->getTagProperty().isStopPerson() && personPlan->isAttributeCarrierSelected()) {
+        for (const auto& personPlan : person.second->getChildDemandElements()) {
+            if (personPlan->getTagProperty()->isPlanStopPerson() && personPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
     }
     for (const auto& personFlow : myDemandElements.at(SUMO_TAG_PERSONFLOW)) {
-        for (const auto& personPlan : personFlow->getChildDemandElements()) {
-            if (personPlan->getTagProperty().isStopPerson() && personPlan->isAttributeCarrierSelected()) {
+        for (const auto& personPlan : personFlow.second->getChildDemandElements()) {
+            if (personPlan->getTagProperty()->isPlanStopPerson() && personPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
     }
     // containers
     for (const auto& container : myDemandElements.at(SUMO_TAG_CONTAINER)) {
-        for (const auto& containerPlan : container->getChildDemandElements()) {
-            if (containerPlan->getTagProperty().isStopContainer() && containerPlan->isAttributeCarrierSelected()) {
+        for (const auto& containerPlan : container.second->getChildDemandElements()) {
+            if (containerPlan->getTagProperty()->isPlanStopContainer() && containerPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
     }
     for (const auto& containerFlow : myDemandElements.at(SUMO_TAG_CONTAINERFLOW)) {
-        for (const auto& containerPlan : containerFlow->getChildDemandElements()) {
-            if (containerPlan->getTagProperty().isStopContainer() && containerPlan->isAttributeCarrierSelected()) {
+        for (const auto& containerPlan : containerFlow.second->getChildDemandElements()) {
+            if (containerPlan->getTagProperty()->isPlanStopContainer() && containerPlan->isAttributeCarrierSelected()) {
                 counter++;
             }
         }
@@ -1740,8 +1960,8 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedStops() const {
 GNEDataSet*
 GNENetHelper::AttributeCarriers::retrieveDataSet(const std::string& id, bool hardFail) const {
     for (const auto& dataSet : myDataSets) {
-        if (dataSet->getID() == id) {
-            return dataSet;
+        if (dataSet.second->getID() == id) {
+            return dataSet.second;
         }
     }
     if (hardFail) {
@@ -1752,43 +1972,28 @@ GNENetHelper::AttributeCarriers::retrieveDataSet(const std::string& id, bool har
 }
 
 
-GNEDataSet*
-GNENetHelper::AttributeCarriers::retrieveDataSet(GNEAttributeCarrier* AC, bool hardFail) const {
-    // cast dataSet
-    GNEDataSet* dataSet = dynamic_cast<GNEDataSet*>(AC);
-    if (dataSet && (myDataSets.count(dataSet) > 0)) {
-        return dataSet;
-    } else if (hardFail) {
-        throw ProcessError("Attempted to retrieve non-existant data set");
-    } else {
-        return nullptr;
-    }
-}
-
-
-const std::set<GNEDataSet*>&
+const std::map<const std::string, GNEDataSet*>&
 GNENetHelper::AttributeCarriers::getDataSets() const {
     return myDataSets;
 }
 
 
 std::string
-GNENetHelper::AttributeCarriers::generateDataSetID(const std::string& prefix) const {
-    const std::string dataSetTagStr = toString(SUMO_TAG_DATASET);
+GNENetHelper::AttributeCarriers::generateDataSetID() const {
+    // get prefix
+    const auto prefix = OptionsCont::getOptions().getString("dataSet-prefix");
     int counter = 0;
-    while (retrieveDataSet(prefix + dataSetTagStr + "_" + toString(counter), false) != nullptr) {
+    while (retrieveDataSet(prefix + "_" + toString(counter), false) != nullptr) {
         counter++;
     }
-    return (prefix + dataSetTagStr + "_" + toString(counter));
+    return (prefix + "_" + toString(counter));
 }
 
 
 GNEDataInterval*
-GNENetHelper::AttributeCarriers::retrieveDataInterval(GNEAttributeCarrier* AC, bool hardFail) const {
-    // cast dataInterval
-    GNEDataInterval* dataInterval = dynamic_cast<GNEDataInterval*>(AC);
-    if (dataInterval && (myDataIntervals.count(dataInterval) > 0)) {
-        return dataInterval;
+GNENetHelper::AttributeCarriers::retrieveDataInterval(const GNEAttributeCarrier* AC, bool hardFail) const {
+    if (myDataIntervals.count(AC)) {
+        return myDataIntervals.at(AC);
     } else if (hardFail) {
         throw ProcessError("Attempted to retrieve non-existant data interval");
     } else {
@@ -1797,16 +2002,18 @@ GNENetHelper::AttributeCarriers::retrieveDataInterval(GNEAttributeCarrier* AC, b
 }
 
 
-const std::set<GNEDataInterval*>&
+const std::unordered_map<const GNEAttributeCarrier*, GNEDataInterval*>&
 GNENetHelper::AttributeCarriers::getDataIntervals() const {
     return myDataIntervals;
 }
 
 
 void
-GNENetHelper::AttributeCarriers::insertDataInterval(GNEDataInterval* dataInterval) {
-    if (myDataIntervals.insert(dataInterval).second == false) {
+GNENetHelper::AttributeCarriers::insertDataInterval(const GNEAttributeCarrier* AC, GNEDataInterval* dataInterval) {
+    if (myDataIntervals.count(AC) > 0) {
         throw ProcessError(dataInterval->getTagStr() + " with ID='" + dataInterval->getID() + "' already exist");
+    } else {
+        myDataIntervals[AC] = dataInterval;
     }
     // mark interval toolbar for update
     myNet->getViewNet()->getIntervalBar().markForUpdate();
@@ -1821,19 +2028,26 @@ GNENetHelper::AttributeCarriers::deleteDataInterval(GNEDataInterval* dataInterva
     } else {
         myDataIntervals.erase(finder);
     }
+    // remove it from inspected elements and GNEElementTree
+    myNet->getViewNet()->getInspectedElements().uninspectAC(dataInterval);
+    dataInterval->unmarkForDrawingFront();
+    myNet->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(dataInterval);
     // mark interval toolbar for update
     myNet->getViewNet()->getIntervalBar().markForUpdate();
 }
 
 
 GNEGenericData*
-GNENetHelper::AttributeCarriers::retrieveGenericData(GNEAttributeCarrier* AC, bool hardFail) const {
-    // cast genericData
-    GNEGenericData* genericData = dynamic_cast<GNEGenericData*>(AC);
-    if (genericData && (myGenericDatas.at(AC->getTagProperty().getTag()).count(genericData) > 0)) {
-        return genericData;
-    } else if (hardFail) {
-        throw ProcessError("Attempted to retrieve non-existant data set");
+GNENetHelper::AttributeCarriers::retrieveGenericData(const GUIGlObject* glObject, bool hardFail) const {
+    // iterate over all genericDatas
+    for (const auto& genericDataTag : myGenericDatas) {
+        auto it = genericDataTag.second.find(glObject);
+        if (it != genericDataTag.second.end()) {
+            return it->second;
+        }
+    }
+    if (hardFail) {
+        throw ProcessError("Attempted to retrieve non-existant generic (glObject)");
     } else {
         return nullptr;
     }
@@ -1846,8 +2060,8 @@ GNENetHelper::AttributeCarriers::getSelectedGenericDatas() const {
     // returns generic datas depending of selection
     for (const auto& genericDataTag : myGenericDatas) {
         for (const auto& genericData : genericDataTag.second) {
-            if (genericData->isAttributeCarrierSelected()) {
-                result.push_back(genericData);
+            if (genericData.second->isAttributeCarrierSelected()) {
+                result.push_back(genericData.second);
             }
         }
     }
@@ -1855,7 +2069,7 @@ GNENetHelper::AttributeCarriers::getSelectedGenericDatas() const {
 }
 
 
-const std::map<SumoXMLTag, std::set<GNEGenericData*> >&
+const std::unordered_map<SumoXMLTag, std::unordered_map<const GUIGlObject*, GNEGenericData*>, std::hash<int> >&
 GNENetHelper::AttributeCarriers::getGenericDatas() const {
     return myGenericDatas;
 }
@@ -1868,9 +2082,9 @@ GNENetHelper::AttributeCarriers::retrieveGenericDatas(const SumoXMLTag genericDa
     // iterate over all data sets
     for (const auto& genericData : myGenericDatas.at(genericDataTag)) {
         // check interval
-        if ((genericData->getDataIntervalParent()->getAttributeDouble(SUMO_ATTR_BEGIN) >= begin) &&
-                (genericData->getDataIntervalParent()->getAttributeDouble(SUMO_ATTR_END) <= end)) {
-            genericDatas.push_back(genericData);
+        if ((genericData.second->getDataIntervalParent()->getAttributeDouble(SUMO_ATTR_BEGIN) >= begin) &&
+                (genericData.second->getDataIntervalParent()->getAttributeDouble(SUMO_ATTR_END) <= end)) {
+            genericDatas.push_back(genericData.second);
         }
     }
     return genericDatas;
@@ -1878,11 +2092,22 @@ GNENetHelper::AttributeCarriers::retrieveGenericDatas(const SumoXMLTag genericDa
 
 
 int
+GNENetHelper::AttributeCarriers::getNumberOfGenericDatas() const {
+    int counter = 0;
+    // iterate over all generic datas
+    for (const auto& genericDataTag : myGenericDatas) {
+        counter += (int)genericDataTag.second.size();
+    }
+    return counter;
+}
+
+
+int
 GNENetHelper::AttributeCarriers::getNumberOfSelectedEdgeDatas() const {
     int counter = 0;
     // iterate over all edgeDatas
-    for (const auto& genericData : myGenericDatas.at(SUMO_TAG_MEANDATA_EDGE)) {
-        if (genericData->isAttributeCarrierSelected()) {
+    for (const auto& genericData : myGenericDatas.at(GNE_TAG_EDGEREL_SINGLE)) {
+        if (genericData.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
@@ -1895,7 +2120,7 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedEdgeRelDatas() const {
     int counter = 0;
     // iterate over all edgeDatas
     for (const auto& genericData : myGenericDatas.at(SUMO_TAG_EDGEREL)) {
-        if (genericData->isAttributeCarrierSelected()) {
+        if (genericData.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
@@ -1908,7 +2133,7 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedEdgeTAZRel() const {
     int counter = 0;
     // iterate over all edgeDatas
     for (const auto& genericData : myGenericDatas.at(SUMO_TAG_TAZREL)) {
-        if (genericData->isAttributeCarrierSelected()) {
+        if (genericData.second->isAttributeCarrierSelected()) {
             counter++;
         }
     }
@@ -1918,8 +2143,10 @@ GNENetHelper::AttributeCarriers::getNumberOfSelectedEdgeTAZRel() const {
 
 void
 GNENetHelper::AttributeCarriers::insertGenericData(GNEGenericData* genericData) {
-    if (myGenericDatas.at(genericData->getTagProperty().getTag()).insert(genericData).second == false) {
+    if (myGenericDatas.at(genericData->getTagProperty()->getTag()).count(genericData->getGUIGlObject()) > 0) {
         throw ProcessError(genericData->getTagStr() + " with ID='" + genericData->getID() + "' already exist");
+    } else {
+        myGenericDatas.at(genericData->getTagProperty()->getTag()).insert(std::make_pair(genericData->getGUIGlObject(), genericData));
     }
     // mark interval toolbar for update
     myNet->getViewNet()->getIntervalBar().markForUpdate();
@@ -1928,12 +2155,18 @@ GNENetHelper::AttributeCarriers::insertGenericData(GNEGenericData* genericData) 
 
 void
 GNENetHelper::AttributeCarriers::deleteGenericData(GNEGenericData* genericData) {
-    const auto finder = myGenericDatas.at(genericData->getTagProperty().getTag()).find(genericData);
-    if (finder == myGenericDatas.at(genericData->getTagProperty().getTag()).end()) {
+    const auto finder = myGenericDatas.at(genericData->getTagProperty()->getTag()).find(genericData);
+    if (finder == myGenericDatas.at(genericData->getTagProperty()->getTag()).end()) {
         throw ProcessError(genericData->getTagStr() + " with ID='" + genericData->getID() + "' wasn't previously inserted");
     } else {
-        myGenericDatas.at(genericData->getTagProperty().getTag()).erase(finder);
+        myGenericDatas.at(genericData->getTagProperty()->getTag()).erase(finder);
     }
+    // remove it from inspected elements and GNEElementTree
+    myNet->getViewNet()->getInspectedElements().uninspectAC(genericData);
+    genericData->unmarkForDrawingFront();
+    myNet->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(genericData);
+    // delete path element
+    myNet->getDataPathManager()->removePath(genericData);
     // mark interval toolbar for update
     myNet->getViewNet()->getIntervalBar().markForUpdate();
 }
@@ -1948,10 +2181,10 @@ GNENetHelper::AttributeCarriers::retrieveGenericDataParameters(const std::string
     // iterate over all data sets
     for (const auto& interval : myDataIntervals) {
         // check interval
-        if ((interval->getAttributeDouble(SUMO_ATTR_BEGIN) >= begin) && (interval->getAttributeDouble(SUMO_ATTR_END) <= end)) {
+        if ((interval.second->getAttributeDouble(SUMO_ATTR_BEGIN) >= begin) && (interval.second->getAttributeDouble(SUMO_ATTR_END) <= end)) {
             // iterate over generic datas
-            for (const auto& genericData : interval->getGenericDataChildren()) {
-                if (genericDataTag.empty() || (genericData->getTagProperty().getTagStr() == genericDataTag)) {
+            for (const auto& genericData : interval.second->getGenericDataChildren()) {
+                if (genericDataTag.empty() || (genericData->getTagProperty()->getTagStr() == genericDataTag)) {
                     genericDatas.push_back(genericData);
                 }
             }
@@ -1982,7 +2215,7 @@ GNENetHelper::AttributeCarriers::retrieveGenericDataParameters(const std::string
         // add all data sets
         dataSets.reserve(myDataSets.size());
         for (const auto& dataSet : myDataSets) {
-            dataSets.push_back(dataSet);
+            dataSets.push_back(dataSet.second);
         }
     } else if (retrievedDataSet) {
         dataSets.push_back(retrievedDataSet);
@@ -2029,7 +2262,7 @@ GNENetHelper::AttributeCarriers::retrieveGenericDataParameters(const std::string
     for (const auto& dataInterval : dataIntervals) {
         for (const auto& genericData : dataInterval->getGenericDataChildren()) {
             // check generic data tag
-            if (genericDataTag.empty() || (genericData->getTagProperty().getTagStr() == genericDataTag)) {
+            if (genericDataTag.empty() || (genericData->getTagProperty()->getTagStr() == genericDataTag)) {
                 for (const auto& attribute : genericData->getParametersMap()) {
                     attributesSolution.insert(attribute.first);
                 }
@@ -2037,6 +2270,75 @@ GNENetHelper::AttributeCarriers::retrieveGenericDataParameters(const std::string
         }
     }
     return attributesSolution;
+}
+
+
+GNEMeanData*
+GNENetHelper::AttributeCarriers::retrieveMeanData(SumoXMLTag type, const std::string& id, bool hardFail) const {
+    for (const auto& meanData : myMeanDatas.at(type)) {
+        if (meanData.second->getID() == id) {
+            return meanData.second;
+        }
+    }
+    if (hardFail) {
+        throw ProcessError("Attempted to retrieve non-existant meanData (string)");
+    } else {
+        return nullptr;
+    }
+}
+
+
+const std::unordered_map<SumoXMLTag, std::map<const std::string, GNEMeanData*>, std::hash<int> >&
+GNENetHelper::AttributeCarriers::getMeanDatas() const {
+    return myMeanDatas;
+}
+
+
+int
+GNENetHelper::AttributeCarriers::getNumberOfMeanDatas() const {
+    return myNumberOfMeanDataElements;
+}
+
+
+void
+GNENetHelper::AttributeCarriers::clearMeanDatas() {
+    // iterate over myMeanDatas and clear all meanDatas
+    for (auto& meanDatas : myMeanDatas) {
+        meanDatas.second.clear();
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::updateMeanDataID(GNEMeanData* meanData, const std::string& newID) {
+    const auto tag = meanData->getTagProperty()->getTag();
+    const auto it = myMeanDatas.at(tag).find(meanData->getID());
+    if (it == myMeanDatas.at(tag).end()) {
+        throw ProcessError(meanData->getTagStr() + " with ID='" + meanData->getID() + "' doesn't exist in AttributeCarriers.meanDatas");
+    } else {
+        // remove from container, set new Id, and insert it again
+        myMeanDatas.at(tag).erase(it);
+        myMeanDatas.at(tag)[newID] = meanData;
+    }
+}
+
+
+std::string
+GNENetHelper::AttributeCarriers::generateMeanDataID(SumoXMLTag tag) const {
+    // obtain option container
+    const auto& neteditOptions = OptionsCont::getOptions();
+    // get prefix
+    std::string prefix;
+    if (tag == SUMO_TAG_MEANDATA_EDGE) {
+        prefix = neteditOptions.getString("meanDataEdge-prefix");
+    } else if (tag == SUMO_TAG_MEANDATA_LANE) {
+        prefix = neteditOptions.getString("meanDataLane-prefix");
+    }
+    int counter = 0;
+    while (retrieveMeanData(tag, prefix + "_" + toString(counter), false) != nullptr) {
+        counter++;
+    }
+    return (prefix + "_" + toString(counter));
 }
 
 
@@ -2050,32 +2352,29 @@ GNENetHelper::AttributeCarriers::insertJunction(GNEJunction* junction) {
 void
 GNENetHelper::AttributeCarriers::deleteSingleJunction(GNEJunction* junction) {
     // remove it from inspected elements and GNEElementTree
-    myNet->getViewNet()->removeFromAttributeCarrierInspected(junction);
-    myNet->getViewNet()->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(junction);
+    myNet->getViewNet()->getInspectedElements().uninspectAC(junction);
+    junction->unmarkForDrawingFront();
+    myNet->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(junction);
     // Remove from grid and container
     myNet->removeGLObjectFromGrid(junction);
     myJunctions.erase(junction->getMicrosimID());
+    myNumberOfNetworkElements--;
     myNet->getNetBuilder()->getNodeCont().extract(junction->getNBNode());
     junction->decRef("GNENet::deleteSingleJunction");
     junction->setResponsible(true);
 }
 
 
-bool
-GNENetHelper::AttributeCarriers::edgeTypeExist(const GNEEdgeType* edgeType) const {
-    return (myEdgeTypes.count(edgeType->getID()) > 0);
-}
-
-
 void
 GNENetHelper::AttributeCarriers::insertEdgeType(GNEEdgeType* edgeType) {
     // get pointer to create edge frame
-    const auto& createEdgeFrame = myNet->getViewNet()->getViewParent()->getCreateEdgeFrame();
+    const auto& createEdgeFrame = myNet->getViewParent()->getCreateEdgeFrame();
     // insert in myEdgeTypes
     myEdgeTypes[edgeType->getMicrosimID()] = edgeType;
+    myNumberOfNetworkElements++;
     // update edge selector
-    if (myNet->getViewNet()->getViewParent()->getCreateEdgeFrame()->shown()) {
-        myNet->getViewNet()->getViewParent()->getCreateEdgeFrame()->getEdgeTypeSelector()->refreshEdgeTypeSelector();
+    if (myNet->getViewParent()->getCreateEdgeFrame()->shown()) {
+        myNet->getViewParent()->getCreateEdgeFrame()->getEdgeTypeSelector()->refreshEdgeTypeSelector();
     }
     // set current edge type inspected
     createEdgeFrame->getEdgeTypeSelector()->setCurrentEdgeType(edgeType);
@@ -2085,12 +2384,14 @@ GNENetHelper::AttributeCarriers::insertEdgeType(GNEEdgeType* edgeType) {
 void
 GNENetHelper::AttributeCarriers::deleteEdgeType(GNEEdgeType* edgeType) {
     // get pointer to create edge frame
-    const auto& createEdgeFrame = myNet->getViewNet()->getViewParent()->getCreateEdgeFrame();
+    const auto& createEdgeFrame = myNet->getViewParent()->getCreateEdgeFrame();
     // remove it from inspected elements and GNEElementTree
-    myNet->getViewNet()->removeFromAttributeCarrierInspected(edgeType);
-    myNet->getViewNet()->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(edgeType);
+    myNet->getViewNet()->getInspectedElements().uninspectAC(edgeType);
+    edgeType->unmarkForDrawingFront();
+    myNet->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(edgeType);
     // remove from edge types
     myEdgeTypes.erase(edgeType->getMicrosimID());
+    myNumberOfNetworkElements--;
     // check if this is the selected edge type in edgeSelector
     if (createEdgeFrame->getEdgeTypeSelector()->getEdgeTypeSelected() == edgeType) {
         createEdgeFrame->getEdgeTypeSelector()->clearEdgeTypeSelected();
@@ -2115,13 +2416,15 @@ GNENetHelper::AttributeCarriers::insertEdge(GNEEdge* edge) {
 void
 GNENetHelper::AttributeCarriers::deleteSingleEdge(GNEEdge* edge) {
     // remove it from inspected elements and GNEElementTree
-    myNet->getViewNet()->removeFromAttributeCarrierInspected(edge);
-    myNet->getViewNet()->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(edge);
+    myNet->getViewNet()->getInspectedElements().uninspectAC(edge);
+    edge->unmarkForDrawingFront();
+    myNet->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(edge);
     // remove edge from visual grid and container
     myNet->removeGLObjectFromGrid(edge);
     myEdges.erase(edge->getMicrosimID());
+    myNumberOfNetworkElements--;
     // remove all lanes
-    for (const auto& lane : edge->getLanes()) {
+    for (const auto& lane : edge->getChildLanes()) {
         deleteLane(lane);
     }
     // extract edge of district container
@@ -2131,8 +2434,11 @@ GNENetHelper::AttributeCarriers::deleteSingleEdge(GNEEdge* edge) {
     // Remove refrences from GNEJunctions
     edge->getFromJunction()->removeOutgoingGNEEdge(edge);
     edge->getToJunction()->removeIncomingGNEEdge(edge);
+    // update boundaries of both junctions (to remove it from Grid)
+    edge->getFromJunction()->updateCenteringBoundary(true);
+    edge->getToJunction()->updateCenteringBoundary(true);
     // get template editor
-    GNEInspectorFrame::TemplateEditor* templateEditor = myNet->getViewNet()->getViewParent()->getInspectorFrame()->getTemplateEditor();
+    GNEInspectorFrame::TemplateEditor* templateEditor = myNet->getViewParent()->getInspectorFrame()->getTemplateEditor();
     // check if we have to remove template
     if (templateEditor->getEdgeTemplate() && (templateEditor->getEdgeTemplate()->getID() == edge->getID())) {
         templateEditor->setEdgeTemplate(nullptr);
@@ -2140,166 +2446,1214 @@ GNENetHelper::AttributeCarriers::deleteSingleEdge(GNEEdge* edge) {
 }
 
 
-bool
-GNENetHelper::AttributeCarriers::additionalExist(const GNEAdditional* additional) const {
-    // first check that additional pointer is valid
-    if (additional) {
-        // get vector with this additional element type
-        const auto& additionalElementTag = myAdditionals.at(additional->getTagProperty().getTag());
-        // find demanElement in additionalElementTag
-        return std::find(additionalElementTag.begin(), additionalElementTag.end(), additional) != additionalElementTag.end();
+void
+GNENetHelper::AttributeCarriers::insertLane(GNELane* lane) {
+    if (myLanes.count(lane->getGUIGlObject()) > 0) {
+        throw ProcessError(lane->getTagStr() + " with ID='" + lane->getID() + "' already exist");
     } else {
-        throw ProcessError("Invalid additional pointer");
+        myLanes[lane->getGUIGlObject()] = lane;
+        myNumberOfNetworkElements++;
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::deleteLane(GNELane* lane) {
+    const auto finder = myLanes.find(lane->getGUIGlObject());
+    if (finder == myLanes.end()) {
+        throw ProcessError(lane->getTagStr() + " with ID='" + lane->getID() + "' wasn't previously inserted");
+    } else {
+        myLanes.erase(finder);
+        myNumberOfNetworkElements--;
+        // remove it from inspected elements and GNEElementTree
+        myNet->getViewNet()->getInspectedElements().uninspectAC(lane);
+        lane->unmarkForDrawingFront();
+        myNet->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(lane);
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::insertCrossing(GNECrossing* crossing) {
+    if (myCrossings.count(crossing->getGUIGlObject()) > 0) {
+        throw ProcessError(crossing->getTagStr() + " with ID='" + crossing->getID() + "' already exist");
+    } else {
+        myCrossings[crossing->getGUIGlObject()] = crossing;
+        myNumberOfNetworkElements++;
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::deleteCrossing(GNECrossing* crossing) {
+    const auto finder = myCrossings.find(crossing->getGUIGlObject());
+    if (finder == myCrossings.end()) {
+        throw ProcessError(crossing->getTagStr() + " with ID='" + crossing->getID() + "' wasn't previously inserted");
+    } else {
+        myCrossings.erase(finder);
+        myNumberOfNetworkElements--;
+        // remove it from inspected elements and GNEElementTree
+        if (myNet->getViewNet()) {
+            myNet->getViewNet()->getInspectedElements().uninspectAC(crossing);
+            crossing->unmarkForDrawingFront();
+            myNet->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(crossing);
+        }
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::insertWalkingArea(GNEWalkingArea* walkingArea) {
+    if (myWalkingAreas.count(walkingArea->getGUIGlObject()) > 0) {
+        throw ProcessError(walkingArea->getTagStr() + " with ID='" + walkingArea->getID() + "' already exist");
+    } else {
+        myWalkingAreas[walkingArea->getGUIGlObject()] = walkingArea;
+        myNumberOfNetworkElements++;
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::deleteWalkingArea(GNEWalkingArea* walkingArea) {
+    const auto finder = myWalkingAreas.find(walkingArea->getGUIGlObject());
+    if (finder == myWalkingAreas.end()) {
+        throw ProcessError(walkingArea->getTagStr() + " with ID='" + walkingArea->getID() + "' wasn't previously inserted");
+    } else {
+        myWalkingAreas.erase(finder);
+        myNumberOfNetworkElements--;
+        // remove it from inspected elements and GNEElementTree
+        myNet->getViewNet()->getInspectedElements().uninspectAC(walkingArea);
+        walkingArea->unmarkForDrawingFront();
+        myNet->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(walkingArea);
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::insertConnection(GNEConnection* connection) {
+    if (myConnections.count(connection->getGUIGlObject()) > 0) {
+        throw ProcessError(connection->getTagStr() + " with ID='" + connection->getID() + "' already exist");
+    } else {
+        myConnections[connection->getGUIGlObject()] = connection;
+        myNumberOfNetworkElements++;
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::deleteConnection(GNEConnection* connection) {
+    const auto finder = myConnections.find(connection->getGUIGlObject());
+    if (finder == myConnections.end()) {
+        throw ProcessError(connection->getTagStr() + " with ID='" + connection->getID() + "' wasn't previously inserted");
+    } else {
+        myConnections.erase(finder);
+        myNumberOfNetworkElements--;
+        // remove it from inspected elements and GNEElementTree
+        myNet->getViewNet()->getInspectedElements().uninspectAC(connection);
+        connection->unmarkForDrawingFront();
+        myNet->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(connection);
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::insertInternalLane(GNEInternalLane* internalLane) {
+    if (myInternalLanes.count(internalLane->getGUIGlObject()) > 0) {
+        throw ProcessError(internalLane->getTagStr() + " with ID='" + internalLane->getMicrosimID() + "' already exist");
+    } else {
+        myInternalLanes[internalLane->getGUIGlObject()] = internalLane;
+        myNumberOfNetworkElements++;
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::deleteInternalLane(GNEInternalLane* internalLane) {
+    const auto finder = myInternalLanes.find(internalLane->getGUIGlObject());
+    if (finder == myInternalLanes.end()) {
+        throw ProcessError(internalLane->getTagStr() + " with ID='" + internalLane->getID() + "' wasn't previously inserted");
+    } else {
+        myInternalLanes.erase(finder);
+        myNumberOfNetworkElements--;
     }
 }
 
 
 void
 GNENetHelper::AttributeCarriers::insertAdditional(GNEAdditional* additional) {
-    // insert additional
-    if (myAdditionals.at(additional->getTagProperty().getTag()).insert(additional).second == false) {
+    const auto tag = additional->getTagProperty()->getTag();
+    if (myAdditionals.at(tag).count(additional) > 0) {
         throw ProcessError(additional->getTagStr() + " with ID='" + additional->getID() + "' already exist");
-    }
-    // add element in grid
-    if (additional->getTagProperty().isPlacedInRTree()) {
+    } else {
+        // insert in both containers
+        myAdditionals.at(tag)[additional->getGUIGlObject()] = additional;
+        if (additional->getTagProperty()->hasAttribute(SUMO_ATTR_ID)) {
+            myAdditionalIDs.at(tag)[additional->getID()] = additional;
+        }
+        myNumberOfNetworkElements++;
+        // insert AC in fileBucket (use this function ton maintain integrity in options)
+        myNet->getGNEApplicationWindow()->getFileBucketHandler()->registerAC(additional);
+        // add element in grid
         myNet->addGLObjectIntoGrid(additional);
+        // update geometry after insertion of additionals if myUpdateGeometryEnabled is enabled
+        if (myNet->isUpdateGeometryEnabled()) {
+            additional->updateGeometry();
+        }
+        // additionals has to be saved
+        myNet->getSavingStatus()->requireSaveAdditionals();
     }
-    // update geometry after insertion of additionals if myUpdateGeometryEnabled is enabled
-    if (myNet->isUpdateGeometryEnabled()) {
-        additional->updateGeometry();
-    }
-    // additionals has to be saved
-    myNet->requireSaveAdditionals(true);
 }
 
 
 void
 GNENetHelper::AttributeCarriers::deleteAdditional(GNEAdditional* additional) {
+    const auto tag = additional->getTagProperty()->getTag();
     // find demanElement in additionalTag
-    auto itFind = myAdditionals.at(additional->getTagProperty().getTag()).find(additional);
+    auto itFind = myAdditionals.at(tag).find(additional->getGUIGlObject());
     // check if additional was previously inserted
-    if (itFind == myAdditionals.at(additional->getTagProperty().getTag()).end()) {
+    if (itFind == myAdditionals.at(tag).end()) {
         throw ProcessError(additional->getTagStr() + " with ID='" + additional->getID() + "' wasn't previously inserted");
-    }
-    // remove it from inspected elements and GNEElementTree
-    myNet->getViewNet()->removeFromAttributeCarrierInspected(additional);
-    myNet->getViewNet()->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(additional);
-    // remove from container
-    myAdditionals.at(additional->getTagProperty().getTag()).erase(itFind);
-    // remove element from grid
-    if (additional->getTagProperty().isPlacedInRTree()) {
+    } else {
+        // remove from both container
+        myAdditionals.at(tag).erase(itFind);
+        if (additional->getTagProperty()->hasAttribute(SUMO_ATTR_ID)) {
+            myAdditionalIDs.at(tag).erase(myAdditionalIDs.at(tag).find(additional->getID()));
+        }
+        myNumberOfNetworkElements--;
+        // remove AC from fileBucket (use this function ton maintain integrity in options)
+        myNet->getGNEApplicationWindow()->getFileBucketHandler()->unregisterAC(additional);
+        // remove it from inspected elements and GNEElementTree
+        myNet->getViewNet()->getInspectedElements().uninspectAC(additional);
+        additional->unmarkForDrawingFront();
+        myNet->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(additional);
+        // remove element from grid
         myNet->removeGLObjectFromGrid(additional);
+        // delete path element
+        myNet->getNetworkPathManager()->removePath(additional);
+        // additionals has to be saved
+        myNet->getSavingStatus()->requireSaveAdditionals();
     }
-    // delete path element
-    myNet->getPathManager()->removePath(additional);
-    // additionals has to be saved
-    myNet->requireSaveAdditionals(true);
 }
 
 
-bool
-GNENetHelper::AttributeCarriers::demandElementExist(GNEDemandElement* demandElement) const {
-    // first check that demandElement pointer is valid
-    if (demandElement) {
-        // get vector with this demand element type
-        const auto& demandElementTag = myDemandElements.at(demandElement->getTagProperty().getTag());
-        // find demanElement in demandElementTag
-        return std::find(demandElementTag.begin(), demandElementTag.end(), demandElement) != demandElementTag.end();
+
+
+void
+GNENetHelper::AttributeCarriers::insertTAZSourceSink(GNETAZSourceSink* sourceSink) {
+    const auto sourceSinkTag = sourceSink->getTagProperty()->getTag();
+    if (myTAZSourceSinks.at(sourceSinkTag).count(sourceSink) > 0) {
+        throw ProcessError(sourceSink->getTagStr() + " with ID='" + sourceSink->getID() + "' already exist");
     } else {
-        throw ProcessError("Invalid demandElement pointer");
+        myTAZSourceSinks.at(sourceSinkTag)[sourceSink] = sourceSink;
+        myNumberOfNetworkElements++;
+        // insert AC in fileBucket (use this function ton maintain integrity in options)
+        myNet->getGNEApplicationWindow()->getFileBucketHandler()->registerAC(sourceSink);
+        // additionals has to be saved
+        myNet->getSavingStatus()->requireSaveAdditionals();
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::deleteTAZSourceSink(GNETAZSourceSink* sourceSink) {
+    const auto tag = sourceSink->getTagProperty()->getTag();
+    // find demanElement in additionalTag
+    auto itFind = myTAZSourceSinks.at(tag).find(sourceSink);
+    // check if sourceSink was previously inserted
+    if (itFind == myTAZSourceSinks.at(tag).end()) {
+        throw ProcessError(sourceSink->getTagStr() + " with ID='" + sourceSink->getID() + "' wasn't previously inserted");
+    } else {
+        // remove from both container
+        myTAZSourceSinks.at(tag).erase(itFind);
+        myNumberOfNetworkElements--;
+        // remove AC from fileBucket (use this function ton maintain integrity in options)
+        myNet->getGNEApplicationWindow()->getFileBucketHandler()->unregisterAC(sourceSink);
+        // remove it from inspected elements and GNEElementTree
+        myNet->getViewNet()->getInspectedElements().uninspectAC(sourceSink);
+        sourceSink->unmarkForDrawingFront();
+        myNet->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(sourceSink);
+        // additionals has to be saved
+        myNet->getSavingStatus()->requireSaveAdditionals();
     }
 }
 
 
 void
 GNENetHelper::AttributeCarriers::insertDemandElement(GNEDemandElement* demandElement) {
-    // insert in demandElements container
-    if (myDemandElements.at(demandElement->getTagProperty().getTag()).insert(demandElement).second == false) {
+    const auto tag = demandElement->getTagProperty()->getTag();
+    if (myDemandElements.at(tag).count(demandElement) > 0) {
         throw ProcessError(demandElement->getTagStr() + " with ID='" + demandElement->getID() + "' already exist");
+    } else {
+        myDemandElements.at(tag)[demandElement->getGUIGlObject()] = demandElement;
+        if (demandElement->getTagProperty()->hasAttribute(SUMO_ATTR_ID)) {
+            myDemandElementIDs.at(tag)[demandElement->getID()] = demandElement;
+        }
+        myNumberOfDemandElements++;
+        // insert AC in fileBucket (use this function ton maintain integrity in options)
+        myNet->getGNEApplicationWindow()->getFileBucketHandler()->registerAC(demandElement);
+        // add element in grid
+        myNet->addGLObjectIntoGrid(demandElement);
+        // update geometry after insertion of demandElements if myUpdateGeometryEnabled is enabled
+        if (myNet->isUpdateGeometryEnabled()) {
+            demandElement->updateGeometry();
+        }
+        // compute path element
+        if (myNet->getViewNet()->getEditModes().isCurrentSupermodeDemand()) {
+            demandElement->computePathElement();
+        }
+        // update demand elements frames
+        updateDemandElementFrames(demandElement->getTagProperty());
+        // demandElements has to be saved
+        myNet->getSavingStatus()->requireSaveDemandElements();
     }
-    // add element in grid
-    myNet->addGLObjectIntoGrid(demandElement);
-    // update geometry after insertion of demandElements if myUpdateGeometryEnabled is enabled
-    if (myNet->isUpdateGeometryEnabled()) {
-        demandElement->updateGeometry();
-    }
-    // demandElements has to be saved
-    myNet->requireSaveDemandElements(true);
 }
 
 
 void
-GNENetHelper::AttributeCarriers::deleteDemandElement(GNEDemandElement* demandElement) {
+GNENetHelper::AttributeCarriers::deleteDemandElement(GNEDemandElement* demandElement, const bool updateFrames) {
+    const auto tag = demandElement->getTagProperty()->getTag();
+    auto viewParent = myNet->getViewParent();
     // find demanElement in demandElementTag
-    auto itFind = myDemandElements.at(demandElement->getTagProperty().getTag()).find(demandElement);
+    auto itFind = myDemandElements.at(tag).find(demandElement->getGUIGlObject());
     // check if demandElement was previously inserted
-    if (itFind == myDemandElements.at(demandElement->getTagProperty().getTag()).end()) {
+    if (itFind == myDemandElements.at(tag).end()) {
         throw ProcessError(demandElement->getTagStr() + " with ID='" + demandElement->getID() + "' wasn't previously inserted");
-    }
-    // remove it from inspected elements and GNEElementTree
-    myNet->getViewNet()->removeFromAttributeCarrierInspected(demandElement);
-    myNet->getViewNet()->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(demandElement);
-    myNet->getViewNet()->getViewParent()->getPersonPlanFrame()->getPersonHierarchy()->removeCurrentEditedAttributeCarrier(demandElement);
-    // if is the last inserted route, remove it from GNEViewNet
-    if (myNet->getViewNet()->getLastCreatedRoute() == demandElement) {
-        myNet->getViewNet()->setLastCreatedRoute(nullptr);
-    }
-    // erase it from container
-    myDemandElements.at(demandElement->getTagProperty().getTag()).erase(itFind);
-    // remove element from grid
-    myNet->removeGLObjectFromGrid(demandElement);
-    // delete path element
-    myNet->getPathManager()->removePath(demandElement);
-    // demandElements has to be saved
-    myNet->requireSaveDemandElements(true);
-}
-
-
-bool
-GNENetHelper::AttributeCarriers::dataSetExist(GNEDataSet* dataSet) const {
-    // first check that dataSet pointer is valid
-    if (dataSet) {
-        if (myDataSets.find(dataSet) != myDataSets.end()) {
-            return true;
-        } else {
-            return false;
-        }
     } else {
-        throw ProcessError("Invalid dataSet pointer");
+        // erase it from container
+        myDemandElements.at(tag).erase(itFind);
+        if (demandElement->getTagProperty()->hasAttribute(SUMO_ATTR_ID)) {
+            myDemandElementIDs.at(tag).erase(myDemandElementIDs.at(tag).find(demandElement->getID()));
+        }
+        myNumberOfDemandElements--;
+        // remove AC from fileBucket (use this function ton maintain integrity in options)
+        myNet->getGNEApplicationWindow()->getFileBucketHandler()->unregisterAC(demandElement);
+        // remove element from grid
+        myNet->removeGLObjectFromGrid(demandElement);
+        // remove it from inspected elements and GNEElementTree
+        myNet->getViewNet()->getInspectedElements().uninspectAC(demandElement);
+        demandElement->unmarkForDrawingFront();
+        // if is the last inserted route, remove it from GNEViewNet
+        if (myNet->getViewNet()->getLastCreatedRoute() == demandElement) {
+            myNet->getViewNet()->setLastCreatedRoute(nullptr);
+        }
+        // delete path element
+        myNet->getDemandPathManager()->removePath(demandElement);
+        // check if update demand elements frames
+        if (updateFrames) {
+            updateDemandElementFrames(demandElement->getTagProperty());
+            viewParent->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(demandElement);
+            viewParent->getPersonPlanFrame()->getPersonHierarchy()->removeCurrentEditedAttributeCarrier(demandElement);
+            viewParent->getContainerPlanFrame()->getContainerHierarchy()->removeCurrentEditedAttributeCarrier(demandElement);
+            // update distribution frames
+            if (viewParent->getRouteDistributionFrame()->getDistributionSelector()->getCurrentDistribution() == demandElement) {
+                viewParent->getRouteDistributionFrame()->getDistributionSelector()->setDistribution(nullptr);
+            }
+            if (viewParent->getTypeDistributionFrame()->getDistributionSelector()->getCurrentDistribution() == demandElement) {
+                viewParent->getTypeDistributionFrame()->getDistributionSelector()->setDistribution(nullptr);
+            }
+            // special case for distribution references
+            if (demandElement->getTagProperty()->getTag() == GNE_TAG_VTYPEREF) {
+                viewParent->getTypeDistributionFrame()->getDistributionValuesEditor()->refreshRows();
+            }
+            if (demandElement->getTagProperty()->getTag() == GNE_TAG_ROUTEREF) {
+                viewParent->getRouteDistributionFrame()->getDistributionValuesEditor()->refreshRows();
+            }
+        }
+        // demandElements has to be saved
+        myNet->getSavingStatus()->requireSaveDemandElements();
     }
 }
 
 
 void
 GNENetHelper::AttributeCarriers::insertDataSet(GNEDataSet* dataSet) {
-    // Check if dataSet element exists before insertion
-    if (myDataSets.insert(dataSet).second == false) {
+    if (myDataSets.count(dataSet->getID()) > 0) {
         throw ProcessError(dataSet->getTagStr() + " with ID='" + dataSet->getID() + "' already exist");
+    } else {
+        myDataSets[dataSet->getID()] = dataSet;
+        myNumberOfDataElements++;
+        // insert AC in fileBucket (use this function ton maintain integrity in options)
+        myNet->getGNEApplicationWindow()->getFileBucketHandler()->registerAC(dataSet);
+        // dataSets has to be saved
+        myNet->getSavingStatus()->requireSaveDataElements();
+        // mark interval toolbar for update
+        myNet->getViewNet()->getIntervalBar().markForUpdate();
     }
-    // dataSets has to be saved
-    myNet->requireSaveDataElements(true);
-    // mark interval toolbar for update
-    myNet->getViewNet()->getIntervalBar().markForUpdate();
 }
 
 
 void
 GNENetHelper::AttributeCarriers::deleteDataSet(GNEDataSet* dataSet) {
-    // find dataSet
-    const auto itFind = myDataSets.find(dataSet);
-    // first check that dataSet pointer is valid
-    if (itFind == myDataSets.end()) {
+    const auto finder = myDataSets.find(dataSet->getID());
+    if (finder == myDataSets.end()) {
         throw ProcessError(dataSet->getTagStr() + " with ID='" + dataSet->getID() + "' wasn't previously inserted");
+    } else {
+        myDataSets.erase(finder);
+        myNumberOfDataElements--;
+        // remove AC from fileBucket (use this function ton maintain integrity in options)
+        myNet->getGNEApplicationWindow()->getFileBucketHandler()->unregisterAC(dataSet);
+        // remove it from inspected elements and GNEElementTree
+        myNet->getViewNet()->getInspectedElements().uninspectAC(dataSet);
+        dataSet->unmarkForDrawingFront();
+        myNet->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(dataSet);
+        // dataSets has to be saved
+        myNet->getSavingStatus()->requireSaveDataElements();
+        // mark interval toolbar for update
+        myNet->getViewNet()->getIntervalBar().markForUpdate();
     }
-    // remove it from inspected elements and GNEElementTree
-    myNet->getViewNet()->removeFromAttributeCarrierInspected(dataSet);
-    myNet->getViewNet()->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(dataSet);
-    // obtain demand element and erase it from container
-    myDataSets.erase(itFind);
-    // dataSets has to be saved
-    myNet->requireSaveDataElements(true);
-    // mark interval toolbar for update
-    myNet->getViewNet()->getIntervalBar().markForUpdate();
+}
+
+
+void
+GNENetHelper::AttributeCarriers::insertMeanData(GNEMeanData* meanData) {
+    if (myMeanDatas.at(meanData->getTagProperty()->getTag()).count(meanData->getID()) > 0) {
+        throw ProcessError(meanData->getTagStr() + " with ID='" + meanData->getID() + "' already exist");
+    } else {
+        myMeanDatas.at(meanData->getTagProperty()->getTag()).insert(std::make_pair(meanData->getID(), meanData));
+        myNumberOfMeanDataElements++;
+        // insert AC in fileBucket (use this function ton maintain integrity in options)
+        myNet->getGNEApplicationWindow()->getFileBucketHandler()->registerAC(meanData);
+        // meanDatas has to be saved
+        myNet->getSavingStatus()->requireSaveMeanDatas();
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::deleteMeanData(GNEMeanData* meanData) {
+    // find demanElement in meanDataTag
+    auto itFind = myMeanDatas.at(meanData->getTagProperty()->getTag()).find(meanData->getID());
+    // check if meanData was previously inserted
+    if (itFind == myMeanDatas.at(meanData->getTagProperty()->getTag()).end()) {
+        throw ProcessError(meanData->getTagStr() + " with ID='" + meanData->getID() + "' wasn't previously inserted");
+    } else {
+        // remove from container
+        myMeanDatas.at(meanData->getTagProperty()->getTag()).erase(itFind);
+        myNumberOfMeanDataElements--;
+        // remove AC from fileBucket (use this function ton maintain integrity in options)
+        myNet->getGNEApplicationWindow()->getFileBucketHandler()->unregisterAC(meanData);
+        // remove it from inspected elements and GNEElementTree
+        myNet->getViewNet()->getInspectedElements().uninspectAC(meanData);
+        meanData->unmarkForDrawingFront();
+        myNet->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(meanData);
+        // remove element from grid
+        myNet->removeGLObjectFromGrid(meanData);
+        // meanDatas has to be saved
+        myNet->getSavingStatus()->requireSaveMeanDatas();
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::updateDemandElementFrames(const GNETagProperties* tagProperty) {
+    if (myNet->getViewNet()->getEditModes().isCurrentSupermodeDemand()) {
+        // continue depending of demand mode
+        switch (myNet->getViewNet()->getEditModes().demandEditMode) {
+            case DemandEditMode::DEMAND_VEHICLE:
+                if (tagProperty->isType()) {
+                    myNet->getViewParent()->getVehicleFrame()->getTypeSelector()->refreshDemandElementSelector();
+                }
+                break;
+            case DemandEditMode::DEMAND_TYPE:
+                if (tagProperty->isType()) {
+                    myNet->getViewParent()->getTypeFrame()->getTypeSelector()->refreshTypeSelector(true);
+                }
+                break;
+            case DemandEditMode::DEMAND_TYPEDISTRIBUTION:
+                if (tagProperty->isType()) {
+                    myNet->getViewParent()->getTypeDistributionFrame()->getDistributionSelector()->refreshDistributionSelector();
+                }
+                break;
+            case DemandEditMode::DEMAND_ROUTEDISTRIBUTION:
+                if (tagProperty->isRoute()) {
+                    myNet->getViewParent()->getRouteDistributionFrame()->getDistributionSelector()->refreshDistributionSelector();
+                }
+                break;
+            case DemandEditMode::DEMAND_PERSON:
+                if (tagProperty->isType()) {
+                    myNet->getViewParent()->getPersonFrame()->getTypeSelector()->refreshDemandElementSelector();
+                }
+                break;
+            case DemandEditMode::DEMAND_PERSONPLAN:
+                if (tagProperty->isPerson()) {
+                    myNet->getViewParent()->getPersonPlanFrame()->getPersonSelector()->refreshDemandElementSelector();
+                }
+                break;
+            case DemandEditMode::DEMAND_CONTAINER:
+                if (tagProperty->isType()) {
+                    myNet->getViewParent()->getContainerFrame()->getTypeSelector()->refreshDemandElementSelector();
+                }
+                break;
+            case DemandEditMode::DEMAND_CONTAINERPLAN:
+                if (tagProperty->isContainer()) {
+                    myNet->getViewParent()->getContainerPlanFrame()->getContainerSelector()->refreshDemandElementSelector();
+                }
+                break;
+            case DemandEditMode::DEMAND_STOP:
+                myNet->getViewParent()->getStopFrame()->getStopParentSelector()->refreshDemandElementSelector();
+                break;
+            default:
+                // nothing to update
+                break;
+        }
+    }
+}
+
+
+void
+GNENetHelper::AttributeCarriers::retrieveAttributeCarriersRecursively(const GNETagProperties* tag, std::vector<GNEAttributeCarrier*>& ACs) {
+    // fill network elements
+    if (tag->getTag() == SUMO_TAG_JUNCTION) {
+        for (const auto& junction : myJunctions) {
+            ACs.push_back(junction.second);
+        }
+    }
+    if (tag->getTag() == SUMO_TAG_EDGE) {
+        for (const auto& edge : myEdges) {
+            ACs.push_back(edge.second);
+        }
+    }
+    if (tag->getTag() == SUMO_TAG_LANE) {
+        for (const auto& lane : myLanes) {
+            ACs.push_back(lane.second);
+        }
+    }
+    if (tag->getTag() == SUMO_TAG_CONNECTION) {
+        for (const auto& connection : myConnections) {
+            ACs.push_back(connection.second);
+        }
+    }
+    if (tag->getTag() == SUMO_TAG_CROSSING) {
+        for (const auto& crossing : myCrossings) {
+            ACs.push_back(crossing.second);
+        }
+    }
+    if (tag->getTag() == SUMO_TAG_WALKINGAREA) {
+        for (const auto& walkingArea : myWalkingAreas) {
+            ACs.push_back(walkingArea.second);
+        }
+    }
+    // fill additional elements
+    if (tag->isAdditionalElement()) {
+        for (const auto& additionalTag : myAdditionals) {
+            if (additionalTag.first == tag->getTag()) {
+                for (const auto& additional : additionalTag.second) {
+                    ACs.push_back(additional.second);
+                }
+            }
+        }
+    }
+    // fill demand elements
+    if (tag->isDemandElement()) {
+        for (const auto& demandElementTag : myDemandElements) {
+            if (demandElementTag.first == tag->getTag()) {
+                for (const auto& demandElemet : demandElementTag.second) {
+                    ACs.push_back(demandElemet.second);
+                }
+            }
+        }
+    }
+    // fill data elements
+    if (tag->isDataElement()) {
+        if (tag->getTag() == SUMO_TAG_DATASET) {
+            for (const auto& dataSet : myDataSets) {
+                ACs.push_back(dataSet.second);
+            }
+        }
+        if (tag->getTag() == SUMO_TAG_DATAINTERVAL) {
+            for (const auto& dataInterval : myDataIntervals) {
+                ACs.push_back(dataInterval.second);
+            }
+        }
+        for (const auto& genericDataTag : myGenericDatas) {
+            if (genericDataTag.first == tag->getTag()) {
+                for (const auto& genericData : genericDataTag.second) {
+                    ACs.push_back(genericData.second);
+                }
+            }
+        }
+        for (const auto& meanDataTag : myMeanDatas) {
+            if (meanDataTag.first == tag->getTag()) {
+                for (const auto& meanData : meanDataTag.second) {
+                    ACs.push_back(meanData.second);
+                }
+            }
+        }
+    }
+    // iterate over children
+    for (const auto child : tag->getHierarchicalChildren()) {
+        retrieveAttributeCarriersRecursively(child, ACs);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// GNENetHelper::GNETagSelector - methods
+// ---------------------------------------------------------------------------
+
+GNENetHelper::ACTemplate::ACTemplate(GNENet* net) :
+    myNet(net) {
+}
+
+
+void
+GNENetHelper::ACTemplate::buildTemplates() {
+    // network
+    myTemplates[SUMO_TAG_CROSSING] = new GNECrossing(myNet);
+    // special case for edge type
+    myEdgeType = new GNEEdgeType(myNet);
+    myTemplates[SUMO_TAG_TYPE] = myEdgeType;
+    // additionals
+    myTemplates[SUMO_TAG_BUS_STOP] = GNEBusStop::buildBusStop(myNet);
+    myTemplates[SUMO_TAG_TRAIN_STOP] = GNEBusStop::buildTrainStop(myNet);
+    myTemplates[SUMO_TAG_ACCESS] = new GNEAccess(myNet);
+    myTemplates[SUMO_TAG_CONTAINER_STOP] = new GNEContainerStop(myNet);
+    myTemplates[SUMO_TAG_CHARGING_STATION] = new GNEChargingStation(myNet);
+    myTemplates[SUMO_TAG_PARKING_AREA] = new GNEParkingArea(myNet);
+    myTemplates[SUMO_TAG_PARKING_SPACE] = new GNEParkingSpace(myNet);
+    myTemplates[SUMO_TAG_INDUCTION_LOOP] = new GNEInductionLoopDetector(myNet);
+    myTemplates[SUMO_TAG_LANE_AREA_DETECTOR] = new GNELaneAreaDetector(SUMO_TAG_LANE_AREA_DETECTOR, myNet);
+    myTemplates[GNE_TAG_MULTI_LANE_AREA_DETECTOR] = new GNELaneAreaDetector(GNE_TAG_MULTI_LANE_AREA_DETECTOR, myNet);
+    myTemplates[SUMO_TAG_ENTRY_EXIT_DETECTOR] = new GNEMultiEntryExitDetector(myNet);
+    myTemplates[SUMO_TAG_DET_ENTRY] = new GNEEntryExitDetector(SUMO_TAG_DET_ENTRY, myNet);
+    myTemplates[SUMO_TAG_DET_EXIT] = new GNEEntryExitDetector(SUMO_TAG_DET_EXIT, myNet);
+    myTemplates[SUMO_TAG_INSTANT_INDUCTION_LOOP] = new GNEInstantInductionLoopDetector(myNet);
+    myTemplates[SUMO_TAG_VSS] = new GNEVariableSpeedSign(myNet);
+    myTemplates[SUMO_TAG_STEP] = new GNEVariableSpeedSignStep(myNet);
+    myTemplates[SUMO_TAG_CALIBRATOR] = new GNECalibrator(SUMO_TAG_CALIBRATOR, myNet);
+    myTemplates[GNE_TAG_CALIBRATOR_LANE] = new GNECalibrator(GNE_TAG_CALIBRATOR_LANE, myNet);
+    myTemplates[GNE_TAG_CALIBRATOR_FLOW] = new GNECalibratorFlow(myNet);
+    myTemplates[SUMO_TAG_REROUTER] = new GNERerouter(myNet);
+    myTemplates[SUMO_TAG_INTERVAL] = new GNERerouterInterval(myNet);
+    myTemplates[SUMO_TAG_CLOSING_REROUTE] = new GNEClosingReroute(myNet);
+    myTemplates[SUMO_TAG_CLOSING_LANE_REROUTE] = new GNEClosingLaneReroute(myNet);
+    myTemplates[SUMO_TAG_DEST_PROB_REROUTE] = new GNEDestProbReroute(myNet);
+    myTemplates[SUMO_TAG_PARKING_AREA_REROUTE] = new GNEParkingAreaReroute(myNet);
+    myTemplates[SUMO_TAG_ROUTE_PROB_REROUTE] = new GNERouteProbReroute(myNet);
+    myTemplates[SUMO_TAG_ROUTEPROBE] = new GNERouteProbe(myNet);
+    myTemplates[SUMO_TAG_VAPORIZER] = new GNEVaporizer(myNet);
+    // symbols
+    myTemplates[GNE_TAG_REROUTER_SYMBOL] = new GNERerouterSymbol(myNet);
+    myTemplates[GNE_TAG_VSS_SYMBOL] = new GNEVariableSpeedSignSymbol(myNet);
+    // shapes
+    myTemplates[SUMO_TAG_POLY] = new GNEPoly(SUMO_TAG_POLY, myNet);
+    myTemplates[SUMO_TAG_POI] = new GNEPOI(SUMO_TAG_POI, myNet);
+    myTemplates[GNE_TAG_POILANE] = new GNEPOI(GNE_TAG_POILANE, myNet);
+    myTemplates[GNE_TAG_POIGEO] = new GNEPOI(GNE_TAG_POIGEO, myNet);
+    // TAZs
+    myTemplates[SUMO_TAG_TAZ] = new GNETAZ(myNet);
+    myTemplates[SUMO_TAG_TAZSOURCE] = new GNETAZSourceSink(SUMO_TAG_TAZSOURCE, myNet);
+    myTemplates[SUMO_TAG_TAZSINK] = new GNETAZSourceSink(SUMO_TAG_TAZSINK, myNet);
+    // wires
+    myTemplates[SUMO_TAG_TRACTION_SUBSTATION] = new GNETractionSubstation(myNet);
+    myTemplates[SUMO_TAG_OVERHEAD_WIRE_SECTION] = new GNEOverheadWire(myNet);
+    //myTemplates[SUMO_TAG_OVERHEAD_WIRE_CLAMP] = nullptr;   // TMP
+    // JuPedSim elements
+    myTemplates[GNE_TAG_JPS_WALKABLEAREA] = new GNEPoly(GNE_TAG_JPS_WALKABLEAREA, myNet);
+    myTemplates[GNE_TAG_JPS_OBSTACLE] = new GNEPoly(GNE_TAG_JPS_OBSTACLE, myNet);
+    // vTypes
+    myTemplates[SUMO_TAG_VTYPE] = new GNEVType(SUMO_TAG_VTYPE, myNet);
+    // vType distributions
+    myTemplates[SUMO_TAG_VTYPE_DISTRIBUTION] = new GNEVTypeDistribution(myNet);
+    myTemplates[GNE_TAG_VTYPEREF] = new GNEVTypeRef(myNet);
+    // routes
+    myTemplates[SUMO_TAG_ROUTE] = new GNERoute(SUMO_TAG_ROUTE, myNet);
+    myTemplates[GNE_TAG_ROUTE_EMBEDDED] = new GNERoute(GNE_TAG_ROUTE_EMBEDDED, myNet);
+    // route distribution
+    myTemplates[SUMO_TAG_ROUTE_DISTRIBUTION] = new GNERouteDistribution(myNet);
+    myTemplates[GNE_TAG_ROUTEREF] = new GNERouteRef(myNet);
+    // vehicles
+    const auto vehicles = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::VEHICLE);
+    for (const auto vehicle : vehicles) {
+        myTemplates[vehicle->getTag()] = new GNEVehicle(vehicle->getTag(), myNet);
+    }
+    // persons
+    const auto persons = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::PERSON);
+    for (const auto person : persons) {
+        myTemplates[person->getTag()] = new GNEPerson(person->getTag(), myNet);
+    }
+    // container
+    const auto containers = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::CONTAINER);
+    for (const auto container : containers) {
+        myTemplates[container->getTag()] = new GNEContainer(container->getTag(), myNet);
+    }
+    // stops and waypoints
+    const auto stopAndWaypoints = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::STOP_VEHICLE);
+    for (const auto stopAndWaypoint : stopAndWaypoints) {
+        myTemplates[stopAndWaypoint->getTag()] = new GNEStop(stopAndWaypoint->getTag(), myNet);
+    }
+    // personTrip
+    const auto personTrips = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::PERSONTRIP);
+    for (const auto personTrip : personTrips) {
+        myTemplates[personTrip->getTag()] = new GNEPersonTrip(personTrip->getTag(), myNet);
+    }
+    // walk
+    const auto walks = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::WALK);
+    for (const auto walk : walks) {
+        myTemplates[walk->getTag()] = new GNEWalk(walk->getTag(), myNet);
+    }
+    // ride
+    const auto rides = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::RIDE);
+    for (const auto ride : rides) {
+        myTemplates[ride->getTag()] = new GNERide(ride->getTag(), myNet);
+    }
+    // stop person
+    const auto stopPersons = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::STOP_PERSON);
+    for (const auto stopPerson : stopPersons) {
+        myTemplates[stopPerson->getTag()] = new GNEStopPlan(stopPerson->getTag(), myNet);
+    }
+    // transport
+    const auto transports = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::TRANSPORT);
+    for (const auto transport : transports) {
+        myTemplates[transport->getTag()] = new GNETransport(transport->getTag(), myNet);
+    }
+    // tranship
+    const auto tranships = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::TRANSHIP);
+    for (const auto tranship : tranships) {
+        myTemplates[tranship->getTag()] = new GNETranship(tranship->getTag(), myNet);
+    }
+    // stop container
+    const auto stopContainers = myNet->getTagPropertiesDatabase()->getTagPropertiesByType(GNETagProperties::Type::STOP_CONTAINER);
+    for (const auto stopContainer : stopContainers) {
+        myTemplates[stopContainer->getTag()] = new GNEStopPlan(stopContainer->getTag(), myNet);
+    }
+    // dataSet
+    myTemplates[SUMO_TAG_DATASET] = new GNEDataSet(myNet);
+    // generic datas
+    myTemplates[GNE_TAG_EDGEREL_SINGLE] = new GNEEdgeData(myNet);
+    myTemplates[SUMO_TAG_EDGEREL] = new GNEEdgeRelData(myNet);
+    myTemplates[SUMO_TAG_TAZREL] = new GNETAZRelData(myNet);
+    // reset all to their default values
+    for (const auto& AC : myTemplates) {
+        AC.second->resetDefaultValues(false);
+    }
+    // fill plan templates
+    fillPlanTemplates();
+}
+
+
+GNENetHelper::ACTemplate::~ACTemplate() {
+    for (auto& AC : myTemplates) {
+        delete AC.second;
+    }
+}
+
+
+std::map<SumoXMLTag, GNEAttributeCarrier*>
+GNENetHelper::ACTemplate::getACTemplates() const {
+    return myTemplates;
+}
+
+
+GNEAttributeCarrier*
+GNENetHelper::ACTemplate::getTemplateAC(const SumoXMLTag tag) const {
+    if (myTemplates.count(tag) > 0) {
+        return myTemplates.at(tag);
+    } else {
+        return nullptr;
+    }
+}
+
+
+GNEAttributeCarrier*
+GNENetHelper::ACTemplate::getTemplateAC(const std::string& selectorText) const {
+    for (const auto& templateAC : myTemplates) {
+        if (templateAC.second->getTagProperty()->getSelectorText() == selectorText) {
+            return templateAC.second;
+        }
+    }
+    return nullptr;
+}
+
+
+GNEEdgeType*
+GNENetHelper::ACTemplate::getDefaultEdgeType() const {
+    return myEdgeType;
+}
+
+
+const std::vector<std::pair<GNETagProperties*, GNEDemandElement*>>&
+GNENetHelper::ACTemplate::getPlanTemplates(SumoXMLTag tag) const {
+    return myPlanTemplates.at(tag);
+}
+
+
+void
+GNENetHelper::ACTemplate::fillPlanTemplates() {
+    GNETagProperties* tagProperty = nullptr;
+    // person trip
+    tagProperty = new GNETagProperties(SUMO_TAG_PERSONTRIP, nullptr,
+                                       GNETagProperties::Type::PERSONPLAN,
+                                       GNETagProperties::Property::NO_PROPERTY,
+                                       GNETagProperties::Over::FROM_EDGE | GNETagProperties::Over::TO_EDGE |
+                                       GNETagProperties::Over::FROM_TAZ | GNETagProperties::Over::TO_TAZ |
+                                       GNETagProperties::Over::FROM_JUNCTION | GNETagProperties::Over::TO_JUNCTION |
+                                       GNETagProperties::Over::FROM_BUSSTOP | GNETagProperties::Over::TO_BUSSTOP |
+                                       GNETagProperties::Over::FROM_TRAINSTOP | GNETagProperties::Over::TO_TRAINSTOP |
+                                       GNETagProperties::Over::FROM_CONTAINERSTOP | GNETagProperties::Over::TO_CONTAINERSTOP |
+                                       GNETagProperties::Over::FROM_CHARGINGSTATION | GNETagProperties::Over::TO_CHARGINGSTATION |
+                                       GNETagProperties::Over::FROM_PARKINGAREA | GNETagProperties::Over::TO_PARKINGAREA,
+                                       FileBucket::Type::DEMAND | FileBucket::Type::ADDITIONAL,
+                                       GNETagProperties::Conflicts::NO_CONFLICTS,
+                                       GUIIcon::EMPTY, GUIGlObjectType::GLO_PERSONTRIP, SUMO_TAG_PERSONTRIP, "PersonTrip");
+    myPlanTemplates[SUMO_TAG_PERSON].push_back(std::make_pair(tagProperty, new GNEPersonTrip(GNE_TAG_PERSONTRIP_EDGE_EDGE, myNet)));
+    // ride
+    tagProperty = new GNETagProperties(SUMO_TAG_RIDE, nullptr,
+                                       GNETagProperties::Type::PERSONPLAN,
+                                       GNETagProperties::Property::NO_PROPERTY,
+                                       GNETagProperties::Over::FROM_EDGE | GNETagProperties::Over::TO_EDGE |
+                                       GNETagProperties::Over::FROM_TAZ | GNETagProperties::Over::TO_TAZ |
+                                       GNETagProperties::Over::FROM_JUNCTION | GNETagProperties::Over::TO_JUNCTION |
+                                       GNETagProperties::Over::FROM_BUSSTOP | GNETagProperties::Over::TO_BUSSTOP |
+                                       GNETagProperties::Over::FROM_TRAINSTOP | GNETagProperties::Over::TO_TRAINSTOP |
+                                       GNETagProperties::Over::FROM_CONTAINERSTOP | GNETagProperties::Over::TO_CONTAINERSTOP |
+                                       GNETagProperties::Over::FROM_CHARGINGSTATION | GNETagProperties::Over::TO_CHARGINGSTATION |
+                                       GNETagProperties::Over::FROM_PARKINGAREA | GNETagProperties::Over::TO_PARKINGAREA,
+                                       FileBucket::Type::DEMAND | FileBucket::Type::ADDITIONAL,
+                                       GNETagProperties::Conflicts::NO_CONFLICTS,
+                                       GUIIcon::EMPTY, GUIGlObjectType::GLO_RIDE, SUMO_TAG_RIDE, "Ride");
+    myPlanTemplates[SUMO_TAG_PERSON].push_back(std::make_pair(tagProperty, new GNERide(GNE_TAG_RIDE_EDGE_EDGE, myNet)));
+    // walk
+    tagProperty = new GNETagProperties(SUMO_TAG_WALK, nullptr,
+                                       GNETagProperties::Type::PERSONPLAN,
+                                       GNETagProperties::Property::NO_PROPERTY,
+                                       GNETagProperties::Over::FROM_EDGE | GNETagProperties::Over::TO_EDGE |
+                                       GNETagProperties::Over::FROM_TAZ | GNETagProperties::Over::TO_TAZ |
+                                       GNETagProperties::Over::FROM_JUNCTION | GNETagProperties::Over::TO_JUNCTION |
+                                       GNETagProperties::Over::FROM_BUSSTOP | GNETagProperties::Over::TO_BUSSTOP |
+                                       GNETagProperties::Over::FROM_TRAINSTOP | GNETagProperties::Over::TO_TRAINSTOP |
+                                       GNETagProperties::Over::FROM_CONTAINERSTOP | GNETagProperties::Over::TO_CONTAINERSTOP |
+                                       GNETagProperties::Over::FROM_CHARGINGSTATION | GNETagProperties::Over::TO_CHARGINGSTATION |
+                                       GNETagProperties::Over::FROM_PARKINGAREA | GNETagProperties::Over::TO_PARKINGAREA,
+                                       FileBucket::Type::DEMAND | FileBucket::Type::ADDITIONAL,
+                                       GNETagProperties::Conflicts::NO_CONFLICTS,
+                                       GUIIcon::EMPTY, GUIGlObjectType::GLO_WALK, SUMO_TAG_WALK, "Walk");
+    myPlanTemplates[SUMO_TAG_PERSON].push_back(std::make_pair(tagProperty, new GNEWalk(GNE_TAG_WALK_EDGE_EDGE, myNet)));
+    // walk (edges)
+    tagProperty = new GNETagProperties(GNE_TAG_WALK_EDGES, nullptr,
+                                       GNETagProperties::Type::PERSONPLAN,
+                                       GNETagProperties::Property::NO_PROPERTY,
+                                       GNETagProperties::Over::CONSECUTIVE_EDGES,
+                                       FileBucket::Type::DEMAND | FileBucket::Type::ADDITIONAL,
+                                       GNETagProperties::Conflicts::NO_CONFLICTS,
+                                       GUIIcon::EMPTY, GUIGlObjectType::GLO_WALK, SUMO_TAG_WALK, "Walk (edges)");
+    myPlanTemplates[SUMO_TAG_PERSON].push_back(std::make_pair(tagProperty, new GNEWalk(GNE_TAG_WALK_EDGES, myNet)));
+    // walk (route)
+    tagProperty = new GNETagProperties(GNE_TAG_WALK_ROUTE, nullptr,
+                                       GNETagProperties::Type::PERSONPLAN,
+                                       GNETagProperties::Property::NO_PROPERTY,
+                                       GNETagProperties::Over::ROUTE,
+                                       FileBucket::Type::DEMAND | FileBucket::Type::ADDITIONAL,
+                                       GNETagProperties::Conflicts::NO_CONFLICTS,
+                                       GUIIcon::EMPTY, GUIGlObjectType::GLO_WALK, SUMO_TAG_WALK, "Walk (route)");
+    myPlanTemplates[SUMO_TAG_PERSON].push_back(std::make_pair(tagProperty, new GNEWalk(GNE_TAG_WALK_ROUTE, myNet)));
+    // stop
+    tagProperty = new GNETagProperties(GNE_TAG_PERSONSTOPS, nullptr,
+                                       GNETagProperties::Type::PERSONPLAN,
+                                       GNETagProperties::Property::NO_PROPERTY,
+                                       GNETagProperties::Over::EDGE | GNETagProperties::Over::BUSSTOP |
+                                       GNETagProperties::Over::TRAINSTOP | GNETagProperties::Over::CONTAINERSTOP |
+                                       GNETagProperties::Over::CHARGINGSTATION | GNETagProperties::Over::PARKINGAREA,
+                                       FileBucket::Type::DEMAND | FileBucket::Type::ADDITIONAL,
+                                       GNETagProperties::Conflicts::NO_CONFLICTS,
+                                       GUIIcon::EMPTY, GUIGlObjectType::GLO_STOP, SUMO_TAG_STOP, "Person Stop");
+    myPlanTemplates[SUMO_TAG_PERSON].push_back(std::make_pair(tagProperty, new GNEStopPlan(GNE_TAG_STOPPERSON_EDGE, myNet)));
+    // transport
+    tagProperty = new GNETagProperties(SUMO_TAG_TRANSPORT, nullptr,
+                                       GNETagProperties::Type::CONTAINERPLAN,
+                                       GNETagProperties::Property::NO_PROPERTY,
+                                       GNETagProperties::Over::FROM_EDGE | GNETagProperties::Over::TO_EDGE |
+                                       //GNETagProperties::Over::FROM_TAZ | GNETagProperties::Over::TO_TAZ |
+                                       //GNETagProperties::Over::FROM_JUNCTION | GNETagProperties::Over::TO_JUNCTION |
+                                       //GNETagProperties::Over::FROM_BUSSTOP | GNETagProperties::Over::TO_BUSSTOP |
+                                       //GNETagProperties::Over::FROM_TRAINSTOP | GNETagProperties::Over::TO_TRAINSTOP |
+                                       GNETagProperties::Over::FROM_CONTAINERSTOP | GNETagProperties::Over::TO_CONTAINERSTOP,
+                                       //GNETagProperties::Over::FROM_CHARGINGSTATION | GNETagProperties::Over::TO_CHARGINGSTATION |
+                                       //GNETagProperties::Over::FROM_PARKINGAREA | GNETagProperties::Over::TO_PARKINGAREA,
+                                       FileBucket::Type::DEMAND | FileBucket::Type::ADDITIONAL,
+                                       GNETagProperties::Conflicts::NO_CONFLICTS,
+                                       GUIIcon::EMPTY, GUIGlObjectType::GLO_TRANSPORT, SUMO_TAG_PERSONTRIP, "Transport");
+    myPlanTemplates[SUMO_TAG_CONTAINER].push_back(std::make_pair(tagProperty, new GNETransport(GNE_TAG_TRANSPORT_EDGE_EDGE, myNet)));
+    // tranship
+    tagProperty = new GNETagProperties(SUMO_TAG_TRANSHIP, nullptr,
+                                       GNETagProperties::Type::CONTAINERPLAN,
+                                       GNETagProperties::Property::NO_PROPERTY,
+                                       GNETagProperties::Over::FROM_EDGE | GNETagProperties::Over::TO_EDGE |
+                                       //GNETagProperties::Over::FROM_TAZ | GNETagProperties::Over::TO_TAZ |
+                                       //GNETagProperties::Over::FROM_JUNCTION | GNETagProperties::Over::TO_JUNCTION |
+                                       //GNETagProperties::Over::FROM_BUSSTOP | GNETagProperties::Over::TO_BUSSTOP |
+                                       //GNETagProperties::Over::FROM_TRAINSTOP | GNETagProperties::Over::TO_TRAINSTOP |
+                                       GNETagProperties::Over::FROM_CONTAINERSTOP | GNETagProperties::Over::TO_CONTAINERSTOP,
+                                       //GNETagProperties::Over::FROM_CHARGINGSTATION | GNETagProperties::Over::TO_CHARGINGSTATION |
+                                       //GNETagProperties::Over::FROM_PARKINGAREA | GNETagProperties::Over::TO_PARKINGAREA,
+                                       FileBucket::Type::DEMAND | FileBucket::Type::ADDITIONAL,
+                                       GNETagProperties::Conflicts::NO_CONFLICTS,
+                                       GUIIcon::EMPTY, GUIGlObjectType::GLO_TRANSHIP, SUMO_TAG_PERSONTRIP, "Tranship");
+    myPlanTemplates[SUMO_TAG_CONTAINER].push_back(std::make_pair(tagProperty, new GNETranship(GNE_TAG_TRANSHIP_EDGE_EDGE, myNet)));
+    // tranship (edges)
+    tagProperty = new GNETagProperties(GNE_TAG_TRANSHIP_EDGES, nullptr,
+                                       GNETagProperties::Type::CONTAINERPLAN,
+                                       GNETagProperties::Property::NO_PROPERTY,
+                                       GNETagProperties::Over::CONSECUTIVE_EDGES,
+                                       FileBucket::Type::DEMAND | FileBucket::Type::ADDITIONAL,
+                                       GNETagProperties::Conflicts::NO_CONFLICTS,
+                                       GUIIcon::EMPTY, GUIGlObjectType::GLO_TRANSPORT, SUMO_TAG_PERSONTRIP, "Tranship (edges)");
+    myPlanTemplates[SUMO_TAG_CONTAINER].push_back(std::make_pair(tagProperty, new GNETranship(GNE_TAG_TRANSHIP_EDGES, myNet)));
+    // stop
+    tagProperty = new GNETagProperties(GNE_TAG_CONTAINERSTOPS, nullptr,
+                                       GNETagProperties::Type::CONTAINERPLAN,
+                                       GNETagProperties::Property::NO_PROPERTY,
+                                       GNETagProperties::Over::EDGE | GNETagProperties::Over::BUSSTOP |
+                                       GNETagProperties::Over::TRAINSTOP | GNETagProperties::Over::CONTAINERSTOP |
+                                       GNETagProperties::Over::CHARGINGSTATION | GNETagProperties::Over::PARKINGAREA,
+                                       FileBucket::Type::DEMAND | FileBucket::Type::ADDITIONAL,
+                                       GNETagProperties::Conflicts::NO_CONFLICTS,
+                                       GUIIcon::EMPTY, GUIGlObjectType::GLO_CONTAINER_STOP, SUMO_TAG_STOP, "Container Stop");
+    myPlanTemplates[SUMO_TAG_CONTAINER].push_back(std::make_pair(tagProperty, new GNEStopPlan(GNE_TAG_STOPCONTAINER_EDGE, myNet)));
+}
+
+// ---------------------------------------------------------------------------
+// GNENetHelper::SavingStatus - methods
+// ---------------------------------------------------------------------------
+
+GNENetHelper::SavingStatus::SavingStatus(GNENet* net) :
+    myNet(net) {
+}
+
+
+void
+GNENetHelper::SavingStatus::requireSaveSumoConfig() {
+    mySumoConfigSaved = false;
+}
+
+
+void
+GNENetHelper::SavingStatus::SumoConfigSaved() {
+    mySumoConfigSaved = true;
+}
+
+
+bool
+GNENetHelper::SavingStatus::isSumoConfigSaved() const {
+    return mySumoConfigSaved;
+}
+
+
+void
+GNENetHelper::SavingStatus::requireSaveNeteditConfig() {
+    myNeteditConfigSaved = false;
+}
+
+
+void
+GNENetHelper::SavingStatus::neteditConfigSaved() {
+    myNeteditConfigSaved = true;
+}
+
+
+bool
+GNENetHelper::SavingStatus::isNeteditConfigSaved() const {
+    return myNeteditConfigSaved;
+}
+
+
+void
+GNENetHelper::SavingStatus::requireSaveNetwork() {
+    myNetworkSaved = false;
+    // implies requiere save netedit config and sumo config
+    myNeteditConfigSaved = false;
+    mySumoConfigSaved = false;
+}
+
+
+void
+GNENetHelper::SavingStatus::networkSaved() {
+    myNetworkSaved = true;
+}
+
+
+bool
+GNENetHelper::SavingStatus::isNetworkSaved() const {
+    return myNetworkSaved;
+}
+
+
+void
+GNENetHelper::SavingStatus::requireSaveTLS() {
+    myTLSSaved = false;
+}
+
+
+void
+GNENetHelper::SavingStatus::TLSSaved() {
+    myTLSSaved = true;
+}
+
+
+bool
+GNENetHelper::SavingStatus::isTLSSaved() const {
+    return myTLSSaved;
+}
+
+
+void
+GNENetHelper::SavingStatus::requireSaveEdgeType() {
+    myEdgeTypeSaved = false;
+}
+
+
+void
+GNENetHelper::SavingStatus::edgeTypeSaved() {
+    myEdgeTypeSaved = true;
+}
+
+
+bool
+GNENetHelper::SavingStatus::isEdgeTypeSaved() const {
+    return myEdgeTypeSaved;
+}
+
+
+void
+GNENetHelper::SavingStatus::requireSaveAdditionals() {
+    myAdditionalSaved = false;
+    // implies requiere save netedit config and sumo config
+    myNeteditConfigSaved = false;
+    mySumoConfigSaved = false;
+}
+
+
+void
+GNENetHelper::SavingStatus::additionalsSaved() {
+    myAdditionalSaved = true;
+}
+
+
+bool
+GNENetHelper::SavingStatus::isAdditionalsSaved() const {
+    return myAdditionalSaved;
+}
+
+
+void
+GNENetHelper::SavingStatus::requireSaveDemandElements() {
+    myDemandElementSaved = false;
+    // implies requiere save netedit config and sumo config
+    myNeteditConfigSaved = false;
+    mySumoConfigSaved = false;
+}
+
+
+void
+GNENetHelper::SavingStatus::demandElementsSaved() {
+    myDemandElementSaved = true;
+}
+
+
+bool
+GNENetHelper::SavingStatus::isDemandElementsSaved() const {
+    return myDemandElementSaved;
+}
+
+
+void
+GNENetHelper::SavingStatus::requireSaveDataElements() {
+    myDataElementSaved = false;
+    // implies requiere save netedit config and sumo config
+    myNeteditConfigSaved = false;
+    mySumoConfigSaved = false;
+}
+
+
+void
+GNENetHelper::SavingStatus::dataElementsSaved() {
+    myDataElementSaved = true;
+}
+
+
+bool
+GNENetHelper::SavingStatus::isDataElementsSaved() const {
+    return myDataElementSaved;
+}
+
+
+void
+GNENetHelper::SavingStatus::requireSaveMeanDatas() {
+    myMeanDataElementSaved = false;
+    // implies requiere save netedit config and sumo config
+    myNeteditConfigSaved = false;
+    mySumoConfigSaved = false;
+}
+
+
+void
+GNENetHelper::SavingStatus::meanDatasSaved() {
+    myMeanDataElementSaved = true;
+}
+
+
+bool
+GNENetHelper::SavingStatus::isMeanDatasSaved() const {
+    return myMeanDataElementSaved;
+}
+
+
+GNEDialog::Result
+GNENetHelper::SavingStatus::askSaveNetwork(GNEDialog::Result& commonResult) const {
+    auto GNEApp = myNet->getGNEApplicationWindow();
+    // Check if there are non saved network elements
+    if (commonResult == GNEDialog::Result::ABORT) {
+        return GNEDialog::Result::ABORT;
+    } else if (commonResult == GNEDialog::Result::ACCEPT_ALL) {
+        return GNEDialog::Result::ACCEPT;
+    } else if (commonResult == GNEDialog::Result::CANCEL_ALL) {
+        return GNEDialog::Result::CANCEL;
+    } else if (myNetworkSaved) {
+        return GNEDialog::Result::CANCEL;
+    } else {
+        // open save dialog
+        const GNESaveDialog saveDialog(GNEApp, TL("network"));
+        // continue depending of result
+        if (saveDialog.getResult() == GNEDialog::Result::ABORT) {
+            commonResult = GNEDialog::Result::ABORT;
+            return GNEDialog::Result::ABORT;
+        } else if (saveDialog.getResult() == GNEDialog::Result::ACCEPT_ALL) {
+            commonResult = GNEDialog::Result::ACCEPT_ALL;
+            return GNEDialog::Result::ACCEPT;
+        } else if (saveDialog.getResult() == GNEDialog::Result::CANCEL_ALL) {
+            commonResult = GNEDialog::Result::CANCEL_ALL;
+            return GNEDialog::Result::CANCEL;
+        } else {
+            return saveDialog.getResult();
+        }
+    }
+}
+
+
+GNEDialog::Result
+GNENetHelper::SavingStatus::askSaveAdditionalElements(GNEDialog::Result& commonResult) const {
+    auto GNEApp = myNet->getGNEApplicationWindow();
+    // Check if there are non saved additional elements
+    if (commonResult == GNEDialog::Result::ABORT) {
+        return GNEDialog::Result::ABORT;
+    } else if (commonResult == GNEDialog::Result::ACCEPT_ALL) {
+        return GNEDialog::Result::ACCEPT;
+    } else if (commonResult == GNEDialog::Result::CANCEL_ALL) {
+        return GNEDialog::Result::CANCEL;
+    } else if (myAdditionalSaved) {
+        return GNEDialog::Result::CANCEL;
+    } else {
+        // open save dialog
+        const GNESaveDialog saveDialog(GNEApp, TL("additional elements"));
+        // continue depending of result
+        if (saveDialog.getResult() == GNEDialog::Result::ABORT) {
+            commonResult = GNEDialog::Result::ABORT;
+            return GNEDialog::Result::ABORT;
+        } else if (saveDialog.getResult() == GNEDialog::Result::ACCEPT_ALL) {
+            commonResult = GNEDialog::Result::ACCEPT_ALL;
+            return GNEDialog::Result::ACCEPT;
+        } else if (saveDialog.getResult() == GNEDialog::Result::CANCEL_ALL) {
+            commonResult = GNEDialog::Result::CANCEL_ALL;
+            return GNEDialog::Result::CANCEL;
+        } else {
+            return saveDialog.getResult();
+        }
+    }
+}
+
+
+GNEDialog::Result
+GNENetHelper::SavingStatus::askSaveDemandElements(GNEDialog::Result& commonResult) const {
+    auto GNEApp = myNet->getGNEApplicationWindow();
+    // Check if there are non saved demand elements
+    if (commonResult == GNEDialog::Result::ABORT) {
+        return GNEDialog::Result::ABORT;
+    } else if (commonResult == GNEDialog::Result::ACCEPT_ALL) {
+        return GNEDialog::Result::ACCEPT;
+    } else if (commonResult == GNEDialog::Result::CANCEL_ALL) {
+        return GNEDialog::Result::CANCEL;
+    } else if (myDemandElementSaved) {
+        return GNEDialog::Result::CANCEL;
+    } else {
+        // open save dialog
+        const GNESaveDialog saveDialog(GNEApp, TL("demand elements"));
+        // continue depending of result
+        if (saveDialog.getResult() == GNEDialog::Result::ABORT) {
+            commonResult = GNEDialog::Result::ABORT;
+            return GNEDialog::Result::ABORT;
+        } else if (saveDialog.getResult() == GNEDialog::Result::ACCEPT_ALL) {
+            commonResult = GNEDialog::Result::ACCEPT_ALL;
+            return GNEDialog::Result::ACCEPT;
+        } else if (saveDialog.getResult() == GNEDialog::Result::CANCEL_ALL) {
+            commonResult = GNEDialog::Result::CANCEL_ALL;
+            return GNEDialog::Result::CANCEL;
+        } else {
+            return saveDialog.getResult();
+        }
+    }
+}
+
+
+GNEDialog::Result
+GNENetHelper::SavingStatus::askSaveDataElements(GNEDialog::Result& commonResult) const {
+    auto GNEApp = myNet->getGNEApplicationWindow();
+    // Check if there are non saved data elements
+    if (commonResult == GNEDialog::Result::ABORT) {
+        return GNEDialog::Result::ABORT;
+    } else if (commonResult == GNEDialog::Result::ACCEPT_ALL) {
+        return GNEDialog::Result::ACCEPT;
+    } else if (commonResult == GNEDialog::Result::CANCEL_ALL) {
+        return GNEDialog::Result::CANCEL;
+    } else if (myDataElementSaved) {
+        return GNEDialog::Result::CANCEL;
+    } else {
+        // open save dialog
+        const GNESaveDialog saveDialog(GNEApp, TL("data elements"));
+        // continue depending of result
+        if (saveDialog.getResult() == GNEDialog::Result::ABORT) {
+            commonResult = GNEDialog::Result::ABORT;
+            return GNEDialog::Result::ABORT;
+        } else if (saveDialog.getResult() == GNEDialog::Result::ACCEPT_ALL) {
+            commonResult = GNEDialog::Result::ACCEPT_ALL;
+            return GNEDialog::Result::ACCEPT;
+        } else if (saveDialog.getResult() == GNEDialog::Result::CANCEL_ALL) {
+            commonResult = GNEDialog::Result::CANCEL_ALL;
+            return GNEDialog::Result::CANCEL;
+        } else {
+            return saveDialog.getResult();
+        }
+    }
+}
+
+
+GNEDialog::Result
+GNENetHelper::SavingStatus::askSaveMeanDataElements(GNEDialog::Result& commonResult) const {
+    auto GNEApp = myNet->getGNEApplicationWindow();
+    // Check if there are non saved mean data elements
+    if (commonResult == GNEDialog::Result::ABORT) {
+        return GNEDialog::Result::ABORT;
+    } else if (commonResult == GNEDialog::Result::ACCEPT_ALL) {
+        return GNEDialog::Result::ACCEPT;
+    } else if (commonResult == GNEDialog::Result::CANCEL_ALL) {
+        return GNEDialog::Result::CANCEL;
+    } else if (myMeanDataElementSaved) {
+        return GNEDialog::Result::CANCEL;
+    } else {
+        // open save dialog
+        const GNESaveDialog saveDialog(GNEApp, TL("meanData elements"));
+        // continue depending of result
+        if (saveDialog.getResult() == GNEDialog::Result::ABORT) {
+            commonResult = GNEDialog::Result::ABORT;
+            return GNEDialog::Result::ABORT;
+        } else if (saveDialog.getResult() == GNEDialog::Result::ACCEPT_ALL) {
+            commonResult = GNEDialog::Result::ACCEPT_ALL;
+            return GNEDialog::Result::ACCEPT;
+        } else if (saveDialog.getResult() == GNEDialog::Result::CANCEL_ALL) {
+            commonResult = GNEDialog::Result::CANCEL_ALL;
+            return GNEDialog::Result::CANCEL;
+        } else {
+            return saveDialog.getResult();
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2333,13 +3687,13 @@ GNENetHelper::GNEChange_ReplaceEdgeInTLS::redo() {
 
 std::string
 GNENetHelper::GNEChange_ReplaceEdgeInTLS::undoName() const {
-    return "Redo replace in TLS";
+    return TL("Redo replace in TLS");
 }
 
 
 std::string
 GNENetHelper::GNEChange_ReplaceEdgeInTLS::redoName() const {
-    return "Undo replace in TLS";
+    return TL("Undo replace in TLS");
 }
 
 

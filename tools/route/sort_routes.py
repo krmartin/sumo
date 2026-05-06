@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2007-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2007-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -24,31 +24,30 @@ import sys
 from xml.dom import pulldom
 from xml.sax import handler
 from xml.sax import make_parser
-from optparse import OptionParser
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-import sumolib  # noqa
+from sumolib.options import ArgumentParser  # noqa
 from sumolib.miscutils import parseTime  # noqa
+import sumolib  # noqa
 
 DEPART_ATTRS = {'vehicle': 'depart', 'trip': 'depart', 'flow': 'begin', 'person': 'depart'}
 
 
 def get_options(args=None):
-    USAGE = "Usage: " + sys.argv[0] + " <routefile>"
-    optParser = OptionParser()
-    optParser.add_option("-o", "--outfile", help="name of output file")
-    optParser.add_option("-b", "--big", action="store_true", default=False,
-                         help="Use alternative sorting strategy for large files (slower but more memory efficient)")
-    options, args = optParser.parse_args(args=args)
-    if len(args) != 1:
-        sys.exit(USAGE)
-    options.routefile = args[0]
+    ap = ArgumentParser()
+    ap.add_argument("-o", "--outfile", category="output", type=ap.file, help="name of output file")
+    ap.add_argument("-b", "--big", action="store_true", default=False,
+                    help="Use alternative sorting strategy for large files (slower but more memory efficient)")
+    ap.add_argument("-v", "--verbose", action="store_true", default=False,
+                    help="Tell me what you are doing")
+    ap.add_argument("routefile", category="input", type=ap.file, help="route file whose routes should be sorted")
+    options = ap.parse_args(args=args)
     if options.outfile is None:
         options.outfile = options.routefile + ".sorted"
     return options
 
 
-def sort_departs(routefile, outfile):
+def sort_departs(routefile, outfile, verbose):
     if isinstance(routefile, str):
         stream = open(routefile, 'rb')
     else:
@@ -61,7 +60,7 @@ def sort_departs(routefile, outfile):
         if event == pulldom.START_ELEMENT:
             if root is None:
                 root = parsenode.localName
-                outfile.write("<%s>\n" % root)
+                sumolib.writeXMLHeader(outfile, root=root, includeXMLDeclaration=False)
                 continue
             routes_doc.expandNode(parsenode)
             departAttr = DEPART_ATTRS.get(parsenode.localName)
@@ -78,12 +77,14 @@ def sort_departs(routefile, outfile):
                 outfile.write(
                     " " * 4 + parsenode.toprettyxml(indent="", newl="") + "\n")
 
-    print('read %s elements.' % len(vehicles))
+    if verbose:
+        print('read %s elements.' % len(vehicles))
     vehicles.sort(key=lambda v: v[0])
     for _, vehiclexml in vehicles:
         outfile.write(" " * 4 + vehiclexml + "\n")
     outfile.write("</%s>\n" % root)
-    print('wrote %s elements.' % len(vehicles))
+    if verbose:
+        print('wrote %s elements.' % len(vehicles))
     if isinstance(routefile, str):
         stream.close()
 
@@ -118,8 +119,9 @@ class RouteHandler(handler.ContentHandler):
             self._depart = None
 
 
-def create_line_index(file):
-    print("Building line offset index for %s" % file)
+def create_line_index(file, verbose):
+    if verbose:
+        print("Building line offset index for %s" % file)
     result = []
     offset = 0
     with open(file, 'rb') as f:  # need to read binary here for correct offsets
@@ -129,26 +131,30 @@ def create_line_index(file):
     return result
 
 
-def get_element_lines(routefilename):
+def get_element_lines(routefilename, verbose):
     # [(depart, line_index_where_element_starts, line_index_where_element_ends), ...]
-    print("Parsing %s for line indices and departs" % routefilename)
+    if verbose:
+        print("Parsing %s for line indices and departs" % routefilename)
     result = []
     parser = make_parser()
     parser.setContentHandler(RouteHandler(result))
     parser.parse(open(routefilename))
-    print("  found %s items" % len(result))
+    if verbose:
+        print("  found %s items" % len(result))
     return result
 
 
-def copy_elements(routefilename, outfilename, element_lines, line_offsets):
-    print("Copying elements from %s to %s sorted by departure" % (
-        routefilename, outfilename))
+def copy_elements(routefilename, outfilename, element_lines, line_offsets, verbose):
+    if verbose:
+        print("Copying elements from %s to %s sorted by departure" % (
+            routefilename, outfilename))
     # don't read binary here for line end conversion
     with open(routefilename) as routefile, open(outfilename, 'w') as outfile:
         # copy header
         for line in routefile:
             outfile.write(line)
-            if '<routes' in line:
+            # find start of the route file but ignore option in header comment
+            if '<routes' in line and 'value=' not in line:
                 break
         for _, start, end in element_lines:
             # convert from 1-based to 0-based indices
@@ -161,9 +167,9 @@ def copy_elements(routefilename, outfilename, element_lines, line_offsets):
 def main(args=None):
     options = get_options(args=args)
     if options.big:
-        line_offsets = create_line_index(options.routefile)
-        element_lines = sorted(get_element_lines(options.routefile))
-        copy_elements(options.routefile, options.outfile, element_lines, line_offsets)
+        line_offsets = create_line_index(options.routefile, options.verbose)
+        element_lines = sorted(get_element_lines(options.routefile, options.verbose))
+        copy_elements(options.routefile, options.outfile, element_lines, line_offsets, options.verbose)
     else:
         with open(options.routefile) as routefile, open(options.outfile, 'w') as outfile:
             # copy header
@@ -171,7 +177,7 @@ def main(args=None):
                 if line.find('<routes') == 0 or line.find('<additional') == 0:
                     break
                 outfile.write(line)
-            sort_departs(routefile, outfile)
+            sort_departs(routefile, outfile, options.verbose)
 
 
 if __name__ == "__main__":

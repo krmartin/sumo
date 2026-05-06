@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -45,8 +45,10 @@ FXDEFMAP(GUIGLObjectPopupMenu) GUIGLObjectPopupMenuMap[] = {
     FXMAPFUNC(SEL_COMMAND,  MID_COPY_NAME,               GUIGLObjectPopupMenu::onCmdCopyName),
     FXMAPFUNC(SEL_COMMAND,  MID_COPY_TYPED_NAME,         GUIGLObjectPopupMenu::onCmdCopyTypedName),
     FXMAPFUNC(SEL_COMMAND,  MID_COPY_EDGE_NAME,          GUIGLObjectPopupMenu::onCmdCopyEdgeName),
+    FXMAPFUNC(SEL_COMMAND,  MID_COPY_TEST_COORDINATES,   GUIGLObjectPopupMenu::onCmdCopyTestCoordinates),
     FXMAPFUNC(SEL_COMMAND,  MID_COPY_CURSOR_POSITION,    GUIGLObjectPopupMenu::onCmdCopyCursorPosition),
     FXMAPFUNC(SEL_COMMAND,  MID_COPY_CURSOR_GEOPOSITION, GUIGLObjectPopupMenu::onCmdCopyCursorGeoPosition),
+    FXMAPFUNC(SEL_COMMAND,  MID_COPY_VIEW_GEOBOUNDARY,   GUIGLObjectPopupMenu::onCmdCopyViewGeoBoundary),
     FXMAPFUNC(SEL_COMMAND,  MID_SHOW_GEOPOSITION_ONLINE, GUIGLObjectPopupMenu::onCmdShowCursorGeoPositionOnline),
     FXMAPFUNC(SEL_COMMAND,  MID_SHOWPARS,                GUIGLObjectPopupMenu::onCmdShowPars),
     FXMAPFUNC(SEL_COMMAND,  MID_SHOWTYPEPARS,            GUIGLObjectPopupMenu::onCmdShowTypePars),
@@ -62,32 +64,31 @@ FXIMPLEMENT(GUIGLObjectPopupMenu, FXMenuPane, GUIGLObjectPopupMenuMap, ARRAYNUMB
 // method definitions
 // ===========================================================================
 
-GUIGLObjectPopupMenu::GUIGLObjectPopupMenu(GUIMainWindow& app, GUISUMOAbstractView& parent, GUIGlObject& o) :
+GUIGLObjectPopupMenu::GUIGLObjectPopupMenu(GUIMainWindow& app, GUISUMOAbstractView& parent, GUIGlObject* o) :
     FXMenuPane(&parent),
     myParent(&parent),
-    myObject(&o),
+    myObject(o),
     myApplication(&app),
-    myNetworkPosition(parent.getPositionInformation()) {
+    myPopupType(PopupType::ATTRIBUTES),
+    myNetworkPosition(parent.getPositionInformation()),
+    myTestCoordinates((toString(parent.getWindowCursorPosition().x() - 24.0) + " " + toString(parent.getWindowCursorPosition().y() - 25.0))) {
 }
 
 
-GUIGLObjectPopupMenu::GUIGLObjectPopupMenu(GUIMainWindow* app, GUISUMOAbstractView* parent) :
+GUIGLObjectPopupMenu::GUIGLObjectPopupMenu(GUIMainWindow* app, GUISUMOAbstractView* parent, PopupType popupType) :
     FXMenuPane(parent),
     myParent(parent),
     myObject(nullptr),
     myApplication(app),
+    myPopupType(popupType),
     myNetworkPosition(parent->getPositionInformation()) {
 }
 
 
 GUIGLObjectPopupMenu::~GUIGLObjectPopupMenu() {
     // Delete MenuPane children
-    for (const auto &pane : myMenuPanes) {
+    for (const auto& pane : myMenuPanes) {
         delete pane;
-    }
-    // remove popup menu from object
-    if (myObject) {
-        myObject->removedPopupMenu();
     }
 }
 
@@ -99,13 +100,39 @@ GUIGLObjectPopupMenu::insertMenuPaneChild(FXMenuPane* child) {
         throw ProcessError("MenuPaneChild cannot be NULL");
     }
     // Check that MenuPaneChild wasn't already inserted
-    for (const auto &pane : myMenuPanes) {
+    for (const auto& pane : myMenuPanes) {
         if (pane == child) {
             throw ProcessError("MenuPaneChild already inserted");
         }
     }
     // Insert MenuPaneChild
     myMenuPanes.push_back(child);
+}
+
+
+void
+GUIGLObjectPopupMenu::removePopupFromObject() {
+    // remove popup menu from object
+    if (myObject) {
+        myObject->removedPopupMenu();
+    }
+}
+
+GUISUMOAbstractView*
+GUIGLObjectPopupMenu::getParentView() {
+    return myParent;
+}
+
+
+GUIGlObject*
+GUIGLObjectPopupMenu::getGLObject() const {
+    return myObject;
+}
+
+
+GUIGLObjectPopupMenu::PopupType
+GUIGLObjectPopupMenu::getPopupType() const {
+    return myPopupType;
 }
 
 
@@ -148,9 +175,20 @@ GUIGLObjectPopupMenu::onCmdCopyEdgeName(FXObject*, FXSelector, void*) {
     if (myObject == nullptr) {
         throw ProcessError("Object is NULL");
     } else if (myObject->getType() != GLO_LANE) {
-        throw ProcessError("Object must be a lane");
+        throw ProcessError(TL("Object must be a lane"));
     } else {
         GUIUserIO::copyToClipboard(*myParent->getApp(), myObject->getParentName());
+    }
+    return 1;
+}
+
+
+long
+GUIGLObjectPopupMenu::onCmdCopyTestCoordinates(FXObject*, FXSelector, void*) {
+    if (myObject) {
+        GUIUserIO::copyToClipboard(*myParent->getApp(), myTestCoordinates);
+    } else {
+        throw ProcessError("Object is NULL");
     }
     return 1;
 }
@@ -167,8 +205,23 @@ long
 GUIGLObjectPopupMenu::onCmdCopyCursorGeoPosition(FXObject*, FXSelector, void*) {
     Position pos = myNetworkPosition;
     GeoConvHelper::getFinal().cartesian2geo(pos);
-    // formated for pasting into google maps
+    // formatted for pasting into google maps
     const std::string posString = toString(pos.y(), gPrecisionGeo) + ", " + toString(pos.x(), gPrecisionGeo);
+    GUIUserIO::copyToClipboard(*myParent->getApp(), posString);
+    return 1;
+}
+
+
+long
+GUIGLObjectPopupMenu::onCmdCopyViewGeoBoundary(FXObject*, FXSelector, void*) {
+    const Boundary b = myParent->getVisibleBoundary();
+    Position lowLeft(b.xmin(), b.ymin());
+    GeoConvHelper::getFinal().cartesian2geo(lowLeft);
+    Position upRight(b.xmax(), b.ymax());
+    GeoConvHelper::getFinal().cartesian2geo(upRight);
+    // formatted for usage with osmconvert
+    const std::string posString = toString(lowLeft.x(), gPrecisionGeo) + "," + toString(lowLeft.y(), gPrecisionGeo) + "," +
+                                  toString(upRight.x(), gPrecisionGeo) + "," + toString(upRight.y(), gPrecisionGeo);
     GUIUserIO::copyToClipboard(*myParent->getApp(), posString);
     return 1;
 }
@@ -179,7 +232,7 @@ GUIGLObjectPopupMenu::onCmdShowCursorGeoPositionOnline(FXObject* item, FXSelecto
     FXMenuCommand* const mc = dynamic_cast<FXMenuCommand*>(item);
     Position pos = myNetworkPosition;
     GeoConvHelper::getFinal().cartesian2geo(pos);
-    std::string url = myApplication->getOnlineMaps().find(mc->getText().rafter(' ').text())->second;
+    std::string url = myApplication->getOnlineMaps().find(mc->getText().text())->second;
     url = StringUtils::replace(StringUtils::replace(url, "%lat", toString(pos.y(), gPrecisionGeo)), "%lon", toString(pos.x(), gPrecisionGeo));
     MFXLinkLabel::fxexecute(url.c_str());
     return 1;
@@ -232,5 +285,13 @@ GUIGLObjectPopupMenu::onCmdRemoveSelected(FXObject*, FXSelector, void*) {
     return 1;
 }
 
+
+GUIGLObjectPopupMenu::GUIGLObjectPopupMenu() :
+    FXMenuPane(),
+    myParent(nullptr),
+    myObject(nullptr),
+    myApplication(nullptr),
+    myPopupType(PopupType::PROPERTIES) {
+}
 
 /****************************************************************************/

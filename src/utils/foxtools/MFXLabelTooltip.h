@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,16 +17,21 @@
 ///
 // Label similar to FXLabel but with the possibility of showing tooltips
 /****************************************************************************/
-#ifndef MFXLabelTooltip_h
-#define MFXLabelTooltip_h
+#pragma once
 #include <config.h>
 
 #include "fxheader.h"
-#include "MFXStaticToolTip.h"
 
-/**
- * @class MFXLabelTooltip
- */
+// ===========================================================================
+// class declaration
+// ===========================================================================
+
+class MFXStaticToolTip;
+
+// ===========================================================================
+// class definitions
+// ===========================================================================
+
 class MFXLabelTooltip : public FXButton {
     /// @brief fox declaration
     FXDECLARE(MFXLabelTooltip)
@@ -70,6 +75,3 @@ private:
     /// @brief Invalidated assignment operator.
     MFXLabelTooltip& operator=(const MFXLabelTooltip&) = delete;
 };
-
-
-#endif

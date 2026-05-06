@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,7 +17,6 @@
 ///
 // Template for edges
 /****************************************************************************/
-#include <config.h>
 
 #include <netedit/elements/network/GNEEdge.h>
 
@@ -49,6 +48,30 @@ GNEEdgeTemplate::getHierarchicalElement() {
 }
 
 
+GNEMoveElement*
+GNEEdgeTemplate::getMoveElement() const {
+    return nullptr;
+}
+
+
+Parameterised*
+GNEEdgeTemplate::getParameters() {
+    return nullptr;
+}
+
+
+const Parameterised*
+GNEEdgeTemplate::getParameters() const {
+    return nullptr;
+}
+
+
+FileBucket*
+GNEEdgeTemplate::getFileBucket() const {
+    return myEdge->getFileBucket();
+}
+
+
 const std::vector<GNELaneTemplate*>&
 GNEEdgeTemplate::getLaneTemplates() const {
     return myLaneTemplates;
@@ -63,7 +86,7 @@ GNEEdgeTemplate::updateLaneTemplates() {
     }
     myLaneTemplates.clear();
     // now set new laneTemplates
-    for (const auto& lane : myEdge->getLanes()) {
+    for (const auto& lane : myEdge->getChildLanes()) {
         myLaneTemplates.push_back(new GNELaneTemplate(lane));
     }
 }
@@ -75,15 +98,87 @@ GNEEdgeTemplate::getGUIGlObject() {
 }
 
 
+const GUIGlObject*
+GNEEdgeTemplate::getGUIGlObject() const {
+    return nullptr;
+}
+
+
 void
 GNEEdgeTemplate::updateGeometry() {
     throw InvalidArgument("cannot be called in templates");
 }
 
 
+bool
+GNEEdgeTemplate::checkDrawFromContour() const {
+    return false;
+}
+
+
+bool
+GNEEdgeTemplate::checkDrawToContour() const {
+    return false;
+}
+
+
+bool
+GNEEdgeTemplate::checkDrawRelatedContour() const {
+    return false;
+}
+
+
+bool
+GNEEdgeTemplate::checkDrawOverContour() const {
+    return false;
+}
+
+
+bool
+GNEEdgeTemplate::checkDrawDeleteContour() const {
+    return false;
+}
+
+
+bool
+GNEEdgeTemplate::checkDrawDeleteContourSmall() const {
+    return false;
+}
+
+
+bool
+GNEEdgeTemplate::checkDrawSelectContour() const {
+    return false;
+}
+
+
+bool
+GNEEdgeTemplate::checkDrawMoveContour() const {
+    return false;
+}
+
+
 std::string
 GNEEdgeTemplate::getAttribute(SumoXMLAttr key) const {
     return myEdge->getAttribute(key);
+}
+
+
+double
+GNEEdgeTemplate::getAttributeDouble(SumoXMLAttr key) const {
+    return myEdge->getAttributeDouble(key);
+}
+
+
+Position
+GNEEdgeTemplate::getAttributePosition(SumoXMLAttr key) const {
+    return getCommonAttributePosition(key);
+}
+
+
+PositionVector
+GNEEdgeTemplate::getAttributePositionVector(SumoXMLAttr key) const {
+    return myEdge->getAttributePositionVector(key);
 }
 
 
@@ -115,12 +210,6 @@ GNEEdgeTemplate::getPopUpID() const {
 std::string
 GNEEdgeTemplate::getHierarchyName() const {
     return myEdge->getHierarchyName();
-}
-
-
-const Parameterised::Map&
-GNEEdgeTemplate::getACParametersMap() const {
-    return myEdge->getACParametersMap();
 }
 
 // ===========================================================================

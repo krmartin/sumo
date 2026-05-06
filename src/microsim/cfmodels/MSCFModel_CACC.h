@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -79,7 +79,7 @@ public:
     /** @brief Computes the vehicle's safe speed (no dawdling)
     * @param[in] veh The vehicle (EGO)
     * @param[in] speed The vehicle's speed
-    * @param[in] gap2pred The (netto) distance to the LEADER
+    * @param[in] gap2pred The (net) distance to the LEADER
     * @param[in] predSpeed The speed of LEADER
     * @return EGO's safe speed
     * @see MSCFModel::ffeV
@@ -90,7 +90,7 @@ public:
 
     /** @brief Computes the vehicle's safe speed for approaching a non-moving obstacle (no dawdling)
     * @param[in] veh The vehicle (EGO)
-    * @param[in] gap2pred The (netto) distance to the the obstacle
+    * @param[in] gap2pred The (net) distance to the obstacle
     * @return EGO's safe speed for approaching a non-moving obstacle
     * @see MSCFModel::ffeS
     * @todo generic Interface, models can call for the values they need
@@ -110,7 +110,7 @@ public:
     /** @brief Computes the vehicle's acceptable speed at insertion
      * @param[in] veh The vehicle (EGO)
      * @param[in] speed The vehicle's speed
-     * @param[in] gap2pred The (netto) distance to the LEADER
+     * @param[in] gap2pred The (net) distance to the LEADER
      * @param[in] predSpeed The speed of LEADER
      * @return EGO's safe speed
      */
@@ -128,6 +128,14 @@ public:
     */
     double interactionGap(const MSVehicle* const, double vL) const;
 
+    /** @brief Sets a new value for desired headway [s]
+     * @param[in] headwayTime The new desired headway (in s)
+     */
+    void setHeadwayTime(double headwayTime) {
+        myHeadwayTime = headwayTime;
+        myHeadwayTimeACC = headwayTime;
+        acc_CFM.setHeadwayTime(headwayTime);
+    }
 
     /**
      * @brief try to get the given parameter for this carFollowingModel
@@ -156,6 +164,18 @@ public:
     int getModelID() const {
         return SUMO_TAG_CF_CACC;
     }
+
+    /** @brief Returns the maximum velocity the CF-model wants to achieve in the next step
+     * @param[in] maxSpeed The maximum achievable speed in the next step
+     * @param[in] maxSpeedLane The maximum speed the vehicle wants to drive on this lane (Speedlimit*SpeedFactor)
+     */
+    double maximumLaneSpeedCF(const MSVehicle* const veh, double maxSpeed, double maxSpeedLane) const {
+        double result = MIN2(maxSpeed, maxSpeedLane);
+        if (myApplyDriverstate) {
+            applyOwnSpeedPerceptionError(veh, result);
+        }
+        return result;
+    }
     /// @}
 
 
@@ -168,6 +188,7 @@ public:
 
     virtual MSCFModel::VehicleVariables* createVehicleVariables() const {
         CACCVehicleVariables* ret = new CACCVehicleVariables();
+        ret->ACC_ControlMode = 0;
         ret->CACC_ControlMode = 0;
         ret->CACC_CommunicationsOverrideMode = CACC_NO_OVERRIDE;
         ret->lastUpdateTime = 0;
@@ -198,13 +219,12 @@ private:
     /// @brief Vehicle mode name map
     static std::map<VehicleMode, std::string> VehicleModeNames;
 
-    class CACCVehicleVariables : public MSCFModel::VehicleVariables {
+    class CACCVehicleVariables : public MSCFModel_ACC::ACCVehicleVariables {
     public:
         CACCVehicleVariables() : CACC_ControlMode(0), CACC_CommunicationsOverrideMode(CACC_NO_OVERRIDE) {}
         /// @brief The vehicle's CACC  precious time step gap error
         int    CACC_ControlMode;
         CommunicationsOverrideMode CACC_CommunicationsOverrideMode;
-        SUMOTime lastUpdateTime;
     };
 
 private:
@@ -234,4 +254,3 @@ private:
     /// @brief Invalidated assignment operator
     MSCFModel_CACC& operator=(const MSCFModel_CACC& s);
 };
-

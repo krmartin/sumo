@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,23 +21,20 @@
 #include <config.h>
 
 #include <netedit/frames/GNEFrame.h>
-#include <netedit/frames/GNEDrawingShape.h>
-
+#include <netedit/GNEViewNetHelper.h>
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
-class GNETAZ;
+
+class GNEAttributesEditor;
+class GNEDrawingShape;
 class GNETAZSourceSink;
 
-
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @class GNETAZFrame
- * The Widget for setting internal attributes of TAZ elements
- */
+
 class GNETAZFrame : public GNEFrame {
 
 public:
@@ -45,7 +42,7 @@ public:
     // class CurrentTAZ
     // ===========================================================================
 
-    class CurrentTAZ : public MFXGroupBoxModule {
+    class CurrentTAZ : public GNEGroupBoxModule {
 
     public:
         /// @brief struct for edges and the source/sink colors
@@ -67,7 +64,7 @@ public:
             /// @brief source TAZ
             GNETAZSourceSink* source;
 
-            /// @brif sink TAZ
+            /// @brief sink TAZ
             GNETAZSourceSink* sink;
 
             /// @brief color by source [0-9]
@@ -115,8 +112,8 @@ public:
         void refreshTAZEdges();
 
     protected:
-        /// @brief add TAZChild
-        void addTAZChild(GNETAZSourceSink* additional);
+        /// @brief add source sink
+        void addSourceSink(GNETAZSourceSink* additional);
 
     private:
         /// @brief pointer to TAZ Frame
@@ -151,7 +148,7 @@ public:
     // class TAZCommonStatistics
     // ===========================================================================
 
-    class TAZCommonStatistics : public MFXGroupBoxModule {
+    class TAZCommonStatistics : public GNEGroupBoxModule {
 
     public:
         /// @brief constructor
@@ -181,7 +178,7 @@ public:
     // class TAZSaveChanges
     // ===========================================================================
 
-    class TAZSaveChanges : public MFXGroupBoxModule {
+    class TAZSaveChanges : public GNEGroupBoxModule {
         /// @brief FOX-declaration
         FXDECLARE(GNETAZFrame::TAZSaveChanges)
 
@@ -231,7 +228,7 @@ public:
     // class TAZChildDefaultParameters
     // ===========================================================================
 
-    class TAZChildDefaultParameters : public MFXGroupBoxModule {
+    class TAZChildDefaultParameters : public GNEGroupBoxModule {
         /// @brief FOX-declaration
         FXDECLARE(GNETAZFrame::TAZChildDefaultParameters)
 
@@ -318,7 +315,7 @@ public:
     // class TAZSelectionStatistics
     // ===========================================================================
 
-    class TAZSelectionStatistics : public MFXGroupBoxModule {
+    class TAZSelectionStatistics : public GNEGroupBoxModule {
         /// @brief FOX-declaration
         FXDECLARE(GNETAZFrame::TAZSelectionStatistics)
 
@@ -389,84 +386,10 @@ public:
     };
 
     // ===========================================================================
-    // class TAZParameters
-    // ===========================================================================
-
-    class TAZParameters : public MFXGroupBoxModule {
-        /// @brief FOX-declaration
-        FXDECLARE(GNETAZFrame::TAZParameters)
-
-    public:
-        /// @brief constructor
-        TAZParameters(GNETAZFrame* TAZFrameParent);
-
-        /// @brief destructor
-        ~TAZParameters();
-
-        /// @brief show TAZ parameters and set the default value of parameters
-        void showTAZParametersModule();
-
-        /// @brief hide TAZ parameters
-        void hideTAZParametersModule();
-
-        /// @brief check if current parameters are valid
-        bool isCurrentParametersValid() const;
-
-        /// @brief check if edges within has to be used after TAZ Creation
-        bool isAddEdgesWithinEnabled() const;
-
-        /// @brief get a map with attributes and their values
-        void getAttributesAndValues() const;
-
-        /// @name FOX-callbacks
-        /// @{
-        /// @brief called when user press the "Color" button
-        long onCmdSetColorAttribute(FXObject*, FXSelector, void*);
-
-        /// @brief Called when user set a value
-        long onCmdSetAttribute(FXObject*, FXSelector, void*);
-
-        /// @brief Called when help button is pressed
-        long onCmdHelp(FXObject*, FXSelector, void*);
-        /// @}
-
-    protected:
-        FOX_CONSTRUCTOR(TAZParameters)
-
-    private:
-        /// @brief pointer to GNETAZFrame parent
-        GNETAZFrame* myTAZFrameParent;
-
-        /// @brief TAZ
-        GNETAZ* myTAZTemplate;
-
-        /// @brief Button for open color editor
-        FXButton* myColorEditor;
-
-        /// @brief text field center
-        FXTextField* myTextFieldCenter;
-
-        /// @brief CheckButton to enable or disable fill
-        FXCheckButton* myCheckButtonFill;
-
-        /// @brief textField to modify the default value of color parameter
-        FXTextField* myTextFieldColor;
-
-        /// @brief textField to modify the default value of name parameter
-        FXTextField* myTextFieldName;
-
-        /// @brief CheckButton to enable or disable use edges within TAZ after creation
-        FXCheckButton* myAddEdgesWithinCheckButton;
-
-        /// @brief button for help
-        FXButton* myHelpTAZAttribute;
-    };
-
-    // ===========================================================================
     // class TAZEdgesGraphic
     // ===========================================================================
 
-    class TAZEdgesGraphic : public MFXGroupBoxModule {
+    class TAZEdgesGraphic : public GNEGroupBoxModule {
         /// @brief FOX-declaration
         FXDECLARE(GNETAZFrame::TAZEdgesGraphic)
 
@@ -522,39 +445,42 @@ public:
      * @brief viewParent GNEViewParent in which this GNEFrame is placed
      * @brief viewNet viewNet that uses this GNEFrame
      */
-    GNETAZFrame(GNEViewParent *viewParent, GNEViewNet* viewNet);
+    GNETAZFrame(GNEViewParent* viewParent, GNEViewNet* viewNet);
 
     /// @brief Destructor
     ~GNETAZFrame();
+
+    /// @brief show TAZ Frame
+    void show();
 
     /// @brief hide TAZ frame
     void hide();
 
     /**@brief process click over Viewnet
      * @param[in] clickedPosition clicked position over ViewNet
-     * @param[in] objectsUnderCursor objects under cursors
-     * @return true if something (select TAZ or add edge) was sucefully done
+     * @param[in] viewObjects objects under cursors
+     * @return true if something (select TAZ or add edge) was successfully done
      */
-    bool processClick(const Position& clickedPosition, const GNEViewNetHelper::ObjectsUnderCursor& objectsUnderCursor);
+    bool processClick(const Position& clickedPosition, const GNEViewNetHelper::ViewObjectsSelector& viewObjects);
 
     /// @brief process selection of edges in view net
     void processEdgeSelection(const std::vector<GNEEdge*>& edges);
 
-    /// @brief get drawing mode modul
+    /// @brief get drawing mode module
     GNEDrawingShape* getDrawingShapeModule() const;
 
-    /// @brief get Current TAZ modul
+    /// @brief get Current TAZ module
     CurrentTAZ* getCurrentTAZModule() const;
 
-    /// @brief get TAZ Selection Statistics modul
+    /// @brief get TAZ Selection Statistics module
     TAZSelectionStatistics* getTAZSelectionStatisticsModule() const;
 
-    /// @brief get TAZ Save Changes modul
+    /// @brief get TAZ Save Changes module
     TAZSaveChanges* getTAZSaveChangesModule() const;
 
 protected:
     /// @brief SumoBaseObject used for creating TAZ
-    CommonXMLStructure::SumoBaseObject* myBaseTAZ;
+    CommonXMLStructure::SumoBaseObject* myBaseTAZ = nullptr;
 
     /**@brief build a shaped element using the drawed shape
      * return true if was successfully created
@@ -570,26 +496,26 @@ protected:
 
 private:
     /// @brief current TAZ
-    CurrentTAZ* myCurrentTAZ;
+    CurrentTAZ* myCurrentTAZ = nullptr;
 
     /// @brief TAZ Edges common parameters
-    TAZCommonStatistics* myTAZCommonStatistics;
+    TAZCommonStatistics* myTAZCommonStatistics = nullptr;
 
     /// @brief TAZ parameters
-    TAZParameters* myTAZParameters;
+    GNEAttributesEditor* myTAZAttributesEditor = nullptr;
 
     /// @brief Drawing shape
-    GNEDrawingShape* myDrawingShape;
+    GNEDrawingShape* myDrawingShape = nullptr;
 
     /// @brief save TAZ Edges
-    TAZSaveChanges* myTAZSaveChanges;
+    TAZSaveChanges* myTAZSaveChanges = nullptr;
 
     /// @brief TAZ child defaults parameters
-    TAZChildDefaultParameters* myTAZChildDefaultParameters;
+    TAZChildDefaultParameters* myTAZChildDefaultParameters = nullptr;
 
     /// @brief TAZ Edges selection parameters
-    TAZSelectionStatistics* myTAZSelectionStatistics;
+    TAZSelectionStatistics* myTAZSelectionStatistics = nullptr;
 
     /// @brief TAZ Edges Graphic
-    TAZEdgesGraphic* myTAZEdgesGraphic;
+    TAZEdgesGraphic* myTAZEdgesGraphic = nullptr;
 };

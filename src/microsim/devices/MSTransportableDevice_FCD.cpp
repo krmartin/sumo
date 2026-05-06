@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2013-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2013-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -46,7 +46,7 @@ MSTransportableDevice_FCD::insertOptions(OptionsCont& oc) {
     insertDefaultAssignmentOptions("fcd", "FCD Device", oc, true);
 
     oc.doRegister("person-device.fcd.period", new Option_String("0"));
-    oc.addDescription("person-device.fcd.period", "FCD Device", "Recording period for FCD-data");
+    oc.addDescription("person-device.fcd.period", "FCD Device", TL("Recording period for FCD-data"));
 }
 
 
@@ -56,7 +56,6 @@ MSTransportableDevice_FCD::buildDevices(MSTransportable& t, std::vector<MSTransp
     if (equippedByDefaultAssignmentOptions(oc, "fcd", t, oc.isSet("fcd-output"), true)) {
         MSTransportableDevice_FCD* device = new MSTransportableDevice_FCD(t, "fcd_" + t.getID());
         into.push_back(device);
-        MSDevice_FCD::initOnce();
     }
 }
 

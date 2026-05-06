@@ -1,3 +1,9 @@
+# advance up to the crossing point in a conflict of crossing trajectories
+follow_on_junction
+
+# configure timegap to observe when passing a minor link
+timegapMinor
+
 # avoid spill back of jams onto a junction (checkRewindLinkLanes)
 avoid_spill_back
 
@@ -33,9 +39,6 @@ ignoreID
 # tests ignoring foes by type
 ignoreType
 
-# configure timegap to observe when passing a minor link
-timegapMinor
-
 # Tests for the stopOffset
 stopOffset
 
@@ -55,3 +58,9 @@ minor_internalJunction
 
 # test effect of vehicle length and turning radius on required space check
 cutting_corner
+
+# test reaction to vehicles that are still on the intersection when their green phase has ended
+strandedOnRed
+
+# additional tests for bicycles not covered under the other topics
+bikes

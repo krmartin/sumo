@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -20,8 +20,13 @@
 #include <config.h>
 
 #include <utils/gui/windows/GUIAppEnum.h>
+
+#include "MFXStaticToolTip.h"
 #include "MFXMenuButtonTooltip.h"
 
+// ===========================================================================
+// FOX callback mapping
+// ===========================================================================
 
 FXDEFMAP(MFXMenuButtonTooltip) MFXMenuButtonTooltipMap[] = {
     FXMAPFUNC(SEL_ENTER,            0,                  MFXMenuButtonTooltip::onEnter),
@@ -35,11 +40,14 @@ FXDEFMAP(MFXMenuButtonTooltip) MFXMenuButtonTooltipMap[] = {
 // Object implementation
 FXIMPLEMENT(MFXMenuButtonTooltip, FXMenuButton, MFXMenuButtonTooltipMap, ARRAYNUMBER(MFXMenuButtonTooltipMap))
 
+// ===========================================================================
+// method definitions
+// ===========================================================================
 
-MFXMenuButtonTooltip::MFXMenuButtonTooltip(FXComposite* p, MFXStaticToolTip* staticToolTip, const FXString& text, FXIcon* ic, 
-                                           FXPopup* pup, FXObject* optionalTarget, FXuint opts, 
-                                           FXint x, FXint y, FXint w, FXint h, FXint pl, FXint pr, FXint pt, FXint pb) :
-    FXMenuButton(p, text, ic, pup, opts, x, y, w, h, pl, pr, pt, pb),
+MFXMenuButtonTooltip::MFXMenuButtonTooltip(FXComposite* p, MFXStaticToolTip* staticToolTip, const std::string& text, FXIcon* ic,
+        FXPopup* pup, FXObject* optionalTarget, FXuint opts,
+        FXint x, FXint y, FXint w, FXint h, FXint pl, FXint pr, FXint pt, FXint pb) :
+    FXMenuButton(p, text.c_str(), ic, pup, opts, x, y, w, h, pl, pr, pt, pb),
     myStaticToolTip(staticToolTip),
     myOptionalTarget(optionalTarget) {
 }
@@ -64,7 +72,7 @@ MFXMenuButtonTooltip::onLeave(FXObject* sender, FXSelector sel, void* ptr) {
 }
 
 
-long 
+long
 MFXMenuButtonTooltip::onMotion(FXObject* sender, FXSelector sel, void* ptr) {
     // update static tooltip
     myStaticToolTip->onUpdate(sender, sel, ptr);
@@ -93,7 +101,7 @@ MFXMenuButtonTooltip::onKeyPress(FXObject* sender, FXSelector sel, void* ptr) {
 }
 
 
-long 
+long
 MFXMenuButtonTooltip::onCmdPost(FXObject* sender, FXSelector sel, void* ptr) {
     // inform optional target
     if (myOptionalTarget) {

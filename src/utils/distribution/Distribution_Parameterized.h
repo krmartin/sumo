@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -40,6 +40,9 @@
 class Distribution_Parameterized : public Distribution {
 
 public:
+    /// @brief Constructor for any temporary distribution parsed directly from the description
+    Distribution_Parameterized(const std::string& description);
+
     /// @brief Constructor for standard normal distribution
     Distribution_Parameterized(const std::string& id, double mean, double deviation);
 
@@ -52,26 +55,31 @@ public:
     /// @brief Overwrite by parsable distribution description
     void parse(const std::string& description, const bool hardFail);
 
-    /** @brief Draw a sample of the distribution.
+    /** @brief Draw a sample of the distribution using the given RNG.
     *
     * A random sample is drawn according to the assigned probabilities.
     *
-    * @param[in] which The random number generator to use; the static one will be used if 0 is passed
+    * @param[in] which The random number generator to use; the static one will be used if nullptr is passed
     * @return the drawn member
     */
-    double sample(SumoRNG* which = 0) const;
+    double sample(SumoRNG* which = nullptr) const;
 
     /// @brief Returns the maximum value of this distribution
     double getMax() const;
 
-    /// @brief Returns the parameters of this distribution
-    std::vector<double>& getParameter();
+    /// @brief Returns the minimum value of this distribution
+    double getMin() const;
 
-    /// @brief Returns the unmodifiable parameters of this distribution
-    const std::vector<double>& getParameter() const;
+    /// @brief Returns the nth parameter of this distribution
+    inline double getParameter(const int index) const {
+        return myParameter[index];
+    }
+
+    /// @brief Set a parameter of this distribution
+    void setParameter(const int index, const double value);
 
     /// @brief check whether the distribution is valid
-    bool isValid(std::string& error);
+    const std::string isValid() const;
 
     /// @brief Returns the string representation of this distribution
     std::string toStr(std::streamsize accuracy) const;

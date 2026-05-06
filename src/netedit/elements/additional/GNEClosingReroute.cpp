@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -19,32 +19,29 @@
 /****************************************************************************/
 #include <config.h>
 
-#include "GNEClosingReroute.h"
 #include <netedit/changes/GNEChange_Attribute.h>
-
-#include <netedit/GNEUndoList.h>
 #include <netedit/GNENet.h>
 
+#include "GNEClosingReroute.h"
 
 // ===========================================================================
 // member method definitions
 // ===========================================================================
 
 GNEClosingReroute::GNEClosingReroute(GNENet* net) :
-    GNEAdditional("", net, GLO_REROUTER_CLOSINGREROUTE, SUMO_TAG_CLOSING_REROUTE, 
-    GUIIconSubSys::getIcon(GUIIcon::CLOSINGREROUTE), "", {}, {}, {}, {}, {}, {}),
-    myClosedEdge(nullptr),
-    myPermissions(0) {
-    // reset default values
-    resetDefaultValues();
+    GNEAdditional(net, SUMO_TAG_CLOSING_REROUTE),
+    GNEAdditionalListed(this) {
 }
 
 
 GNEClosingReroute::GNEClosingReroute(GNEAdditional* rerouterIntervalParent, GNEEdge* closedEdge, SVCPermissions permissions) :
-    GNEAdditional(rerouterIntervalParent->getNet(), GLO_REROUTER_CLOSINGREROUTE, SUMO_TAG_CLOSING_REROUTE, 
-    GUIIconSubSys::getIcon(GUIIcon::CLOSINGREROUTE), "", {}, {}, {}, {rerouterIntervalParent}, {}, {}),
+    GNEAdditional(rerouterIntervalParent, SUMO_TAG_CLOSING_REROUTE, ""),
+    GNEAdditionalListed(this),
     myClosedEdge(closedEdge),
     myPermissions(permissions) {
+    // set parents
+    setParent<GNEAdditional*>(rerouterIntervalParent);
+    setParent<GNEEdge*>(closedEdge);
     // update boundary of rerouter parent
     rerouterIntervalParent->getParentAdditionals().front()->updateCenteringBoundary(true);
 }
@@ -53,11 +50,32 @@ GNEClosingReroute::GNEClosingReroute(GNEAdditional* rerouterIntervalParent, GNEE
 GNEClosingReroute::~GNEClosingReroute() {}
 
 
+GNEMoveElement*
+GNEClosingReroute::getMoveElement() const {
+    return nullptr;
+}
+
+
+Parameterised*
+GNEClosingReroute::getParameters() {
+    return nullptr;
+}
+
+
+const Parameterised*
+GNEClosingReroute::getParameters() const {
+    return nullptr;
+}
+
+
 void
 GNEClosingReroute::writeAdditional(OutputDevice& device) const {
     device.openTag(SUMO_TAG_CLOSING_REROUTE);
+    // write common additional attributes
+    writeAdditionalAttributes(device);
+    // write specific attributes
     device.writeAttr(SUMO_ATTR_ID, getAttribute(SUMO_ATTR_EDGE));
-    if (getAttribute(SUMO_ATTR_ALLOW) != "authority") {
+    if (getAttribute(SUMO_ATTR_ALLOW) != getVehicleClassNames(SVCAll)) {
         if (!getAttribute(SUMO_ATTR_ALLOW).empty()) {
             device.writeAttr(SUMO_ATTR_ALLOW, getAttribute(SUMO_ATTR_ALLOW));
         } else {
@@ -68,36 +86,45 @@ GNEClosingReroute::writeAdditional(OutputDevice& device) const {
 }
 
 
-GNEMoveOperation*
-GNEClosingReroute::getMoveOperation() {
-    // GNEClosingReroutes cannot be moved
-    return nullptr;
+bool
+GNEClosingReroute::isAdditionalValid() const {
+    return true;
+}
+
+
+std::string
+GNEClosingReroute::getAdditionalProblem() const {
+    return "";
+}
+
+
+void
+GNEClosingReroute::fixAdditionalProblem() {
+    // nothing to fix
+}
+
+
+bool
+GNEClosingReroute::checkDrawMoveContour() const {
+    return false;
 }
 
 
 void
 GNEClosingReroute::updateGeometry() {
-    // update centering boundary (needed for centering)
-    updateCenteringBoundary(false);
+    updateGeometryListedAdditional();
 }
 
 
 Position
 GNEClosingReroute::getPositionInView() const {
-    // get rerouter parent position
-    Position signPosition = getParentAdditionals().front()->getParentAdditionals().front()->getPositionInView();
-    // set position depending of indexes
-    signPosition.add(4.5 + 6.25, (getDrawPositionIndex() * -1) - getParentAdditionals().front()->getDrawPositionIndex() + 1, 0);
-    // return signPosition
-    return signPosition;
+    return getListedPositionInView();
 }
 
 
 void
 GNEClosingReroute::updateCenteringBoundary(const bool /*updateGrid*/) {
-    myAdditionalBoundary.reset();
-    myAdditionalBoundary.add(getPositionInView());
-    myAdditionalBoundary.grow(5);
+    // nothing to update
 }
 
 
@@ -116,10 +143,8 @@ GNEClosingReroute::getParentName() const {
 void
 GNEClosingReroute::drawGL(const GUIVisualizationSettings& s) const {
     // draw closing reroute as listed attribute
-    drawListedAddtional(s, getParentAdditionals().front()->getParentAdditionals().front()->getPositionInView(),
-                        1, getParentAdditionals().front()->getDrawPositionIndex(),
-                        RGBColor::RED, RGBColor::YELLOW, GUITexture::REROUTER_CLOSINGREROUTE,
-                        getAttribute(SUMO_ATTR_EDGE));
+    drawListedAdditional(s, RGBColor::RED, RGBColor::YELLOW, GUITexture::REROUTER_CLOSINGREROUTE,
+                         getAttribute(SUMO_ATTR_EDGE));
 }
 
 
@@ -136,23 +161,27 @@ GNEClosingReroute::getAttribute(SumoXMLAttr key) const {
             return getVehicleClassNames(invertPermissions(myPermissions));
         case GNE_ATTR_PARENT:
             return getParentAdditionals().at(0)->getID();
-        case GNE_ATTR_SELECTED:
-            return toString(isAttributeCarrierSelected());
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return getCommonAttribute(key);
     }
 }
 
 
 double
 GNEClosingReroute::getAttributeDouble(SumoXMLAttr key) const {
-    throw InvalidArgument(getTagStr() + " doesn't have a double attribute of type '" + toString(key) + "'");
+    return getCommonAttributeDouble(key);
 }
 
 
-const Parameterised::Map&
-GNEClosingReroute::getACParametersMap() const {
-    return PARAMETERS_EMPTY;
+Position
+GNEClosingReroute::getAttributePosition(SumoXMLAttr key) const {
+    return getCommonAttributePosition(key);
+}
+
+
+PositionVector
+GNEClosingReroute::getAttributePositionVector(SumoXMLAttr key) const {
+    return getCommonAttributePositionVector(key);
 }
 
 
@@ -166,11 +195,11 @@ GNEClosingReroute::setAttribute(SumoXMLAttr key, const std::string& value, GNEUn
         case SUMO_ATTR_EDGE:
         case SUMO_ATTR_ALLOW:
         case SUMO_ATTR_DISALLOW:
-        case GNE_ATTR_SELECTED:
-            undoList->changeAttribute(new GNEChange_Attribute(this, key, value));
+            GNEChange_Attribute::changeAttribute(this, key, value, undoList);
             break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setCommonAttribute(key, value, undoList);
+            break;
     }
 }
 
@@ -187,7 +216,7 @@ GNEClosingReroute::isValid(SumoXMLAttr key, const std::string& value) {
         case SUMO_ATTR_DISALLOW:
             return canParseVehicleClasses(value);
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return isCommonAttributeValid(key, value);
     }
 }
 
@@ -212,7 +241,7 @@ GNEClosingReroute::setAttribute(SumoXMLAttr key, const std::string& value) {
     switch (key) {
         case SUMO_ATTR_ID:
             // update microsimID
-            setMicrosimID(value);
+            setAdditionalID(value);
             break;
         case SUMO_ATTR_EDGE:
             myClosedEdge = myNet->getAttributeCarriers()->retrieveEdge(value);
@@ -223,29 +252,10 @@ GNEClosingReroute::setAttribute(SumoXMLAttr key, const std::string& value) {
         case SUMO_ATTR_DISALLOW:
             myPermissions = invertPermissions(parseVehicleClasses(value));
             break;
-        case GNE_ATTR_SELECTED:
-            if (parse<bool>(value)) {
-                selectAttributeCarrier();
-            } else {
-                unselectAttributeCarrier();
-            }
-            break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setCommonAttribute(key, value);
+            break;
     }
 }
-
-
-void
-GNEClosingReroute::setMoveShape(const GNEMoveResult& /*moveResult*/) {
-    // nothing to do
-}
-
-
-void
-GNEClosingReroute::commitMoveShape(const GNEMoveResult& /*moveResult*/, GNEUndoList* /*undoList*/) {
-    // nothing to do
-}
-
 
 /****************************************************************************/

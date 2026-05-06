@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2011-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2011-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -82,6 +82,7 @@ NBTrafficLightLogic*
 NBLoadedSUMOTLDef::myCompute(int brakingTimeSeconds) {
     // @todo what to do with those parameters?
     UNUSED_PARAMETER(brakingTimeSeconds);
+    initExtraConflicts();
     reconstructLogic();
     myTLLogic->closeBuilding(false);
     patchIfCrossingsAdded();
@@ -171,6 +172,9 @@ NBLoadedSUMOTLDef::remapRemoved(NBEdge*, const EdgeVector&, const EdgeVector&) {
 
 void
 NBLoadedSUMOTLDef::replaceRemoved(NBEdge* removed, int removedLane, NBEdge* by, int byLane, bool incoming) {
+    if (by == nullptr) {
+        myReconstructRemovedConnections = true;
+    }
     for (NBConnectionVector::iterator it = myControlledLinks.begin(); it != myControlledLinks.end(); ++it) {
         if (incoming) {
             (*it).replaceFrom(removed, removedLane, by, byLane);
@@ -195,6 +199,16 @@ NBLoadedSUMOTLDef::amInvalid() const {
         return true;
     }
     if (myIncomingEdges.size() == 0) {
+        return true;
+    }
+    if (myReconstructRemovedConnections) {
+        // check whether at least one connection is valid
+        for (const NBConnection& con : myControlledLinks) {
+            if (isValid(con)) {
+                return false;
+            }
+        }
+        // all invalid
         return true;
     }
     return false;
@@ -336,8 +350,8 @@ NBLoadedSUMOTLDef::patchIfCrossingsAdded() {
                     (int)(phases.front().state.size()) < noLinksAll ||
                     ((int)(phases.front().state.size()) > noLinksAll && !customIndex))) {
             // collect edges
-            EdgeVector fromEdges(size, (NBEdge*)nullptr);
-            EdgeVector toEdges(size, (NBEdge*)nullptr);
+            EdgeVector fromEdges(numNormalLinks, (NBEdge*)nullptr);
+            EdgeVector toEdges(numNormalLinks, (NBEdge*)nullptr);
             std::vector<int> fromLanes(size, 0);
             collectEdgeVectors(fromEdges, toEdges, fromLanes);
             const std::string crossingDefaultState(crossings.size(), 'r');
@@ -356,7 +370,7 @@ NBLoadedSUMOTLDef::patchIfCrossingsAdded() {
             delete myTLLogic;
             myTLLogic = newLogic;
         } else if (phases.size() == 0) {
-            WRITE_WARNING("Could not patch tlLogic '" + getID() + "' for changed crossings");
+            WRITE_WARNINGF(TL("Could not patch tlLogic '%' for changed crossings"), getID());
         }
     }
 }
@@ -387,56 +401,64 @@ void
 NBLoadedSUMOTLDef::initNeedsContRelation() const {
     if (!amInvalid() && !myNeedsContRelationReady) {
         myNeedsContRelation.clear();
-        myRightOnRedConflicts.clear();
-        const bool controlledWithin = !OptionsCont::getOptions().getBool("tls.uncontrolled-within");
-        const std::vector<NBTrafficLightLogic::PhaseDefinition> phases = myTLLogic->getPhases();
-        for (std::vector<NBTrafficLightLogic::PhaseDefinition>::const_iterator it = phases.begin(); it != phases.end(); it++) {
-            const std::string state = (*it).state;
-            for (NBConnectionVector::const_iterator it1 = myControlledLinks.begin(); it1 != myControlledLinks.end(); it1++) {
-                const NBConnection& c1 = *it1;
-                const int i1 = c1.getTLIndex();
-                if (i1 == NBConnection::InvalidTlIndex || (state[i1] != 'g' && state[i1] != 's') || c1.getFrom() == nullptr || c1.getTo() == nullptr) {
-                    continue;
-                }
-                for (NBConnectionVector::const_iterator it2 = myControlledLinks.begin(); it2 != myControlledLinks.end(); it2++) {
-                    const NBConnection& c2 = *it2;
-                    const int i2 = c2.getTLIndex();
-                    if (i2 != NBConnection::InvalidTlIndex
-                            && i2 != i1
-                            && (state[i2] == 'G' || state[i2] == 'g')
-                            && c2.getFrom() != nullptr && c2.getTo() != nullptr) {
-                        const bool rightTurnConflict = NBNode::rightTurnConflict(
-                                                           c1.getFrom(), c1.getTo(), c1.getFromLane(), c2.getFrom(), c2.getTo(), c2.getFromLane());
-                        const bool forbidden = forbids(c2.getFrom(), c2.getTo(), c1.getFrom(), c1.getTo(), true, controlledWithin);
-                        const bool isFoes = foes(c2.getFrom(), c2.getTo(), c1.getFrom(), c1.getTo()) && !c2.getFrom()->isTurningDirectionAt(c2.getTo());
-                        if (forbidden || rightTurnConflict) {
-                            myNeedsContRelation.insert(StreamPair(c1.getFrom(), c1.getTo(), c2.getFrom(), c2.getTo()));
+        myExtraConflicts.clear();
+        if (myType == TrafficLightType::NEMA) {
+            NBTrafficLightDefinition::initNeedsContRelation();
+            NBTrafficLightDefinition::initExtraConflicts();
+        } else {
+            const bool controlledWithin = !OptionsCont::getOptions().getBool("tls.uncontrolled-within");
+            const std::vector<NBTrafficLightLogic::PhaseDefinition> phases = myTLLogic->getPhases();
+            for (std::vector<NBTrafficLightLogic::PhaseDefinition>::const_iterator it = phases.begin(); it != phases.end(); it++) {
+                const std::string state = (*it).state;
+                for (NBConnectionVector::const_iterator it1 = myControlledLinks.begin(); it1 != myControlledLinks.end(); it1++) {
+                    const NBConnection& c1 = *it1;
+                    const int i1 = c1.getTLIndex();
+                    if (i1 == NBConnection::InvalidTlIndex || (state[i1] != 'g' && state[i1] != 's') || c1.getFrom() == nullptr || c1.getTo() == nullptr) {
+                        continue;
+                    }
+                    for (NBConnectionVector::const_iterator it2 = myControlledLinks.begin(); it2 != myControlledLinks.end(); it2++) {
+                        const NBConnection& c2 = *it2;
+                        const int i2 = c2.getTLIndex();
+                        if (i2 != NBConnection::InvalidTlIndex
+                                && i2 != i1
+                                && (state[i2] == 'G' || state[i2] == 'g')
+                                && c2.getFrom() != nullptr && c2.getTo() != nullptr) {
+                            const bool rightTurnConflict = NBNode::rightTurnConflict(
+                                                               c1.getFrom(), c1.getTo(), c1.getFromLane(), c2.getFrom(), c2.getTo(), c2.getFromLane());
+                            const bool forbidden = forbids(c2.getFrom(), c2.getTo(), c1.getFrom(), c1.getTo(), true, controlledWithin);
+                            const bool isFoes = foes(c2.getFrom(), c2.getTo(), c1.getFrom(), c1.getTo()) && !c2.getFrom()->isTurningDirectionAt(c2.getTo());
+                            const bool hasContRel = (forbidden && state[i1] != 's') || rightTurnConflict;
+                            if (hasContRel) {
+                                myNeedsContRelation.insert(StreamPair(c1.getFrom(), c1.getTo(), c2.getFrom(), c2.getTo()));
+                            }
+                            const bool indirectLeft = c1.getFrom()->getConnection(c1.getFromLane(), c1.getTo(), c1.getToLane()).indirectLeft;
+                            if (isFoes && (state[i1] == 's' || (!hasContRel && state[i2] == 'G' && !indirectLeft))) {
+                                myExtraConflicts.insert(std::make_pair(i1, i2));
+                                //std::cout << getID() << " prog=" << getProgramID() << " phase=" << (it - phases.begin()) << " extraConflict i1=" << i1 << " i2=" << i2
+                                //    << " c1=" << c1 << " c2=" << c2 << "\n";
+                            }
+                            //std::cout << getID() << " p=" << (it - phases.begin()) << " i1=" << i1 << " i2=" << i2 << " rightTurnConflict=" << rightTurnConflict << " forbidden=" << forbidden << " isFoes=" << isFoes << "\n";
                         }
-                        if (isFoes && state[i1] == 's') {
-                            myRightOnRedConflicts.insert(std::make_pair(i1, i2));
-                            //std::cout << getID() << " prog=" << getProgramID() << " phase=" << (it - phases.begin()) << " rightOnRedConflict i1=" << i1 << " i2=" << i2 << "\n";
-                        }
-                        //std::cout << getID() << " i1=" << i1 << " i2=" << i2 << " rightTurnConflict=" << rightTurnConflict << " forbidden=" << forbidden << " isFoes=" << isFoes << "\n";
                     }
                 }
             }
         }
     }
     myNeedsContRelationReady = true;
-    myRightOnRedConflictsReady = true;
+    myExtraConflictsReady = true;
 }
 
 
 bool
-NBLoadedSUMOTLDef::rightOnRedConflict(int index, int foeIndex) const {
+NBLoadedSUMOTLDef::extraConflict(int index, int foeIndex) const {
     if (amInvalid()) {
         return false;
     }
-    if (!myRightOnRedConflictsReady) {
-        initNeedsContRelation();
-        assert(myRightOnRedConflictsReady);
+    if (!myExtraConflictsReady) {
+        initExtraConflicts();
+        assert(myExtraConflictsReady);
     }
-    return std::find(myRightOnRedConflicts.begin(), myRightOnRedConflicts.end(), std::make_pair(index, foeIndex)) != myRightOnRedConflicts.end();
+    return std::find(myExtraConflicts.begin(), myExtraConflicts.end(), std::make_pair(index, foeIndex)) != myExtraConflicts.end();
 }
 
 
@@ -444,6 +466,16 @@ void
 NBLoadedSUMOTLDef::registerModifications(bool addedConnections, bool removedConnections) {
     myReconstructAddedConnections |= addedConnections;
     myReconstructRemovedConnections |= removedConnections;
+}
+
+bool
+NBLoadedSUMOTLDef::isValid(const NBConnection& con) const {
+    return (// edge still exists
+               std::find(myIncomingEdges.begin(), myIncomingEdges.end(), con.getFrom()) != myIncomingEdges.end()
+               // connection still exists
+               && con.getFrom()->hasConnectionTo(con.getTo(), con.getToLane(), con.getFromLane())
+               // connection is still set to be controlled
+               && con.getFrom()->mayBeTLSControlled(con.getFromLane(), con.getTo(), con.getToLane()));
 }
 
 void
@@ -500,12 +532,7 @@ NBLoadedSUMOTLDef::reconstructLogic() {
         // for each connection, check whether it is still valid
         for (NBConnectionVector::iterator it = myControlledLinks.begin(); it != myControlledLinks.end();) {
             const NBConnection con = (*it);
-            if (// edge still exists
-                std::find(myIncomingEdges.begin(), myIncomingEdges.end(), con.getFrom()) != myIncomingEdges.end()
-                // connection still exists
-                && con.getFrom()->hasConnectionTo(con.getTo(), con.getToLane(), con.getFromLane())
-                // connection is still set to be controlled
-                && con.getFrom()->mayBeTLSControlled(con.getFromLane(), con.getTo(), con.getToLane())) {
+            if (isValid(con)) {
                 it++;
             } else {
                 // remove connection
@@ -886,9 +913,11 @@ void
 NBLoadedSUMOTLDef::finalChecks() const {
     for (int i = 0; i < myTLLogic->getNumLinks(); i++) {
         if (!isUsed(i)) {
-            WRITE_WARNINGF("Unused state in tlLogic '%', program '%' at tl-index %", getID(), getProgramID(), i);
+            WRITE_WARNINGF(TL("Unused state in tlLogic '%', program '%' at tl-index %"), getID(), getProgramID(), i);
             break;
         }
     }
 }
+
+
 /****************************************************************************/

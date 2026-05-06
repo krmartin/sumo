@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -117,6 +117,9 @@ public:
     /// @brief get test label
     FXLabel* getTestLabel();
 
+    /// @brief get test frame
+    FXHorizontalFrame* getTestFrame();
+
     /// @brief return whether the gui is in gaming mode
     bool isGaming() const;
 
@@ -172,10 +175,19 @@ public:
         myOnlineMaps[name] = url;
     }
 
+    /// @brief add breakpoint to the application
+    virtual void addBreakpoint(SUMOTime /* time */) {}
+
     /// @brief retrieve breakpoints if provided by the application
     virtual const std::vector<SUMOTime> retrieveBreakpoints() const {
         return std::vector<SUMOTime>();
     }
+
+    // @brief called when changes language
+    long onCmdChangeLanguage(FXObject*, FXSelector, void*);
+
+    // @brief called when language is updated
+    long onUpdChangeLanguage(FXObject*, FXSelector, void*);
 
 protected:
     /// @brief FOX need this
@@ -192,6 +204,9 @@ protected:
 
     /// @brief A lock to make the removal and addition of trackers secure
     FXMutex myTrackerLock;
+
+    /// @brief default Font (after scaling)
+    FXFont* myNormalFont = nullptr;
 
     /// @brief Font used for popup-menu titles
     FXFont* myBoldFont = nullptr;
@@ -225,6 +240,9 @@ protected:
     FXDockSite* myLeftDock = nullptr;
     FXDockSite* myRightDock = nullptr;
 
+    /// @brief Language menu common to all applications
+    FXMenuPane* myLanguageMenu = nullptr;
+
     /// @brief static toolTip used in menus
     MFXStaticToolTip* myStaticTooltipMenu = nullptr;
 
@@ -254,4 +272,7 @@ protected:
 
     /// @brief record window position and size in registry
     void storeWindowSizeAndPos();
+
+    void buildLanguageMenu(FXMenuBar* menuBar);
+
 };

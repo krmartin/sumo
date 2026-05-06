@@ -1,5 +1,5 @@
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2018-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2018-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -16,27 +16,77 @@
 # @date    2018-06-05
 
 import os
-if "SUMO_HOME" not in os.environ and os.path.exists(os.path.join(os.path.dirname(__file__), "data")):
-    os.environ["SUMO_HOME"] = os.path.abspath(os.path.dirname(__file__))
+import sys
+import warnings
+
+SUMO_DATA_HOME = None
+try:
+    import sumo_data
+    SUMO_DATA_HOME = sumo_data.__path__[0]
+    if not os.environ.get("SUMO_HOME"):
+        os.environ["SUMO_HOME"] = SUMO_DATA_HOME
+    if not os.environ.get("PROJ_LIB") and not os.environ.get("PROJ_DATA"):
+        os.environ["PROJ_LIB"] = os.environ["PROJ_DATA"] = os.path.join(SUMO_DATA_HOME, "data", "proj")
+except ImportError:
+    # fall back to the eclipse-sumo wheel
+    try:
+        import sumo
+        if not hasattr(sumo, "SUMO_HOME"):  # maybe it is not the correct module
+            raise ImportError()
+        SUMO_DATA_HOME = sumo.SUMO_HOME
+        if not os.environ.get("SUMO_HOME"):
+            os.environ["SUMO_HOME"] = SUMO_DATA_HOME
+    except ImportError:
+        if not os.environ.get("SUMO_HOME"):
+            warnings.warn("SUMO_HOME is not set and neither sumo-data nor the eclipse-sumo wheel are installed!")
+
+if hasattr(sys, "_is_gil_enabled") and not sys._is_gil_enabled():
+    warnings.warn("This package has not been validated in free-threaded Python (no-GIL mode).")
 if hasattr(os, "add_dll_directory"):
     # since Python 3.8 the DLL search path has to be set explicitly see https://bugs.python.org/issue43173
-    if os.path.exists(os.path.join(os.path.dirname(__file__), "..", "..", "bin", "zlib.dll")):
-        os.add_dll_directory(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "bin")))
+    if SUMO_DATA_HOME and os.path.exists(os.path.join(SUMO_DATA_HOME, "bin", "zlib.dll")):
+        os.add_dll_directory(os.path.abspath(os.path.join(SUMO_DATA_HOME, "bin")))
     elif "SUMO_HOME" in os.environ and os.path.exists(os.path.join(os.environ["SUMO_HOME"], "bin", "zlib.dll")):
         os.add_dll_directory(os.path.join(os.environ["SUMO_HOME"], "bin"))
+    elif os.path.exists(os.path.join(os.path.dirname(__file__), "..", "..", "bin", "zlib.dll")):
+        os.add_dll_directory(os.path.join(os.path.dirname(__file__), "..", "..", "bin"))
+
+try:
+    # this tries to determine the version number of an installed wheel
+    import importlib.metadata  # noqa
+    __version__ = importlib.metadata.version(__name__)
+except ImportError:
+    # this is the fallback version, it gets replaced with the current version on "make install" or "make dist"
+    __version__ = "0.0.0"
 
 from traci import connection, constants, exceptions, _vehicle, _person, _trafficlight, _simulation  # noqa
 from traci.step import StepManager, StepListener  # noqa
-from .libsumo import vehicle, simulation, person, trafficlight  # noqa
+from .libsumo import vehicle, simulation, person, trafficlight, edge  # noqa
 from .libsumo import TraCIStage, TraCINextStopData, TraCIReservation, TraCILogic, TraCIPhase, TraCIException  # noqa
 from .libsumo import TraCICollision, TraCISignalConstraint  # noqa
+from ._libsumo import TraCILogic_phases_get, TraCILogic_phases_set, TraCILogic_swiginit, new_TraCILogic  # noqa
 from .libsumo import *  # noqa
+
+if os.environ.get('LIBSUMO_AS_TRACI') != "quiet":
+    try:
+        import importlib.metadata  # noqa
+        pyarrow_version = importlib.metadata.version("pyarrow")
+        pyarrow_so_version = "%s%02i" % tuple(map(int, pyarrow_version.split(".")[:2]))
+        sumo_arrow_so_version = simulation.getParameter("", "buildConfig.ARROW_SO_VERSION")
+        if sumo_arrow_so_version and pyarrow_so_version != sumo_arrow_so_version:
+            print("Warning! pyarrow is installed with version %s which might be incompatible with libsumo "
+                  "which is compiled against libarrow%s." % (pyarrow_version, sumo_arrow_so_version))
+            print(" Try to uninstall pyarrow or install a matching pyarrow version, if you encounter problems.")
+    except (ImportError, ValueError, TypeError):
+        # either pyarrow is not installed (fine) or importlib is not available (not great, but we cannot do much)
+        # the ValueError / TypeError occur if we could not parse the pyarrow version
+        pass
 
 DOMAINS = [
     busstop,  # noqa
     calibrator,  # noqa
     chargingstation,  # noqa
-    edge,  # noqa
+    edge,
     gui,  # noqa
     inductionloop,  # noqa
     junction,  # noqa
@@ -80,6 +130,35 @@ TraCINextStopData.__repr__ = _vehicle.StopData.__repr__
 TraCIReservation.__attr_repr__ = _person.Reservation.__attr_repr__
 TraCIReservation.__repr__ = _person.Reservation.__repr__
 
+
+def set_phases(self, phases):
+    new_phases = [TraCIPhase(p.duration, p.state, p.minDur, p.maxDur, p.next, p.name) for p in phases]
+    TraCILogic_phases_set(self, new_phases)
+
+
+def TraCILogic__init__(self, *args, **kwargs):
+    # Extract known keyword arguments or set to None if not provided
+    programID = kwargs.get('programID', args[0] if len(args) > 0 else None)
+    type_ = kwargs.get('type',  args[1] if len(args) > 1 else None)
+    currentPhaseIndex = kwargs.get('currentPhaseIndex',  args[2] if len(args) > 2 else None)
+    phases = kwargs.get('phases',  args[3] if len(args) > 3 else None)
+    # subParameter = kwargs.get('subParameter',  args[4] if len(args) > 4 else None)
+
+    # Update phases if provided
+    if phases:
+        new_phases = [TraCIPhase(p.duration, p.state, p.minDur, p.maxDur, p.next, p.name) for p in phases]
+        phases = new_phases
+
+    # Rebuild args including the extracted keyword arguments
+    args = (programID, type_, currentPhaseIndex, phases)
+
+    # Initialize with the original function
+    TraCILogic_swiginit(self, new_TraCILogic(*args))
+
+
+# Override methods and properties
+TraCILogic.__init__ = TraCILogic__init__
+TraCILogic.phases = property(TraCILogic_phases_get, set_phases)
 TraCILogic.getPhases = _trafficlight.Logic.getPhases
 TraCILogic.__repr__ = _trafficlight.Logic.__repr__
 TraCIPhase.__repr__ = _trafficlight.Phase.__repr__
@@ -143,18 +222,14 @@ hasGUI = simulation.hasGUI
 load = simulation.load
 isLoaded = simulation.isLoaded
 getVersion = simulation.getVersion
+executeMove = simulation.executeMove
 
 _libsumo_step = simulation.step
 
 
-def simulationStep(step=0):
-    _libsumo_step(step)
-    result = []
-    for domain in DOMAINS:
-        result += [(k, v) for k, v in domain.getAllSubscriptionResults().items()]
-        result += [(k, v) for k, v in domain.getAllContextSubscriptionResults().items()]
-    _stepManager.manageStepListeners(step)
-    return result
+def simulationStep(time=0.):
+    _libsumo_step(time)
+    _stepManager.manageStepListeners(time)
 
 
 simulation.step = simulationStep
@@ -165,14 +240,18 @@ def close():
     _stepManager.close()
 
 
-def start(args, traceFile=None, traceGetters=True):
-    version = simulation.start(args)
+def start(cmd, port=None, numRetries=constants.DEFAULT_NUM_RETRIES, label="default", verbose=False,
+          traceFile=None, traceGetters=True, stdout=None, doSwitch=True):
+    if port is not None:
+        print("Warning! To make your code usable with traci and libsumo, do not set an explicit port.")
+    version = simulation.start(cmd)
     if traceFile is not None:
         if _stepManager.startTracing(traceFile, traceGetters, DOMAINS):
             # simulationStep shows up as simulation.step
             global _libsumo_step
             _libsumo_step = _stepManager._addTracing(_libsumo_step, "simulation")
-        _stepManager.write("start", repr(args))
+        _stepManager._traceFile.write("import traci\n")
+        _stepManager.write("start", repr(cmd))
     return version
 
 

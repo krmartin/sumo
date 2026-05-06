@@ -1,5 +1,5 @@
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2012-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -38,7 +38,8 @@ def getBoundingBox(shape):
 
 class Polygon:
 
-    def __init__(self, id, type=None, color=None, layer=None, fill=None, shape=None):
+    def __init__(self, id, type=None, color=None, layer=None, fill=None,
+                 shape=None, geo=None, angle=None, lineWidth=None, imgFile=None, color_str=None):
         self.id = id
         self.type = type
         self.color = color
@@ -47,7 +48,17 @@ class Polygon:
         self.layer = layer
         self.fill = fill
         self.shape = shape
+        self.geo = geo
+        self.angle = angle
+        self.lineWidth = lineWidth
+        self.imgFile = imgFile
         self.attributes = {}
+        self.color_str = color_str
+        if self.color is not None and self.color_str is None:
+            if hasattr(self.color, "toXML"):
+                self.color_str = self.color.toXML()
+            else:
+                self.color_str = self.color
 
     def getBoundingBox(self):
         return getBoundingBox(self.shape)
@@ -100,10 +111,12 @@ class PolygonReader(handler.ContentHandler):
             for e in attrs['shape'].split():
                 p = e.split(",")
                 cshape.append((float(p[0]), float(p[1])))
-            if name == 'poly' and not self._includeTaz:
+            if name == 'poly':
                 c = color.decodeXML(attrs['color'])
                 poly = Polygon(attrs['id'], attrs.get('type'), c,
-                               attrs.get('layer'), attrs.get('fill'), cshape)
+                               attrs.get('layer'), attrs.get('fill'), cshape,
+                               attrs.get('geo'), attrs.get('angle'),
+                               attrs.get('lineWidth'), attrs.get('imgFile'), attrs.get('color'))
             else:
                 poly = Polygon(attrs['id'], color=attrs.get('color'), shape=cshape)
             self._id2poly[poly.id] = poly
@@ -120,7 +133,10 @@ class PolygonReader(handler.ContentHandler):
         return self._polys
 
 
-def read(filename, includeTaz=False):
-    polys = PolygonReader(includeTaz)
-    parse(filename, polys)
-    return polys.getPolygons()
+def read(filenames, includeTaz=False):
+    pr = PolygonReader(includeTaz)
+    if isinstance(filenames, str):
+        filenames = [filenames]
+    for fn in filenames:
+        parse(miscutils.openz(fn), pr)
+    return pr.getPolygons()

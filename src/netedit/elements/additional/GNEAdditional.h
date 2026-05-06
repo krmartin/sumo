@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -20,20 +20,18 @@
 #pragma once
 #include <config.h>
 
+#include <netedit/elements/GNEAttributeCarrier.h>
+#include <netedit/elements/GNEContour.h>
 #include <netedit/elements/GNEHierarchicalElement.h>
+#include <netedit/elements/GNEPathElement.h>
+#include <netedit/elements/moving/GNEMoveElement.h>
 #include <utils/gui/div/GUIGeometry.h>
-#include <netedit/GNEPathManager.h>
-#include <netedit/GNEMoveElement.h>
-#include <utils/common/Parameterised.h>
-#include <utils/geom/PositionVector.h>
 #include <utils/gui/globjects/GUIGlObject.h>
-#include <utils/gui/images/GUITextureSubSys.h>
 
 // ===========================================================================
 // class declarations
 // ===========================================================================
 
-class GNEViewNet;
 class GNENetworkElement;
 class GUIGLObjectPopupMenu;
 
@@ -41,69 +39,57 @@ class GUIGLObjectPopupMenu;
 // class definitions
 // ===========================================================================
 
-/**
- * @class GNEAdditional
- * @brief An Element which don't belong to GNENet but has influence in the simulation
- */
-class GNEAdditional : public GUIGlObject, public GNEHierarchicalElement, public GNEMoveElement, public GNEPathManager::PathElement {
+class GNEAdditional : public GNEAttributeCarrier, public GNEHierarchicalElement, public GUIGlObject, public GNEPathElement {
 
 public:
+    /// @brief declare friend class
+    friend class GNEAdditionalListed;
+    friend class GNEAdditionalSquared;
+
+    /**@brief Constructor for templates
+     * @param[in] tag SUMO Tag assigned to this type of object
+     * @param[in] net GNENet in which this AttributeCarrier is stored
+     */
+    GNEAdditional(GNENet* net, SumoXMLTag tag);
+
     /**@brief Constructor
      * @param[in] id Gl-id of the additional element (Must be unique)
-     * @param[in] net pointer to GNENet of this additional element belongs
-     * @param[in] type GUIGlObjectType of additional
-     * @param[in] tag Type of xml tag that define the additional element (SUMO_TAG_BUS_STOP, SUMO_TAG_REROUTER, etc...)
+     * @param[in] tag SUMO Tag assigned to this type of object
+     * @param[in] net GNENet in which this AttributeCarrier is stored
+     * @param[in] fileBucket bucket in which this AttributeCarrier is stored
      * @param[in] name Additional name
-     * @param[in] junctionParents vector of junction parents
-     * @param[in] edgeParents vector of edge parents
-     * @param[in] laneParents vector of lane parents
-     * @param[in] additionalParents vector of additional parents
-     * @param[in] demandElementParents vector of demand element parents
-     * @param[in] genericDataParents vector of generic data parents
-     * @param[in] parameters generic parameters
      */
-    GNEAdditional(const std::string& id, GNENet* net, GUIGlObjectType type, SumoXMLTag tag, FXIcon *icon, std::string additionalName,
-                  const std::vector<GNEJunction*>& junctionParents,
-                  const std::vector<GNEEdge*>& edgeParents,
-                  const std::vector<GNELane*>& laneParents,
-                  const std::vector<GNEAdditional*>& additionalParents,
-                  const std::vector<GNEDemandElement*>& demandElementParents,
-                  const std::vector<GNEGenericData*>& genericDataParents);
+    GNEAdditional(const std::string& id, GNENet* net, SumoXMLTag tag, FileBucket* fileBucket, const std::string& name);
 
     /**@brief Constructor for additional with parents
-     * @param[in] net pointer to GNENet of this additional element belongs
-     * @param[in] type GUIGlObjectType of additional
+     * @param[in] additionalParent pointer to additional parent
      * @param[in] tag Type of xml tag that define the additional element (SUMO_TAG_BUS_STOP, SUMO_TAG_REROUTER, etc...)
      * @param[in] name Additional name
-     * @param[in] junctionParents vector of junction parents
-     * @param[in] edgeParents vector of edge parents
-     * @param[in] laneParents vector of lane parents
-     * @param[in] additionalParents vector of additional parents
-     * @param[in] demandElementParents vector of demand element parents
-     * @param[in] genericDataParents vector of generic data parents
-     * @param[in] parameters generic parameters
      */
-    GNEAdditional(GNENet* net, GUIGlObjectType type, SumoXMLTag tag, FXIcon *icon, std::string additionalName,
-                  const std::vector<GNEJunction*>& junctionParents,
-                  const std::vector<GNEEdge*>& edgeParents,
-                  const std::vector<GNELane*>& laneParents,
-                  const std::vector<GNEAdditional*>& additionalParents,
-                  const std::vector<GNEDemandElement*>& demandElementParents,
-                  const std::vector<GNEGenericData*>& genericDataParents);
+    GNEAdditional(GNEAdditional* additionalParent, SumoXMLTag tag, const std::string& name);
 
     /// @brief Destructor
     ~GNEAdditional();
 
-    /**@brief get move operation
-     * @note returned GNEMoveOperation can be nullptr
-     */
-    virtual GNEMoveOperation* getMoveOperation() = 0;
+    /// @brief methods to retrieve the elements linked to this additional
+    /// @{
 
-    /// @brief remove geometry point in the clicked position (Currently unused in shapes)
-    void removeGeometryPoint(const Position clickedPosition, GNEUndoList* undoList);
+    /// @brief get GNEHierarchicalElement associated with this additional
+    GNEHierarchicalElement* getHierarchicalElement() override;
 
-    /// @brief get GUIGlObject associated with this AttributeCarrier
-    GUIGlObject* getGUIGlObject();
+    /// @brief get GUIGlObject associated with this additional
+    GUIGlObject* getGUIGlObject() override;
+
+    /// @brief get GUIGlObject associated with this additional (constant)
+    const GUIGlObject* getGUIGlObject() const override;
+
+    /// @}
+
+    /// @brief get reference to fileBucket in which save this AC
+    FileBucket* getFileBucket() const override;
+
+    /// @brief Returns the name of the object (default "")
+    virtual const std::string getOptionalName() const override;
 
     /// @brief obtain additional geometry
     const GUIGeometry& getAdditionalGeometry() const;
@@ -111,46 +97,78 @@ public:
     /// @brief set special color
     void setSpecialColor(const RGBColor* color);
 
+    /// @brief reset additional contour
+    void resetAdditionalContour();
+
     /// @name members and functions relative to write additionals into XML
     /// @{
+
     /**@brief write additional element into a xml file
      * @param[in] device device in which write parameters of additional element
      */
     virtual void writeAdditional(OutputDevice& device) const = 0;
 
     /// @brief check if current additional is valid to be written into XML (by default true, can be reimplemented in children)
-    virtual bool isAdditionalValid() const;
+    virtual bool isAdditionalValid() const = 0;
 
     /// @brief return a string with the current additional problem (by default empty, can be reimplemented in children)
-    virtual std::string getAdditionalProblem() const;
+    virtual std::string getAdditionalProblem() const = 0;
 
     /// @brief fix additional problem (by default throw an exception, has to be reimplemented in children)
-    virtual void fixAdditionalProblem();
+    virtual void fixAdditionalProblem() = 0;
+
     /// @}
+
+    /// @name functions related with geometry
+    /// @{
 
     /**@brief open Additional Dialog
      * @note: if additional needs an additional dialog, this function has to be implemented in childrens (see GNERerouter and GNEVariableSpeedSign)
      * @throw invalid argument if additional doesn't have an additional Dialog
      */
-    virtual void openAdditionalDialog();
-
-    /// @brief update pre-computed geometry information
-    virtual void updateGeometry() = 0;
+    virtual void openAdditionalDialog(FXWindow* restoringFocusWindow);
 
     /// @brief Returns position of additional in view
     virtual Position getPositionInView() const = 0;
 
     /// @brief return exaggeration associated with this GLObject
-    double getExaggeration(const GUIVisualizationSettings& s) const;
+    double getExaggeration(const GUIVisualizationSettings& s) const override;
 
     /// @brief Returns the boundary to which the view shall be centered in order to show the object
-    Boundary getCenteringBoundary() const;
+    Boundary getCenteringBoundary() const override;
 
     /// @brief update centering boundary (implies change in RTREE)
     virtual void updateCenteringBoundary(const bool updateGrid) = 0;
 
     /// @brief split geometry
     virtual void splitEdgeGeometry(const double splitPosition, const GNENetworkElement* originalElement, const GNENetworkElement* newElement, GNEUndoList* undoList) = 0;
+
+    /// @}
+
+    /// @name Function related with contour drawing
+    /// @{
+
+    /// @brief check if draw from contour (green)
+    bool checkDrawFromContour() const override;
+
+    /// @brief check if draw from contour (magenta)
+    bool checkDrawToContour() const override;
+
+    /// @brief check if draw related contour (cyan)
+    bool checkDrawRelatedContour() const override;
+
+    /// @brief check if draw over contour (orange)
+    bool checkDrawOverContour() const override;
+
+    /// @brief check if draw delete contour (pink/white)
+    bool checkDrawDeleteContour() const override;
+
+    /// @brief check if draw delete contour small (pink/white)
+    bool checkDrawDeleteContourSmall() const override;
+
+    /// @brief check if draw select contour (blue)
+    bool checkDrawSelectContour() const override;
+
     /// @}
 
     /// @name inherited from GUIGlObject
@@ -163,7 +181,7 @@ public:
      * @return The built popup-menu
      * @see GUIGlObject::getPopUpMenu
      */
-    virtual GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent);
+    virtual GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /**@brief Returns an own parameter window
      *
@@ -172,136 +190,77 @@ public:
      * @return The built parameter window
      * @see GUIGlObject::getParameterWindow
      */
-    GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent);
+    GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /// @brief Returns the additional name
     const std::string& getOptionalAdditionalName() const;
 
-    /**@brief Draws the object
-     * @param[in] s The settings for the current view (may influence drawing)
-     * @see GUIGlObject::drawGL
-     */
-    virtual void drawGL(const GUIVisualizationSettings& s) const = 0;
-
     /// @brief check if element is locked
-    bool isGLObjectLocked();
+    bool isGLObjectLocked() const override;
 
     /// @brief mark element as front element
-    void markAsFrontElement();
-    
+    void markAsFrontElement() override;
+
     /// @brief delete element
-    void deleteGLObject();
-    
+    void deleteGLObject() override;
+
     /// @brief select element
-    void selectGLObject();
+    void selectGLObject() override;
 
     /// @brief update GLObject (geometry, ID, etc.)
-    void updateGLObject();
+    void updateGLObject() override;
 
     /// @}
 
-    /// @name inherited from GNEPathManager::PathElement
+    /// @name inherited from GNEPathElement
     /// @{
 
     /// @brief compute pathElement
-    virtual void computePathElement();
+    virtual void computePathElement() override;
 
-    /**@brief Draws partial object (lane)
-     * @param[in] s The settings for the current view (may influence drawing)
-     * @param[in] lane GNELane in which draw partial
-     * @param[in] segment segment geometry
-     */
-    virtual void drawPartialGL(const GUIVisualizationSettings& s, const GNELane* lane, const GNEPathManager::Segment* segment, const double offsetFront) const;
+    /// @brief check if path element is selected
+    bool isPathElementSelected() const override;
 
-    /**@brief Draws partial object (junction)
+    /**@brief Draws partial object over lane
      * @param[in] s The settings for the current view (may influence drawing)
-     * @param[in] fromLane from GNELane
-     * @param[in] toLane to GNELane
-     * @param[in] drawGeometry flag to enable/disable draw geometry (lines, boxLines, etc.)
+     * @param[in] segment lane segment
+     * @param[in] offsetFront front offset
      */
-    virtual void drawPartialGL(const GUIVisualizationSettings& s, const GNELane* fromLane, const GNELane* toLane, const GNEPathManager::Segment* segment, const double offsetFront) const;
+    virtual void drawLanePartialGL(const GUIVisualizationSettings& s, const GNESegment* segment, const double offsetFront) const override;
+
+    /**@brief Draws partial object over junction
+     * @param[in] s The settings for the current view (may influence drawing)
+     * @param[in] segment junction segment
+     * @param[in] offsetFront front offset
+     */
+    virtual void drawJunctionPartialGL(const GUIVisualizationSettings& s, const GNESegment* segment, const double offsetFront) const override;
 
     /// @brief get first path lane
-    GNELane* getFirstPathLane() const;
+    GNELane* getFirstPathLane() const override;
 
     /// @brief get last path lane
-    GNELane* getLastPathLane() const;
+    GNELane* getLastPathLane() const override;
 
-    /// @brief get path element depart lane pos
-    double getPathElementDepartValue() const;
-
-    /// @brief get path element depart position
-    Position getPathElementDepartPos() const;
-
-    /// @brief get path element arrival lane pos
-    double getPathElementArrivalValue() const;
-
-    /// @brief get path element arrival position
-    Position getPathElementArrivalPos() const;
-
-    /// @}
-
-    /// @name inherited from GNEAttributeCarrier
-    /// @{
-    /* @brief method for getting the Attribute of an XML key
-     * @param[in] key The attribute key
-     * @return string with the value associated to key
-     */
-    virtual std::string getAttribute(SumoXMLAttr key) const = 0;
-
-    /* @brief method for getting the Attribute of an XML key in double format (to avoid unnecessary parse<double>(...) for certain attributes)
-     * @param[in] key The attribute key
-     * @return double with the value associated to key
-     */
-    virtual double getAttributeDouble(SumoXMLAttr key) const = 0;
-
-    /* @brief method for getting the Attribute of an XML key in position format (to avoid unnecessary parse<position>(...) for certain attributes)
-     * @param[in] key The attribute key
-     * @return double with the value associated to key
-     */
-    virtual Position getAttributePosition(SumoXMLAttr key) const;
-
-    /// @brief get parameters map
-    virtual const Parameterised::Map& getACParametersMap() const = 0;
-
-    /**@brief method for setting the attribute and letting the object perform additional changes
-     * @param[in] key The attribute key
-     * @param[in] value The new value
-     * @param[in] undoList The undoList on which to register changes
-     */
-    virtual void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList) = 0;
-
-    /**@brief method for checking if the key and their correspondent attribute are valids
-     * @param[in] key The attribute key
-     * @param[in] value The value associated to key key
-     * @return true if the value is valid, false in other case
-     */
-    virtual bool isValid(SumoXMLAttr key, const std::string& value) = 0;
-
-    /// @brief get PopPup ID (Used in AC Hierarchy)
-    virtual std::string getPopUpID() const = 0;
-
-    /// @brief get Hierarchy Name (Used in AC Hierarchy)
-    virtual std::string getHierarchyName() const = 0;
     /// @}
 
     /// @brief draw parent and child lines
     void drawParentChildLines(const GUIVisualizationSettings& s, const RGBColor& color, const bool onlySymbols = false) const;
 
     /// @brief draw up geometry point
-    static void drawUpGeometryPoint(const GNEViewNet* viewNet, const Position& pos, const double rot, const RGBColor& baseColor, const bool ignoreShift = false);
+    void drawUpGeometryPoint(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d, const Position& pos,
+                             const double rot, const RGBColor& baseColor, const bool ignoreShift = false) const;
 
     /// @brief draw down geometry point
-    static void drawDownGeometryPoint(const GNEViewNet* viewNet, const Position& pos, const double rot, const RGBColor& baseColor, const bool ignoreShift = false);
+    void drawDownGeometryPoint(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d, const Position& pos,
+                               const double rot, const RGBColor& baseColor, const bool ignoreShift = false) const;
 
     /// @brief draw left geometry point
-    static void drawLeftGeometryPoint(const GNEViewNet* viewNet, const Position& pos, const double rot, const RGBColor& baseColor, const bool ignoreShift = false);
+    void drawLeftGeometryPoint(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d, const Position& pos,
+                               const double rot, const RGBColor& baseColor, const bool ignoreShift = false) const;
 
     /// @brief draw right geometry point
-    static void drawRightGeometryPoint(const GNEViewNet* viewNet, const Position& pos, const double rot, const RGBColor& baseColor, const bool ignoreShift = false);
-
-    /// @brief get draw position index (used in rerouters and VSS)
-    int getDrawPositionIndex() const;
+    void drawRightGeometryPoint(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d, const Position& pos,
+                                const double rot, const RGBColor& baseColor, const bool ignoreShift = false) const;
 
     /// @brief check if the given lanes are consecutive
     static bool areLaneConsecutives(const std::vector<GNELane*>& lanes);
@@ -310,11 +269,14 @@ public:
     static bool areLaneConnected(const std::vector<GNELane*>& lanes);
 
 protected:
-    /// @brief Additional Boundary
+    /// @brief Additional Boundary (used only by additionals placed over grid)
     Boundary myAdditionalBoundary;
 
     /// @brief geometry to be precomputed in updateGeometry(...)
     GUIGeometry myAdditionalGeometry;
+
+    /// @brief variable used for draw additional contours
+    GNEContour myAdditionalContour;
 
     /// @brief name of additional
     std::string myAdditionalName;
@@ -322,14 +284,26 @@ protected:
     /// @brief pointer to special color (used for drawing Additional with a certain color, mainly used for selections)
     const RGBColor* mySpecialColor = nullptr;
 
+    /// @brief write common additional attributes
+    void writeAdditionalAttributes(OutputDevice& device) const;
+
     /// @name Functions relative to change values in setAttribute(...)
     /// @{
 
     /// @brief check if a new additional ID is valid
-    bool isValidAdditionalID(const std::string& newID) const;
+    bool isValidAdditionalID(const std::string& value) const;
+
+    /// @brief check if a new additional ID is valid
+    bool isValidAdditionalID(const std::vector<SumoXMLTag>& tags, const std::string& value) const;
 
     /// @brief check if a new detector ID is valid
-    bool isValidDetectorID(const std::string& newID) const;
+    bool isValidDetectorID(const std::string& value) const;
+
+    /// @brief check if a new detector ID is valid
+    bool isValidDetectorID(const std::vector<SumoXMLTag>& tags, const std::string& value) const;
+
+    /// @brief set additional ID
+    void setAdditionalID(const std::string& newID);
 
     /// @}
 
@@ -363,19 +337,34 @@ protected:
     /// @brief calculate perpendicular line between lane parents
     void calculatePerpendicularLine(const double endLaneposition);
 
-    /// @brief draw squared additional
-    void drawSquaredAdditional(const GUIVisualizationSettings& s, const Position& pos, const double size, GUITexture texture, GUITexture selectedTexture) const;
+    /// @brief draw demand element children
+    void drawDemandElementChildren(const GUIVisualizationSettings& s) const;
 
-    /// @brief draw listed additional
-    void drawListedAddtional(const GUIVisualizationSettings& s, const Position& parentPosition, const double offsetX, const double extraOffsetY,
-                             const RGBColor baseCol, const RGBColor textCol, GUITexture texture, const std::string text) const;
+    /// @name JuPedSim values
+    /// @{
 
+    /// @brief get JuPedSim type
+    static std::string getJuPedSimType(SumoXMLTag tag);
 
-    /// @brief get moveOperation for an element over single lane
-    GNEMoveOperation* getMoveOperationSingleLane(const double startPos, const double endPos);
+    /// @brief get JuPedSim color
+    static RGBColor getJuPedSimColor(SumoXMLTag tag);
 
-    /// @brief get moveOperation for an element over multi lane
-    GNEMoveOperation* getMoveOperationMultiLane(const double startPos, const double endPos);
+    /// @brief get JuPedSim fill
+    static bool getJuPedSimFill(SumoXMLTag tag);
+
+    /// @brief get JuPedSim color
+    static double getJuPedSimLayer(SumoXMLTag tag);
+
+    /// @}
+
+    /// @name calculate contours
+    /// @{
+
+    /// @brief calculate contour for polygons
+    void calculateContourPolygons(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                                  const double layer, const double exaggeration, const bool filledShape) const;
+
+    /// @}
 
 private:
     /**@brief check restriction with the number of children
@@ -383,21 +372,10 @@ private:
      */
     virtual bool checkChildAdditionalRestriction() const;
 
-    /// @brief method for setting the attribute and nothing else (used in GNEChange_Attribute)
-    virtual void setAttribute(SumoXMLAttr key, const std::string& value) = 0;
-
-    /// @brief set move shape
-    virtual void setMoveShape(const GNEMoveResult& moveResult) = 0;
-
-    /// @brief commit move shape
-    virtual void commitMoveShape(const GNEMoveResult& moveResult, GNEUndoList* undoList) = 0;
-
     /// @brief draw geometry point
-    static void drawSemiCircleGeometryPoint(const GNEViewNet* viewNet, const Position& pos, const double rot, const RGBColor& baseColor,
-                                            const double fromAngle, const double toAngle, const bool ignoreShift);
-
-    /// @brief adjust listed additional text
-    std::string adjustListedAdditionalText(const std::string& text) const;
+    void drawSemiCircleGeometryPoint(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                                     const Position& pos, const double rot, const RGBColor& baseColor,
+                                     const double fromAngle, const double toAngle, const bool ignoreShift) const;
 
     /// @brief Invalidated copy constructor.
     GNEAdditional(const GNEAdditional&) = delete;
@@ -405,4 +383,3 @@ private:
     /// @brief Invalidated assignment operator.
     GNEAdditional& operator=(const GNEAdditional&) = delete;
 };
-

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -44,7 +44,7 @@ public:
      * @param[out] outputStorage The storage to write the result to
      */
     static bool processGet(TraCIServer& server, tcpip::Storage& inputStorage,
-                           tcpip::Storage& outputStorage);
+                           const std::string& objID, const int variable);
 
     /** @brief Processes a set value command (Command 0xcb: Set Simulation Variable)
      *
@@ -55,23 +55,11 @@ public:
     static bool processSet(TraCIServer& server, tcpip::Storage& inputStorage,
                            tcpip::Storage& outputStorage);
 
-    static void writeStage(tcpip::Storage& outputStorage, const libsumo::TraCIStage& stage);
-    static libsumo::TraCIStage* readStage(TraCIServer& server, tcpip::Storage& inputStorage);
-
 private:
-    /**
-     * Converts a road map position to a cartesian position
-     *
-     * @param pos road map position that is to be convertes
-     * @return closest 2D position
-     */
+    static void commandPositionConversion(tcpip::Storage& inputStorage,
+                                          const int compoundSize, tcpip::Storage& outputStorage);
 
-    static bool commandPositionConversion(TraCIServer& server, tcpip::Storage& inputStorage,
-                                          const int compoundSize, tcpip::Storage& outputStorage,
-                                          const int commandId);
-
-    static bool commandDistanceRequest(TraCIServer& server, tcpip::Storage& inputStorage,
-                                       tcpip::Storage& outputStorage, int commandId);
+    static void commandDistanceRequest(tcpip::Storage& inputStorage, tcpip::Storage& outputStorage);
 
     static void writeVehicleStateNumber(TraCIServer& server, tcpip::Storage& outputStorage, MSNet::VehicleState state);
     static void writeVehicleStateIDs(TraCIServer& server, tcpip::Storage& outputStorage, MSNet::VehicleState state);

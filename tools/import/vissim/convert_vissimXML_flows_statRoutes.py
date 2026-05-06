@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2015-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2015-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -32,10 +32,14 @@ see also:
 from __future__ import absolute_import
 from __future__ import print_function
 
-import argparse
+import os
+import sys
 from xml.dom import minidom
-import numpy as np
 from xml.dom.minidom import Document
+import numpy as np
+if 'SUMO_HOME' in os.environ:
+    sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
+import sumolib  # noqa
 
 
 def _dict_from_node_attributes(node):
@@ -282,7 +286,7 @@ def parse_routes(xmldoc, edge_id_list, verbinder_d):
 
 
 def calc_route_probability(routes_by_start_d, flow_d):
-    """computes the route probabilies
+    """computes the route probabilities
     :param routes_by_start_d:   map by start link id with route dicts as values
     :type routes_by_start_d:    dict
     :param flow_d:      vissim vehicle in-flow data
@@ -291,8 +295,7 @@ def calc_route_probability(routes_by_start_d, flow_d):
     for start_link, sl_routes in routes_by_start_d.items():
         if start_link not in flow_d:
             # we got no in-flow data for that route's start link
-            print('- skipping probability calc\n',
-                  '\tfor route without flow def. for VISSIM start link id:', start_link)
+            print('- skipping probability calc tfor route without flow def. for VISSIM start link id:', start_link)
             continue
         # set 0 vectors for all time frames
         absolute_flow = flow_d[start_link]["flow"][:, 1]
@@ -333,8 +336,7 @@ def validate_rel_flow(routes_by_start_d, flow_d):
     for start_link, sl_routes in routes_by_start_d.items():
         if start_link not in flow_d:
             # should we remove the routes entry ?
-            print('- skipping flow validation\n'
-                  '\tfor route without flow def. for VISSIM start link id:', start_link)
+            print('- skipping flow validation for route without flow def. for VISSIM start link id:', start_link)
             # CHECK: is this ok with later steps ?
             continue
         # grab all the time window starts from the flows
@@ -348,10 +350,12 @@ def validate_rel_flow(routes_by_start_d, flow_d):
                 route["rel_flow"] = ref_time_shape.copy()
                 continue
             else:
-                # check if the time frame starts are the same
-                assert np.array_equal(ref_time_shape[:, 0], route["rel_flow"][:, 0]),\
-                    "\nPROBLEM: flow count and relative flow time frames are not aligned\n\t"\
-                    "for VISSIM start link id: " + start_link
+                if not np.array_equal(ref_time_shape[:, 0], route["rel_flow"][:, 0]):
+                    orig = dict(route["rel_flow"])
+                    flow = ref_time_shape.copy()
+                    for i, (time, _) in enumerate(flow):
+                        flow[i][1] = orig.get(time, 0)
+                    route["rel_flow"] = flow
         # copy back modifications
         routes_by_start_d[start_link] = sl_routes
 
@@ -398,11 +402,11 @@ def create_routeDistribution_elems(routes_by_start_d, root):
     .. note:: *modifies/extends* XML root element
     """
     # iterating by VISSIM link id
+    validDists = set()
     for start_link in routes_by_start_d:
         if start_link not in flow_d:
             # no flow, no go
-            print('- skipping route dist. gen\n'
-                  '\tfor route without flow def. for VISSIM start link id:', start_link)
+            print('- skipping route dist. gen for route without flow def. for VISSIM start link id:', start_link)
             continue
         if len(routes_by_start_d[start_link]) == 0:
             continue
@@ -410,8 +414,8 @@ def create_routeDistribution_elems(routes_by_start_d, root):
         for ic, time in enumerate(ref_time):
             route_dist = root.ownerDocument.createElement("routeDistribution")
             # just a name
-            route_dist.setAttribute("id", "_".join([start_link,
-                                                    str(time)]))
+            distID = "_".join([start_link, str(time)])
+            route_dist.setAttribute("id", distID)
             for route in routes_by_start_d[start_link]:
                 if np.abs(route["probability"][ic]) != 0:
                     route_node = root.ownerDocument.createElement("route")
@@ -424,10 +428,11 @@ def create_routeDistribution_elems(routes_by_start_d, root):
                     route_dist.appendChild(route_node)
             if route_dist.hasChildNodes():
                 root.appendChild(route_dist)
-    # return route_doc
+                validDists.add(distID)
+    return validDists
 
 
-def create_flow_elems(routes_by_start_d, flow_d, root):
+def create_flow_elems(routes_by_start_d, flow_d, validDists, root):
     """append the flow data to the given dom document
     :param routes_by_start_d:   map by start link id with route dicts as values
     :type routes_by_start_d:    dict
@@ -442,8 +447,7 @@ def create_flow_elems(routes_by_start_d, flow_d, root):
     for start_link in routes_by_start_d:
         if start_link not in flow_d:
             # we got no in-flow data for that route's start link
-            print('- skipping flow gen\n'
-                  '\tfor route without flow def. for VISSIM start link id:', start_link)
+            print('- skipping flow gen for route without flow def. for VISSIM start link id:', start_link)
             continue
         if len(routes_by_start_d[start_link]) == 0:
             print('- found no routes by start link:', start_link)
@@ -452,9 +456,10 @@ def create_flow_elems(routes_by_start_d, flow_d, root):
         # iterate over all the time frame starts from the flows
         ref_time = flows[:, 0]
         for index, time in enumerate(ref_time):
+            distID = "_".join([start_link, str(time)])
             in_flow = [fl for fl in flow_d[start_link]["flow"] if
                        fl[0] == time][0]
-            if in_flow[1] > 0:
+            if in_flow[1] > 0 and distID in validDists:
                 flow = root.ownerDocument.createElement("flow")
                 flow.setAttribute("id", "fl{}_st{}".format(start_link,
                                                            time))
@@ -467,8 +472,7 @@ def create_flow_elems(routes_by_start_d, flow_d, root):
                     flow.setAttribute("end", sim_end)
                 flow.setAttribute("vehsPerHour", str(in_flow[1]))
                 flow.setAttribute("type", str(int(in_flow[2])))
-                flow.setAttribute('route', "_".join([start_link,
-                                                     str(time)]))
+                flow.setAttribute('route', distID)
                 dom_flow_l.append(flow)
     dom_flow_l = sorted(dom_flow_l,
                         key=lambda dom: float(dom.getAttribute("begin")))
@@ -479,17 +483,17 @@ def create_flow_elems(routes_by_start_d, flow_d, root):
 
 # MAIN
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
+    op = sumolib.options.ArgumentParser(
         description='road network conversion utility for static route flows'
         ' (VISSIM.inpx to SUMO); generates SUMO routes definition file from'
         ' given inpx and derived (by netconvert) SUMO net.')
-    parser.add_argument('--output-file', '-o', default='routes.rou.xml',
-                        help='output file name (default: %(default)s)')
-    parser.add_argument('--vissim-file', '-V', dest="vissim_file", required=True,
-                        help='VISSIM inpx file path')
-    parser.add_argument('--sumo-net-file', '-n', dest="sumo_net_file", required=True,
-                        help='SUMO net file path')
-    args = parser.parse_args()
+    op.add_argument('--output-file', '-o', default='routes.rou.xml', category="output", type=op.route_file,
+                    help='output file name (default: %(default)s)')
+    op.add_argument('--vissim-file', '-V', dest="vissim_file", category="input", required=True, type=op.file,
+                    help='VISSIM inpx file path')
+    op.add_argument('--sumo-net-file', '-n', dest="sumo_net_file", category="input", required=True, type=op.net_file,
+                    help='SUMO net file path')
+    args = op.parse_args()
     # print("\n", args, "\n")
 
     #
@@ -557,9 +561,9 @@ if __name__ == '__main__':
 
     create_vTypeDistribution_elems(vehicle_comp_d, vehicle_type_d, speed_d, routes_Elem)
     print('-' * 3)
-    create_routeDistribution_elems(routes_by_start_d, routes_Elem)
+    validDists = create_routeDistribution_elems(routes_by_start_d, routes_Elem)
     print('-' * 3)
-    create_flow_elems(routes_by_start_d, flow_d, routes_Elem)
+    create_flow_elems(routes_by_start_d, flow_d, validDists, routes_Elem)
     print('OK.\n---')
 
     print('* writing output:')

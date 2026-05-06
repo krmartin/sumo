@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on 2022-07-07 18:04:52.711433 by netdiff.py v1_13_0+1473-06ae39229a5
-  options: -c input_config.xml
+<!-- generated on 2024-02-29 13:55:29.526263 by netdiff.py v1_19_0+1092-a49a04372af
+<configuration>
+    <source value="source.net.xml"/>
+    <dest value="dest.net.xml"/>
+    <outprefix value="diff"/>
+    <copy value="location"/>
+</configuration>
 -->
 
-<connections version="1.9" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/connections_file.xsd">
+<connections version="1.20" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/connections_file.xsd">
     <!-- Copied Elements -->
     <!-- Deleted Elements -->
     <delete from="CW" fromLane="1" to="WC" toLane="1"/>

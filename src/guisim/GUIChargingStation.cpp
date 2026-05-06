@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,6 +17,7 @@
 /// @author  Michael Behrisch
 /// @author  Tamas Kurczveil
 /// @author  Pablo Alvarez Lopez
+/// @author  Mirko Barthauer
 /// @date    20-12-13
 ///
 // A lane area vehicles can halt at (gui-version)
@@ -29,6 +30,7 @@
 #include <microsim/MSEdge.h>
 #include <microsim/MSLane.h>
 #include <microsim/MSNet.h>
+#include <microsim/MSParkingArea.h>
 #include <microsim/logging/FunctionBinding.h>
 #include <utils/common/MsgHandler.h>
 #include <utils/common/ToString.h>
@@ -51,32 +53,21 @@
 // ===========================================================================
 // method definitions
 // ===========================================================================
-GUIChargingStation::GUIChargingStation(const std::string& id, MSLane& lane, double frompos, double topos,
-                                       const std::string& name,
-                                       double chargingPower, double efficiency, bool chargeInTransit, SUMOTime chargeDelay) :
-    MSChargingStation(id, lane, frompos, topos, name, chargingPower, efficiency, chargeInTransit, chargeDelay),
+GUIChargingStation::GUIChargingStation(const std::string& id, MSLane& lane, double frompos, double topos, const std::string& name,
+                                       double chargingPower, double totalPower, double efficiency, bool chargeInTransit, SUMOTime chargeDelay,
+                                       const std::string& chargeType, SUMOTime waitingTime) :
+    MSChargingStation(id, lane, frompos, topos, name, chargingPower, totalPower, efficiency, chargeInTransit, chargeDelay, chargeType, waitingTime),
     GUIGlObject_AbstractAdd(GLO_CHARGING_STATION, id, GUIIconSubSys::getIcon(GUIIcon::CHARGINGSTATION)) {
-    myFGShape = lane.getShape();
-    myFGShape = myFGShape.getSubpart(
-                    lane.interpolateLanePosToGeometryPos(frompos),
-                    lane.interpolateLanePosToGeometryPos(topos));
-    myFGShapeRotations.reserve(myFGShape.size() - 1);
-    myFGShapeLengths.reserve(myFGShape.size() - 1);
-    int e = (int) myFGShape.size() - 1;
-    for (int i = 0; i < e; ++i) {
-        const Position& f = myFGShape[i];
-        const Position& s = myFGShape[i + 1];
-        myFGShapeLengths.push_back(f.distanceTo(s));
-        myFGShapeRotations.push_back((double) atan2((s.x() - f.x()), (f.y() - s.y())) * (double) 180.0 / (double) M_PI);
-    }
-    PositionVector tmp = myFGShape;
-    tmp.move2side(1.5);
-    myFGSignPos = tmp.getLineCenter();
-    myFGSignRot = 0;
-    if (tmp.length() != 0) {
-        myFGSignRot = myFGShape.rotationDegreeAtOffset(double((myFGShape.length() / 2.)));
-        myFGSignRot -= 90;
-    }
+    initAppearance(lane, frompos, topos);
+}
+
+
+GUIChargingStation::GUIChargingStation(const std::string& id, MSParkingArea* parkingArea, const std::string& name,
+                                       double chargingPower, double totalPower, double efficiency, bool chargeInTransit, SUMOTime chargeDelay,
+                                       const std::string& chargeType, SUMOTime waitingTime) :
+    MSChargingStation(id, parkingArea, name, chargingPower, totalPower, efficiency, chargeInTransit, chargeDelay, chargeType, waitingTime),
+    GUIGlObject_AbstractAdd(GLO_CHARGING_STATION, id, GUIIconSubSys::getIcon(GUIIcon::CHARGINGSTATION)) {
+    initAppearance(const_cast<MSLane&>(parkingArea->getLane()), parkingArea->getBeginLanePosition(), parkingArea->getEndLanePosition());
 }
 
 
@@ -88,18 +79,19 @@ GUIParameterTableWindow*
 GUIChargingStation::getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView&) {
     // Create table items
     GUIParameterTableWindow* ret = new GUIParameterTableWindow(app, *this);
-
     // add items
-    ret->mkItem("name", false, getMyName());
-    ret->mkItem("begin position [m]", false, myBegPos);
-    ret->mkItem("end position [m]", false, myEndPos);
-    ret->mkItem("stopped vehicles[#]", true, new FunctionBinding<GUIChargingStation, int>(this, &MSStoppingPlace::getStoppedVehicleNumber));
-    ret->mkItem("last free pos[m]", true, new FunctionBinding<GUIChargingStation, double>(this, &MSStoppingPlace::getLastFreePos));
-    ret->mkItem("charging power [W]", false, myChargingPower);
-    ret->mkItem("charging myEfficiency []", false, myEfficiency);
-    ret->mkItem("charge in transit [true/false]", false, myChargeInTransit);
-    ret->mkItem("charge delay [s]", false, myChargeDelay);
-
+    ret->mkItem(TL("name"), false, getMyName());
+    ret->mkItem(TL("begin position [m]"), false, myBegPos);
+    ret->mkItem(TL("end position [m]"), false, myEndPos);
+    ret->mkItem(TL("stopped vehicles [#]"), true, new FunctionBinding<GUIChargingStation, int>(this, &MSStoppingPlace::getStoppedVehicleNumber));
+    ret->mkItem(TL("last free pos [m]"), true, new FunctionBinding<GUIChargingStation, double>(this, &MSStoppingPlace::getLastFreePos));
+    ret->mkItem(TL("charging power [W]"), false, myNominalChargingPower);
+    ret->mkItem(TL("total charging power [W]"), false, myTotalChargingPower);
+    ret->mkItem(TL("charging efficiency [#]"), false, myEfficiency);
+    ret->mkItem(TL("charge in transit [true/false]"), false, myChargeInTransit);
+    ret->mkItem(TL("charge delay [s]"), false, STEPS2TIME(myChargeDelay));
+    ret->mkItem(TL("charge type"), false, chargeTypeToString(myChargeType));
+    ret->mkItem(TL("waiting time [s]"), false, STEPS2TIME(myWaitingTime));
     // close building
     ret->closeBuilding();
     return ret;
@@ -108,7 +100,7 @@ GUIChargingStation::getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView&)
 
 GUIGLObjectPopupMenu*
 GUIChargingStation::getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) {
-    GUIGLObjectPopupMenu* ret = new GUIGLObjectPopupMenu(app, parent, *this);
+    GUIGLObjectPopupMenu* ret = new GUIGLObjectPopupMenu(app, parent, this);
     buildPopupHeader(ret, app);
     buildCenterPopupEntry(ret);
     buildNameCopyPopupEntry(ret);
@@ -142,28 +134,55 @@ GUIChargingStation::drawGL(const GUIVisualizationSettings& s) const {
     // draw the area depending if the vehicle is charging
     glTranslated(0, 0, getType());
 
+
+
     // set color depending if charging station is charging
-    if (myChargingVehicle == true) {
-        GLHelper::setColor(s.colorSettings.chargingStationColorCharge);
-    } else {
-        GLHelper::setColor(s.colorSettings.chargingStationColor);
-    }
+    RGBColor csColor = (myChargingVehicle) ? s.colorSettings.chargingStationColorCharge : s.colorSettings.chargingStationColor;
+    GLHelper::setColor(csColor);
+
     const double exaggeration = getExaggeration(s);
-    GLHelper::drawBoxLines(myFGShape, myFGShapeRotations, myFGShapeLengths, MIN2(1.0, exaggeration));
+
+    if (myParkingArea != nullptr) {
+        // draw space background with charging station colors
+        const std::vector<MSParkingArea::LotSpaceDefinition>& spaces = myParkingArea->getSpaceOccupancies();
+        for (const auto& space : spaces) {
+            // draw box lines
+            GLHelper::drawBoxLine(space.position, space.rotation - 180., space.length, 0.5 * space.width);
+        }
+
+        // redraw spaces from parking area
+        GLHelper::pushMatrix();
+        glTranslated(0, 0, .1);
+        for (const auto& space : spaces) {
+            GLHelper::drawSpaceOccupancies(exaggeration, space.position, space.rotation,
+                                           space.width, space.length, space.vehicle ? true : false);
+        }
+        GLHelper::popMatrix();
+    } else {
+        GLHelper::drawBoxLines(myFGShape, myFGShapeRotations, myFGShapeLengths, MIN2(1.0, exaggeration));
+    }
+
+    // reset color because it may have changed due to redrawing occupied spaces
+    GLHelper::setColor(csColor);
 
     // draw details unless zoomed out to far
-    if (s.drawDetail(s.detailSettings.stoppingPlaceDetails, exaggeration)) {
-
+    if (s.drawDetail(10, exaggeration)) {
         // push charging power matrix
         GLHelper::pushMatrix();
+        // translate and rotate
+        const double rotSign = MSGlobals::gLefthand ? 1 : -1;
+        const double lineAngle = s.getTextAngle(myFGSignRot);
+        glTranslated(myFGSignPos.x(), myFGSignPos.y(), 0.2);
+        glRotated(-lineAngle, 0, 0, 1);
         // draw charging power
-        GLHelper::drawText((toString(myChargingPower) + " W").c_str(), myFGSignPos + Position(1.2, 0), .1, 1.f, s.colorSettings.chargingStationColor, myFGSignRot, FONS_ALIGN_LEFT);
+        const double textOffset = s.flippedTextAngle(rotSign * myFGSignRot) ? -0.5 : -0.1;
+        GLHelper::drawText((toString(myNominalChargingPower) + " W").c_str(), Position(1.2, textOffset), .1, 1.f, s.colorSettings.chargingStationColor, 0, FONS_ALIGN_LEFT);
         // pop charging power matrix
         GLHelper::popMatrix();
 
         GLHelper::pushMatrix();
         // draw the sign
-        glTranslated(myFGSignPos.x(), myFGSignPos.y(), 0);
+        glTranslated(myFGSignPos.x(), myFGSignPos.y(), 0.2);
         int noPoints = 9;
         if (s.scale * exaggeration > 25) {
             noPoints = MIN2((int)(9.0 + (s.scale * exaggeration) / 10.0), 36);
@@ -175,12 +194,9 @@ GUIChargingStation::drawGL(const GUIVisualizationSettings& s) const {
 
         GLHelper::setColor(s.colorSettings.chargingStationColorSign);
         GLHelper::drawFilledCircle((double) 0.9, noPoints);
+        GLHelper::drawText("C", Position(), .1, 1.6, s.colorSettings.chargingStationColor, myFGSignRot);
 
-        if (s.drawDetail(s.detailSettings.stoppingPlaceText, exaggeration)) {
-            GLHelper::drawText("C", Position(), .1, 1.6, s.colorSettings.chargingStationColor, myFGSignRot);
-        }
-
-        glTranslated(5, 0, 0);
+        //glTranslated(5, 0, 0);
         GLHelper::popMatrix();
 
     }
@@ -191,6 +207,35 @@ GUIChargingStation::drawGL(const GUIVisualizationSettings& s) const {
     GLHelper::popName();
     drawName(getCenteringBoundary().getCenter(), s.scale, s.addName, s.angle);
 }
+
+
+void
+GUIChargingStation::initAppearance(MSLane& lane, double frompos, double topos) {
+    myFGShape = lane.getShape();
+    myFGShape = myFGShape.getSubpart(
+                    lane.interpolateLanePosToGeometryPos(frompos),
+                    lane.interpolateLanePosToGeometryPos(topos));
+    myFGShapeRotations.reserve(myFGShape.size() - 1);
+    myFGShapeLengths.reserve(myFGShape.size() - 1);
+    int e = (int)myFGShape.size() - 1;
+    for (int i = 0; i < e; ++i) {
+        const Position& f = myFGShape[i];
+        const Position& s = myFGShape[i + 1];
+        myFGShapeLengths.push_back(f.distanceTo(s));
+        myFGShapeRotations.push_back((double)atan2((s.x() - f.x()), (f.y() - s.y())) * (double) 180.0 / (double)M_PI);
+    }
+    PositionVector tmp = (myParkingArea != nullptr) ? myParkingArea->getShape() : myFGShape;
+    const double rotSign = MSGlobals::gLefthand ? -1 : 1;
+    const double offset = (myParkingArea != nullptr) ? lane.getWidth() : 1.5;
+    tmp.move2side(offset * rotSign);
+    myFGSignPos = tmp.getLineCenter();
+    myFGSignRot = 0;
+    if (tmp.length() != 0) {
+        myFGSignRot = myFGShape.rotationDegreeAtOffset(double((tmp.length() / 2.)));
+        myFGSignRot -= 90 * rotSign;
+    }
+}
+
 
 const std::string
 GUIChargingStation::getOptionalName() const {

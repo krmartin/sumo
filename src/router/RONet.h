@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2002-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -49,6 +49,7 @@ class ROAbstractEdgeBuilder;
 class OptionsCont;
 class OutputDevice;
 
+typedef MapMatcher<ROEdge, ROLane, RONode> ROMapMatcher;
 
 // ===========================================================================
 // class definitions
@@ -63,6 +64,8 @@ class RONet {
 public:
 
     typedef std::map<const SUMOTime, std::vector<RORoutable*> > RoutablesMap;
+    typedef std::map<const ROEdge*, RouterProhibition> Prohibitions;
+    typedef std::map<const ROLane*, RouterProhibition> LaneProhibitions;
 
     /// @brief Constructor
     RONet();
@@ -83,7 +86,7 @@ public:
      * @param[in] svc The vehicle class the restriction refers to
      * @param[in] speed The restricted speed
      */
-    void addRestriction(const std::string& id, const SUMOVehicleClass svc, const double speed);
+    void addSpeedRestriction(const std::string& id, const SUMOVehicleClass svc, const double speed);
 
 
     /** @brief Returns the restrictions for an edge type
@@ -93,6 +96,25 @@ public:
      */
     const std::map<SUMOVehicleClass, double>* getRestrictions(const std::string& id) const;
 
+    bool hasSpeedRestrictions() const {
+        return !mySpeedRestrictions.empty();
+    }
+
+    bool hasParamRestrictions() const {
+        return myHaveParamRestrictions;
+    }
+
+    void setParamRestrictions() {
+        myHaveParamRestrictions = true;
+    }
+
+    /// @brief retriefe edge type specific routing preference
+    double getPreference(const std::string& routingType, const SUMOVTypeParameter& pars) const;
+
+    /// @brief add edge type specific routing preference
+    void addPreference(const std::string& routingType, SUMOVehicleClass svc, double prio);
+    /// @brief add edge type specific routing preference
+    void addPreference(const std::string& routingType, std::string vType, double prio);
 
     /// @name Insertion and retrieval of graph parts
     //@{
@@ -166,7 +188,7 @@ public:
      */
     ROEdge* getEdgeForLaneID(const std::string& laneID) const;
 
-    /** @brief Retrieves a lane rom the network given it's id
+    /** @brief Retrieves a lane rom the network given its id
      *
      * @param[in] laneID The name of the lane to retrieve the edge for
      * @return The lane object
@@ -269,15 +291,28 @@ public:
     bool addVTypeDistribution(const std::string& id, RandomDistributor<SUMOVTypeParameter*>* vehTypeDistribution);
 
 
+    /** @brief Retrieves the named vehicle type distribution
+     *
+     * If the named vehicle type distribution was not added to the net before
+     * nullptr is returned
+     *
+     * @param[in] id The id of the vehicle type distribution to return
+     * @return The named vehicle type distribution
+     */
+    const RandomDistributor<SUMOVTypeParameter*>* getVTypeDistribution(const std::string& id) {
+        const auto it = myVTypeDistDict.find(id);
+        return it != myVTypeDistDict.end() ? it ->second : nullptr;
+    }
+
+
     /** @brief Retrieves the named vehicle type
      *
      * If the name is "" the default type is returned.
      * If the named vehicle type (or typeDistribution) was not added to the net before
-     * 0 is returned
+     * nullptr is returned
      *
      * @param[in] id The id of the vehicle type to return
      * @return The named vehicle type
-     * @todo Check whether a const pointer may be returned
      */
     SUMOVTypeParameter* getVehicleTypeSecure(const std::string& id);
 
@@ -424,6 +459,23 @@ public:
     /// @brief whether efforts were loaded from file
     bool hasLoadedEffort() const;
 
+    double getMaxTraveltime() const {
+        return myMaxTraveltime;
+    }
+
+    bool hasProhibitions() const {
+        return !myProhibitions.empty() || !myLaneProhibitions.empty();
+    }
+
+    const Prohibitions& getProhibitions() const {
+        return myProhibitions;
+    }
+
+    void updateLaneProhibitions(SUMOTime begin);
+
+    void addProhibition(const ROEdge* edge, const RouterProhibition& prohibition);
+    void addLaneProhibition(const ROLane* lane, const RouterProhibition& prohibition);
+
     OutputDevice* getRouteOutput(const bool alternative = false) {
         if (alternative) {
             return myRouteAlternativesOutput;
@@ -502,6 +554,12 @@ private:
     /// @brief Whether the default bicycle type was already used or can still be replaced
     bool myDefaultBikeTypeMayBeDeleted;
 
+    /// @brief Whether the default taxi type was already used or can still be replaced
+    bool myDefaultTaxiTypeMayBeDeleted;
+
+    /// @brief Whether the default rail type was already used or can still be replaced
+    bool myDefaultRailTypeMayBeDeleted;
+
     /// @brief Known routes
     NamedObjectCont<RORouteDef*> myRoutes;
 
@@ -549,7 +607,14 @@ private:
     bool myHavePermissions;
 
     /// @brief The vehicle class specific speed restrictions
-    std::map<std::string, std::map<SUMOVehicleClass, double> > myRestrictions;
+    std::map<std::string, std::map<SUMOVehicleClass, double> > mySpeedRestrictions;
+
+    /// @brief whether parameter-based access restrictions are configured
+    bool myHaveParamRestrictions;
+
+    /// @brief Preferences for routing
+    std::map<SUMOVehicleClass, std::map<std::string, double> > myVClassPreferences;
+    std::map<std::string, std::map<std::string, double> > myVTypePreferences;
 
     /// @brief The number of internal edges in the dictionary
     int myNumInternalEdges;
@@ -557,11 +622,26 @@ private:
     /// @brief handler for ignorable error messages
     MsgHandler* myErrorHandler;
 
-    /// @brief whether to keep the the vtype distribution in output
+    /// @brief whether to keep the vtype distribution in output
     const bool myKeepVTypeDist;
+
+    /// @brief whether to calculate routes for public transport
+    const bool myDoPTRouting;
+
+    /// @brief whether to preserve flows
+    const bool myKeepFlows;
 
     /// @brief whether the network contains bidirectional railway edges
     bool myHasBidiEdges;
+
+    /// @brief the maximum traveltime beyond which routing is considered a failure
+    const double myMaxTraveltime;
+
+    /// @brief temporary edge closing (rerouters)
+    Prohibitions myProhibitions;
+    /// @brief temporary lane closing (rerouters)
+    LaneProhibitions myLaneProhibitions;
+    std::map<double, std::set<const ROLane*> > myLaneProhibitionTimes;
 
 #ifdef HAVE_FOX
 private:

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -181,15 +181,19 @@ GUITLLogicPhasesTrackerWindow::GUITLLogicPhasesTrackerWindow(
     for (auto item : myTLLogic->getConditions()) {
         myConditionNames.push_back(item.first);
     }
+    loadSettings();
+    const int newHeight = computeHeight();
+    FXScrollWindow* scrollWindow = new FXScrollWindow(this, LAYOUT_FILL_X | LAYOUT_FILL_Y | HSCROLLER_NEVER | FRAME_NONE);
+    FXHorizontalFrame* spacerFrame = new FXHorizontalFrame(scrollWindow, LAYOUT_SIDE_TOP | LAYOUT_FILL_X | LAYOUT_FILL_Y | FRAME_NONE);
+    new FXScrollWindow(spacerFrame, LAYOUT_FIX_WIDTH | LAYOUT_FIX_HEIGHT | FRAME_NONE, 0, 0, 0, newHeight - 40);
     FXVerticalFrame* glcanvasFrame =
-        new FXVerticalFrame(this,
+        new FXVerticalFrame(spacerFrame,
                             FRAME_SUNKEN | LAYOUT_SIDE_TOP | LAYOUT_FILL_X | LAYOUT_FILL_Y,
                             0, 0, 0, 0, 0, 0, 0, 0);
     myPanel = new GUITLLogicPhasesTrackerPanel(glcanvasFrame, *myApplication, *this);
     setTitle((logic.getID() + " - " + logic.getProgramID() + " - tracker").c_str());
     setIcon(GUIIconSubSys::getIcon(GUIIcon::APP_TLSTRACKER));
-    loadSettings();
-    setHeight(computeHeight());
+    setHeight(newHeight);
 }
 
 
@@ -209,14 +213,18 @@ GUITLLogicPhasesTrackerWindow::GUITLLogicPhasesTrackerWindow(
     for (int i = 0; i < (int)myTLLogic->getLinks().size(); ++i) {
         myLinkNames.push_back(toString<int>(i));
     }
+    int newHeight = computeHeight();
+    FXScrollWindow* scrollWindow = new FXScrollWindow(this, LAYOUT_FILL_X | LAYOUT_FILL_Y | HSCROLLER_NEVER | FRAME_NONE);
+    FXHorizontalFrame* spacerFrame = new FXHorizontalFrame(scrollWindow, LAYOUT_SIDE_TOP | LAYOUT_FILL_X | LAYOUT_FILL_Y | FRAME_NONE);
+    new FXScrollWindow(spacerFrame, LAYOUT_FIX_WIDTH | LAYOUT_FIX_HEIGHT | FRAME_NONE, 0, 0, 0, newHeight - 40);
     FXVerticalFrame* glcanvasFrame =
-        new FXVerticalFrame(this,
+        new FXVerticalFrame(spacerFrame,
                             FRAME_SUNKEN | LAYOUT_SIDE_TOP | LAYOUT_FILL_X | LAYOUT_FILL_Y,
                             0, 0, 0, 0, 0, 0, 0, 0);
     myPanel = new GUITLLogicPhasesTrackerPanel(glcanvasFrame, *myApplication, *this);
     setTitle((logic.getID() + " - " + logic.getProgramID() + " - phases").c_str());
     setIcon(GUIIconSubSys::getIcon(GUIIcon::APP_TLSTRACKER));
-    setHeight(computeHeight());
+    setHeight(newHeight);
     setWidth(700);
 }
 
@@ -253,24 +261,24 @@ GUITLLogicPhasesTrackerWindow::initToolBar() {
     }
 
     new FXLabel(myToolBar, "time style:", nullptr, LAYOUT_CENTER_Y);
-    myTimeMode = new FXComboBox(myToolBar, 11, this, MID_SIMSTEP, GUIDesignViewSettingsComboBox1);
-    myTimeMode->appendItem("seconds");
-    myTimeMode->appendItem("MM:SS");
-    myTimeMode->appendItem("time in cycle");
-    myTimeMode->setNumVisible(3);
+    myTimeMode = new MFXComboBoxIcon(myToolBar, nullptr, false, GUIDesignComboBoxVisibleItems,
+                                     this, MID_SIMSTEP, GUIDesignViewSettingsComboBox1);
+    myTimeMode->appendIconItem("seconds");
+    myTimeMode->appendIconItem("MM:SS");
+    myTimeMode->appendIconItem("time in cycle");
 
     new FXLabel(myToolBar, "green time", nullptr, LAYOUT_CENTER_Y);
-    myGreenMode = new FXComboBox(myToolBar, 6, this, MID_SIMSTEP, GUIDesignViewSettingsComboBox1);
-    myGreenMode->appendItem("off");
-    myGreenMode->appendItem("phase");
-    myGreenMode->appendItem("running");
-    myGreenMode->setNumVisible(3);
+    myGreenMode = new MFXComboBoxIcon(myToolBar, nullptr, false, GUIDesignComboBoxVisibleItems,
+                                      this, MID_SIMSTEP, GUIDesignViewSettingsComboBox1);
+    myGreenMode->appendIconItem("off");
+    myGreenMode->appendIconItem("phase");
+    myGreenMode->appendIconItem("running");
 
-    myIndexMode = new FXCheckButton(myToolBar, "phase names", this, MID_SIMSTEP);
+    myIndexMode = new FXCheckButton(myToolBar, TL("phase names"), this, MID_SIMSTEP);
 
     if (myAmInTrackingMode) {
-        myDetectorMode = new FXCheckButton(myToolBar, "detectors", this, MID_SIMSTEP);
-        myConditionMode = new FXCheckButton(myToolBar, "conditions", this, MID_SIMSTEP);
+        myDetectorMode = new FXCheckButton(myToolBar, TL("detectors"), this, MID_SIMSTEP);
+        myConditionMode = new FXCheckButton(myToolBar, TL("conditions"), this, MID_SIMSTEP);
     } else {
         myDetectorMode = nullptr;
         myConditionMode = nullptr;
@@ -291,6 +299,7 @@ GUITLLogicPhasesTrackerWindow::computeHeight() {
     int newHeight = (int)myTLLogic->getLinks().size() * 20 + 30 + 8 + 30 + 60;
     if (myAmInTrackingMode) {
         newHeight += 20; // time bar
+        newHeight += 10; // something extra caused by the scroll frames
         if (myDetectorMode->getCheck()) {
             newHeight += (int)myTLLogic->getDetectorStates().size() * 20 + 5;
         }
@@ -333,7 +342,7 @@ GUITLLogicPhasesTrackerWindow::drawValues(GUITLLogicPhasesTrackerPanel& caller) 
             myLastTime += phase->duration;
         }
         if (myLastTime <= myBeginTime) {
-            WRITE_ERROR("Overflow in time computation occurred.");
+            WRITE_ERROR(TL("Overflow in time computation occurred."));
             return;
         }
     } else {

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -42,7 +42,7 @@ class GUIDetectorWrapper : public GUIGlObject_AbstractAdd {
 
 public:
     /// Constructor
-    GUIDetectorWrapper(GUIGlObjectType type, const std::string& id, FXIcon *icon);
+    GUIDetectorWrapper(GUIGlObjectType type, const std::string& id, FXIcon* icon);
 
     /// Destructor
     ~GUIDetectorWrapper();
@@ -57,10 +57,10 @@ public:
      * @return The built popup-menu
      * @see GUIGlObject::getPopUpMenu
      */
-    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent);
+    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /// @brief return exaggeration associated with this GLObject
-    double getExaggeration(const GUIVisualizationSettings& s) const;
+    double getExaggeration(const GUIVisualizationSettings& s) const override;
     /// @}
 
     /**
@@ -73,7 +73,7 @@ public:
         FXDECLARE(PopupMenu)
 
     public:
-        PopupMenu(GUIMainWindow& app, GUISUMOAbstractView& parent, GUIGlObject& o);
+        PopupMenu(GUIMainWindow& app, GUISUMOAbstractView& parent, GUIGlObject* o);
 
         /// @brief Destructor
         virtual ~PopupMenu() {};

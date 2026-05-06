@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -34,6 +34,7 @@
 #include "MSTLLogicControl.h"
 #include "MSOffTrafficLightLogic.h"
 #include "MSRailSignalConstraint.h"
+#include "MSDriveWay.h"
 #include <microsim/MSEventControl.h>
 #include <microsim/MSNet.h>
 #include <utils/common/StringUtils.h>
@@ -78,7 +79,7 @@ MSTLLogicControl::TLSLogicVariants::checkOriginalTLS() const {
             }
         }
         if (hadProgramErrors) {
-            WRITE_ERROR("Mismatching phase size in tls '" + (*j).second->getID() + "', program '" + (*j).first + "'.");
+            WRITE_ERRORF(TL("Mismatching phase size in tls '%', program '%'."), (*j).second->getID(), (*j).first);
             hadErrors = true;
         }
     }
@@ -104,17 +105,22 @@ bool
 MSTLLogicControl::TLSLogicVariants::addLogic(const std::string& programID,
         MSTrafficLightLogic* logic, bool netWasLoaded, bool isNewDefault) {
     if (myVariants.find(programID) != myVariants.end()) {
+        delete logic;
         return false;
     }
     // assert the links are set
     if (netWasLoaded) {
         // this one has not yet its links set
         if (myCurrentProgram == nullptr) {
-            throw ProcessError("No initial signal plan loaded for tls '" + logic->getID() + "'.");
+            const std::string id = logic->getID();
+            delete logic;
+            throw ProcessError(TLF("No initial signal plan loaded for tls '%'.", id));
         }
         logic->adaptLinkInformationFrom(*myCurrentProgram);
         if (logic->getLinks().size() > logic->getPhase(0).getState().size()) {
-            throw ProcessError("Mismatching phase size in tls '" + logic->getID() + "', program '" + programID + "'.");
+            const std::string id = logic->getID();
+            delete logic;
+            throw ProcessError(TLF("Mismatching phase size in tls '%', program '%'.", id, programID));
         }
     }
     // add to the list of active
@@ -148,18 +154,18 @@ MSTLLogicControl::TLSLogicVariants::getLogic(const std::string& programID) const
 
 
 MSTrafficLightLogic*
-MSTLLogicControl::TLSLogicVariants::getLogicInstantiatingOff(MSTLLogicControl& tlc,
-        const std::string& programID) {
+MSTLLogicControl::TLSLogicVariants::getLogicInstantiatingOff(MSTLLogicControl& tlc, const std::string& programID) {
     if (myVariants.find(programID) == myVariants.end()) {
         if (programID == "off") {
             // build an off-tll if this switch indicates it
-            if (!addLogic("off", new MSOffTrafficLightLogic(tlc, myCurrentProgram->getID()), true, true)) {
+            MSTrafficLightLogic* tlLogic = new MSOffTrafficLightLogic(tlc, myCurrentProgram->getID());
+            if (!addLogic("off", tlLogic, true, true)) {
                 // inform the user if this fails
-                throw ProcessError("Could not build an off-state for tls '" + myCurrentProgram->getID() + "'.");
+                throw ProcessError(TLF("Could not build an off-state for tls '%'.", myCurrentProgram->getID()));
             }
         } else {
             // inform the user about a missing logic
-            throw ProcessError("Can not switch tls '" + myCurrentProgram->getID() + "' to program '" + programID + "';\n The program is not known.");
+            throw ProcessError(TLF("Can not switch tls '%' to program '%';\n The program is not known.", myCurrentProgram->getID(), programID));
         }
     }
     return getLogic(programID);
@@ -172,16 +178,18 @@ MSTLLogicControl::TLSLogicVariants::setStateInstantiatingOnline(MSTLLogicControl
     // build only once...
     MSTrafficLightLogic* logic = getLogic(TRACI_PROGRAM);
     if (logic == nullptr) {
-        MSPhaseDefinition* phase = new MSPhaseDefinition(DELTA_T, state);
+        MSPhaseDefinition* phase = new MSPhaseDefinition(SUMOTime_DAY, state);
+        phase->earliestEnd = SUMOTime_DAY; // prevent immediate switch
         std::vector<MSPhaseDefinition*> phases;
         phases.push_back(phase);
         logic = new MSSimpleTrafficLightLogic(tlc, myCurrentProgram->getID(), TRACI_PROGRAM, 0, TrafficLightType::STATIC, phases, 0,
                                               MSNet::getInstance()->getCurrentTimeStep() + DELTA_T,
                                               Parameterised::Map());
-        addLogic(TRACI_PROGRAM, logic, true, true);
-        MSNet::getInstance()->createTLWrapper(logic);
+        if (addLogic(TRACI_PROGRAM, logic, true, true)) {
+            MSNet::getInstance()->createTLWrapper(logic);
+        }
     } else {
-        MSPhaseDefinition nphase(DELTA_T, state);
+        MSPhaseDefinition nphase(SUMOTime_DAY, state);
         *(dynamic_cast<MSSimpleTrafficLightLogic*>(logic)->getPhases()[0]) = nphase;
         switchTo(tlc, TRACI_PROGRAM);
     }
@@ -225,11 +233,25 @@ MSTLLogicControl::TLSLogicVariants::getDefault() const {
 void
 MSTLLogicControl::TLSLogicVariants::switchTo(MSTLLogicControl& tlc, const std::string& programID) {
     // set the found wished sub-program as this tls' current one
+    const std::string state = myCurrentProgram->getCurrentPhaseDef().getState();
     myCurrentProgram->deactivateProgram();
     myCurrentProgram = getLogicInstantiatingOff(tlc, programID);
     myCurrentProgram->activateProgram();
     myCurrentProgram->setTrafficLightSignals(MSNet::getInstance()->getCurrentTimeStep());
+    if (state != myCurrentProgram->getCurrentPhaseDef().getState()) {
+        myCurrentProgram->resetLastSwitch(SIMSTEP);
+    };
     executeOnSwitchActions();
+}
+
+
+void
+MSTLLogicControl::TLSLogicVariants::switchToLoaded(MSTrafficLightLogic* tl) {
+    // setting tl as active and updating signal states happens on the calling side (MSTrafficLightLogic::loadState)
+    if (myCurrentProgram != tl) {
+        myCurrentProgram->deactivateProgram();
+        myCurrentProgram = tl;
+    }
 }
 
 
@@ -368,7 +390,7 @@ MSTLLogicControl::WAUTSwitchProcedure_Stretch::WAUTSwitchProcedure_Stretch(
     MSTrafficLightLogic* from, MSTrafficLightLogic* to, bool synchron)
     : MSTLLogicControl::WAUTSwitchProcedure(control, waut, from, to, synchron) {
     int idx = 1;
-    while (myTo->knowsParameter("B" + toString(idx) + ".begin")) {
+    while (myTo->hasParameter("B" + toString(idx) + ".begin")) {
         StretchRange def;
         def.begin = string2time(myTo->getParameter("B" + toString(idx) + ".begin"));
         def.end = string2time(myTo->getParameter("B" + toString(idx) + ".end"));
@@ -478,7 +500,7 @@ MSTLLogicControl::WAUTSwitchProcedure_Stretch::stretchLogic(SUMOTime step, SUMOT
         }
     }
     if (facSum == 0) {
-        WRITE_WARNING("The computed factor sum in WAUT '" + myWAUT.id + "' at time '" + toString(STEPS2TIME(step)) + "' equals zero;\n assuming an error in WAUT definition.");
+        WRITE_WARNINGF(TL("The computed factor sum in WAUT '%' at time '%' equals zero;\n assuming an error in WAUT definition."), myWAUT.id, toString(STEPS2TIME(step)));
         return;
     }
     durOfPhase = durOfPhase - diffToStart + StretchTimeOfPhase;
@@ -578,31 +600,29 @@ MSTLLogicControl::getAllTLIds() const {
 bool
 MSTLLogicControl::add(const std::string& id, const std::string& programID,
                       MSTrafficLightLogic* logic, bool newDefault) {
-    if (myLogics.find(id) == myLogics.end()) {
-        myLogics[id] = new TLSLogicVariants();
+    std::map<std::string, TLSLogicVariants*>::iterator it = myLogics.find(id);
+    TLSLogicVariants* tlmap;
+    if (it == myLogics.end()) {
+        tlmap = myLogics[id] = new TLSLogicVariants();
+    } else {
+        tlmap = it->second;
     }
-    std::map<std::string, TLSLogicVariants*>::iterator i = myLogics.find(id);
-    TLSLogicVariants* tlmap = (*i).second;
     return tlmap->addLogic(programID, logic, myNetWasLoaded, newDefault);
 }
 
 
 bool
 MSTLLogicControl::knows(const std::string& id) const {
-    std::map<std::string, TLSLogicVariants*>::const_iterator i = myLogics.find(id);
-    if (i == myLogics.end()) {
-        return false;
-    }
-    return true;
+    return myLogics.count(id) != 0;
 }
 
 
 bool
 MSTLLogicControl::closeNetworkReading() {
     bool hadErrors = false;
-    for (std::map<std::string, TLSLogicVariants*>::iterator i = myLogics.begin(); i != myLogics.end(); ++i) {
-        hadErrors |= !(*i).second->checkOriginalTLS();
-        (*i).second->saveInitialStates();
+    for (const auto& it : myLogics) {
+        hadErrors |= !it.second->checkOriginalTLS();
+        it.second->saveInitialStates();
     }
     myNetWasLoaded = true;
     return !hadErrors;
@@ -635,7 +655,7 @@ MSTLLogicControl::switchTo(const std::string& id, const std::string& programID) 
     std::map<std::string, TLSLogicVariants*>::iterator i = myLogics.find(id);
     // handle problems
     if (i == myLogics.end()) {
-        throw ProcessError("Could not switch tls '" + id + "' to program '" + programID + "': No such tls exists.");
+        throw ProcessError(TLF("Could not switch tls '%' to program '%': No such tls exists.", id, programID));
     }
     (*i).second->switchTo(*this, programID);
 }
@@ -647,7 +667,7 @@ MSTLLogicControl::addWAUT(SUMOTime refTime, const std::string& id,
     // check whether the waut was already defined
     if (myWAUTs.find(id) != myWAUTs.end()) {
         // report an error if so
-        throw InvalidArgument("Waut '" + id + "' was already defined.");
+        throw InvalidArgument(TLF("Waut '%' was already defined.", id));
     }
     WAUT* w = new WAUT;
     w->id = id;
@@ -664,7 +684,7 @@ MSTLLogicControl::addWAUTSwitch(const std::string& wautid,
     // try to get the waut
     if (myWAUTs.find(wautid) == myWAUTs.end()) {
         // report an error if the waut is not known
-        throw InvalidArgument("Waut '" + wautid + "' was not yet defined.");
+        throw InvalidArgument(TLF("Waut '%' was not yet defined.", wautid));
     }
     // build and save the waut switch definition
     WAUT* waut = myWAUTs[wautid];
@@ -686,12 +706,12 @@ MSTLLogicControl::addWAUTJunction(const std::string& wautid,
     // try to get the waut
     if (myWAUTs.find(wautid) == myWAUTs.end()) {
         // report an error if the waut is not known
-        throw InvalidArgument("Waut '" + wautid + "' was not yet defined.");
+        throw InvalidArgument(TLF("Waut '%' was not yet defined.", wautid));
     }
     // try to get the tls to switch
     if (myLogics.find(tls) == myLogics.end()) {
         // report an error if the tls is not known
-        throw InvalidArgument("TLS '" + tls + "' to switch in WAUT '" + wautid + "' was not yet defined.");
+        throw InvalidArgument(TLF("TLS '%' to switch in WAUT '%' was not yet defined.", tls, wautid));
     }
     WAUTJunction j;
     j.junction = tls;
@@ -721,25 +741,25 @@ MSTLLogicControl::closeWAUT(const std::string& wautid) {
     // try to get the waut
     if (myWAUTs.find(wautid) == myWAUTs.end()) {
         // report an error if the waut is not known
-        throw InvalidArgument("Waut '" + wautid + "' was not yet defined.");
+        throw InvalidArgument(TLF("Waut '%' was not yet defined.", wautid));
     }
     WAUT* w = myWAUTs.find(wautid)->second;
     std::string initProg = myWAUTs[wautid]->startProg;
     // get the switch to be performed as first
-    std::vector<WAUTSwitch>::const_iterator first = w->switches.end();
-    SUMOTime minExecTime = -1;
-    for (std::vector<WAUTSwitch>::const_iterator i = w->switches.begin(); i != w->switches.end(); ++i) {
-        if ((*i).when > MSNet::getInstance()->getCurrentTimeStep() && (minExecTime == -1 || (*i).when < minExecTime)) {
-            minExecTime = (*i).when;
-            first = i;
+    SUMOTime minExecTime = SUMOTime_MAX;
+    int firstIndex = -1;
+    int i = 0;
+    for (const WAUTSwitch& s : w->switches) {
+        if (s.when >= SIMSTEP && s.when < minExecTime) {
+            minExecTime = s.when;
+            firstIndex = i;
         }
+        i++;
     }
     // activate the first one
-    if (first != w->switches.end()) {
-        std::vector<WAUTSwitch>::const_iterator mbegin = w->switches.begin();
+    if (firstIndex >= 0) {
         MSNet::getInstance()->getBeginOfTimestepEvents()->addEvent(
-            new SwitchInitCommand(*this, wautid, (int)distance(mbegin, first)),
-            (*first).when);
+                new SwitchInitCommand(*this, wautid, firstIndex), MAX2(SIMSTEP, minExecTime));
     }
     /*
     // set the current program to all junctions
@@ -821,7 +841,12 @@ MSTLLogicControl::getPhaseDef(const std::string& tlid) const {
 void
 MSTLLogicControl::switchOffAll() {
     for (const auto& logic : myLogics) {
-        logic.second->addLogic("off",  new MSOffTrafficLightLogic(*this, logic.first), true, true);
+        if (logic.second->getActive()->getLogicType() == TrafficLightType::RAIL_SIGNAL) {
+            // there is no sensible fall-back behavior when switching of rail
+            // signals so they should ignore tls.all-off
+            continue;
+        }
+        logic.second->addLogic("off", new MSOffTrafficLightLogic(*this, logic.first), true, true);
     }
 }
 
@@ -832,6 +857,7 @@ MSTLLogicControl::saveState(OutputDevice& out) {
     for (const auto& logic : myLogics) {
         logic.second->saveState(out);
     }
+    MSDriveWay::saveState(out);
 }
 
 
@@ -860,7 +886,7 @@ MSTLLogicControl::clearState(SUMOTime time, bool quickReload) {
                     offset -= phases[step]->duration;
                     step++;
                 }
-                logic->loadState(*this, time, step, offset);
+                logic->loadState(*this, time, step, offset, logic->isActive());
             }
         }
     }

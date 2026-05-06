@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -15,115 +15,109 @@
 /// @author  Pablo Alvarez Lopez
 /// @date    Jun 2017
 ///
-// A class for visualizing and editing POIS in netedit (adapted from
-// GUIPointOfInterest and NLHandler)
+// A class for visualizing and editing POIS in netedit
 /****************************************************************************/
-#include <config.h>
 
-#include <string>
-#include <netedit/GNENet.h>
-#include <netedit/GNEUndoList.h>
-#include <netedit/GNEViewNet.h>
-#include <netedit/GNEViewParent.h>
 #include <netedit/changes/GNEChange_Attribute.h>
-#include <netedit/frames/common/GNEMoveFrame.h>
+#include <netedit/elements/moving/GNEMoveElementLaneSingle.h>
+#include <netedit/elements/moving/GNEMoveElementViewResizable.h>
+#include <netedit/GNENet.h>
+#include <netedit/GNETagProperties.h>
+#include <utils/common/StringTokenizer.h>
 #include <utils/gui/div/GLHelper.h>
 #include <utils/gui/div/GUIDesigns.h>
 #include <utils/gui/div/GUIParameterTableWindow.h>
-#include <utils/gui/globjects/GLIncludes.h>
 #include <utils/gui/globjects/GUIGLObjectPopupMenu.h>
 #include <utils/gui/globjects/GUIPointOfInterest.h>
-#include <utils/gui/div/GUIGlobalPostDrawing.h>
+#include <utils/gui/images/GUITextureSubSys.h>
+#include <utils/xml/NamespaceIDs.h>
 
 #include "GNEPOI.h"
-
 
 // ===========================================================================
 // method definitions
 // ===========================================================================
 
 GNEPOI::GNEPOI(SumoXMLTag tag, GNENet* net) :
-    PointOfInterest("", "", RGBColor::BLACK, Position(0, 0), false, "", 0, false, 0, 0, 0, "", false, 0, 0, "", Parameterised::Map()),
-    GNEAdditional("", net, GLO_POI, tag, GUIIconSubSys::getIcon(GUIIcon::POI), "", {}, {}, {}, {}, {}, {}) {
-    // reset default values
-    resetDefaultValues();
+    Shape(""),
+    GNEAdditional(net, tag),
+    myMoveElementLaneSingle(new GNEMoveElementLaneSingle(this, SUMO_ATTR_POSITION, myPosOverLane, myFriendlyPos, GNEMoveElementLaneSingle::PositionType::SINGLE)),
+    myMoveElementViewResizable(new GNEMoveElementViewResizable(this, (tag == GNE_TAG_POIGEO) ? GNEMoveElementView::AttributesFormat::GEO : GNEMoveElementView::AttributesFormat::CARTESIAN,
+                               GNEMoveElementViewResizable::ResizingFormat::WIDTH_HEIGHT, SUMO_ATTR_POSITION, myPosOverView)) {
 }
 
 
-GNEPOI::GNEPOI(GNENet* net, const std::string& id, const std::string& type, const RGBColor& color, const double xLon,
-               const double yLat, const bool geo, const double layer, const double angle, const std::string& imgFile,
-               const bool relativePath, const double width, const double height, const std::string& name,
-               const Parameterised::Map& parameters) :
-    PointOfInterest(id, type, color, Position(xLon, yLat), geo, "", 0, false, 0, layer, angle, imgFile, relativePath, width, height, name, parameters),
-    GNEAdditional(id, net, GLO_POI, geo ? GNE_TAG_POIGEO : SUMO_TAG_POI, geo ? GUIIconSubSys::getIcon(GUIIcon::POIGEO) : GUIIconSubSys::getIcon(GUIIcon::POI),
-    "", {}, {}, {}, {}, {}, {}) {
+GNEPOI::GNEPOI(const std::string& id, GNENet* net, FileBucket* fileBucket, const std::string& type, const RGBColor& color, const Position& pos,
+               const bool geo, POIIcon icon, const double layer, const double angle, const std::string& imgFile, const double width,
+               const double height, const std::string& name, const Parameterised::Map& parameters) :
+    Shape(id, type, color, layer, angle, imgFile, ""),
+    GNEAdditional(id, net, geo ? GNE_TAG_POIGEO : SUMO_TAG_POI, fileBucket, name),
+    Parameterised(parameters),
+    myPosOverView(pos),
+    myWidth(width),
+    myHeight(height),
+    myPOIIcon(icon),
+    myMoveElementLaneSingle(new GNEMoveElementLaneSingle(this, SUMO_ATTR_POSITION, myPosOverLane, myFriendlyPos, GNEMoveElementLaneSingle::PositionType::SINGLE)),
+    myMoveElementViewResizable(new GNEMoveElementViewResizable(this, geo ? GNEMoveElementView::AttributesFormat::GEO : GNEMoveElementView::AttributesFormat::CARTESIAN,
+                               GNEMoveElementViewResizable::ResizingFormat::WIDTH_HEIGHT, SUMO_ATTR_POSITION, myPosOverView)) {
     // update position depending of GEO
     if (geo) {
-        Position cartesian(x(), y());
+        Position cartesian = myPosOverView;
         GeoConvHelper::getFinal().x2cartesian_const(cartesian);
-        set(cartesian.x(), cartesian.y());
+        myPosOverView = cartesian;
     }
     // update centering boundary without updating grid
     updateCenteringBoundary(false);
 }
 
 
-GNEPOI::GNEPOI(GNENet* net, const std::string& id, const std::string& type, const RGBColor& color, GNELane* lane, const double posOverLane,
-               const bool friendlyPos, const double posLat, const double layer, const double angle, const std::string& imgFile, const bool relativePath, const double width,
+GNEPOI::GNEPOI(const std::string& id, GNENet* net, FileBucket* fileBucket, const std::string& type, const RGBColor& color, GNELane* lane, const double posOverLane,
+               const bool friendlyPos, const double posLat, POIIcon icon, const double layer, const double angle, const std::string& imgFile, const double width,
                const double height, const std::string& name, const Parameterised::Map& parameters) :
-    PointOfInterest(id, type, color, Position(), false, lane->getID(), posOverLane, friendlyPos, posLat, layer, angle, imgFile, relativePath, width, height, name, parameters),
-    GNEAdditional(id, net, GLO_POI, GNE_TAG_POILANE, GUIIconSubSys::getIcon(GUIIcon::POILANE), "", {}, {}, {lane}, {}, {}, {}) {
-    // update geometry (needed for POILanes)
-    updateGeometry();
+    Shape(id, type, color, layer, angle, imgFile, ""),
+    GNEAdditional(id, net, GNE_TAG_POILANE, fileBucket, name),
+    Parameterised(parameters),
+    myPosOverLane(posOverLane),
+    myFriendlyPos(friendlyPos),
+    myWidth(width),
+    myHeight(height),
+    myPosLat(posLat),
+    myPOIIcon(icon),
+    myMoveElementLaneSingle(new GNEMoveElementLaneSingle(this, SUMO_ATTR_POSITION, myPosOverLane, myFriendlyPos, GNEMoveElementLaneSingle::PositionType::SINGLE)),
+    myMoveElementViewResizable(new GNEMoveElementViewResizable(this, GNEMoveElementView::AttributesFormat::POSITION, GNEMoveElementViewResizable::ResizingFormat::WIDTH_HEIGHT,
+                               SUMO_ATTR_POSITION, myPosOverView)) {
+    // set parents
+    setParent<GNELane*>(lane);
     // update centering boundary without updating grid
     updateCenteringBoundary(false);
 }
 
 
-GNEPOI::~GNEPOI() {}
+GNEPOI::~GNEPOI() {
+    delete myMoveElementLaneSingle;
+    delete myMoveElementViewResizable;
+}
 
 
-GNEMoveOperation*
-GNEPOI::getMoveOperation() {
-    if (myNet->getViewNet()->getEditModes().isCurrentSupermodeNetwork() &&
-            (myNet->getViewNet()->getEditModes().networkEditMode == NetworkEditMode::NETWORK_MOVE) &&
-            myNet->getViewNet()->getMouseButtonKeyPressed().shiftKeyPressed()) {
-        // get snap radius
-        const double snap_radius = myNet->getViewNet()->getVisualisationSettings().neteditSizeSettings.additionalGeometryPointRadius;
-        // get mouse position
-        const Position mousePosition = myNet->getViewNet()->getPositionInformation();
-        // check if we're editing width or height
-        if ((myShapeWidth.size() == 0) || (myShapeHeight.size() == 0)) {
-            return nullptr;
-        } else if (myShapeHeight.front().distanceSquaredTo2D(mousePosition) <= (snap_radius * snap_radius)) {
-            // edit height
-            return new GNEMoveOperation(this, myShapeHeight, true, GNEMoveOperation::OperationType::HEIGHT);
-        } else if (myShapeHeight.back().distanceSquaredTo2D(mousePosition) <= (snap_radius * snap_radius)) {
-            // edit height
-            return new GNEMoveOperation(this, myShapeHeight, false, GNEMoveOperation::OperationType::HEIGHT);
-        } else if (myShapeWidth.front().distanceSquaredTo2D(mousePosition) <= (snap_radius * snap_radius)) {
-            // edit width
-            return new GNEMoveOperation(this, myShapeWidth, true, GNEMoveOperation::OperationType::WIDTH);
-        } else if (myShapeWidth.back().distanceSquaredTo2D(mousePosition) <= (snap_radius * snap_radius)) {
-            // edit width
-            return new GNEMoveOperation(this, myShapeWidth, false, GNEMoveOperation::OperationType::WIDTH);
-        } else {
-            return nullptr;
-        }
-    } else if (getTagProperty().getTag() == GNE_TAG_POILANE) {
-        // return move operation for POI placed over lane
-        return new GNEMoveOperation(this, getParentLanes().front(), myPosOverLane,
-                                    myNet->getViewNet()->getViewParent()->getMoveFrame()->getCommonModeOptions()->getAllowChangeLane());
+GNEMoveElement*
+GNEPOI::getMoveElement() const {
+    if (getTagProperty()->getTag() == GNE_TAG_POILANE) {
+        return myMoveElementLaneSingle;
     } else {
-        // return move operation for a position in view
-        return new GNEMoveOperation(this, *this);
+        return myMoveElementViewResizable;
     }
 }
 
 
-void
-GNEPOI::removeGeometryPoint(const Position /*clickedPosition*/, GNEUndoList* /*undoList*/) {
-    // nothing to remove
+Parameterised*
+GNEPOI::getParameters() {
+    return this;
+}
+
+
+const Parameterised*
+GNEPOI::getParameters() const {
+    return this;
 }
 
 
@@ -141,60 +135,118 @@ GNEPOI::getSumoBaseObject() const {
     POIBaseObject->addStringAttribute(SUMO_ATTR_ID, myID);
     POIBaseObject->addColorAttribute(SUMO_ATTR_COLOR, getShapeColor());
     POIBaseObject->addStringAttribute(SUMO_ATTR_TYPE, getShapeType());
+    POIBaseObject->addStringAttribute(SUMO_ATTR_ICON, SUMOXMLDefinitions::POIIcons.getString(myPOIIcon));
     POIBaseObject->addDoubleAttribute(SUMO_ATTR_LAYER, getShapeLayer());
     POIBaseObject->addStringAttribute(SUMO_ATTR_IMGFILE, getShapeImgFile());
-    POIBaseObject->addDoubleAttribute(SUMO_ATTR_WIDTH, getWidth());
-    POIBaseObject->addDoubleAttribute(SUMO_ATTR_HEIGHT, getHeight());
+    POIBaseObject->addDoubleAttribute(SUMO_ATTR_WIDTH, myWidth);
+    POIBaseObject->addDoubleAttribute(SUMO_ATTR_HEIGHT, myHeight);
     POIBaseObject->addDoubleAttribute(SUMO_ATTR_ANGLE, getShapeNaviDegree());
-    POIBaseObject->addStringAttribute(SUMO_ATTR_NAME, getShapeName());
-    POIBaseObject->addBoolAttribute(SUMO_ATTR_RELATIVEPATH, getShapeRelativePath());
+    POIBaseObject->addStringAttribute(SUMO_ATTR_NAME, myAdditionalName);
     return POIBaseObject;
 }
 
 
 void
 GNEPOI::writeAdditional(OutputDevice& device) const {
-    if (getParentLanes().size() > 0) {
-        // obtain fixed position over lane
-        double fixedPositionOverLane = myPosOverLane > getParentLanes().at(0)->getLaneShape().length() ? getParentLanes().at(0)->getLaneShape().length() : myPosOverLane < 0 ? 0 : myPosOverLane;
-        // write POILane using POI::writeXML
-        writeXML(device, false, 0, getParentLanes().at(0)->getID(), fixedPositionOverLane, myFriendlyPos, myPosLat);
+    device.openTag(SUMO_TAG_POI);
+    // write common additional attributes
+    writeAdditionalAttributes(device);
+    // specific of poi lanes
+    if (getTagProperty()->getTag() == GNE_TAG_POILANE) {
+        // write move attributes
+        myMoveElementLaneSingle->writeMoveAttributes(device);
+        // write specific attributes
+        if (myPosLat != 0) {
+            device.writeAttr(SUMO_ATTR_POSITION_LAT, myPosLat);
+        }
     } else {
-        writeXML(device, myGeo);
+        // write move attributes
+        myMoveElementViewResizable->writeMoveAttributes(device);
+    }
+    // write shape attributes
+    writeShapeAttributes(device, RGBColor::RED, Shape::DEFAULT_LAYER_POI);
+    // width
+    if (myWidth != Shape::DEFAULT_IMG_WIDTH) {
+        device.writeAttr(SUMO_ATTR_WIDTH, myWidth);
+    }
+    // height
+    if (myHeight != Shape::DEFAULT_IMG_HEIGHT) {
+        device.writeAttr(SUMO_ATTR_HEIGHT, myHeight);
+    }
+    // Icon
+    if (myPOIIcon != POIIcon::NONE) {
+        device.writeAttr(SUMO_ATTR_ICON, SUMOXMLDefinitions::POIIcons.getString(myPOIIcon));
+    }
+    // params
+    writeParams(device);
+    device.closeTag();
+}
+
+
+bool
+GNEPOI::isAdditionalValid() const {
+    // only for POIS over lanes
+    if (getTagProperty()->getTag() == GNE_TAG_POILANE) {
+        // only movement problems
+        return myMoveElementLaneSingle->isMoveElementValid();
+    } else {
+        return true;
+    }
+}
+
+
+std::string
+GNEPOI::getAdditionalProblem() const {
+    // only for POIS over lanes
+    if (getTagProperty()->getTag() == GNE_TAG_POILANE) {
+        // only movement problems
+        return myMoveElementLaneSingle->getMovingProblem();
+    } else {
+        return "";
+    }
+}
+
+
+void
+GNEPOI::fixAdditionalProblem() {
+    // only for POIS over lanes
+    if (getTagProperty()->getTag() == GNE_TAG_POILANE) {
+        // only movement problems
+        myMoveElementLaneSingle->fixMovingProblem();
     }
 }
 
 
 void
 GNEPOI::updateGeometry() {
-    // set position
-    if (getParentLanes().size() > 0) {
-        // obtain fixed position over lane
-        double fixedPositionOverLane = myPosOverLane > getParentLanes().at(0)->getLaneShapeLength() ? getParentLanes().at(0)->getLaneShapeLength() : myPosOverLane < 0 ? 0 : myPosOverLane;
-        // set new position regarding to lane
-        set(getParentLanes().at(0)->getLaneShape().positionAtOffset(fixedPositionOverLane * getParentLanes().at(0)->getLengthGeometryFactor(), -myPosLat));
-    }
     // check if update width and height shapes
-    if ((getWidth() > 0) && (getHeight() > 0)) {
+    if ((myWidth > 0) && (myHeight > 0)) {
         // calculate shape length
-        myShapeHeight.clear();
-        myShapeHeight.push_back(Position(0, getHeight() * -0.5));
-        myShapeHeight.push_back(Position(0, getHeight() * 0.5));
+        myMoveElementViewResizable->myShapeHeight.clear();
+        myMoveElementViewResizable->myShapeHeight.push_back(Position(0, myHeight * -0.5));
+        myMoveElementViewResizable->myShapeHeight.push_back(Position(0, myHeight * 0.5));
         // move
-        myShapeHeight.add(*this);
+        myMoveElementViewResizable->myShapeHeight.add(myPosOverView);
         // calculate shape width
-        PositionVector leftShape = myShapeHeight;
-        leftShape.move2side(getWidth() * -0.5);
-        PositionVector rightShape = myShapeHeight;
-        rightShape.move2side(getWidth() * 0.5);
-        myShapeWidth = {leftShape.getCentroid(), rightShape.getCentroid()};
+        PositionVector leftShape = myMoveElementViewResizable->myShapeHeight;
+        leftShape.move2side(myWidth * -0.5);
+        PositionVector rightShape = myMoveElementViewResizable->myShapeHeight;
+        rightShape.move2side(myWidth * 0.5);
+        myMoveElementViewResizable->myShapeWidth = {leftShape.getCentroid(), rightShape.getCentroid()};
+    }
+    // set additional geometry
+    if (getParentLanes().size() > 0) {
+        myAdditionalGeometry.updateGeometry(getParentLanes().front()->getLaneShape(),
+                                            myMoveElementLaneSingle->getFixedPositionOverLane(true), myPosLat);
+    } else {
+        myAdditionalGeometry.updateSinglePosGeometry(myPosOverView, 0);
     }
 }
 
 
 Position
 GNEPOI::getPositionInView() const {
-    return *this;
+    return myAdditionalGeometry.getShape().getPolygonCenter();
 }
 
 
@@ -210,12 +262,22 @@ GNEPOI::updateCenteringBoundary(const bool updateGrid) {
     if (updateGrid) {
         myNet->removeGLObjectFromGrid(this);
     }
+    // update geometry
+    updateGeometry();
     // reset boundary
     myAdditionalBoundary.reset();
-    // add position (this POI)
-    myAdditionalBoundary.add(*this);
+    // add center
+    myAdditionalBoundary.add(myPosOverView);
+    // add width
+    for (const auto& pos : myMoveElementViewResizable->myShapeWidth) {
+        myAdditionalBoundary.add(pos);
+    }
+    // add height
+    for (const auto& pos : myMoveElementViewResizable->myShapeHeight) {
+        myAdditionalBoundary.add(pos);
+    }
     // grow boundary
-    myAdditionalBoundary.grow(10 + std::max(getWidth() * 0.5, getHeight() * 0.5));
+    myAdditionalBoundary.grow(5);
     // add object into net
     if (updateGrid) {
         myNet->addGLObjectIntoGrid(this);
@@ -235,9 +297,25 @@ GNEPOI::getGlID() const {
 }
 
 
+bool
+GNEPOI::checkDrawMoveContour() const {
+    // get edit modes
+    const auto& editModes = myNet->getViewNet()->getEditModes();
+    // check if we're in move mode
+    if (!myNet->getViewNet()->isCurrentlyMovingElements() && editModes.isCurrentSupermodeNetwork() &&
+            !myNet->getViewNet()->getEditNetworkElementShapes().getEditedNetworkElement() &&
+            (editModes.networkEditMode == NetworkEditMode::NETWORK_MOVE) && myNet->getViewNet()->checkOverLockedElement(this, mySelected)) {
+        // only move the first element
+        return myNet->getViewNet()->getViewObjectsSelector().getGUIGlObjectFront() == this;
+    } else {
+        return false;
+    }
+}
+
+
 std::string
 GNEPOI::getParentName() const {
-    if (getParentLanes().size() > 0) {
+    if (getTagProperty()->getTag() == GNE_TAG_POILANE) {
         return getParentLanes().front()->getID();
     } else {
         return myNet->getMicrosimID();
@@ -247,21 +325,28 @@ GNEPOI::getParentName() const {
 
 GUIGLObjectPopupMenu*
 GNEPOI::getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) {
-    GUIGLObjectPopupMenu* ret = new GUIGLObjectPopupMenu(app, parent, *this);
-    buildPopupHeader(ret, app);
-    buildCenterPopupEntry(ret);
-    buildNameCopyPopupEntry(ret);
-    // build selection and show parameters menu
-    myNet->getViewNet()->buildSelectionACPopupEntry(ret, this);
-    buildShowParamsPopupEntry(ret);
-    // continue depending of lane number
-    if (getParentLanes().size() > 0) {
-        // add option for convert to GNEPOI
-        GUIDesigns::buildFXMenuCommand(ret, "Release from " + toString(SUMO_TAG_LANE), GUIIconSubSys::getIcon(GUIIcon::LANE), &parent, MID_GNE_POI_TRANSFORM);
-        return ret;
-    } else {
-        // add option for convert to GNEPOI
-        GUIDesigns::buildFXMenuCommand(ret, "Attach to nearest " + toString(SUMO_TAG_LANE), GUIIconSubSys::getIcon(GUIIcon::LANE), &parent, MID_GNE_POI_TRANSFORM);
+    // create popup
+    GUIGLObjectPopupMenu* ret = new GUIGLObjectPopupMenu(app, parent, this);
+    // build common options
+    buildPopUpMenuCommonOptions(ret, app, myNet->getViewNet(), myTagProperty->getTag(), mySelected);
+    // specific of  non juPedSim polygons
+    if (!myTagProperty->isJuPedSimElement()) {
+        // continue depending of lane number
+        if (getTagProperty()->getTag() == GNE_TAG_POILANE) {
+            // add option for convert to GNEPOI
+            GUIDesigns::buildFXMenuCommand(ret, TL("Release from lane"), GUIIconSubSys::getIcon(GUIIcon::LANE), &parent, MID_GNE_POI_RELEASE);
+        } else {
+            // add option for convert to GNEPOI
+            GUIDesigns::buildFXMenuCommand(ret, TL("Attach to nearest lane"), GUIIconSubSys::getIcon(GUIIcon::LANE), &parent, MID_GNE_POI_ATTACH);
+            // check if transform
+            if (GeoConvHelper::getFinal().getProjString() != "!") {
+                if (getTagProperty()->getTag() == GNE_TAG_POIGEO) {
+                    GUIDesigns::buildFXMenuCommand(ret, TL("Transform to POI"), GUIIconSubSys::getIcon(GUIIcon::POI), &parent, MID_GNE_POI_TRANSFORM_POI);
+                } else {
+                    GUIDesigns::buildFXMenuCommand(ret, TL("Transform to POI Geo"), GUIIconSubSys::getIcon(GUIIcon::POIGEO), &parent, MID_GNE_POI_TRANSFORM_POIGEO);
+                }
+            }
+        }
     }
     return ret;
 }
@@ -270,82 +355,45 @@ GNEPOI::getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) {
 void
 GNEPOI::drawGL(const GUIVisualizationSettings& s) const {
     // first check if POI can be drawn
-    if (myNet->getViewNet()->getDemandViewOptions().showShapes() && myNet->getViewNet()->getDataViewOptions().showShapes()) {
-        // check if boundary has to be drawn
-        if (s.drawBoundaries) {
-            GLHelper::drawBoundary(myAdditionalBoundary);
-        }
-        // check if POI can be drawn
-        if (GUIPointOfInterest::checkDraw(s, this)) {
-            // obtain POIExaggeration
-            const double POIExaggeration = getExaggeration(s);
-            // push name (needed for getGUIGlObjectsUnderCursor(...)
-            GLHelper::pushName(getGlID());
-            // draw inner polygon
-            if (myNet->getViewNet()->getFrontAttributeCarrier() == this) {
-                GUIPointOfInterest::drawInnerPOI(s, this, this, drawUsingSelectColor(), GLO_DOTTEDCONTOUR_FRONT,
-                                                 myShapeWidth.length2D(), myShapeHeight.length2D());
-            } else {
-                GUIPointOfInterest::drawInnerPOI(s, this, this, drawUsingSelectColor(), getShapeLayer(),
-                                                 myShapeWidth.length2D(), myShapeHeight.length2D());
-            }
-            // draw an orange square mode if there is an image(see #4036)
-            if (!getShapeImgFile().empty() && myNet->getViewNet()->getTestingMode().isTestingEnabled()) {
-                // Add a draw matrix for drawing logo
-                GLHelper::pushMatrix();
-                glTranslated(x(), y(), getType() + 0.01);
-                GLHelper::setColor(RGBColor::ORANGE);
-                GLHelper::drawBoxLine(Position(0, 1), 0, 2, 1);
-                GLHelper::popMatrix();
-            }
-            // draw geometry points
-            GNEAdditional::drawUpGeometryPoint(myNet->getViewNet(), myShapeHeight.front(), 180, RGBColor::ORANGE);
-            GNEAdditional::drawDownGeometryPoint(myNet->getViewNet(), myShapeHeight.back(), 180, RGBColor::ORANGE);
-            GNEAdditional::drawLeftGeometryPoint(myNet->getViewNet(), myShapeWidth.back(), -90, RGBColor::ORANGE);
-            GNEAdditional::drawRightGeometryPoint(myNet->getViewNet(), myShapeWidth.front(), -90, RGBColor::ORANGE);
-            // pop name
-            GLHelper::popName();
+    if (myNet->getViewNet()->getDemandViewOptions().showShapes() &&
+            myNet->getViewNet()->getDataViewOptions().showShapes()) {
+        // draw boundaries
+        GLHelper::drawBoundary(s, getCenteringBoundary());
+        // obtain POIExaggeration
+        const double POIExaggeration = getExaggeration(s);
+        // get detail level
+        const auto d = s.getDetailLevel(POIExaggeration);
+        // check if draw moving geometry points (only if we have a defined image
+        const bool movingGeometryPoints = getShapeImgFile().empty() ? false : drawMovingGeometryPoints();
+        // draw geometry only if we'rent in drawForObjectUnderCursor mode
+        if (s.checkDrawPOI(myWidth, myHeight, d, isAttributeCarrierSelected())) {
+            // draw POI
+            drawPOI(s, d, movingGeometryPoints);
             // draw lock icon
-            GNEViewNetHelper::LockIcon::drawLockIcon(this, getType(), getPositionInView(), POIExaggeration);
-            // check if mouse is over element
-            if (getShapeImgFile().empty()) {
-                mouseWithinGeometry(*this, 1.3);
+            GNEViewNetHelper::LockIcon::drawLockIcon(d, this, getType(), getPositionInView(), POIExaggeration);
+            // draw dotted contours
+            if (movingGeometryPoints) {
+                // get snap radius
+                const double snapRadius = myNet->getViewNet()->getVisualisationSettings().neteditSizeSettings.additionalGeometryPointRadius;
+                const double snapRadiusSquared = snapRadius * snapRadius;
+                // get mouse position
+                const Position mousePosition = myNet->getViewNet()->getPositionInformation();
+                // check if we're editing width or height
+                if ((myMoveElementViewResizable->myShapeHeight.front().distanceSquaredTo2D(mousePosition) <= snapRadiusSquared) ||
+                        (myMoveElementViewResizable->myShapeHeight.back().distanceSquaredTo2D(mousePosition) <= snapRadiusSquared)) {
+                    myMoveElementViewResizable->myMovingContourUp.drawDottedContours(s, d, this, s.dottedContourSettings.segmentWidthSmall, true);
+                    myMoveElementViewResizable->myMovingContourDown.drawDottedContours(s, d, this, s.dottedContourSettings.segmentWidthSmall, true);
+                } else if ((myMoveElementViewResizable->myShapeWidth.front().distanceSquaredTo2D(mousePosition) <= snapRadiusSquared) ||
+                           (myMoveElementViewResizable->myShapeWidth.back().distanceSquaredTo2D(mousePosition) <= snapRadiusSquared)) {
+                    myMoveElementViewResizable->myMovingContourLeft.drawDottedContours(s, d, this, s.dottedContourSettings.segmentWidthSmall, true);
+                    myMoveElementViewResizable->myMovingContourRight.drawDottedContours(s, d, this, s.dottedContourSettings.segmentWidthSmall, true);
+                }
             } else {
-                mouseWithinGeometry(*this, getHeight() * 0.5, getWidth() * 0.5, 0, 0, getShapeNaviDegree());
-            }
-            // inspect contour
-            if (myNet->getViewNet()->isAttributeCarrierInspected(this)) {
-                if (getShapeImgFile().empty()) {
-                    GUIDottedGeometry::drawDottedContourCircle(s, GUIDottedGeometry::DottedContourType::INSPECT, *this, 1.3, POIExaggeration);
-                } else {
-                    GUIDottedGeometry::drawDottedSquaredShape(s, GUIDottedGeometry::DottedContourType::INSPECT, *this, getHeight() * 0.5, getWidth() * 0.5, 0, 0, getShapeNaviDegree(), POIExaggeration);
-                }
-            }
-            // front element contour
-            if (myNet->getViewNet()->getFrontAttributeCarrier() == this) {
-                if (getShapeImgFile().empty()) {
-                    GUIDottedGeometry::drawDottedContourCircle(s, GUIDottedGeometry::DottedContourType::FRONT, *this, 1.3, POIExaggeration);
-                } else {
-                    GUIDottedGeometry::drawDottedSquaredShape(s, GUIDottedGeometry::DottedContourType::FRONT, *this, getHeight() * 0.5, getWidth() * 0.5, 0, 0, getShapeNaviDegree(), POIExaggeration);
-                }
-            }
-            // delete contour
-            if (myNet->getViewNet()->drawDeleteContour(this, this)) {
-                if (getShapeImgFile().empty()) {
-                    GUIDottedGeometry::drawDottedContourCircle(s, GUIDottedGeometry::DottedContourType::REMOVE, *this, 1.3, POIExaggeration);
-                } else {
-                    GUIDottedGeometry::drawDottedSquaredShape(s, GUIDottedGeometry::DottedContourType::REMOVE, *this, getHeight() * 0.5, getWidth() * 0.5, 0, 0, getShapeNaviDegree(), POIExaggeration);
-                }
-            }
-            // select contour
-            if (myNet->getViewNet()->drawSelectContour(this, this)) {
-                if (getShapeImgFile().empty()) {
-                    GUIDottedGeometry::drawDottedContourCircle(s, GUIDottedGeometry::DottedContourType::SELECT, *this, 1.3, POIExaggeration);
-                } else {
-                    GUIDottedGeometry::drawDottedSquaredShape(s, GUIDottedGeometry::DottedContourType::SELECT, *this, getHeight() * 0.5, getWidth() * 0.5, 0, 0, getShapeNaviDegree(), POIExaggeration);
-                }
+                myAdditionalContour.drawDottedContours(s, d, this, s.dottedContourSettings.segmentWidth, true);
             }
         }
+        // calculate contour
+        calculatePOIContour(s, d, POIExaggeration, movingGeometryPoints);
     }
 }
 
@@ -357,73 +405,104 @@ GNEPOI::getAttribute(SumoXMLAttr key) const {
             return myID;
         case SUMO_ATTR_COLOR:
             return toString(getShapeColor());
-        case SUMO_ATTR_LANE:
-            return myLane;
-        case SUMO_ATTR_POSITION:
-            if (getParentLanes().size() > 0) {
-                return toString(myPosOverLane);
-            } else {
-                return toString(*this);
-            }
-        case SUMO_ATTR_FRIENDLY_POS:
-            return toString(getFriendlyPos());
         case SUMO_ATTR_POSITION_LAT:
             return toString(myPosLat);
-        case SUMO_ATTR_LON: {
-            // calculate geo position
-            Position GEOPosition(x(), y());
-            GeoConvHelper::getFinal().cartesian2geo(GEOPosition);
-            // return lon
-            return toString(GEOPosition.x(), 8);
-        }
-        case SUMO_ATTR_LAT: {
-            // calculate geo position
-            Position GEOPosition(x(), y());
-            GeoConvHelper::getFinal().cartesian2geo(GEOPosition);
-            // return lat
-            return toString(GEOPosition.y(), 8);
-        }
+        case SUMO_ATTR_LON:
+            if (GeoConvHelper::getFinal().getProjString() != "!") {
+                return toString(getAttributeDouble(key), 8);
+            } else {
+                return TL("No geo-conversion defined");
+            }
+        case SUMO_ATTR_LAT:
+            if (GeoConvHelper::getFinal().getProjString() != "!") {
+                return toString(getAttributeDouble(key), 8);
+            } else {
+                return TL("No geo-conversion defined");
+            }
         case SUMO_ATTR_TYPE:
             return getShapeType();
+        case SUMO_ATTR_ICON:
+            return SUMOXMLDefinitions::POIIcons.getString(myPOIIcon);
         case SUMO_ATTR_LAYER:
-            if (getShapeLayer() == Shape::DEFAULT_LAYER_POI) {
-                return "default";
-            } else {
-                return toString(getShapeLayer());
-            }
+            return toString(getShapeLayer());
         case SUMO_ATTR_IMGFILE:
             return getShapeImgFile();
-        case SUMO_ATTR_RELATIVEPATH:
-            return toString(getShapeRelativePath());
         case SUMO_ATTR_WIDTH:
-            return toString(getWidth());
+            return toString(myWidth);
         case SUMO_ATTR_HEIGHT:
-            return toString(getHeight());
+            return toString(myHeight);
         case SUMO_ATTR_ANGLE:
             return toString(getShapeNaviDegree());
         case SUMO_ATTR_NAME:
-            return getShapeName();
-        case GNE_ATTR_SELECTED:
-            return toString(isAttributeCarrierSelected());
-        case GNE_ATTR_PARAMETERS:
-            return PointOfInterest::getParametersStr();
+            return myAdditionalName;
         case GNE_ATTR_SHIFTLANEINDEX:
             return "";
         default:
-            throw InvalidArgument(getTagStr() + " attribute '" + toString(key) + "' not allowed");
+            if (getTagProperty()->getTag() == GNE_TAG_POILANE) {
+                return myMoveElementLaneSingle->getMovingAttribute(key);
+            } else {
+                return myMoveElementViewResizable->getMovingAttribute(key);
+            }
     }
 }
 
 
 double
 GNEPOI::getAttributeDouble(SumoXMLAttr key) const {
-    throw InvalidArgument(getTagStr() + " attribute '" + toString(key) + "' not allowed");
+    switch (key) {
+        case SUMO_ATTR_POSITION_LAT:
+            return myPosLat;
+        case SUMO_ATTR_LON:
+            if (GeoConvHelper::getFinal().getProjString() != "!") {
+                // calculate geo position
+                Position GEOPosition = myPosOverView;
+                GeoConvHelper::getFinal().cartesian2geo(GEOPosition);
+                // return lon
+                return GEOPosition.x();
+            } else {
+                throw InvalidArgument(getTagStr() + " attribute '" + toString(key) + "' not allowed");
+            }
+        case SUMO_ATTR_LAT:
+            if (GeoConvHelper::getFinal().getProjString() != "!") {
+                // calculate geo position
+                Position GEOPosition = myPosOverView;
+                GeoConvHelper::getFinal().cartesian2geo(GEOPosition);
+                // return lat
+                return GEOPosition.y();
+            } else {
+                throw InvalidArgument(getTagStr() + " attribute '" + toString(key) + "' not allowed");
+            }
+        case SUMO_ATTR_LAYER:
+            return getShapeLayer();
+        case SUMO_ATTR_WIDTH:
+            return myWidth;
+        case SUMO_ATTR_HEIGHT:
+            return myHeight;
+        case SUMO_ATTR_ANGLE:
+            return getShapeNaviDegree();
+        default:
+            if (getTagProperty()->getTag() == GNE_TAG_POILANE) {
+                return myMoveElementLaneSingle->getMovingAttributeDouble(key);
+            } else {
+                return myMoveElementViewResizable->getMovingAttributeDouble(key);
+            }
+    }
 }
 
 
-const Parameterised::Map&
-GNEPOI::getACParametersMap() const {
-    return PointOfInterest::getParametersMap();
+Position
+GNEPOI::getAttributePosition(SumoXMLAttr key) const {
+    if (getTagProperty()->getTag() == GNE_TAG_POILANE) {
+        return myMoveElementLaneSingle->getMovingAttributePosition(key);
+    } else {
+        return myMoveElementViewResizable->getMovingAttributePosition(key);
+    }
+}
+
+
+PositionVector
+GNEPOI::getAttributePositionVector(SumoXMLAttr key) const {
+    return getCommonAttributePositionVector(key);
 }
 
 
@@ -432,27 +511,26 @@ GNEPOI::setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* und
     switch (key) {
         case SUMO_ATTR_ID:
         case SUMO_ATTR_COLOR:
-        case SUMO_ATTR_LANE:
-        case SUMO_ATTR_POSITION:
-        case SUMO_ATTR_FRIENDLY_POS:
         case SUMO_ATTR_POSITION_LAT:
         case SUMO_ATTR_LON:
         case SUMO_ATTR_LAT:
         case SUMO_ATTR_TYPE:
+        case SUMO_ATTR_ICON:
         case SUMO_ATTR_LAYER:
         case SUMO_ATTR_IMGFILE:
-        case SUMO_ATTR_RELATIVEPATH:
         case SUMO_ATTR_WIDTH:
         case SUMO_ATTR_HEIGHT:
         case SUMO_ATTR_ANGLE:
         case SUMO_ATTR_NAME:
-        case GNE_ATTR_SELECTED:
-        case GNE_ATTR_PARAMETERS:
         case GNE_ATTR_SHIFTLANEINDEX:
-            undoList->changeAttribute(new GNEChange_Attribute(this, key, value));
+            GNEChange_Attribute::changeAttribute(this, key, value, undoList);
             break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            if (getTagProperty()->getTag() == GNE_TAG_POILANE) {
+                return myMoveElementLaneSingle->setMovingAttribute(key, value, undoList);
+            } else {
+                return myMoveElementViewResizable->setMovingAttribute(key, value, undoList);
+            }
     }
 }
 
@@ -461,30 +539,9 @@ bool
 GNEPOI::isValid(SumoXMLAttr key, const std::string& value) {
     switch (key) {
         case SUMO_ATTR_ID:
-            if (SUMOXMLDefinitions::isValidTypeID(value)) {
-                if (value == getID()) {
-                    return true;
-                } else {
-                    return (myNet->getAttributeCarriers()->retrieveAdditional(SUMO_TAG_POI, value, false) == nullptr) &&
-                           (myNet->getAttributeCarriers()->retrieveAdditional(GNE_TAG_POILANE, value, false) == nullptr) &&
-                           (myNet->getAttributeCarriers()->retrieveAdditional(GNE_TAG_POIGEO, value, false) == nullptr);
-                }
-            } else {
-                // invalid id
-                return false;
-            }
+            return isValidAdditionalID(NamespaceIDs::POIs, value);
         case SUMO_ATTR_COLOR:
             return canParse<RGBColor>(value);
-        case SUMO_ATTR_LANE:
-            return (myNet->getAttributeCarriers()->retrieveLane(value, false) != nullptr);
-        case SUMO_ATTR_POSITION:
-            if (getParentLanes().size() > 0) {
-                return canParse<double>(value);
-            } else {
-                return canParse<Position>(value);
-            }
-        case SUMO_ATTR_FRIENDLY_POS:
-            return canParse<bool>(value);
         case SUMO_ATTR_POSITION_LAT:
             return canParse<double>(value);
         case SUMO_ATTR_LON:
@@ -493,8 +550,10 @@ GNEPOI::isValid(SumoXMLAttr key, const std::string& value) {
             return canParse<double>(value);
         case SUMO_ATTR_TYPE:
             return true;
+        case SUMO_ATTR_ICON:
+            return SUMOXMLDefinitions::POIIcons.hasString(value);
         case SUMO_ATTR_LAYER:
-            if (value == "default") {
+            if (value.empty()) {
                 return true;
             } else {
                 return canParse<double>(value);
@@ -506,8 +565,6 @@ GNEPOI::isValid(SumoXMLAttr key, const std::string& value) {
                 // check that image can be loaded
                 return GUITexturesHelper::getTextureID(value) != -1;
             }
-        case SUMO_ATTR_RELATIVEPATH:
-            return canParse<bool>(value);
         case SUMO_ATTR_WIDTH:
             return canParse<double>(value) && (parse<double>(value) > 0);
         case SUMO_ATTR_HEIGHT:
@@ -516,23 +573,30 @@ GNEPOI::isValid(SumoXMLAttr key, const std::string& value) {
             return canParse<double>(value);
         case SUMO_ATTR_NAME:
             return SUMOXMLDefinitions::isValidAttribute(value);
-        case GNE_ATTR_SELECTED:
-            return canParse<bool>(value);
-        case GNE_ATTR_PARAMETERS:
-            return areParametersValid(value);
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            if (getTagProperty()->getTag() == GNE_TAG_POILANE) {
+                return myMoveElementLaneSingle->isMovingAttributeValid(key, value);
+            } else {
+                return myMoveElementViewResizable->isMovingAttributeValid(key, value);
+            }
     }
 }
 
 
 bool
-GNEPOI::isAttributeEnabled(SumoXMLAttr /* key */) const {
-    // check if we're in supermode Network
-    if (myNet->getViewNet()->getEditModes().isCurrentSupermodeNetwork()) {
-        return true;
-    } else {
-        return false;
+GNEPOI::isAttributeEnabled(SumoXMLAttr key) const {
+    switch (key) {
+        case SUMO_ATTR_POSITION:
+            if (myTagProperty->getTag() == GNE_TAG_POIGEO) {
+                return (GeoConvHelper::getFinal().getProjString() != "!");
+            } else {
+                return true;
+            }
+        case SUMO_ATTR_LON:
+        case SUMO_ATTR_LAT:
+            return (GeoConvHelper::getFinal().getProjString() != "!");
+        default:
+            return true;
     }
 }
 
@@ -553,11 +617,123 @@ GNEPOI::getHierarchyName() const {
 // ===========================================================================
 
 void
+GNEPOI::drawPOI(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                const bool movingGeometryPoints) const {
+    if (GUIPointOfInterest::checkDraw(s, this)) {
+        const double exaggeration = getExaggeration(s);
+        const auto position = getPositionInView();
+        // push matrix
+        GLHelper::pushMatrix();
+        // set POI color
+        GUIPointOfInterest::setPOIColor(s, getShapeColor(), this, drawUsingSelectColor());
+        // add extra offset z provided by icon to avoid overlapping
+        if (myDrawInFront) {
+            glTranslated(position.x(), position.y(), GLO_FRONTELEMENT + (double)myPOIIcon);
+        } else {
+            glTranslated(position.x(), position.y(), s.poiUseCustomLayer ? s.poiCustomLayer : getShapeLayer() + (double)myPOIIcon);
+        }
+        glRotated(-getShapeNaviDegree(), 0, 0, 1);
+        // check if has to be drawn as a circle or with an image
+        if (getShapeImgFile() != DEFAULT_IMG_FILE) {
+            int textureID = GUITexturesHelper::getTextureID(getShapeImgFile());
+            if (textureID > 0) {
+                GUITexturesHelper::drawTexturedBox(textureID,
+                                                   myWidth * 0.5 * exaggeration, myHeight * 0.5 * exaggeration,
+                                                   myWidth * 0.5 * exaggeration, myHeight * 0.5 * exaggeration);
+            } else {
+                // draw box
+                GLHelper::drawRectangle(Position(0, 0), myWidth * exaggeration, myHeight * exaggeration);
+            }
+        } else {
+            // fallback if no image is defined
+            GLHelper::drawFilledCircle(std::max(myWidth, myHeight) * 0.5 * exaggeration, s.poiDetail);
+            // check if draw polygon
+            if (myPOIIcon != POIIcon::NONE) {
+                // translate
+                glTranslated(0, 0, 0.1);
+                // rotate
+                glRotated(180, 0, 0, 1);
+                // draw texture
+                GUITexturesHelper::drawTexturedBox(GUITextureSubSys::getPOITexture(myPOIIcon), exaggeration * 0.8);
+            }
+        }
+        // pop matrix
+        GLHelper::popMatrix();
+        if (!s.drawForRectangleSelection) {
+            const Position namePos = position;
+            drawName(namePos, s.scale, s.poiName, s.angle);
+            if (s.poiType.show(this)) {
+                const Position p = namePos + Position(0, -0.6 * s.poiType.size / s.scale);
+                GLHelper::drawTextSettings(s.poiType, getShapeType(), p, s.scale, s.angle);
+            }
+            if (s.poiText.show(this)) {
+                GLHelper::pushMatrix();
+                glTranslated(namePos.x(), namePos.y(), 0);
+                std::string value = getParameter(s.poiTextParam, "");
+                if (value != "") {
+                    auto lines = StringTokenizer(value, StringTokenizer::NEWLINE).getVector();
+                    glRotated(-s.angle, 0, 0, 1);
+                    glTranslated(0, 0.7 * s.poiText.scaledSize(s.scale) * (double)lines.size(), 0);
+                    glRotated(s.angle, 0, 0, 1);
+                    // FONS_ALIGN_LEFT = 1
+                    // FONS_ALIGN_CENTER = 2
+                    // FONS_ALIGN_MIDDLE = 16
+                    const int align = (lines.size() > 1 ? 1 : 2) | 16;
+                    for (std::string& line : lines) {
+                        GLHelper::drawTextSettings(s.poiText, line, Position(0, 0), s.scale, s.angle, GLO_MAX, align);
+                        glRotated(-s.angle, 0, 0, 1);
+                        glTranslated(0, -0.7 * s.poiText.scaledSize(s.scale), 0);
+                        glRotated(s.angle, 0, 0, 1);
+                    }
+                }
+                GLHelper::popMatrix();
+            }
+        }
+        // draw geometry points
+        if (movingGeometryPoints) {
+            if (myMoveElementViewResizable->myShapeHeight.size() > 0) {
+                drawUpGeometryPoint(s, d, myMoveElementViewResizable->myShapeHeight.front(), 180, RGBColor::ORANGE);
+                drawDownGeometryPoint(s, d, myMoveElementViewResizable->myShapeHeight.back(), 180, RGBColor::ORANGE);
+            }
+            if (myMoveElementViewResizable->myShapeWidth.size() > 0) {
+                drawLeftGeometryPoint(s, d, myMoveElementViewResizable->myShapeWidth.back(), -90, RGBColor::ORANGE);
+                drawRightGeometryPoint(s, d, myMoveElementViewResizable->myShapeWidth.front(), -90, RGBColor::ORANGE);
+            }
+        }
+    }
+}
+
+
+void
+GNEPOI::calculatePOIContour(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                            const double exaggeration, const bool movingGeometryPoints) const {
+    // check if we're calculating the contour or the moving geometry points
+    if (movingGeometryPoints) {
+        myMoveElementViewResizable->myMovingContourUp.calculateContourCircleShape(s, d, this, myMoveElementViewResizable->myShapeHeight.front(), s.neteditSizeSettings.additionalGeometryPointRadius,
+                getShapeLayer(), exaggeration, nullptr);
+        myMoveElementViewResizable->myMovingContourDown.calculateContourCircleShape(s, d, this, myMoveElementViewResizable->myShapeHeight.back(), s.neteditSizeSettings.additionalGeometryPointRadius,
+                getShapeLayer(), exaggeration, nullptr);
+        myMoveElementViewResizable->myMovingContourLeft.calculateContourCircleShape(s, d, this, myMoveElementViewResizable->myShapeWidth.front(), s.neteditSizeSettings.additionalGeometryPointRadius,
+                getShapeLayer(), exaggeration, nullptr);
+        myMoveElementViewResizable->myMovingContourRight.calculateContourCircleShape(s, d, this, myMoveElementViewResizable->myShapeWidth.back(), s.neteditSizeSettings.additionalGeometryPointRadius,
+                getShapeLayer(), exaggeration, nullptr);
+    } else {
+        const auto parentEdgeBoundary = (getTagProperty()->getTag() == GNE_TAG_POILANE) ? getParentLanes().front()->getParentEdge() : nullptr;
+        if (getShapeImgFile().empty()) {
+            myAdditionalContour.calculateContourCircleShape(s, d, this, getPositionInView(), std::max(myWidth, myHeight) * 0.5, getShapeLayer(), exaggeration, parentEdgeBoundary);
+        } else {
+            myAdditionalContour.calculateContourRectangleShape(s, d, this, getPositionInView(), myHeight * 0.5, myWidth * 0.5, getShapeLayer(), 0, 0, getShapeNaviDegree(), exaggeration, parentEdgeBoundary);
+        }
+    }
+}
+
+
+void
 GNEPOI::setAttribute(SumoXMLAttr key, const std::string& value) {
     switch (key) {
         case SUMO_ATTR_ID: {
             // update microsimID
-            setMicrosimID(value);
+            setAdditionalID(value);
             // set named ID
             myID = value;
             break;
@@ -566,64 +742,46 @@ GNEPOI::setAttribute(SumoXMLAttr key, const std::string& value) {
             setShapeColor(parse<RGBColor>(value));
             break;
         case SUMO_ATTR_LANE:
-            myLane = value;
             replaceAdditionalParentLanes(value);
             break;
         case SUMO_ATTR_POSITION: {
-            if (getParentLanes().size() > 0) {
-                if (canParse<double>(value)) {
-                    myPosOverLane = parse<double>(value);
-                }
+            if (myTagProperty->getTag() == GNE_TAG_POILANE) {
+                myPosOverLane = parse<double>(value);
             } else {
-                // set position
-                set(parse<Position>(value));
+                myPosOverView = parse<Position>(value);
             }
-            // update centering boundary
-            updateCenteringBoundary(true);
-            // update geometry
-            updateGeometry();
             break;
         }
-        case SUMO_ATTR_FRIENDLY_POS:
-            setFriendlyPos(parse<bool>(value));
-            break;
         case SUMO_ATTR_POSITION_LAT:
             myPosLat = parse<double>(value);
-            // update centering boundary
-            updateCenteringBoundary(true);
-            // update geometry
-            updateGeometry();
             break;
         case SUMO_ATTR_LON: {
-            // calculate cartesian
-            Position cartesian(parse<double>(value), parse<double>(getAttribute(SUMO_ATTR_LAT)));
-            GeoConvHelper::getFinal().x2cartesian_const(cartesian);
-            // set cartesian
-            set(cartesian);
-            // update centering boundary
-            updateCenteringBoundary(true);
-            // update geometry
-            updateGeometry();
+            // parse geo attributes
+            Position pos(parse<double>(value), getAttributeDouble(SUMO_ATTR_LAT));
+            // transform to cartesian
+            GeoConvHelper::getFinal().x2cartesian_const(pos);
+            // update view position
+            myPosOverView = pos;
             break;
         }
         case SUMO_ATTR_LAT: {
-            // calculate cartesian
-            Position cartesian(parse<double>(getAttribute(SUMO_ATTR_LON)), parse<double>(value));
-            GeoConvHelper::getFinal().x2cartesian_const(cartesian);
-            // set cartesian
-            set(cartesian);
-            // update centering boundary
-            updateCenteringBoundary(true);
-            // update geometry
-            updateGeometry();
+            // parse geo attributes
+            Position pos(getAttributeDouble(SUMO_ATTR_LON), parse<double>(value));
+            // transform to cartesian
+            GeoConvHelper::getFinal().x2cartesian_const(pos);
+            // update view position
+            myPosOverView = pos;
             break;
         }
         case SUMO_ATTR_TYPE:
             setShapeType(value);
             break;
+        case SUMO_ATTR_ICON:
+            SUMOXMLDefinitions::POIIcons.get(value);
+            break;
         case SUMO_ATTR_LAYER:
-            if (value == "default") {
-                setShapeLayer(Shape::DEFAULT_LAYER_POI);
+            if (value.empty()) {
+                setShapeLayer(myTagProperty->getDefaultDoubleValue(key));
             } else {
                 setShapeLayer(parse<double>(value));
             }
@@ -641,90 +799,33 @@ GNEPOI::setAttribute(SumoXMLAttr key, const std::string& value) {
                 myNet->addGLObjectIntoGrid(this);
             }
             break;
-        case SUMO_ATTR_RELATIVEPATH:
-            setShapeRelativePath(parse<bool>(value));
-            break;
         case SUMO_ATTR_WIDTH:
             // set new width
-            setWidth(parse<double>(value));
-            // update centering boundary and geometry (except for templates)
-            if (getID().size() > 0) {
-                updateCenteringBoundary(true);
-                updateGeometry();
-            }
+            myWidth = parse<double>(value);
             break;
         case SUMO_ATTR_HEIGHT:
             // set new height
-            setHeight(parse<double>(value));
-            // update centering boundary and geometry (except for templates)
-            if (getID().size() > 0) {
-                updateCenteringBoundary(true);
-                updateGeometry();
-            }
+            myHeight = parse<double>(value);
             break;
         case SUMO_ATTR_ANGLE:
             setShapeNaviDegree(parse<double>(value));
             break;
         case SUMO_ATTR_NAME:
-            setShapeName(value);
-            break;
-        case GNE_ATTR_SELECTED:
-            if (parse<bool>(value)) {
-                selectAttributeCarrier();
-            } else {
-                unselectAttributeCarrier();
-            }
-            break;
-        case GNE_ATTR_PARAMETERS:
-            PointOfInterest::setParametersStr(value);
+            myAdditionalName = value;
             break;
         case GNE_ATTR_SHIFTLANEINDEX:
             shiftLaneIndex();
             break;
         default:
-            throw InvalidArgument(getTagStr() + " attribute '" + toString(key) + "' not allowed");
+            if (getTagProperty()->getTag() == GNE_TAG_POILANE) {
+                return myMoveElementLaneSingle->setMovingAttribute(key, value);
+            } else {
+                return myMoveElementViewResizable->setMovingAttribute(key, value);
+            }
     }
-}
-
-
-void
-GNEPOI::setMoveShape(const GNEMoveResult& moveResult) {
-    // check what are being updated
-    if (moveResult.operationType == GNEMoveOperation::OperationType::HEIGHT) {
-        myShapeHeight = moveResult.shapeToUpdate;
-    } else if (moveResult.operationType == GNEMoveOperation::OperationType::WIDTH) {
-        myShapeWidth = moveResult.shapeToUpdate;
-    } else {
-        if (getTagProperty().getTag() == GNE_TAG_POILANE) {
-            myPosOverLane = moveResult.newFirstPos;
-        } else {
-            set(moveResult.shapeToUpdate.front());
-        }
-        // update geometry
-        updateGeometry();
-    }
-}
-
-
-void
-GNEPOI::commitMoveShape(const GNEMoveResult& moveResult, GNEUndoList* undoList) {
-    // check what are being updated
-    if (moveResult.operationType == GNEMoveOperation::OperationType::HEIGHT) {
-        undoList->begin(myTagProperty.getGUIIcon(), "height of " + getTagStr());
-        setAttribute(SUMO_ATTR_HEIGHT, toString(moveResult.shapeToUpdate.length2D()), undoList);
-        undoList->end();
-    } else if (moveResult.operationType == GNEMoveOperation::OperationType::WIDTH) {
-        undoList->begin(myTagProperty.getGUIIcon(), "width of " + getTagStr());
-        setAttribute(SUMO_ATTR_WIDTH, toString(moveResult.shapeToUpdate.length2D()), undoList);
-        undoList->end();
-    } else {
-        undoList->begin(GUIIcon::POI, "position of " + getTagStr());
-        if (getTagProperty().getTag() == GNE_TAG_POILANE) {
-            undoList->changeAttribute(new GNEChange_Attribute(this, SUMO_ATTR_POSITION, toString(moveResult.newFirstPos)));
-        } else {
-            undoList->changeAttribute(new GNEChange_Attribute(this, SUMO_ATTR_POSITION, toString(moveResult.shapeToUpdate.front())));
-        }
-        undoList->end();
+    // update boundary (except for template)
+    if (getID().size() > 0) {
+        updateCenteringBoundary(myTagProperty->getTag() != GNE_TAG_POILANE);
     }
 }
 

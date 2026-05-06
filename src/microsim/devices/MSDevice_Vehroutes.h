@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2009-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2009-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -71,8 +71,8 @@ public:
     static MSDevice_Vehroutes* buildVehicleDevices(SUMOVehicle& v, std::vector<MSVehicleDevice*>& into, int maxRoutes = std::numeric_limits<int>::max());
 
 
-    /// @brief generate vehroute output for vehicles which are still in the network
-    static void generateOutputForUnfinished();
+    /// @brief generate vehroute output for pending vehicles at sim end, either due to sorting or because they are still in the net
+    static void writePendingOutput(const bool includeUnfinished);
 
 
 public:
@@ -128,7 +128,7 @@ public:
      * @param[in] index The index of the route to retrieve
      * @return the route at the index
      */
-    const MSRoute* getRoute(int index) const;
+    ConstMSRoutePtr getRoute(int index) const;
 
 
     /** @brief Saves the state of the device
@@ -151,12 +151,12 @@ public:
         /// @brief Map needed to sort vehicles by departure time
         std::map<const SUMOTime, int> departureCounts;
 
-        /// @brief pregenerated route output sorted by time
-        std::map<const SUMOTime, std::map<const std::string, std::string> > routeXML;
+        /// @brief pregenerated route output sorted by time and creation
+        std::map<const SUMOTime, std::map<const SUMOTrafficObject::NumericalID, std::string> > routeXML;
     };
 
     static void registerTransportableDepart(SUMOTime depart);
-    static void writeSortedOutput(SortedRouteInfo* routeInfo, SUMOTime depart, const std::string& id, const std::string& xmlOutput);
+    static void writeSortedOutput(SortedRouteInfo* routeInfo, SUMOTime depart, const SUMOTrafficObject::NumericalID id, const std::string& xmlOutput);
 
 private:
     /** @brief Constructor
@@ -264,7 +264,7 @@ private:
          * @param[in] time_ The time the route was replaced
          * @param[in] route_ The prior route
          */
-        RouteReplaceInfo(const MSEdge* const edge_, const SUMOTime time_, const MSRoute* const route_,
+        RouteReplaceInfo(const MSEdge* const edge_, const SUMOTime time_, ConstMSRoutePtr const route_,
                          const std::string& info_, int lastRouteIndex_, int newRouteIndex_) :
             edge(edge_), time(time_), route(route_), info(info_),
             lastRouteIndex(lastRouteIndex_),
@@ -281,7 +281,7 @@ private:
         SUMOTime time;
 
         /// @brief The prior route
-        const MSRoute* route;
+        ConstMSRoutePtr route;
 
         /// @brief Information regarding rerouting
         std::string info;
@@ -297,7 +297,7 @@ private:
     };
 
     /// @brief The currently used route
-    const MSRoute* myCurrentRoute;
+    ConstMSRoutePtr myCurrentRoute;
 
     /// @brief Prior routes
     std::vector<RouteReplaceInfo> myReplacedRoutes;

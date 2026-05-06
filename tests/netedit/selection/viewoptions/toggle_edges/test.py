@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2009-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2009-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -19,51 +19,35 @@
 import os
 import sys
 
-testRoot = os.path.join(os.environ.get('SUMO_HOME', '.'), 'tests')
-neteditTestRoot = os.path.join(
-    os.environ.get('TEXTTEST_HOME', testRoot), 'netedit')
-sys.path.append(neteditTestRoot)
+sys.path.append(os.path.join(os.environ.get("SUMO_HOME", "."), "tools"))
 import neteditTestFunctions as netedit  # noqa
 
 # Open netedit
-neteditProcess, referencePosition = netedit.setupAndStart(neteditTestRoot)
-
-# first rebuild network
-netedit.rebuildNetwork()
-
-# force save additionals
-netedit.forceSaveAdditionals()
+neteditProcess, referencePosition = netedit.setupAndStart()
 
 # go to select mode
-netedit.selectMode()
+netedit.changeMode("select")
 
-# show connections
-netedit.changeEditMode(netedit.attrs.modes.network.showConnections)
+# select lane using shift + click
+netedit.leftClick(referencePosition, netedit.positions.selection.edge)
 
-# use a rectangle to check add mode
-netedit.selectionRectangle(referencePosition, 25, 0, 550, 470)
+# this should not delete anything
+netedit.delete()
 
-# clear selection
-netedit.selectionClear()
-
-# disable select edges
+# toggle edges selection
 netedit.changeEditMode(netedit.attrs.modes.network.selectLane)
 
-# use a rectangle to check add mode
-netedit.selectionRectangle(referencePosition, 25, 0, 550, 470)
+# select lane using a simple click
+netedit.leftClick(referencePosition, netedit.positions.selection.lane)
 
-# clear selection
-netedit.selectionClear()
+# this should not delete anything
+netedit.delete()
 
-# check undo and redo
-netedit.undo(referencePosition, 4)
-netedit.redo(referencePosition, 4)
+# save Netedit config
+netedit.saveExistentFile("neteditConfig")
 
-# save additionals and shapes
-netedit.saveAdditionals(referencePosition)
-
-# save network
-netedit.saveNetwork(referencePosition)
+# clear invalid crossings
+netedit.typeKey("space")
 
 # quit netedit
 netedit.quit(neteditProcess)

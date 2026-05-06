@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2012-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -31,7 +31,7 @@ import pandas as pd
 if 'SUMO_HOME' in os.environ:
     sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
 import sumolib  # noqa
-from sumolib.miscutils import parseTime, humanReadableTime  # noqa
+from sumolib.miscutils import parseTime  # noqa
 from sumolib.statistics import Statistics  # noqa
 from sumolib.xml import parse  # noqa
 
@@ -41,7 +41,15 @@ STATS = {
     # selector -> description, function
     'd': ('depart delay', lambda r, s: s.add(r['sim_ended'] - r['until'], key(r))),
     'a': ('arrival delay', lambda r, s: s.add(r['sim_started'] - r['arrival'], key(r))),
+    'de': ('depart delay',
+           lambda r, s: s.add(r['sim_ended'] - (r['until'] if pd.isna(r['ended']) else r['ended']), key(r))),
+    'as': ('arrival delay',
+           lambda r, s: s.add(r['sim_started'] - (r['arrival'] if pd.isna(r['started']) else r['started']), key(r))),
     's': ('stop delay', lambda r, s: s.add(r['until'] - r['arrival'] - (r['sim_ended'] - r['sim_started']), key(r))),
+    't': ('traveltime schedule delta', lambda r, s: s.add(r['traveltime'] - (r['sim_traveltime'])
+          if pd.notna(r['traveltime']) and pd.notna(r['sim_traveltime']) else 0, key(r))),
+    'T': ('traveltime recording delta', lambda r, s: s.add(r['traveltime_actual'] - (r['sim_traveltime'])
+          if pd.notna(r['traveltime_actual']) and pd.notna(r['sim_traveltime']) else 0, key(r))),
 }
 
 GROUPSTATS = {
@@ -114,7 +122,7 @@ def key(row):
 
 
 def main(options):
-    nan = float("nan")
+    nan = pd.NA
 
     columns = [
         'vehID',
@@ -125,16 +133,21 @@ def main(options):
         'until',    # route-input
         'started',  # route-input
         'ended',    # route-input
+        'traveltime',  # route-input (as scheduled)
+        'traveltime_actual',  # route-input
     ]
 
     columns2 = columns[:3] + [
         'sim_started',  # stop-output
         'sim_ended',    # stop-input
+        'sim_traveltime',  # stop-input
     ]
 
     stops = []
     tripIds = dict()  # vehID -> lastTripId
     priorStops = dict()  # vehID -> lastStopID
+    priorUntil = dict()  # vehID -> lastStopUntil
+    priorEnded = dict()  # vehID -> lastStopEnded
     for vehicle in parse(options.routeFile, ['vehicle', 'trip'],
                          heterogeneous=True, attr_conversions=ATTR_CONVERSIONS):
         if vehicle.stop is not None:
@@ -144,20 +157,30 @@ def main(options):
                 tripIds[vehID] = tripId
                 stopID = getStopID(stop)
                 priorStop = priorStops.get(vehID)
-                priorStops[vehID] = stopID
+                arrival = stop.getAttributeSecure("arrival", nan)
+                until = stop.getAttributeSecure("until", nan)
+                started = stop.getAttributeSecure("started", nan)
+                ended = stop.getAttributeSecure("ended", nan)
+                traveltime = nan
+                if pd.notna(priorUntil.get(vehID, nan)) and pd.notna(arrival):
+                    traveltime = arrival - priorUntil[vehID]
+                traveltime_actual = nan
+                if pd.notna(priorEnded.get(vehID, nan)) and pd.notna(started):
+                    traveltime_actual = started - priorEnded[vehID]
 
-                stops.append((vehID, tripId, stopID, priorStop,
-                              stop.getAttributeSecure("arrival", nan),
-                              stop.getAttributeSecure("until", nan),
-                              stop.getAttributeSecure("started", nan),
-                              stop.getAttributeSecure("ended", nan),
-                              ))
+                priorStops[vehID] = stopID
+                priorUntil[vehID] = until
+                priorEnded[vehID] = ended
+
+                stops.append((vehID, tripId, stopID, priorStop, arrival, until,
+                              started, ended, traveltime, traveltime_actual))
 
     print("Parsed %s stops" % len(stops))
 
     simStops = []
     tripIds = dict()  # vehID -> lastTripId
     priorStops = dict()  # vehID -> lastStopID
+    priorEnded = dict()  # vehID -> lastStopUntil
     for stop in parse(options.stopFile, "stopinfo", heterogeneous=True,
                       attr_conversions=ATTR_CONVERSIONS):
         vehID = stop.id
@@ -165,11 +188,16 @@ def main(options):
         tripIds[vehID] = tripId
         stopID = getStopID(stop)
         priorStop = priorStops.get(vehID)
+        started = stop.getAttributeSecure("started", nan)
+        ended = stop.getAttributeSecure("ended", nan)
+        sim_traveltime = nan
+        if pd.notna(priorEnded.get(vehID, nan)) and pd.notna(started):
+            sim_traveltime = started - priorEnded[vehID]
         priorStops[vehID] = stopID
+        priorEnded[vehID] = ended
 
         simStops.append((vehID, tripId, stopID,  # priorStop,
-                         stop.getAttributeSecure("started", nan),
-                         stop.getAttributeSecure("ended", nan)))
+                         started, ended, sim_traveltime))
 
     print("Parsed %s stopinfos" % len(simStops))
 
@@ -181,7 +209,7 @@ def main(options):
                   # how="outer",
                   how="inner",
                   )
-
+    df = df.convert_dtypes()  # convert None to pd.NA
     print("Found %s matches" % len(df))
 
     if options.verbose:
@@ -191,7 +219,7 @@ def main(options):
 
     if options.output:
         outf = open(options.output, 'w')
-        sumolib.writeXMLHeader(outf, "$Id$", "scheduleStats")  # noqa
+        sumolib.writeXMLHeader(outf, root="scheduleStats")
 
     description, fun = STATS[options.sType]
     useHist = options.histogram is not None
@@ -199,9 +227,9 @@ def main(options):
     if options.groupBy:
         numGroups = 0
         stats = []
-        gs = Statistics("%s %s grouped by [%s]" % (options.gType, description, ','.join(
-            options.groupBy)), abs=True, histogram=useGHist, scale=options.gHistogram)
-        for name, group in df.groupby(options.groupBy):
+        gs = Statistics("%s %s grouped by [%s]" % (options.gType, description, ','.join(options.groupBy)),
+                        abs=True, histogram=useGHist, scale=options.gHistogram)
+        for name, group in df.groupby(options.groupBy if len(options.groupBy) > 1 else options.groupBy[0]):
             numGroups += 1
             s = Statistics("%s:%s" % (description, name), abs=True, histogram=useHist, scale=options.histogram)
             group.apply(fun, axis=1, args=(s,))

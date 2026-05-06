@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2005-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2005-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -81,14 +81,20 @@ public:
     SUMOTime timeToBoardNextPerson = 0;
     /// @brief The time at which the vehicle is able to load another container
     SUMOTime timeToLoadNextContainer = 0;
-    /// @brief Whether this stop was triggered by a collision
-    bool collision = false;
     /// @brief the maximum time at which persons may board this vehicle
     SUMOTime endBoarding = SUMOTime_MAX;
     /// @brief whether this an opposite-direction stop
     bool isOpposite = false;
     /// @brief whether the decision to skip this stop has been made
     bool skipOnDemand = false;
+    /// @brief whether the 'started' value was loaded from simulaton state
+    bool startedFromState = false;
+    /// @brief whehther the vehicle stopped despite having a waypoing
+    bool waypointWithStop = false;
+    /// @brief route indices on looped route that were skipped before this stop (after pior stop or depart edge)
+    std::vector<int> skips;
+    /// @brief the exact position when entering the stop (for state saving)
+    double entryPos = - 1;
 
     /// @brief Write the current stop configuration (used for state saving)
     void write(OutputDevice& dev) const;
@@ -100,7 +106,10 @@ public:
     double getReachedThreshold() const;
 
     /// @brief get a short description for showing in the gui
-    std::string getDescription() const;
+    std::string getDescription(bool nameOnly = false) const;
+
+    /// @brief return the name of the stopping place or an empty string
+    std::pair<std::string, SumoXMLTag> getStoppingPlaceName() const;
 
     /// @brief initialize attributes from the given stop parameters
     void initPars(const SUMOVehicleParameter::Stop& stopPar);
@@ -116,9 +125,21 @@ public:
     /// @brief return until / ended time
     SUMOTime getUntil() const;
 
+    /// @brief return arrival / started time
+    SUMOTime getArrival() const;
+
+    /// @brief return arrival / started time or estimated arrival from until/duration
+    SUMOTime getArrivalFallback() const;
+
     /// @brief return speed for passing waypoint / skipping on-demand stop
     double getSpeed() const;
 
     /// @brief whether the stop is in range of the given position
     bool isInRange(const double pos, const double tolerance) const;
+
+    /// @brief return all stoppingPlaces associated with this stop
+    std::vector<MSStoppingPlace*> getPlaces() const;
+
+    /// @brief modify all properties so the stop happens at sp instead
+    void replaceStoppingPlace(MSStoppingPlace* sp);
 };

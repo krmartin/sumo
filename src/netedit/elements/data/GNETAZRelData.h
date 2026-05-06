@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -20,17 +20,14 @@
 #pragma once
 #include <config.h>
 
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#include <netedit/elements/GNEContour.h>
+#include <utils/gui/div/GUIGeometry.h>
 
 #include "GNEGenericData.h"
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
-
 /**
  * @class GNETAZRelData
  * @brief An Element which don't belong to GNENet but has influence in the simulation
@@ -38,6 +35,9 @@
 class GNETAZRelData : public GNEGenericData {
 
 public:
+    /// @brief default Constructor
+    GNETAZRelData(GNENet* net);
+
     /**@brief Constructor for two TAZs
      * @param[in] dataIntervalParent pointer to data interval parent
      * @param[in] fromTAZ pointer to from TAZ
@@ -59,33 +59,34 @@ public:
     ~GNETAZRelData();
 
     /// @brief get TAZ rel data color
-    void setColor(const GUIVisualizationSettings& s) const;
-    double getColorValue(const GUIVisualizationSettings& s, int activeScheme) const;
+    RGBColor setColor(const GUIVisualizationSettings& s) const;
+    double getColorValue(const GUIVisualizationSettings& s, int activeScheme) const override;
+    double getScaleValue(const GUIVisualizationSettings& s, int activeScheme) const;
 
     /// @brief check if current TAZ rel data is visible
-    bool isGenericDataVisible() const;
+    bool isGenericDataVisible() const override;
 
     /// @brief update pre-computed geometry information
-    void updateGeometry();
+    void updateGeometry() override;
 
     /// @brief Returns element position in view
-    Position getPositionInView() const;
+    Position getPositionInView() const override;
 
     /// @name members and functions relative to write data sets into XML
     /// @{
     /**@brief write data set element into a xml file
      * @param[in] device device in which write parameters of data set element
      */
-    void writeGenericData(OutputDevice& device) const;
+    void writeGenericData(OutputDevice& device) const override;
 
-    /// @brief check if current data set is valid to be writed into XML (by default true, can be reimplemented in children)
-    bool isGenericDataValid() const;
+    /// @brief check if current data set is valid to be written into XML (by default true, can be reimplemented in children)
+    bool isGenericDataValid() const override;
 
     /// @brief return a string with the current data set problem (by default empty, can be reimplemented in children)
-    std::string getGenericDataProblem() const;
+    std::string getGenericDataProblem() const override;
 
     /// @brief fix data set problem (by default throw an exception, has to be reimplemented in children)
-    void fixGenericDataProblem();
+    void fixGenericDataProblem() override;
     /// @}
 
     /// @name inherited from GUIGlObject
@@ -95,44 +96,38 @@ public:
      * @param[in] s The settings for the current view (may influence drawing)
      * @see GUIGlObject::drawGL
      */
-    void drawGL(const GUIVisualizationSettings& s) const;
-
-    /// @brief return exaggeration associated with this GLObject
-    double getExaggeration(const GUIVisualizationSettings& s) const;
+    void drawGL(const GUIVisualizationSettings& s) const override;
 
     //// @brief Returns the boundary to which the view shall be centered in order to show the object
-    Boundary getCenteringBoundary() const;
+    Boundary getCenteringBoundary() const override;
 
     /// @}
 
-    /// @name inherited from GNEPathManager::PathElement
+    /// @name inherited from GNEPathElement
     /// @{
 
     /// @brief compute pathElement
-    void computePathElement();
+    void computePathElement() override;
 
-    /**@brief Draws partial object (lane)
+    /**@brief Draws partial object over lane
      * @param[in] s The settings for the current view (may influence drawing)
-     * @param[in] lane GNELane in which draw partial
-     * @param[in] segment PathManager segment (used for segment options)
-     * @param[in] offsetFront extra front offset (used for drawing partial gl above other elements)
+     * @param[in] segment lane segment
+     * @param[in] offsetFront front offset
      */
-    void drawPartialGL(const GUIVisualizationSettings& s, const GNELane* lane, const GNEPathManager::Segment* segment, const double offsetFront) const;
+    void drawLanePartialGL(const GUIVisualizationSettings& s, const GNESegment* segment, const double offsetFront) const override;
 
-    /**@brief Draws partial object (junction)
+    /**@brief Draws partial object over junction
      * @param[in] s The settings for the current view (may influence drawing)
-     * @param[in] fromLane from GNELane
-     * @param[in] toLane to GNELane
-     * @param[in] segment PathManager segment (used for segment options)
-     * @param[in] offsetFront extra front offset (used for drawing partial gl above other elements)
+     * @param[in] segment junction segment
+     * @param[in] offsetFront front offset
      */
-    void drawPartialGL(const GUIVisualizationSettings& s, const GNELane* fromLane, const GNELane* toLane, const GNEPathManager::Segment* segment, const double offsetFront) const;
+    void drawJunctionPartialGL(const GUIVisualizationSettings& s, const GNESegment* segment, const double offsetFront) const override;
 
     /// @brief get first path lane
-    GNELane* getFirstPathLane() const;
+    GNELane* getFirstPathLane() const override;
 
     /// @brief get last path lane
-    GNELane* getLastPathLane() const;
+    GNELane* getLastPathLane() const override;
     /// @}
 
     /// @name inherited from GNEAttributeCarrier
@@ -141,41 +136,44 @@ public:
      * @param[in] key The attribute key
      * @return string with the value associated to key
      */
-    std::string getAttribute(SumoXMLAttr key) const;
+    std::string getAttribute(SumoXMLAttr key) const override;
 
     /* @brief method for getting the Attribute of an XML key in double format (to avoid unnecessary parse<double>(...) for certain attributes)
      * @param[in] key The attribute key
      * @return double with the value associated to key
      */
-    double getAttributeDouble(SumoXMLAttr key) const;
+    double getAttributeDouble(SumoXMLAttr key) const override;
 
     /**@brief method for setting the attribute and letting the object perform data set changes
      * @param[in] key The attribute key
      * @param[in] value The new value
      * @param[in] undoList The undoList on which to register changes
      */
-    void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList);
+    void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList) override;
 
     /**@brief method for checking if the key and their conrrespond attribute are valids
      * @param[in] key The attribute key
      * @param[in] value The value associated to key key
      * @return true if the value is valid, false in other case
      */
-    bool isValid(SumoXMLAttr key, const std::string& value);
+    bool isValid(SumoXMLAttr key, const std::string& value) override;
 
     /* @brief method for check if the value for certain attribute is set
      * @param[in] key The attribute key
      */
-    bool isAttributeEnabled(SumoXMLAttr key) const;
+    bool isAttributeEnabled(SumoXMLAttr key) const override;
 
     /// @brief get PopPup ID (Used in AC Hierarchy)
-    std::string getPopUpID() const;
+    std::string getPopUpID() const override;
 
     /// @brief get Hierarchy Name (Used in AC Hierarchy)
-    std::string getHierarchyName() const;
+    std::string getHierarchyName() const override;
     /// @}
 
 protected:
+    /// @brief variable used for draw contours
+    GNEContour myTAZRelDataContour;
+
     /// @brief Geometry for TAZRel data
     GUIGeometry myTAZRelGeometry;
 
@@ -190,7 +188,7 @@ private:
     bool drawTAZRel() const;
 
     /// @brief method for setting the attribute and nothing else (used in GNEChange_Attribute)
-    void setAttribute(SumoXMLAttr key, const std::string& value);
+    void setAttribute(SumoXMLAttr key, const std::string& value) override;
 
     /// @brief sets the color according to the current scheme index and some tazRel function
     bool setFunctionalColor(int activeScheme, RGBColor& col) const;
@@ -203,4 +201,3 @@ private:
 };
 
 /****************************************************************************/
-

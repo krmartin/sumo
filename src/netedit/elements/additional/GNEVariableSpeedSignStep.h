@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -19,92 +19,130 @@
 /****************************************************************************/
 #pragma once
 #include <config.h>
+
 #include "GNEAdditional.h"
-
-// ===========================================================================
-// class declarations
-// ===========================================================================
-
-class GNEVariableSpeedSign;
-class GNEVariableSpeedSignDialog;
+#include "GNEAdditionalListed.h"
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @class GNEVariableSpeedSignStep
- * class used to represent a interval used in variable speed sign
- */
-class GNEVariableSpeedSignStep : public GNEAdditional {
+
+class GNEVariableSpeedSignStep : public GNEAdditional, public GNEAdditionalListed {
 
 public:
     /// @brief default constructor
     GNEVariableSpeedSignStep(GNENet* net);
 
     /// @brief constructor
-    GNEVariableSpeedSignStep(GNEAdditional* variableSpeedSignParent, SUMOTime time, const std::string& speed);
+    GNEVariableSpeedSignStep(GNEAdditional* variableSpeedSign, const SUMOTime time, const double speed);
 
     /// @brief destructor
     ~GNEVariableSpeedSignStep();
 
-    /**@brief write additional element into a xml file
-     * @param[in] device device in which write parameters of additional element
-     */
-    void writeAdditional(OutputDevice& device) const;
+    /// @brief methods to retrieve the elements linked to this variableSpeedSignStep
+    /// @{
 
-    /**@brief get move operation
-    * @note returned GNEMoveOperation can be nullptr
+    /// @brief get GNEMoveElement associated with this variableSpeedSignStep
+    GNEMoveElement* getMoveElement() const override;
+
+    /// @brief get parameters associated with this variableSpeedSignStep
+    Parameterised* getParameters() override;
+
+    /// @brief get parameters associated with this variableSpeedSignStep (constant)
+    const Parameterised* getParameters() const override;
+
+    /// @}
+
+    /// @name members and functions relative to write additionals into XML
+    /// @{
+
+    /**@brief write additional element into a xml file
+    * @param[in] device device in which write parameters of additional element
     */
-    GNEMoveOperation* getMoveOperation();
+    void writeAdditional(OutputDevice& device) const override;
+
+    /// @brief check if current additional is valid to be written into XML
+    bool isAdditionalValid() const override;
+
+    /// @brief return a string with the current additional problem
+    std::string getAdditionalProblem() const override;
+
+    /// @brief fix additional problem
+    void fixAdditionalProblem() override;
+
+    /// @}
+
+    /// @name Function related with contour drawing
+    /// @{
+
+    /// @brief check if draw move contour (red)
+    bool checkDrawMoveContour() const override;
+
+    /// @}
 
     /// @brief get time
     SUMOTime getTime() const;
 
     /// @name Functions related with geometry of element
     /// @{
+
     /// @brief update pre-computed geometry information
-    void updateGeometry();
+    void updateGeometry() override;
 
     /// @brief Returns position of additional in view
-    Position getPositionInView() const;
+    Position getPositionInView() const override;
 
     /// @brief update centering boundary (implies change in RTREE)
-    void updateCenteringBoundary(const bool updateGrid);
+    void updateCenteringBoundary(const bool updateGrid) override;
 
     /// @brief split geometry
-    void splitEdgeGeometry(const double splitPosition, const GNENetworkElement* originalElement, const GNENetworkElement* newElement, GNEUndoList* undoList);
+    void splitEdgeGeometry(const double splitPosition, const GNENetworkElement* originalElement,
+                           const GNENetworkElement* newElement, GNEUndoList* undoList) override;
+
     /// @}
 
     /// @name inherited from GUIGlObject
     /// @{
+
     /**@brief Returns the name of the parent object
      * @return This object's parent id
      */
-    std::string getParentName() const;
+    std::string getParentName() const override;
 
     /**@brief Draws the object
      * @param[in] s The settings for the current view (may influence drawing)
      * @see GUIGlObject::drawGL
      */
-    void drawGL(const GUIVisualizationSettings& s) const;
+    void drawGL(const GUIVisualizationSettings& s) const override;
+
     /// @}
 
     /// @brief inherited from GNEAttributeCarrier
     /// @{
+
     /* @brief method for getting the Attribute of an XML key
      * @param[in] key The attribute key
      * @return string with the value associated to key
      */
-    std::string getAttribute(SumoXMLAttr key) const;
+    std::string getAttribute(SumoXMLAttr key) const override;
 
-    /* @brief method for getting the Attribute of an XML key in double format (to avoid unnecessary parse<double>(...) for certain attributes)
+    /* @brief method for getting the Attribute of an XML key in double format
      * @param[in] key The attribute key
      * @return double with the value associated to key
      */
-    double getAttributeDouble(SumoXMLAttr key) const;
+    double getAttributeDouble(SumoXMLAttr key) const override;
 
-    /// @brief get parameters map
-    const Parameterised::Map& getACParametersMap() const;
+    /* @brief method for getting the Attribute of an XML key in position format
+     * @param[in] key The attribute key
+     * @return position with the value associated to key
+     */
+    Position getAttributePosition(SumoXMLAttr key) const override;
+
+    /* @brief method for getting the Attribute of an XML key in positionVector format
+     * @param[in] key The attribute key
+     * @return positionVector with the value associated to key
+     */
+    PositionVector getAttributePositionVector(SumoXMLAttr key) const override;
 
     /* @brief method for setting the attribute and letting the object perform additional changes
      * @param[in] key The attribute key
@@ -112,38 +150,33 @@ public:
      * @param[in] undoList The undoList on which to register changes
      * @param[in] net optionally the GNENet to inform about gui updates
      */
-    void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList);
+    void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList) override;
 
     /* @brief method for setting the attribute and letting the object perform additional changes
      * @param[in] key The attribute key
      * @param[in] value The new value
      * @param[in] undoList The undoList on which to register changes
      */
-    bool isValid(SumoXMLAttr key, const std::string& value);
+    bool isValid(SumoXMLAttr key, const std::string& value) override;
 
     /// @brief get PopPup ID (Used in AC Hierarchy)
-    std::string getPopUpID() const;
+    std::string getPopUpID() const override;
 
     /// @brief get Hierarchy Name (Used in AC Hierarchy)
-    std::string getHierarchyName() const;
+    std::string getHierarchyName() const override;
+
     /// @}
 
 protected:
     /// @brief timeStep
-    SUMOTime myTime;
+    SUMOTime myTime = 0;
 
     /// @brief speed in this timeStep
-    std::string mySpeed;
+    double mySpeed;
 
 private:
     /// @brief method for setting the attribute and nothing else
-    void setAttribute(SumoXMLAttr key, const std::string& value);
-
-    /// @brief set move shape
-    void setMoveShape(const GNEMoveResult& moveResult);
-
-    /// @brief commit move shape
-    void commitMoveShape(const GNEMoveResult& moveResult, GNEUndoList* undoList);
+    void setAttribute(SumoXMLAttr key, const std::string& value) override;
 
     /// @brief Invalidated copy constructor.
     GNEVariableSpeedSignStep(const GNEVariableSpeedSignStep&) = delete;

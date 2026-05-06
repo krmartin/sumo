@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2017-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2017-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -28,6 +28,8 @@
 // ===========================================================================
 #ifndef LIBTRACI
 class MSE2Collector;
+class NamedRTree;
+class PositionVector;
 #endif
 
 
@@ -52,7 +54,19 @@ public:
     static int getLastStepVehicleNumber(const std::string& detID);
     static int getLastStepHaltingNumber(const std::string& detID);
 
-    static void overrideVehicleNumber(const std::string& detID, int num);
+    static double getIntervalOccupancy(const std::string& detID);
+    static double getIntervalMeanSpeed(const std::string& detID);
+    static double getIntervalMeanTimeLoss(const std::string& detID);
+    static double getIntervalMaxJamLengthInMeters(const std::string& detID);
+    static int getIntervalVehicleNumber(const std::string& detID);
+
+    static double getLastIntervalOccupancy(const std::string& detID);
+    static double getLastIntervalMeanSpeed(const std::string& detID);
+    static double getLastIntervalMeanTimeLoss(const std::string& detID);
+    static double getLastIntervalMaxJamLengthInMeters(const std::string& detID);
+    static int getLastIntervalVehicleNumber(const std::string& detID);
+
+    static void overrideVehicleNumber(const std::string& detID, int vehNum);
 
     LIBSUMO_ID_PARAMETER_API
     LIBSUMO_SUBSCRIPTION_API

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -19,12 +19,14 @@
 /****************************************************************************/
 #include <config.h>
 
+#include <utils/common/FileBucket.h>
 #include <utils/common/MsgHandler.h>
 #include <utils/common/RGBColor.h>
 #include <utils/common/SUMOVehicleClass.h>
 #include <utils/options/OptionsCont.h>
 #include <utils/shapes/Shape.h>
 #include <utils/vehicle/SUMOVehicleParserHelper.h>
+#include <utils/xml/NamespaceIDs.h>
 #include <utils/xml/SUMOSAXHandler.h>
 #include <utils/xml/XMLSubSys.h>
 
@@ -35,8 +37,8 @@
 // method definitions
 // ===========================================================================
 
-RouteHandler::RouteHandler(const std::string& filename, const bool hardFail) :
-    myFilename(filename),
+RouteHandler::RouteHandler(FileBucket* fileBucket, const bool hardFail) :
+    CommonHandler(fileBucket),
     myHardFail(hardFail),
     myFlowBeginDefault(string2time(OptionsCont::getOptions().getString("begin"))),
     myFlowEndDefault(string2time(OptionsCont::getOptions().getString("end"))) {
@@ -55,15 +57,33 @@ RouteHandler::beginParseAttributes(SumoXMLTag tag, const SUMOSAXAttributes& attr
         switch (tag) {
             // vTypes
             case SUMO_TAG_VTYPE:
-                parseVType(attrs);
+                // continue depeding if we're parsing a vType or a reference
+                if ((myCommonXMLStructure.getSumoBaseObjectRoot()->getTag() == SUMO_TAG_VTYPE_DISTRIBUTION) &&
+                        attrs.hasAttribute(SUMO_ATTR_REFID)) {
+                    parseVTypeRef(attrs);
+                } else {
+                    parseVType(attrs);
+                }
                 break;
             case SUMO_TAG_VTYPE_DISTRIBUTION:
                 parseVTypeDistribution(attrs);
                 break;
             // routes
-            case SUMO_TAG_ROUTE:
-                parseRoute(attrs);
+            case SUMO_TAG_ROUTE: {
+                // continue depeding if we're parsing a basic route, an embedded route, or a distribution ref
+                const auto parentTag = myCommonXMLStructure.getSumoBaseObjectRoot()->getTag();
+                // this is temporal, until #16476
+                if (parentTag != SUMO_TAG_ERROR) {
+                    if ((parentTag == SUMO_TAG_VEHICLE) || (parentTag == SUMO_TAG_FLOW)) {
+                        parseRouteEmbedded(attrs);
+                    } else if ((parentTag == SUMO_TAG_ROUTE_DISTRIBUTION) && attrs.hasAttribute(SUMO_ATTR_REFID)) {
+                        parseRouteRef(attrs);
+                    } else {
+                        parseRoute(attrs);
+                    }
+                }
                 break;
+            }
             case SUMO_TAG_ROUTE_DISTRIBUTION:
                 parseRouteDistribution(attrs);
                 break;
@@ -123,8 +143,17 @@ RouteHandler::beginParseAttributes(SumoXMLTag tag, const SUMOSAXAttributes& attr
                 break;
             }
             default:
-                // nested CFM attributes
-                return parseNestedCFM(tag, attrs);
+                // get vehicle type Base object
+                const auto vTypeObject = myCommonXMLStructure.getCurrentSumoBaseObject()->getParentSumoBaseObject();
+                // parse embedded car following model information
+                if (vTypeObject && (vTypeObject->getTag() == SUMO_TAG_VTYPE)) {
+                    // nested CFM attributes
+                    return parseNestedCFM(tag, attrs, vTypeObject);
+                } else {
+                    // tag cannot be parsed in routeHandler
+                    myCommonXMLStructure.abortSUMOBaseOBject();
+                    return false;
+                }
         }
     } catch (InvalidArgument& e) {
         WRITE_ERROR(e.what());
@@ -137,33 +166,41 @@ void
 RouteHandler::endParseAttributes() {
     // get last inserted object
     CommonXMLStructure::SumoBaseObject* obj = myCommonXMLStructure.getCurrentSumoBaseObject();
-    // close SUMOBaseOBject
-    myCommonXMLStructure.closeSUMOBaseOBject();
     // check tag
     if (obj) {
+        // close SUMOBaseOBject
+        myCommonXMLStructure.closeSUMOBaseOBject();
         switch (obj->getTag()) {
-            // specia case for route (because can be embedded)
             case SUMO_TAG_ROUTE:
-                // only parse non-embedded routes
-                if (!obj->getStringAttribute(SUMO_ATTR_ID).empty()) {
-                    // parse route and all their childrens
+                // special case, because embedded and distribution routes are created within other elements
+                if (obj->getParentSumoBaseObject() == nullptr) {
+                    // parse object and all their childrens
                     parseSumoBaseObject(obj);
                     // delete object (and all of their childrens)
                     delete obj;
                 }
                 break;
-            // demand elements
-            case SUMO_TAG_VTYPE:
-                // only parse vTypes without distributions
-                if (obj->getParentSumoBaseObject() &&
-                        (obj->getParentSumoBaseObject()->getTag() != SUMO_TAG_VTYPE_DISTRIBUTION)) {
-                    // parse vType and all their childrens
-                    parseSumoBaseObject(obj);
-                    // delete object (and all of their childrens)
-                    delete obj;
-                }
+            case SUMO_TAG_ROUTE_DISTRIBUTION:
+                // parse object and all their childrens
+                parseSumoBaseObject(obj);
+                // delete object (and all of their childrens)
+                delete obj;
                 break;
             case SUMO_TAG_VTYPE_DISTRIBUTION:
+                // parse object and all their childrens
+                parseSumoBaseObject(obj);
+                // delete object (and all of their childrens)
+                delete obj;
+                break;
+            case SUMO_TAG_VTYPE:
+                // special case, because embedded and distribution routes are created within other elements
+                if (obj->getParentSumoBaseObject() == nullptr) {
+                    // parse object and all their childrens
+                    parseSumoBaseObject(obj);
+                    // delete object (and all of their childrens)
+                    delete obj;
+                }
+                break;
             case SUMO_TAG_TRIP:
             case SUMO_TAG_VEHICLE:
             case SUMO_TAG_FLOW:
@@ -185,184 +222,281 @@ RouteHandler::endParseAttributes() {
 
 void
 RouteHandler::parseSumoBaseObject(CommonXMLStructure::SumoBaseObject* obj) {
-    // switch tag
-    switch (obj->getTag()) {
-        // vTypes
-        case SUMO_TAG_VTYPE:
-            buildVType(obj,
-                       obj->getVehicleTypeParameter());
-            break;
-        case SUMO_TAG_VTYPE_DISTRIBUTION:
-            buildVTypeDistribution(obj,
+    // check if loading was aborted
+    if (!myAbortLoading) {
+        // switch tag
+        switch (obj->getTag()) {
+            // vTypes
+            case SUMO_TAG_VTYPE:
+                // check if parse vType or Ref
+                if (obj->hasStringAttribute(SUMO_ATTR_REFID)) {
+                    if (buildVTypeRef(obj,
+                                      obj->getStringAttribute(SUMO_ATTR_REFID),
+                                      obj->getDoubleAttribute(SUMO_ATTR_PROB))) {
+                        obj->markAsCreated();
+                    }
+                } else {
+                    if (buildVType(obj,
+                                   obj->getVehicleTypeParameter())) {
+                        obj->markAsCreated();
+                    }
+                }
+                break;
+            case SUMO_TAG_VTYPE_DISTRIBUTION:
+                if (buildVTypeDistribution(obj,
+                                           obj->getStringAttribute(SUMO_ATTR_ID),
+                                           obj->getIntAttribute(SUMO_ATTR_DETERMINISTIC))) {
+                    obj->markAsCreated();
+                }
+                break;
+            // route
+            case SUMO_TAG_ROUTE:
+                // embedded routes are created in build<Vehicle/Flow>EmbeddedRoute
+                if (obj->hasStringAttribute(SUMO_ATTR_REFID)) {
+                    if (buildRouteRef(obj,
+                                      obj->getStringAttribute(SUMO_ATTR_REFID),
+                                      obj->getDoubleAttribute(SUMO_ATTR_PROB))) {
+                        obj->markAsCreated();
+                    }
+                } else if (obj->hasStringAttribute(SUMO_ATTR_ID)) {
+                    if (buildRoute(obj,
                                    obj->getStringAttribute(SUMO_ATTR_ID),
-                                   obj->getStringListAttribute(SUMO_ATTR_VTYPES));
-            break;
-        // route
-        case SUMO_TAG_ROUTE:
-            if (obj->getStringAttribute(SUMO_ATTR_ID).empty()) {
-                buildEmbeddedRoute(obj,
+                                   obj->getVClass(),
                                    obj->getStringListAttribute(SUMO_ATTR_EDGES),
                                    obj->getColorAttribute(SUMO_ATTR_COLOR),
                                    obj->getIntAttribute(SUMO_ATTR_REPEAT),
                                    obj->getTimeAttribute(SUMO_ATTR_CYCLETIME),
-                                   obj->getParameters());
-            } else {
-                buildRoute(obj,
-                           obj->getStringAttribute(SUMO_ATTR_ID),
-                           obj->getVClass(),
-                           obj->getStringListAttribute(SUMO_ATTR_EDGES),
-                           obj->getColorAttribute(SUMO_ATTR_COLOR),
-                           obj->getIntAttribute(SUMO_ATTR_REPEAT),
-                           obj->getTimeAttribute(SUMO_ATTR_CYCLETIME),
-                           obj->getParameters());
-            }
-            break;
-        case SUMO_TAG_ROUTE_DISTRIBUTION:
-            buildRouteDistribution(obj,
-                                   obj->getStringAttribute(SUMO_ATTR_ID));
-            break;
-        // vehicles
-        case SUMO_TAG_TRIP:
-            if (obj->hasStringAttribute(SUMO_ATTR_FROM) &&
-                    obj->hasStringAttribute(SUMO_ATTR_TO)) {
-                // build trip with from-to edges
-                buildTrip(obj,
-                          obj->getVehicleParameter(),
-                          obj->getStringAttribute(SUMO_ATTR_FROM),
-                          obj->getStringAttribute(SUMO_ATTR_TO),
-                          obj->getStringListAttribute(SUMO_ATTR_VIA));
-            } else {
-                // build trip with from-to junctions
-                buildTrip(obj,
-                          obj->getVehicleParameter(),
-                          obj->getStringAttribute(SUMO_ATTR_FROMJUNCTION),
-                          obj->getStringAttribute(SUMO_ATTR_TOJUNCTION));
-            }
-            break;
-        case SUMO_TAG_VEHICLE:
-            if (obj->hasStringAttribute(SUMO_ATTR_ROUTE)) {
-                buildVehicleOverRoute(obj,
-                                      obj->getVehicleParameter());
-            }
-            break;
-        // flows
-        case SUMO_TAG_FLOW:
-            if (obj->hasStringAttribute(SUMO_ATTR_ROUTE)) {
-                // build flow over route
-                buildFlowOverRoute(obj,
-                                   obj->getVehicleParameter());
-            } else if (obj->hasStringAttribute(SUMO_ATTR_FROM) &&
-                       obj->hasStringAttribute(SUMO_ATTR_TO)) {
-                // build flow with from-to edges
-                buildFlow(obj,
-                          obj->getVehicleParameter(),
-                          obj->getStringAttribute(SUMO_ATTR_FROM),
-                          obj->getStringAttribute(SUMO_ATTR_TO),
-                          obj->getStringListAttribute(SUMO_ATTR_VIA));
-            } else if (obj->hasStringAttribute(SUMO_ATTR_FROMJUNCTION) &&
-                       obj->hasStringAttribute(SUMO_ATTR_TOJUNCTION)) {
-                // build flow with from-to junctions
-                buildFlow(obj,
-                          obj->getVehicleParameter(),
-                          obj->getStringAttribute(SUMO_ATTR_FROMJUNCTION),
-                          obj->getStringAttribute(SUMO_ATTR_TOJUNCTION));
-            }
-            break;
-        // persons
-        case SUMO_TAG_PERSON:
-            buildPerson(obj,
-                        obj->getVehicleParameter());
-            break;
-        case SUMO_TAG_PERSONFLOW:
-            buildPersonFlow(obj,
-                            obj->getVehicleParameter());
-            break;
-        // person plans
-        case SUMO_TAG_PERSONTRIP:
-            buildPersonTrip(obj,
-                            obj->getStringAttribute(SUMO_ATTR_FROM),
-                            obj->getStringAttribute(SUMO_ATTR_TO),
-                            obj->getStringAttribute(SUMO_ATTR_FROMJUNCTION),
-                            obj->getStringAttribute(SUMO_ATTR_TOJUNCTION),
-                            obj->getStringAttribute(SUMO_ATTR_BUS_STOP),
-                            obj->getDoubleAttribute(SUMO_ATTR_ARRIVALPOS),
-                            obj->getStringListAttribute(SUMO_ATTR_VTYPES),
-                            obj->getStringListAttribute(SUMO_ATTR_MODES),
-                            obj->getStringListAttribute(SUMO_ATTR_LINES));
-            break;
-        case SUMO_TAG_RIDE:
-            buildRide(obj,
-                      obj->getStringAttribute(SUMO_ATTR_FROM),
-                      obj->getStringAttribute(SUMO_ATTR_TO),
-                      obj->getStringAttribute(SUMO_ATTR_BUS_STOP),
-                      obj->getDoubleAttribute(SUMO_ATTR_ARRIVALPOS),
-                      obj->getStringListAttribute(SUMO_ATTR_LINES));
-            break;
-        case SUMO_TAG_WALK:
-            buildWalk(obj,
-                      obj->getStringAttribute(SUMO_ATTR_FROM),
-                      obj->getStringAttribute(SUMO_ATTR_TO),
-                      obj->getStringAttribute(SUMO_ATTR_FROMJUNCTION),
-                      obj->getStringAttribute(SUMO_ATTR_TOJUNCTION),
-                      obj->getStringAttribute(SUMO_ATTR_BUS_STOP),
-                      obj->getStringListAttribute(SUMO_ATTR_EDGES),
-                      obj->getStringAttribute(SUMO_ATTR_ROUTE),
-                      obj->getDoubleAttribute(SUMO_ATTR_ARRIVALPOS));
-            break;
-        // container
-        case SUMO_TAG_CONTAINER:
-            buildContainer(obj,
-                           obj->getVehicleParameter());
-            break;
-        case SUMO_TAG_CONTAINERFLOW:
-            buildContainerFlow(obj,
-                               obj->getVehicleParameter());
-            break;
-        // container plans
-        case SUMO_TAG_TRANSPORT:
-            buildTransport(obj,
-                           obj->getStringAttribute(SUMO_ATTR_FROM),
-                           obj->getStringAttribute(SUMO_ATTR_TO),
-                           obj->getStringAttribute(SUMO_ATTR_CONTAINER_STOP),
-                           obj->getStringListAttribute(SUMO_ATTR_LINES),
-                           obj->getDoubleAttribute(SUMO_ATTR_ARRIVALPOS));
-            break;
-        case SUMO_TAG_TRANSHIP:
-            buildTranship(obj,
-                          obj->getStringAttribute(SUMO_ATTR_FROM),
-                          obj->getStringAttribute(SUMO_ATTR_TO),
-                          obj->getStringAttribute(SUMO_ATTR_CONTAINER_STOP),
-                          obj->getStringListAttribute(SUMO_ATTR_EDGES),
-                          obj->getDoubleAttribute(SUMO_ATTR_SPEED),
-                          obj->getDoubleAttribute(SUMO_ATTR_DEPARTPOS),
-                          obj->getDoubleAttribute(SUMO_ATTR_ARRIVALPOS));
-            break;
-        // stopss
-        case SUMO_TAG_STOP:
-            buildStop(obj,
-                      obj->getStopParameter());
-            break;
-        default:
-            break;
-    }
-    // now iterate over childrens
-    for (const auto& child : obj->getSumoBaseObjectChildren()) {
-        // call this function recursively
-        parseSumoBaseObject(child);
-    }
-}
+                                   obj->getDoubleAttribute(SUMO_ATTR_PROB),
+                                   obj->getParameters())) {
+                        obj->markAsCreated();
+                    }
+                }
+                break;
+            case SUMO_TAG_ROUTE_DISTRIBUTION:
+                if (buildRouteDistribution(obj,
+                                           obj->getStringAttribute(SUMO_ATTR_ID))) {
+                    obj->markAsCreated();
+                }
+                break;
+            // vehicles
+            case SUMO_TAG_TRIP:
+                if (checkVehicleParents(obj)) {
+                    if (isOverFromToEdges(obj)) {
+                        // build trip with from-to edges
+                        if (buildTrip(obj,
+                                      obj->getVehicleParameter(),
+                                      obj->hasStringAttribute(SUMO_ATTR_FROM) ? obj->getStringAttribute(SUMO_ATTR_FROM) : "",
+                                      obj->hasStringAttribute(SUMO_ATTR_TO) ? obj->getStringAttribute(SUMO_ATTR_TO) : "")) {
+                            obj->markAsCreated();
+                        }
+                    } else if (isOverFromToJunctions(obj)) {
+                        // build trip with from-to junctions
+                        if (buildTripJunctions(obj,
+                                               obj->getVehicleParameter(),
+                                               obj->getStringAttribute(SUMO_ATTR_FROM_JUNCTION),
+                                               obj->getStringAttribute(SUMO_ATTR_TO_JUNCTION))) {
+                            obj->markAsCreated();
+                        }
+                    } else if (isOverFromToTAZs(obj)) {
+                        // build trip with from-to TAZs
+                        if (buildTripTAZs(obj,
+                                          obj->getVehicleParameter(),
+                                          obj->getStringAttribute(SUMO_ATTR_FROM_TAZ),
+                                          obj->getStringAttribute(SUMO_ATTR_TO_TAZ))) {
+                            obj->markAsCreated();
+                        }
+                    }
+                }
+                break;
+            case SUMO_TAG_VEHICLE:
+                if (checkVehicleParents(obj)) {
+                    if (obj->hasStringAttribute(SUMO_ATTR_ROUTE)) {
+                        // build vehicle over route
+                        if (buildVehicleOverRoute(obj,
+                                                  obj->getVehicleParameter())) {
+                            obj->markAsCreated();
+                        }
+                    } else {
+                        const auto embeddedRoute = getEmbeddedRoute(obj);
+                        if (embeddedRoute) {
+                            // build vehicle with embedded route
+                            if (buildVehicleEmbeddedRoute(obj,
+                                                          obj->getVehicleParameter(),
+                                                          embeddedRoute->getStringListAttribute(SUMO_ATTR_EDGES),
+                                                          embeddedRoute->getColorAttribute(SUMO_ATTR_COLOR),
+                                                          embeddedRoute->getIntAttribute(SUMO_ATTR_REPEAT),
+                                                          embeddedRoute->getTimeAttribute(SUMO_ATTR_CYCLETIME),
+                                                          embeddedRoute->getParameters())) {
+                                obj->markAsCreated();
+                            }
+                        }
+                    }
+                }
+                break;
+            // flows
+            case SUMO_TAG_FLOW:
+                if (checkVehicleParents(obj)) {
+                    if (obj->hasStringAttribute(SUMO_ATTR_ROUTE)) {
+                        // build flow over route
+                        if (buildFlowOverRoute(obj,
+                                               obj->getVehicleParameter())) {
+                            obj->markAsCreated();
+                        }
+                    } else if (isOverFromToEdges(obj)) {
+                        // build flow with from-to edges
+                        if (buildFlow(obj,
+                                      obj->getVehicleParameter(),
+                                      obj->getStringAttribute(SUMO_ATTR_FROM),
+                                      obj->getStringAttribute(SUMO_ATTR_TO))) {
+                            obj->markAsCreated();
+                        }
+                    } else if (isOverFromToJunctions(obj)) {
+                        // build flow with from-to junctions
+                        if (buildFlowJunctions(obj,
+                                               obj->getVehicleParameter(),
+                                               obj->getStringAttribute(SUMO_ATTR_FROM_JUNCTION),
+                                               obj->getStringAttribute(SUMO_ATTR_TO_JUNCTION))) {
+                            obj->markAsCreated();
+                        }
+                    } else if (isOverFromToTAZs(obj)) {
+                        // build flow with from-to TAZs
+                        if (buildFlowTAZs(obj,
+                                          obj->getVehicleParameter(),
+                                          obj->getStringAttribute(SUMO_ATTR_FROM_TAZ),
+                                          obj->getStringAttribute(SUMO_ATTR_TO_TAZ))) {
+                            obj->markAsCreated();
+                        }
 
-
-void
-RouteHandler::writeErrorInvalidID(const SumoXMLTag tag, const std::string& id) const {
-    WRITE_ERROR("Could not build " + toString(tag) + " with ID '" + id + "' in netedit; ID contains invalid characters.");
+                    } else {
+                        const auto embeddedRoute = getEmbeddedRoute(obj);
+                        if (embeddedRoute) {
+                            // build flow with embedded route
+                            if (buildFlowEmbeddedRoute(obj,
+                                                       obj->getVehicleParameter(),
+                                                       embeddedRoute->getStringListAttribute(SUMO_ATTR_EDGES),
+                                                       embeddedRoute->getColorAttribute(SUMO_ATTR_COLOR),
+                                                       embeddedRoute->getIntAttribute(SUMO_ATTR_REPEAT),
+                                                       embeddedRoute->getTimeAttribute(SUMO_ATTR_CYCLETIME),
+                                                       embeddedRoute->getParameters())) {
+                                obj->markAsCreated();
+                            }
+                        }
+                    }
+                }
+                break;
+            // persons
+            case SUMO_TAG_PERSON:
+                if (buildPerson(obj,
+                                obj->getVehicleParameter())) {
+                    obj->markAsCreated();
+                }
+                break;
+            case SUMO_TAG_PERSONFLOW:
+                if (buildPersonFlow(obj,
+                                    obj->getVehicleParameter())) {
+                    obj->markAsCreated();
+                }
+                break;
+            // person plans
+            case SUMO_TAG_PERSONTRIP:
+                if (checkPersonPlanParents(obj)) {
+                    if (buildPersonTrip(obj,
+                                        obj->getPlanParameters(),
+                                        obj->getDoubleAttribute(SUMO_ATTR_ARRIVALPOS),
+                                        obj->getStringListAttribute(SUMO_ATTR_VTYPES),
+                                        obj->getStringListAttribute(SUMO_ATTR_MODES),
+                                        obj->getStringListAttribute(SUMO_ATTR_LINES),
+                                        obj->getDoubleAttribute(SUMO_ATTR_WALKFACTOR),
+                                        obj->getStringAttribute(SUMO_ATTR_GROUP))) {
+                        obj->markAsCreated();
+                    }
+                }
+                break;
+            case SUMO_TAG_RIDE:
+                if (checkPersonPlanParents(obj)) {
+                    if (buildRide(obj,
+                                  obj->getPlanParameters(),
+                                  obj->getDoubleAttribute(SUMO_ATTR_ARRIVALPOS),
+                                  obj->getStringListAttribute(SUMO_ATTR_LINES),
+                                  obj->getStringAttribute(SUMO_ATTR_GROUP))) {
+                        obj->markAsCreated();
+                    }
+                }
+                break;
+            case SUMO_TAG_WALK:
+                if (checkPersonPlanParents(obj)) {
+                    if (buildWalk(obj,
+                                  obj->getPlanParameters(),
+                                  obj->getDoubleAttribute(SUMO_ATTR_ARRIVALPOS),
+                                  obj->getDoubleAttribute(SUMO_ATTR_SPEED),
+                                  obj->getTimeAttribute(SUMO_ATTR_DURATION))) {
+                        obj->markAsCreated();
+                    }
+                }
+                break;
+            // container
+            case SUMO_TAG_CONTAINER:
+                if (buildContainer(obj,
+                                   obj->getVehicleParameter())) {
+                    obj->markAsCreated();
+                }
+                break;
+            case SUMO_TAG_CONTAINERFLOW:
+                if (buildContainerFlow(obj,
+                                       obj->getVehicleParameter())) {
+                    obj->markAsCreated();
+                }
+                break;
+            // container plans
+            case SUMO_TAG_TRANSPORT:
+                if (checkContainerPlanParents(obj)) {
+                    if (buildTransport(obj,
+                                       obj->getPlanParameters(),
+                                       obj->getDoubleAttribute(SUMO_ATTR_ARRIVALPOS),
+                                       obj->getStringListAttribute(SUMO_ATTR_LINES),
+                                       obj->getStringAttribute(SUMO_ATTR_GROUP))) {
+                        obj->markAsCreated();
+                    }
+                }
+                break;
+            case SUMO_TAG_TRANSHIP:
+                if (checkContainerPlanParents(obj)) {
+                    if (buildTranship(obj,
+                                      obj->getPlanParameters(),
+                                      obj->getDoubleAttribute(SUMO_ATTR_ARRIVALPOS),
+                                      obj->getDoubleAttribute(SUMO_ATTR_DEPARTPOS),
+                                      obj->getDoubleAttribute(SUMO_ATTR_SPEED),
+                                      obj->getTimeAttribute(SUMO_ATTR_DURATION))) {
+                        obj->markAsCreated();
+                    }
+                }
+                break;
+            // stops
+            case SUMO_TAG_STOP:
+                if (checkStopParents(obj)) {
+                    if (buildStop(obj,
+                                  obj->getPlanParameters(),
+                                  obj->getStopParameter())) {
+                        obj->markAsCreated();
+                    }
+                }
+                break;
+            default:
+                break;
+        }
+        // now iterate over childrens
+        for (const auto& child : obj->getSumoBaseObjectChildren()) {
+            // call this function recursively
+            parseSumoBaseObject(child);
+        }
+    }
 }
 
 
 void
 RouteHandler::parseVType(const SUMOSAXAttributes& attrs) {
     // parse vehicleType
-    SUMOVTypeParameter* vehicleTypeParameter = SUMOVehicleParserHelper::beginVTypeParsing(attrs, myHardFail, myFilename);
+    SUMOVTypeParameter* vehicleTypeParameter = SUMOVehicleParserHelper::beginVTypeParsing(attrs, myHardFail, myFileBucket->getFilename());
     if (vehicleTypeParameter) {
         // set tag
         myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_VTYPE);
@@ -370,6 +504,27 @@ RouteHandler::parseVType(const SUMOSAXAttributes& attrs) {
         myCommonXMLStructure.getCurrentSumoBaseObject()->setVehicleTypeParameter(vehicleTypeParameter);
         // delete vehicleType parameter (because in XMLStructure we have a copy)
         delete vehicleTypeParameter;
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
+    }
+}
+
+
+void
+RouteHandler::parseVTypeRef(const SUMOSAXAttributes& attrs) {
+    // declare Ok Flag
+    bool parsedOk = true;
+    // special case for ID
+    const std::string refId = attrs.get<std::string>(SUMO_ATTR_REFID, "", parsedOk);
+    const double probability = attrs.getOpt<double>(SUMO_ATTR_PROB, refId.c_str(), parsedOk, INVALID_DOUBLE);
+    if (parsedOk) {
+        // set tag
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_VTYPE);
+        // add all attributes
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_REFID, refId);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_PROB, probability);
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -381,56 +536,127 @@ RouteHandler::parseVTypeDistribution(const SUMOSAXAttributes& attrs) {
     // needed attributes
     const std::string id = attrs.get<std::string>(SUMO_ATTR_ID, "", parsedOk);
     // optional attributes
-    const std::vector<std::string> vTypes = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_VTYPES, id.c_str(), parsedOk);
+    const int deterministic = attrs.getOpt<int>(SUMO_ATTR_DETERMINISTIC, id.c_str(), parsedOk, -1);
+    std::vector<std::string> vTypes = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_VTYPES, id.c_str(), parsedOk);
+    std::vector<double> probabilities = attrs.getOpt<std::vector<double> >(SUMO_ATTR_PROBS, id.c_str(), parsedOk);
+    // adjust sizes and probabilities
+    adjustTypesAndProbabilities(vTypes, probabilities);
+    // continue if all was parsed ok
     if (parsedOk) {
-        if (!SUMOXMLDefinitions::isValidVehicleID(id)) {
-            writeErrorInvalidID(SUMO_TAG_ROUTE, id);
-        } else {
+        // set tag
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_VTYPE_DISTRIBUTION);
+        // add all attributes
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_ID, id);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addIntAttribute(SUMO_ATTR_DETERMINISTIC, deterministic);
+        // add references
+        for (int i = 0; i < (int)vTypes.size(); i++) {
+            // open SUMOBaseOBject
+            myCommonXMLStructure.openSUMOBaseOBject();
             // set tag
-            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_VTYPE_DISTRIBUTION);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_VTYPE);
             // add all attributes
-            myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_ID, id);
-            myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_VTYPES, vTypes);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_REFID, vTypes.at(i));
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_PROB, probabilities.at(i));
+            // close SUMOBaseOBject
+            myCommonXMLStructure.closeSUMOBaseOBject();
         }
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
 
 void
 RouteHandler::parseRoute(const SUMOSAXAttributes& attrs) {
-    // get embedded route flag
-    const bool embeddedRoute = isEmbeddedRoute(attrs);
+    // declare Ok Flag
+    bool parsedOk = true;
+    // needed attributes
+    const std::string id = attrs.get<std::string>(SUMO_ATTR_ID, "", parsedOk);
+    const std::vector<std::string> edges = attrs.get<std::vector<std::string> >(SUMO_ATTR_EDGES, id.c_str(), parsedOk);
+    // optional attributes
+    SUMOVehicleClass vClass = SUMOVehicleParserHelper::parseVehicleClass(attrs, id);
+    const RGBColor color = attrs.getOpt<RGBColor>(SUMO_ATTR_COLOR, id.c_str(), parsedOk, RGBColor::INVISIBLE);
+    const int repeat = attrs.getOpt<int>(SUMO_ATTR_REPEAT, id.c_str(), parsedOk, 0);
+    const SUMOTime cycleTime = attrs.getOptSUMOTimeReporting(SUMO_ATTR_CYCLETIME, id.c_str(), parsedOk, 0);
+    const double probability = attrs.getOpt<double>(SUMO_ATTR_PROB, id.c_str(), parsedOk, 1.0);
+    // check attributes
+    if (!checkNegative(SUMO_TAG_ROUTE, id, SUMO_ATTR_CYCLETIME, cycleTime, true)) {
+        parsedOk = false;
+    }
+    if (!checkNegative(SUMO_TAG_ROUTE, id, SUMO_ATTR_REPEAT, repeat, true)) {
+        parsedOk = false;
+    }
+    if (parsedOk) {
+        // set tag
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ROUTE);
+        // add all attributes
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_ID, id);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setVClass(vClass);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_EDGES, edges);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addColorAttribute(SUMO_ATTR_COLOR, color);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addIntAttribute(SUMO_ATTR_REPEAT, repeat);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addTimeAttribute(SUMO_ATTR_CYCLETIME, cycleTime);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_PROB, probability);
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
+    }
+}
+
+
+void
+RouteHandler::parseRouteRef(const SUMOSAXAttributes& attrs) {
+    // declare Ok Flag
+    bool parsedOk = true;
+    // special case for ID
+    const std::string refId = attrs.get<std::string>(SUMO_ATTR_REFID, "", parsedOk);
+    const double probability = attrs.getOpt<double>(SUMO_ATTR_PROB, refId.c_str(), parsedOk, INVALID_DOUBLE);
+    if (parsedOk) {
+        // set tag
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ROUTE);
+        // add all attributes
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_REFID, refId);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_PROB, probability);
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
+    }
+}
+
+
+void
+RouteHandler::parseRouteEmbedded(const SUMOSAXAttributes& attrs) {
     // first check if this is an embedded route
-    if ((embeddedRoute && attrs.hasAttribute(SUMO_ATTR_ID)) || (!embeddedRoute && !attrs.hasAttribute(SUMO_ATTR_ID))) {
-        WRITE_ERROR("a route must be defined either within a vehicle/flow or with an ID attribute");
+    if (attrs.hasAttribute(SUMO_ATTR_ID)) {
+        writeError(TL("an embedded route cannot have their own ID"));
     } else {
         // declare Ok Flag
         bool parsedOk = true;
         // special case for ID
-        const std::string id = attrs.getOpt<std::string>(SUMO_ATTR_ID, "", parsedOk, "");
+        const std::string vehicleID = myCommonXMLStructure.getCurrentSumoBaseObject()->getParentSumoBaseObject()->getVehicleParameter().id;
         // needed attributes
-        const std::vector<std::string> edges = attrs.get<std::vector<std::string> >(SUMO_ATTR_EDGES, id.c_str(), parsedOk);
+        const std::vector<std::string> edges = attrs.get<std::vector<std::string> >(SUMO_ATTR_EDGES, vehicleID.c_str(), parsedOk);
         // optional attributes
-        SUMOVehicleClass vClass = SUMOVehicleParserHelper::parseVehicleClass(attrs, id);
-        const RGBColor color = attrs.getOpt<RGBColor>(SUMO_ATTR_COLOR, id.c_str(), parsedOk, RGBColor::INVISIBLE);
-        const int repeat = attrs.getOpt<int>(SUMO_ATTR_REPEAT, id.c_str(), parsedOk, 0);
-        const SUMOTime cycleTime = attrs.getOptSUMOTimeReporting(SUMO_ATTR_CYCLETIME, id.c_str(), parsedOk, 0);
+        SUMOVehicleClass vClass = SUMOVehicleParserHelper::parseVehicleClass(attrs, vehicleID);
+        const RGBColor color = attrs.getOpt<RGBColor>(SUMO_ATTR_COLOR, vehicleID.c_str(), parsedOk, RGBColor::INVISIBLE);
+        const int repeat = attrs.getOpt<int>(SUMO_ATTR_REPEAT, vehicleID.c_str(), parsedOk, 0);
+        const SUMOTime cycleTime = attrs.getOptSUMOTimeReporting(SUMO_ATTR_CYCLETIME, vehicleID.c_str(), parsedOk, 0);
+        // check attributes
+        if (!checkNegative(SUMO_TAG_ROUTE, vehicleID, SUMO_ATTR_CYCLETIME, cycleTime, true)) {
+            parsedOk = false;
+        }
+        if (!checkNegative(SUMO_TAG_ROUTE, vehicleID, SUMO_ATTR_REPEAT, repeat, true)) {
+            parsedOk = false;
+        }
         if (parsedOk) {
-            if (!id.empty() && !SUMOXMLDefinitions::isValidVehicleID(id)) {
-                writeErrorInvalidID(SUMO_TAG_ROUTE, id);
-            } else if (cycleTime < 0) {
-                WRITE_ERROR("cycleTime of " + toString(SUMO_TAG_DEST_PROB_REROUTE) + " must be equal or greater than 0");
-            } else {
-                // set tag
-                myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ROUTE);
-                // add all attributes
-                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_ID, id);
-                myCommonXMLStructure.getCurrentSumoBaseObject()->setVClass(vClass);
-                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_EDGES, edges);
-                myCommonXMLStructure.getCurrentSumoBaseObject()->addColorAttribute(SUMO_ATTR_COLOR, color);
-                myCommonXMLStructure.getCurrentSumoBaseObject()->addIntAttribute(SUMO_ATTR_REPEAT, repeat);
-                myCommonXMLStructure.getCurrentSumoBaseObject()->addTimeAttribute(SUMO_ATTR_CYCLETIME, cycleTime);
-            }
+            // set tag
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ROUTE);
+            // add all attributes
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setVClass(vClass);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_EDGES, edges);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addColorAttribute(SUMO_ATTR_COLOR, color);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addIntAttribute(SUMO_ATTR_REPEAT, repeat);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addTimeAttribute(SUMO_ATTR_CYCLETIME, cycleTime);
+        } else {
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
         }
     }
 }
@@ -442,15 +668,31 @@ RouteHandler::parseRouteDistribution(const SUMOSAXAttributes& attrs) {
     bool parsedOk = true;
     // needed attributes
     const std::string id = attrs.get<std::string>(SUMO_ATTR_ID, "", parsedOk);
+    // optional attributes
+    std::vector<std::string> routes = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_ROUTES, id.c_str(), parsedOk);
+    std::vector<double> probabilities = attrs.getOpt<std::vector<double> >(SUMO_ATTR_PROBS, id.c_str(), parsedOk);
+    // adjust sizes and probabilities
+    adjustTypesAndProbabilities(routes, probabilities);
+    // continue if all was parsed ok
     if (parsedOk) {
-        if (!SUMOXMLDefinitions::isValidVehicleID(id)) {
-            writeErrorInvalidID(SUMO_TAG_ROUTE, id);
-        } else {
+        // set tag
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ROUTE_DISTRIBUTION);
+        // add all attributes
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_ID, id);
+        // add references
+        for (int i = 0; i < (int)routes.size(); i++) {
+            // open SUMOBaseOBject
+            myCommonXMLStructure.openSUMOBaseOBject();
             // set tag
-            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ROUTE_DISTRIBUTION);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ROUTE);
             // add all attributes
-            myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_ID, id);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_REFID, routes.at(i));
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_PROB, probabilities.at(i));
+            // close SUMOBaseOBject
+            myCommonXMLStructure.closeSUMOBaseOBject();
         }
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -463,11 +705,43 @@ RouteHandler::parseTrip(const SUMOSAXAttributes& attrs) {
     SUMOVehicleParameter* tripParameter = SUMOVehicleParserHelper::parseVehicleAttributes(SUMO_TAG_TRIP, attrs, myHardFail);
     if (tripParameter) {
         // check from/to edge/junction
-        if (attrs.hasAttribute(SUMO_ATTR_FROM) && attrs.hasAttribute(SUMO_ATTR_FROMJUNCTION)) {
-            WRITE_ERROR("Attributes 'from' and 'fromJunction' cannot be defined together");
-        } else if (attrs.hasAttribute(SUMO_ATTR_TO) && attrs.hasAttribute(SUMO_ATTR_TOJUNCTION)) {
-            WRITE_ERROR("Attributes 'to' and 'toJunction' cannot be defined together");
-        } else if (attrs.hasAttribute(SUMO_ATTR_FROM) && attrs.hasAttribute(SUMO_ATTR_TO)) {
+        if ((attrs.hasAttribute(SUMO_ATTR_FROM) + attrs.hasAttribute(SUMO_ATTR_FROM_JUNCTION) + attrs.hasAttribute(SUMO_ATTR_FROM_TAZ)) > 1) {
+            writeError(TL("Attributes 'from', 'fromJunction' and 'fromTaz' cannot be defined together"));
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
+        } else if ((attrs.hasAttribute(SUMO_ATTR_TO) + attrs.hasAttribute(SUMO_ATTR_TO_JUNCTION) + attrs.hasAttribute(SUMO_ATTR_TO_TAZ)) > 1) {
+            writeError(TL("Attributes 'to', 'toJunction' and 'toTaz' cannot be defined together"));
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
+        } else if (attrs.hasAttribute(SUMO_ATTR_FROM_JUNCTION) && attrs.hasAttribute(SUMO_ATTR_TO_JUNCTION)) {
+            // from-to attributes
+            const std::string fromJunction = attrs.get<std::string>(SUMO_ATTR_FROM_JUNCTION, tripParameter->id.c_str(), parsedOk);
+            const std::string toJunction = attrs.get<std::string>(SUMO_ATTR_TO_JUNCTION, tripParameter->id.c_str(), parsedOk);
+            if (parsedOk) {
+                // set tag
+                myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_TRIP);
+                // set vehicle parameters
+                myCommonXMLStructure.getCurrentSumoBaseObject()->setVehicleParameter(tripParameter);
+                // add other attributes
+                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROM_JUNCTION, fromJunction);
+                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TO_JUNCTION, toJunction);
+            } else {
+                myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
+            }
+        } else if (attrs.hasAttribute(SUMO_ATTR_FROM_TAZ) && attrs.hasAttribute(SUMO_ATTR_TO_TAZ)) {
+            // from-to attributes
+            const std::string fromJunction = attrs.get<std::string>(SUMO_ATTR_FROM_TAZ, tripParameter->id.c_str(), parsedOk);
+            const std::string toJunction = attrs.get<std::string>(SUMO_ATTR_TO_TAZ, tripParameter->id.c_str(), parsedOk);
+            if (parsedOk) {
+                // set tag
+                myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_TRIP);
+                // set vehicle parameters
+                myCommonXMLStructure.getCurrentSumoBaseObject()->setVehicleParameter(tripParameter);
+                // add other attributes
+                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROM_TAZ, fromJunction);
+                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TO_TAZ, toJunction);
+            } else {
+                myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
+            }
+        } else {
             // from-to attributes
             const std::string from = attrs.getOpt<std::string>(SUMO_ATTR_FROM, tripParameter->id.c_str(), parsedOk, "");
             const std::string to = attrs.getOpt<std::string>(SUMO_ATTR_TO, tripParameter->id.c_str(), parsedOk, "");
@@ -482,25 +756,14 @@ RouteHandler::parseTrip(const SUMOSAXAttributes& attrs) {
                 myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROM, from);
                 myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TO, to);
                 myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_VIA, via);
+            } else {
+                myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
             }
-        } else if (attrs.hasAttribute(SUMO_ATTR_FROMJUNCTION) && attrs.hasAttribute(SUMO_ATTR_TOJUNCTION)) {
-            // from-to attributes
-            const std::string fromJunction = attrs.getOpt<std::string>(SUMO_ATTR_FROMJUNCTION, tripParameter->id.c_str(), parsedOk, "");
-            const std::string toJunction = attrs.getOpt<std::string>(SUMO_ATTR_TOJUNCTION, tripParameter->id.c_str(), parsedOk, "");
-            if (parsedOk) {
-                // set tag
-                myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_TRIP);
-                // set vehicle parameters
-                myCommonXMLStructure.getCurrentSumoBaseObject()->setVehicleParameter(tripParameter);
-                // add other attributes
-                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROMJUNCTION, fromJunction);
-                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TOJUNCTION, toJunction);
-            }
-        } else {
-            WRITE_ERROR("trip definition needs either 'from/to' or 'fromJunction/toJunction'");
         }
         // delete trip parameter (because in XMLStructure we have a copy)
         delete tripParameter;
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -516,6 +779,8 @@ RouteHandler::parseVehicle(const SUMOSAXAttributes& attrs) {
         myCommonXMLStructure.getCurrentSumoBaseObject()->setVehicleParameter(vehicleParameter);
         // delete vehicle parameter (because in XMLStructure we have a copy)
         delete vehicleParameter;
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -530,10 +795,12 @@ RouteHandler::parseFlow(const SUMOSAXAttributes& attrs) {
         // set vehicle parameters
         myCommonXMLStructure.getCurrentSumoBaseObject()->setVehicleParameter(flowParameter);
         // check from/to edge/junction
-        if (attrs.hasAttribute(SUMO_ATTR_FROM) && attrs.hasAttribute(SUMO_ATTR_FROMJUNCTION)) {
-            WRITE_ERROR("Attributes 'from' and 'fromJunction' cannot be defined together");
-        } else if (attrs.hasAttribute(SUMO_ATTR_TO) && attrs.hasAttribute(SUMO_ATTR_TOJUNCTION)) {
-            WRITE_ERROR("Attributes 'to' and 'toJunction' cannot be defined together");
+        if ((attrs.hasAttribute(SUMO_ATTR_FROM) + attrs.hasAttribute(SUMO_ATTR_FROM_JUNCTION) + attrs.hasAttribute(SUMO_ATTR_FROM_TAZ)) > 1) {
+            writeError(TL("Attributes 'from', 'fromJunction' and 'fromTaz' cannot be defined together"));
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
+        } else if ((attrs.hasAttribute(SUMO_ATTR_TO) + attrs.hasAttribute(SUMO_ATTR_TO_JUNCTION) + attrs.hasAttribute(SUMO_ATTR_TO_TAZ)) > 1) {
+            writeError(TL("Attributes 'to', 'toJunction' and 'toTaz' cannot be defined together"));
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
         } else if (attrs.hasAttribute(SUMO_ATTR_FROM) && attrs.hasAttribute(SUMO_ATTR_TO)) {
             // from-to attributes
             const std::string from = attrs.get<std::string>(SUMO_ATTR_FROM, flowParameter->id.c_str(), parsedOk);
@@ -547,17 +814,34 @@ RouteHandler::parseFlow(const SUMOSAXAttributes& attrs) {
                 myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROM, from);
                 myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TO, to);
                 myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_VIA, via);
+            } else {
+                myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
             }
-        } else if (attrs.hasAttribute(SUMO_ATTR_FROMJUNCTION) && attrs.hasAttribute(SUMO_ATTR_TOJUNCTION)) {
+        } else if (attrs.hasAttribute(SUMO_ATTR_FROM_JUNCTION) && attrs.hasAttribute(SUMO_ATTR_TO_JUNCTION)) {
             // from-to attributes
-            const std::string fromJunction = attrs.get<std::string>(SUMO_ATTR_FROMJUNCTION, flowParameter->id.c_str(), parsedOk);
-            const std::string toJunction = attrs.get<std::string>(SUMO_ATTR_TOJUNCTION, flowParameter->id.c_str(), parsedOk);
+            const std::string fromJunction = attrs.get<std::string>(SUMO_ATTR_FROM_JUNCTION, flowParameter->id.c_str(), parsedOk);
+            const std::string toJunction = attrs.get<std::string>(SUMO_ATTR_TO_JUNCTION, flowParameter->id.c_str(), parsedOk);
             if (parsedOk) {
                 // set tag
                 myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_FLOW);
                 // add other attributes
-                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROMJUNCTION, fromJunction);
-                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TOJUNCTION, toJunction);
+                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROM_JUNCTION, fromJunction);
+                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TO_JUNCTION, toJunction);
+            } else {
+                myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
+            }
+        } else if (attrs.hasAttribute(SUMO_ATTR_FROM_TAZ) && attrs.hasAttribute(SUMO_ATTR_TO_TAZ)) {
+            // from-to attributes
+            const std::string fromJunction = attrs.get<std::string>(SUMO_ATTR_FROM_TAZ, flowParameter->id.c_str(), parsedOk);
+            const std::string toJunction = attrs.get<std::string>(SUMO_ATTR_TO_TAZ, flowParameter->id.c_str(), parsedOk);
+            if (parsedOk) {
+                // set tag
+                myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_FLOW);
+                // add other attributes
+                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROM_TAZ, fromJunction);
+                myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TO_TAZ, toJunction);
+            } else {
+                myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
             }
         } else if (attrs.hasAttribute(SUMO_ATTR_ROUTE)) {
             // from-to attributes
@@ -567,6 +851,8 @@ RouteHandler::parseFlow(const SUMOSAXAttributes& attrs) {
                 myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_FLOW);
                 // add other attributes
                 myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_ROUTE, route);
+            } else {
+                myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
             }
         } else {
             // set tag
@@ -574,6 +860,8 @@ RouteHandler::parseFlow(const SUMOSAXAttributes& attrs) {
         }
         // delete flow parameter (because in XMLStructure we have a copy)
         delete flowParameter;
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -584,14 +872,25 @@ RouteHandler::parseStop(const SUMOSAXAttributes& attrs) {
     bool parsedOk = true;
     // declare stop
     SUMOVehicleParameter::Stop stop;
+    // plan parameters
+    const auto planParameters = CommonXMLStructure::PlanParameters(myCommonXMLStructure.getCurrentSumoBaseObject(), attrs, parsedOk);
+    // get parents
+    std::vector<SumoXMLTag> stopParents;
+    stopParents.insert(stopParents.end(), NamespaceIDs::routes.begin(), NamespaceIDs::routes.end());
+    stopParents.insert(stopParents.end(), NamespaceIDs::vehicles.begin(), NamespaceIDs::vehicles.end());
+    stopParents.insert(stopParents.end(), NamespaceIDs::persons.begin(), NamespaceIDs::persons.end());
+    stopParents.insert(stopParents.end(), NamespaceIDs::containers.begin(), NamespaceIDs::containers.end());
     //  check parents
-    checkParent(SUMO_TAG_STOP, {SUMO_TAG_VEHICLE, SUMO_TAG_TRIP, SUMO_TAG_FLOW, SUMO_TAG_ROUTE, SUMO_TAG_PERSON, SUMO_TAG_PERSONFLOW, SUMO_TAG_CONTAINER, SUMO_TAG_CONTAINERFLOW}, parsedOk);
+    checkParsedParent(SUMO_TAG_STOP, stopParents, parsedOk);
     // parse stop
     if (parsedOk && parseStopParameters(stop, attrs)) {
         // set tag
         myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_STOP);
         // add stop attributes
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setPlanParameters(planParameters);
         myCommonXMLStructure.getCurrentSumoBaseObject()->setStopParameter(stop);
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -607,6 +906,8 @@ RouteHandler::parsePerson(const SUMOSAXAttributes& attrs) {
         myCommonXMLStructure.getCurrentSumoBaseObject()->setVehicleParameter(personParameter);
         // delete person parameter (because in XMLStructure we have a copy)
         delete personParameter;
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -622,6 +923,8 @@ RouteHandler::parsePersonFlow(const SUMOSAXAttributes& attrs) {
         myCommonXMLStructure.getCurrentSumoBaseObject()->setVehicleParameter(personFlowParameter);
         // delete person flow parameter (because in XMLStructure we have a copy)
         delete personFlowParameter;
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -630,70 +933,73 @@ void
 RouteHandler::parsePersonTrip(const SUMOSAXAttributes& attrs) {
     // declare Ok Flag
     bool parsedOk = true;
+    // plan parameters
+    const auto planParameters = CommonXMLStructure::PlanParameters(myCommonXMLStructure.getCurrentSumoBaseObject(), attrs, parsedOk);
     // optional attributes
-    const std::string from = attrs.getOpt<std::string>(SUMO_ATTR_FROM, "", parsedOk, "");
-    const std::string to = attrs.getOpt<std::string>(SUMO_ATTR_TO, "", parsedOk, "");
-    const std::string fromJunction = attrs.getOpt<std::string>(SUMO_ATTR_FROMJUNCTION, "", parsedOk, "");
-    const std::string toJunction = attrs.getOpt<std::string>(SUMO_ATTR_TOJUNCTION, "", parsedOk, "");
     const std::vector<std::string> via = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_VIA, "", parsedOk);
-    const std::string busStop = attrs.getOpt<std::string>(SUMO_ATTR_BUS_STOP, "", parsedOk, "");
     const std::vector<std::string> vTypes = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_VTYPES, "", parsedOk);
-    const std::vector<std::string> lines = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_MODES, "", parsedOk);
-    const std::vector<std::string> modes = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_LINES, "", parsedOk);
+    const std::vector<std::string> lines = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_LINES, "", parsedOk);
+    std::vector<std::string> modes = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_MODES, "", parsedOk);
     const double departPos = attrs.getOpt<double>(SUMO_ATTR_DEPARTPOS, "", parsedOk, -1);
     const double arrivalPos = attrs.getOpt<double>(SUMO_ATTR_ARRIVALPOS, "", parsedOk, -1);
+    const double walkFactor = attrs.getOpt<double>(SUMO_ATTR_WALKFACTOR, "", parsedOk, 0);
+    const std::string group = attrs.getOpt<std::string>(SUMO_ATTR_GROUP, "", parsedOk, "");
+    // check modes
+    SVCPermissions dummyModeSet;
+    std::string dummyError;
+    if (!SUMOVehicleParameter::parsePersonModes(toString(modes), toString(SUMO_TAG_PERSONTRIP), "", dummyModeSet, dummyError)) {
+        WRITE_WARNING(dummyError);
+        modes.clear();
+    }
+    // check parents
+    checkParsedParent(SUMO_TAG_PERSONTRIP, NamespaceIDs::persons, parsedOk);
     if (parsedOk) {
         // set tag
         myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_PERSONTRIP);
         // add all attributes
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROM, from);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TO, to);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROMJUNCTION, fromJunction);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TOJUNCTION, toJunction);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_VIA, via);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_BUS_STOP, busStop);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setPlanParameters(planParameters);
         myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_VTYPES, vTypes);
         myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_MODES, modes);
         myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_LINES, lines);
         myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_DEPARTPOS, departPos);
         myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_ARRIVALPOS, arrivalPos);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_WALKFACTOR, walkFactor);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_GROUP, group);
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
 
 void
 RouteHandler::parseWalk(const SUMOSAXAttributes& attrs) {
-    // declare Ok Flag
-    bool parsedOk = true;
-    // optional attributes
-    const std::string route = attrs.getOpt<std::string>(SUMO_ATTR_ROUTE, "", parsedOk, "");
-    const std::vector<std::string> edges = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_EDGES, "", parsedOk);
-    const std::string from = attrs.getOpt<std::string>(SUMO_ATTR_FROM, "", parsedOk, "");
-    const std::string to = attrs.getOpt<std::string>(SUMO_ATTR_TO, "", parsedOk, "");
-    const std::string fromJunction = attrs.getOpt<std::string>(SUMO_ATTR_FROMJUNCTION, "", parsedOk, "");
-    const std::string toJunction = attrs.getOpt<std::string>(SUMO_ATTR_TOJUNCTION, "", parsedOk, "");
-    const std::string busStop = attrs.getOpt<std::string>(SUMO_ATTR_BUS_STOP, "", parsedOk, "");
-    const double duration = attrs.getOpt<double>(SUMO_ATTR_DURATION, "", parsedOk, 0);
-    const double speed = attrs.getOpt<double>(SUMO_ATTR_SPEED, "", parsedOk, 0);
-    const double departPos = attrs.getOpt<double>(SUMO_ATTR_DEPARTPOS, "", parsedOk, -1);
-    const double arrivalPos = attrs.getOpt<double>(SUMO_ATTR_ARRIVALPOS, "", parsedOk, -1);
-    const double departPosLat = attrs.getOpt<double>(SUMO_ATTR_DEPARTPOS_LAT, "", parsedOk, 0);
-    if (parsedOk) {
-        // set tag
-        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_WALK);
-        // add all attributes
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_ROUTE, route);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_EDGES, edges);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROM, from);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TO, to);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROMJUNCTION, fromJunction);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TOJUNCTION, toJunction);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_BUS_STOP, busStop);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_DURATION, duration);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_SPEED, speed);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_DEPARTPOS, departPos);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_ARRIVALPOS, arrivalPos);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_DEPARTPOS_LAT, departPosLat);
+    if (attrs.hasAttribute(SUMO_ATTR_SPEED) && attrs.hasAttribute(SUMO_ATTR_DURATION)) {
+        writeError(TL("Speed and duration attributes cannot be defined together in walks"));
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
+    } else {
+        // declare Ok Flag
+        bool parsedOk = true;
+        // plan parameters
+        const auto planParameters = CommonXMLStructure::PlanParameters(myCommonXMLStructure.getCurrentSumoBaseObject(), attrs, parsedOk);
+        // optional attributes
+        const double departPos = attrs.getOpt<double>(SUMO_ATTR_DEPARTPOS, "", parsedOk, -1);
+        const double arrivalPos = attrs.getOpt<double>(SUMO_ATTR_ARRIVALPOS, "", parsedOk, -1);
+        const double speed = attrs.getOpt<double>(SUMO_ATTR_SPEED, "", parsedOk, 1.39);
+        const SUMOTime duration = attrs.getOptSUMOTimeReporting(SUMO_ATTR_DURATION, "", parsedOk, 0);
+        // check parents
+        checkParsedParent(SUMO_TAG_WALK, NamespaceIDs::persons, parsedOk);
+        if (parsedOk) {
+            // set tag
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_WALK);
+            // add all attributes
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setPlanParameters(planParameters);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_DEPARTPOS, departPos);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_ARRIVALPOS, arrivalPos);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_SPEED, speed);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addTimeAttribute(SUMO_ATTR_DURATION, duration);
+        } else {
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
+        }
     }
 }
 
@@ -702,21 +1008,24 @@ void
 RouteHandler::parseRide(const SUMOSAXAttributes& attrs) {
     // declare Ok Flag
     bool parsedOk = true;
+    // plan parameters
+    const auto planParameters = CommonXMLStructure::PlanParameters(myCommonXMLStructure.getCurrentSumoBaseObject(), attrs, parsedOk);
     // optional attributes
-    const std::string from = attrs.getOpt<std::string>(SUMO_ATTR_FROM, "", parsedOk, "");
-    const std::string to = attrs.getOpt<std::string>(SUMO_ATTR_TO, "", parsedOk, "");
-    const std::string busStop = attrs.getOpt<std::string>(SUMO_ATTR_BUS_STOP, "", parsedOk, "");
     const std::vector<std::string> lines = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_LINES, "", parsedOk);
     const double arrivalPos = attrs.getOpt<double>(SUMO_ATTR_ARRIVALPOS, "", parsedOk, -1);
+    const std::string group = attrs.getOpt<std::string>(SUMO_ATTR_GROUP, "", parsedOk, "");
+    // check parents
+    checkParsedParent(SUMO_TAG_RIDE, NamespaceIDs::persons, parsedOk);
     if (parsedOk) {
         // set tag
         myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_RIDE);
         // add all attributes
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROM, from);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TO, to);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_BUS_STOP, busStop);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setPlanParameters(planParameters);
         myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_LINES, lines);
         myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_ARRIVALPOS, arrivalPos);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_GROUP, group);
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -732,6 +1041,8 @@ RouteHandler::parseContainer(const SUMOSAXAttributes& attrs) {
         myCommonXMLStructure.getCurrentSumoBaseObject()->setVehicleParameter(containerParameter);
         // delete container parameter (because in XMLStructure we have a copy)
         delete containerParameter;
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -747,6 +1058,8 @@ RouteHandler::parseContainerFlow(const SUMOSAXAttributes& attrs) {
         myCommonXMLStructure.getCurrentSumoBaseObject()->setVehicleParameter(containerFlowParameter);
         // delete container flow parameter (because in XMLStructure we have a copy)
         delete containerFlowParameter;
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -755,48 +1068,57 @@ void
 RouteHandler::parseTransport(const SUMOSAXAttributes& attrs) {
     // declare Ok Flag
     bool parsedOk = true;
+    // plan parameters
+    const auto planParameters = CommonXMLStructure::PlanParameters(myCommonXMLStructure.getCurrentSumoBaseObject(), attrs, parsedOk);
     // optional attributes
-    const std::string from = attrs.getOpt<std::string>(SUMO_ATTR_FROM, "", parsedOk, "");
-    const std::string to = attrs.getOpt<std::string>(SUMO_ATTR_TO, "", parsedOk, "");
-    const std::string containerStop = attrs.getOpt<std::string>(SUMO_ATTR_CONTAINER_STOP, "", parsedOk, "");
     const std::vector<std::string> lines = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_LINES, "", parsedOk);
     const double arrivalPos = attrs.getOpt<double>(SUMO_ATTR_ARRIVALPOS, "", parsedOk, -1);
+    const std::string group = attrs.getOpt<std::string>(SUMO_ATTR_GROUP, "", parsedOk, "");
+    // check parents
+    checkParsedParent(SUMO_TAG_TRANSPORT, NamespaceIDs::containers, parsedOk);
     if (parsedOk) {
         // set tag
         myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_TRANSPORT);
         // add all attributes
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROM, from);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TO, to);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_CONTAINER_STOP, containerStop);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setPlanParameters(planParameters);
         myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_LINES, lines);
         myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_ARRIVALPOS, arrivalPos);
+        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_GROUP, group);
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
 
 void
 RouteHandler::parseTranship(const SUMOSAXAttributes& attrs) {
-    // declare Ok Flag
-    bool parsedOk = true;
-    // optional attributes
-    const std::vector<std::string> edges = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_EDGES, "", parsedOk);
-    const std::string from = attrs.getOpt<std::string>(SUMO_ATTR_FROM, "", parsedOk, "");
-    const std::string to = attrs.getOpt<std::string>(SUMO_ATTR_TO, "", parsedOk, "");
-    const std::string containerStop = attrs.getOpt<std::string>(SUMO_ATTR_CONTAINER_STOP, "", parsedOk, "");
-    const double speed = attrs.getOpt<double>(SUMO_ATTR_SPEED, "", parsedOk, 0);
-    const double departPos = attrs.getOpt<double>(SUMO_ATTR_DEPARTPOS, "", parsedOk, -1);
-    const double arrivalPos = attrs.getOpt<double>(SUMO_ATTR_ARRIVALPOS, "", parsedOk, -1);
-    if (parsedOk) {
-        // set tag
-        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_TRANSHIP);
-        // add all attributes
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringListAttribute(SUMO_ATTR_EDGES, edges);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROM, from);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TO, to);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_CONTAINER_STOP, containerStop);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_SPEED, speed);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_DEPARTPOS, departPos);
-        myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_ARRIVALPOS, arrivalPos);
+    if (attrs.hasAttribute(SUMO_ATTR_SPEED) && attrs.hasAttribute(SUMO_ATTR_DURATION)) {
+        writeError(TL("Speed and duration attributes cannot be defined together in tranships"));
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
+    } else {
+        // declare Ok Flag
+        bool parsedOk = true;
+        // plan parameters
+        const auto planParameters = CommonXMLStructure::PlanParameters(myCommonXMLStructure.getCurrentSumoBaseObject(), attrs, parsedOk);
+        // optional attributes
+        const double arrivalPos = attrs.getOpt<double>(SUMO_ATTR_ARRIVALPOS, "", parsedOk, -1);
+        const double departPos = attrs.getOpt<double>(SUMO_ATTR_DEPARTPOS, "", parsedOk, -1);
+        const double speed = attrs.getOpt<double>(SUMO_ATTR_SPEED, "", parsedOk, 1.39);
+        const SUMOTime duration = attrs.getOptSUMOTimeReporting(SUMO_ATTR_DURATION, "", parsedOk, 0);
+        // check parents
+        checkParsedParent(SUMO_TAG_TRANSHIP, NamespaceIDs::containers, parsedOk);
+        if (parsedOk) {
+            // set tag
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_TRANSHIP);
+            // add all attributes
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setPlanParameters(planParameters);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_ARRIVALPOS, arrivalPos);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_DEPARTPOS, departPos);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_SPEED, speed);
+            myCommonXMLStructure.getCurrentSumoBaseObject()->addTimeAttribute(SUMO_ATTR_DURATION, duration);
+        } else {
+            myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
+        }
     }
 }
 
@@ -811,65 +1133,26 @@ RouteHandler::parseInterval(const SUMOSAXAttributes& attrs) {
 }
 
 
-void
-RouteHandler::parseParameters(const SUMOSAXAttributes& attrs) {
-    // declare Ok Flag
-    bool parsedOk = true;
-    // get key
-    const std::string key = attrs.get<std::string>(SUMO_ATTR_KEY, nullptr, parsedOk);
-    // get SumoBaseObject parent
-    CommonXMLStructure::SumoBaseObject* SumoBaseObjectParent = myCommonXMLStructure.getCurrentSumoBaseObject()->getParentSumoBaseObject();
-    // check parent
-    if (SumoBaseObjectParent == nullptr) {
-        WRITE_ERROR("Parameters must be defined within an object");
-    } else if (SumoBaseObjectParent->getTag() == SUMO_TAG_ROOTFILE) {
-        WRITE_ERROR("Parameters cannot be defined in the additional file's root.");
-    } else if (SumoBaseObjectParent->getTag() == SUMO_TAG_PARAM) {
-        WRITE_ERROR("Parameters cannot be defined within another parameter.");
-    } else if (parsedOk) {
-        // get tag str
-        const std::string parentTagStr = toString(SumoBaseObjectParent->getTag());
-        // circumventing empty string value
-        const std::string value = attrs.hasAttribute(SUMO_ATTR_VALUE) ? attrs.getString(SUMO_ATTR_VALUE) : "";
-        // show warnings if values are invalid
-        if (key.empty()) {
-            WRITE_WARNING("Error parsing key from " + parentTagStr + " generic parameter. Key cannot be empty");
-        } else if (!SUMOXMLDefinitions::isValidParameterKey(key)) {
-            WRITE_WARNING("Error parsing key from " + parentTagStr + " generic parameter. Key contains invalid characters");
-        } else {
-            WRITE_DEBUG("Inserting generic parameter '" + key + "|" + value + "' into " + parentTagStr);
-            // insert parameter in SumoBaseObjectParent
-            SumoBaseObjectParent->addParameter(key, value);
-        }
+bool
+RouteHandler::parseNestedCFM(const SumoXMLTag tag, const SUMOSAXAttributes& attrs, CommonXMLStructure::SumoBaseObject* vTypeObject) {
+    // write warning info
+    WRITE_WARNINGF(TL("Defining car-following parameters in a nested element is deprecated in vType '%', use attributes instead!"), vTypeObject->getStringAttribute(SUMO_ATTR_ID));
+    // get vType to modify it
+    auto vType = vTypeObject->getVehicleTypeParameter();
+    // parse nested CFM attributes
+    if (SUMOVehicleParserHelper::parseCFMParams(&vType, tag, attrs, true)) {
+        vTypeObject->setVehicleTypeParameter(&vType);
+        return true;
+    } else if (myHardFail) {
+        throw ProcessError(TL("Invalid parsing embedded VType"));
+    } else {
+        return writeError(TL("Invalid parsing embedded VType"));
     }
 }
 
 
 bool
-RouteHandler::parseNestedCFM(const SumoXMLTag tag, const SUMOSAXAttributes& attrs) {
-    // get vehicle type Base object
-    const auto vTypeObject = myCommonXMLStructure.getCurrentSumoBaseObject()->getParentSumoBaseObject();
-    // parse embedded car following model information
-    if (vTypeObject && (vTypeObject->getTag() == SUMO_TAG_VTYPE)) {
-        WRITE_WARNING("Defining car following parameters in a nested element is deprecated in vType '" + vTypeObject->getStringAttribute(SUMO_ATTR_ID) + "', use attributes instead!");
-        // get vType to modify it
-        auto vType = vTypeObject->getVehicleTypeParameter();
-        // parse nested CFM attributes
-        if (SUMOVehicleParserHelper::parseCFMParams(&vType, tag, attrs, true)) {
-            vTypeObject->setVehicleTypeParameter(&vType);
-            return true;
-        } else if (myHardFail) {
-            throw ProcessError("Invalid parsing embedded VType");
-        } else {
-            WRITE_ERROR("Invalid parsing embedded VType");
-        }
-    }
-    return false;
-}
-
-
-bool
-RouteHandler::parseStopParameters(SUMOVehicleParameter::Stop& stop, const SUMOSAXAttributes& attrs) const {
+RouteHandler::parseStopParameters(SUMOVehicleParameter::Stop& stop, const SUMOSAXAttributes& attrs) {
     // check stop parameters
     if (attrs.hasAttribute(SUMO_ATTR_ARRIVAL)) {
         stop.parametersSet |= STOP_ARRIVAL_SET;
@@ -903,7 +1186,11 @@ RouteHandler::parseStopParameters(SUMOVehicleParameter::Stop& stop, const SUMOSA
     }
     // legacy attribute
     if (attrs.hasAttribute(SUMO_ATTR_CONTAINER_TRIGGERED)) {
-        stop.parametersSet |= STOP_TRIGGER_SET;
+        if (attrs.hasAttribute(SUMO_ATTR_SPEED)) {
+            WRITE_WARNING(TLF("Attributes '%' and '%' cannot be loaded simultaneously. Ignoring '%'", toString(SUMO_ATTR_SPEED), toString(SUMO_ATTR_CONTAINER_TRIGGERED), toString(SUMO_ATTR_CONTAINER_TRIGGERED)));
+        } else {
+            stop.parametersSet |= STOP_TRIGGER_SET;
+        }
     }
     if (attrs.hasAttribute(SUMO_ATTR_PARKING)) {
         stop.parametersSet |= STOP_PARKING_SET;
@@ -935,6 +1222,12 @@ RouteHandler::parseStopParameters(SUMOVehicleParameter::Stop& stop, const SUMOSA
     if (attrs.hasAttribute(SUMO_ATTR_ONDEMAND)) {
         stop.parametersSet |= STOP_ONDEMAND_SET;
     }
+    if (attrs.hasAttribute(SUMO_ATTR_JUMP)) {
+        stop.parametersSet |= STOP_JUMP_SET;
+    }
+    if (attrs.hasAttribute(SUMO_ATTR_JUMP_UNTIL)) {
+        stop.parametersSet |= STOP_JUMP_UNTIL_SET;
+    }
     // get parameters
     bool ok = true;
     // edge/lane
@@ -942,12 +1235,13 @@ RouteHandler::parseStopParameters(SUMOVehicleParameter::Stop& stop, const SUMOSA
     stop.lane = attrs.getOpt<std::string>(SUMO_ATTR_LANE, nullptr, ok, stop.busstop);
     // check errors
     if (!stop.edge.empty() && !stop.lane.empty()) {
-        WRITE_ERROR("A stop must be defined either with an edge or with an lane, not both");
-        return false;
+        return writeError(TL("A stop must be defined either with an edge or with an lane, not both"));
     }
     // stopping places
     stop.busstop = attrs.getOpt<std::string>(SUMO_ATTR_BUS_STOP, nullptr, ok, "");
-    stop.busstop = attrs.getOpt<std::string>(SUMO_ATTR_TRAIN_STOP, nullptr, ok, stop.busstop);
+    if (stop.busstop.empty()) {
+        stop.busstop = attrs.getOpt<std::string>(SUMO_ATTR_TRAIN_STOP, nullptr, ok, stop.busstop);
+    }
     stop.chargingStation = attrs.getOpt<std::string>(SUMO_ATTR_CHARGING_STATION, nullptr, ok, "");
     stop.overheadWireSegment = attrs.getOpt<std::string>(SUMO_ATTR_OVERHEAD_WIRE_SEGMENT, nullptr, ok, "");
     stop.containerstop = attrs.getOpt<std::string>(SUMO_ATTR_CONTAINER_STOP, nullptr, ok, "");
@@ -956,11 +1250,9 @@ RouteHandler::parseStopParameters(SUMOVehicleParameter::Stop& stop, const SUMOSA
     const int numStoppingPlaces = !stop.busstop.empty() + !stop.chargingStation.empty() + !stop.overheadWireSegment.empty() +
                                   !stop.containerstop.empty() + !stop.parkingarea.empty();
     if (numStoppingPlaces > 1) {
-        WRITE_ERROR("A stop must be defined only in a StoppingPlace");
-        return false;
+        return writeError(TL("A stop must be defined only in a StoppingPlace"));
     } else if ((numStoppingPlaces == 0) && stop.edge.empty() && stop.lane.empty()) {
-        WRITE_ERROR("A stop must be defined in an edge, a lane, or in a StoppingPlace");
-        return false;
+        return writeError(TL("A stop must be defined in an edge, a lane, or in a StoppingPlace"));
     }
     // declare error suffix
     std::string errorSuffix;
@@ -982,14 +1274,13 @@ RouteHandler::parseStopParameters(SUMOVehicleParameter::Stop& stop, const SUMOSA
     // speed for counting as stopped
     stop.speed = attrs.getOpt<double>(SUMO_ATTR_SPEED, nullptr, ok, 0);
     if (stop.speed < 0) {
-        WRITE_ERROR("Speed cannot be negative for stop" + errorSuffix);
-        return false;
+        return writeError("Speed cannot be negative for stop" + errorSuffix);
     }
     // get the standing duration
     bool expectTrigger = !attrs.hasAttribute(SUMO_ATTR_DURATION) && !attrs.hasAttribute(SUMO_ATTR_UNTIL) && !attrs.hasAttribute(SUMO_ATTR_SPEED);
     std::vector<std::string> triggers = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_TRIGGERED, nullptr, ok);
     // legacy
-    if (attrs.getOpt<bool>(SUMO_ATTR_CONTAINER_TRIGGERED, nullptr, ok, false)) {
+    if (attrs.getOpt<bool>(SUMO_ATTR_CONTAINER_TRIGGERED, nullptr, ok, false) && !attrs.hasAttribute(SUMO_ATTR_SPEED)) {
         triggers.push_back(toString(SUMO_TAG_CONTAINER));
     };
     SUMOVehicleParameter::parseStopTriggers(triggers, expectTrigger, stop);
@@ -1000,8 +1291,7 @@ RouteHandler::parseStopParameters(SUMOVehicleParameter::Stop& stop, const SUMOSA
     stop.duration = attrs.getOptSUMOTimeReporting(SUMO_ATTR_DURATION, nullptr, ok, -1);
     stop.until = attrs.getOptSUMOTimeReporting(SUMO_ATTR_UNTIL, nullptr, ok, -1);
     if (!expectTrigger && (!ok || (stop.duration < 0 && stop.until < 0 && stop.speed == 0))) {
-        WRITE_ERROR("Invalid duration or end time is given for a stop" + errorSuffix);
-        return false;
+        return writeError("Invalid duration or end time is given for a stop" + errorSuffix);
     }
     stop.extension = attrs.getOptSUMOTimeReporting(SUMO_ATTR_EXTENSION, nullptr, ok, -1);
     const bool defaultParking = (stop.triggered || stop.containerTriggered || stop.parkingarea != "");
@@ -1011,8 +1301,7 @@ RouteHandler::parseStopParameters(SUMOVehicleParameter::Stop& stop, const SUMOSA
         stop.parking = ParkingType::OFFROAD;
     }
     if (!ok) {
-        WRITE_ERROR("Invalid bool for 'triggered', 'containerTriggered' or 'parking' for stop" + errorSuffix);
-        return false;
+        return writeError("Invalid bool for 'triggered', 'containerTriggered' or 'parking' for stop" + errorSuffix);
     }
     // expected persons
     const std::vector<std::string>& expected = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_EXPECTED, nullptr, ok);
@@ -1049,55 +1338,47 @@ RouteHandler::parseStopParameters(SUMOVehicleParameter::Stop& stop, const SUMOSA
     } else {
         stop.index = attrs.get<int>(SUMO_ATTR_INDEX, nullptr, ok);
         if (!ok || stop.index < 0) {
-            WRITE_ERROR("Invalid 'index' for stop" + errorSuffix);
-            return false;
+            return writeError("Invalid 'index' for stop" + errorSuffix);
         }
     }
     stop.started = attrs.getOptSUMOTimeReporting(SUMO_ATTR_STARTED, nullptr, ok, -1);
     stop.ended = attrs.getOptSUMOTimeReporting(SUMO_ATTR_ENDED, nullptr, ok, -1);
     stop.posLat = attrs.getOpt<double>(SUMO_ATTR_POSITION_LAT, nullptr, ok, INVALID_DOUBLE);
+    stop.actType = attrs.getOpt<std::string>(SUMO_ATTR_ACTTYPE, nullptr, ok, "");
+    stop.onDemand = attrs.getOpt<bool>(SUMO_ATTR_ONDEMAND, nullptr, ok, false);
+    stop.jump = attrs.getOptSUMOTimeReporting(SUMO_ATTR_JUMP, nullptr, ok, -1);
+    stop.jumpUntil = attrs.getOptSUMOTimeReporting(SUMO_ATTR_JUMP_UNTIL, nullptr, ok, -1);
     return true;
 }
 
 
 bool
-RouteHandler::isEmbeddedRoute(const SUMOSAXAttributes& attrs) const {
-    // check conditions
-    if (attrs.hasAttribute(SUMO_ATTR_ID)) {
-        return false;
-    } else if (myCommonXMLStructure.getCurrentSumoBaseObject()->getParentSumoBaseObject() == nullptr) {
-        return false;
-    } else if (myCommonXMLStructure.getCurrentSumoBaseObject()->getParentSumoBaseObject()->hasStringAttribute(SUMO_ATTR_ROUTE)) {
-        return false;
-    } else if (myCommonXMLStructure.getCurrentSumoBaseObject()->getParentSumoBaseObject()->getTag() == SUMO_TAG_FLOW) {
-        return true;
-    } else if (myCommonXMLStructure.getCurrentSumoBaseObject()->getParentSumoBaseObject()->getTag() == SUMO_TAG_VEHICLE) {
-        return true;
-    } else {
-        return false;
-    }
+RouteHandler::isOverFromToEdges(const CommonXMLStructure::SumoBaseObject* sumoBaseObject) const {
+    return sumoBaseObject->hasStringAttribute(SUMO_ATTR_FROM) && sumoBaseObject->hasStringAttribute(SUMO_ATTR_TO);
+}
+
+
+bool
+RouteHandler::isOverFromToJunctions(const CommonXMLStructure::SumoBaseObject* sumoBaseObject) const {
+    return sumoBaseObject->hasStringAttribute(SUMO_ATTR_FROM_JUNCTION) && sumoBaseObject->hasStringAttribute(SUMO_ATTR_TO_JUNCTION);
+}
+
+
+bool
+RouteHandler::isOverFromToTAZs(const CommonXMLStructure::SumoBaseObject* sumoBaseObject) const {
+    return sumoBaseObject->hasStringAttribute(SUMO_ATTR_FROM_TAZ) && sumoBaseObject->hasStringAttribute(SUMO_ATTR_TO_TAZ);
 }
 
 
 void
-RouteHandler::checkParent(const SumoXMLTag currentTag, const std::vector<SumoXMLTag>& parentTags, bool& ok) const {
-    // check that parent SUMOBaseObject's tag is the parentTag
-    const CommonXMLStructure::SumoBaseObject* parent = myCommonXMLStructure.getCurrentSumoBaseObject()->getParentSumoBaseObject();
-    // set parent string
-    std::string parentStrings;
-    for (const auto& tag : parentTags) {
-        if (tag == parentTags.back()) {
-            parentStrings.append(toString(tag));
-        } else {
-            parentStrings.append(toString(tag) + ", ");
-        }
+RouteHandler::adjustTypesAndProbabilities(std::vector<std::string>& vTypes, std::vector<double>& probabilities) {
+    // add more probabilities
+    for (size_t i = probabilities.size(); i < vTypes.size(); i++) {
+        probabilities.push_back(INVALID_DOUBLE);
     }
-    if ((parent != nullptr) &&
-            (parentTags.size() > 0) &&
-            (std::find(parentTags.begin(), parentTags.end(), parent->getTag()) == parentTags.end())) {
-        const std::string id = parent->hasStringAttribute(SUMO_ATTR_ID) ? ", id: '" + parent->getStringAttribute(SUMO_ATTR_ID) + "'" : "";
-        WRITE_ERROR("'" + toString(currentTag) + "' must be defined within the definition of a '" + parentStrings + "' (found '" + toString(parent->getTag()) + "'" + id + ").");
-        ok = false;
+    // reduce number of probabilities
+    while (vTypes.size() < probabilities.size()) {
+        probabilities.pop_back();
     }
 }
 

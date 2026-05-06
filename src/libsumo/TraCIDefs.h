@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2012-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -61,31 +61,32 @@ class Storage;
 
 #define LIBSUMO_SUBSCRIPTION_API \
 static void subscribe(const std::string& objectID, const std::vector<int>& varIDs = std::vector<int>({-1}), \
-                      double begin = libsumo::INVALID_DOUBLE_VALUE, double end = libsumo::INVALID_DOUBLE_VALUE, const libsumo::TraCIResults& params = libsumo::TraCIResults()); \
+                      double begin = libsumo::INVALID_DOUBLE_VALUE, double end = libsumo::INVALID_DOUBLE_VALUE, const libsumo::TraCIResults& parameters = libsumo::TraCIResults()); \
 static void unsubscribe(const std::string& objectID); \
 static void subscribeContext(const std::string& objectID, int domain, double dist, const std::vector<int>& varIDs = std::vector<int>({-1}), \
-                             double begin = libsumo::INVALID_DOUBLE_VALUE, double end = libsumo::INVALID_DOUBLE_VALUE, const libsumo::TraCIResults& params = libsumo::TraCIResults()); \
+                             double begin = libsumo::INVALID_DOUBLE_VALUE, double end = libsumo::INVALID_DOUBLE_VALUE, const libsumo::TraCIResults& parameters = libsumo::TraCIResults()); \
 static void unsubscribeContext(const std::string& objectID, int domain, double dist); \
 static const libsumo::SubscriptionResults getAllSubscriptionResults(); \
 static const libsumo::TraCIResults getSubscriptionResults(const std::string& objectID); \
 static const libsumo::ContextSubscriptionResults getAllContextSubscriptionResults(); \
 static const libsumo::SubscriptionResults getContextSubscriptionResults(const std::string& objectID); \
 static void subscribeParameterWithKey(const std::string& objectID, const std::string& key, double beginTime = libsumo::INVALID_DOUBLE_VALUE, double endTime = libsumo::INVALID_DOUBLE_VALUE); \
-static const int DOMAIN_ID;
+static const int DOMAIN_ID; \
+static int domainID() { return DOMAIN_ID; }
 
 #define LIBSUMO_SUBSCRIPTION_IMPLEMENTATION(CLASS, DOM) \
 const int CLASS::DOMAIN_ID(libsumo::CMD_GET_##DOM##_VARIABLE); \
 void \
-CLASS::subscribe(const std::string& objectID, const std::vector<int>& varIDs, double begin, double end, const libsumo::TraCIResults& params) { \
-    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOM##_VARIABLE, objectID, varIDs, begin, end, params); \
+CLASS::subscribe(const std::string& objectID, const std::vector<int>& varIDs, double begin, double end, const libsumo::TraCIResults& parameters) { \
+    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOM##_VARIABLE, objectID, varIDs, begin, end, parameters); \
 } \
 void \
 CLASS::unsubscribe(const std::string& objectID) { \
     libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOM##_VARIABLE, objectID, std::vector<int>(), libsumo::INVALID_DOUBLE_VALUE, libsumo::INVALID_DOUBLE_VALUE, libsumo::TraCIResults()); \
 } \
 void \
-CLASS::subscribeContext(const std::string& objectID, int domain, double dist, const std::vector<int>& varIDs, double begin, double end, const TraCIResults& params) { \
-    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOM##_CONTEXT, objectID, varIDs, begin, end, params, domain, dist); \
+CLASS::subscribeContext(const std::string& objectID, int domain, double dist, const std::vector<int>& varIDs, double begin, double end, const TraCIResults& parameters) { \
+    libsumo::Helper::subscribe(libsumo::CMD_SUBSCRIBE_##DOM##_CONTEXT, objectID, varIDs, begin, end, parameters, domain, dist); \
 } \
 void \
 CLASS::unsubscribeContext(const std::string& objectID, int domain, double dist) { \
@@ -116,14 +117,20 @@ CLASS::subscribeParameterWithKey(const std::string& objectID, const std::string&
 #define LIBSUMO_ID_PARAMETER_API \
 static std::vector<std::string> getIDList(); \
 static int getIDCount(); \
-static std::string getParameter(const std::string& objectID, const std::string& param); \
+static std::string getParameter(const std::string& objectID, const std::string& key); \
 static const std::pair<std::string, std::string> getParameterWithKey(const std::string& objectID, const std::string& key); \
-static void setParameter(const std::string& objectID, const std::string& param, const std::string& value);
+static void setParameter(const std::string& objectID, const std::string& key, const std::string& value);
 
 #define LIBSUMO_GET_PARAMETER_WITH_KEY_IMPLEMENTATION(CLASS) \
 const std::pair<std::string, std::string> \
 CLASS::getParameterWithKey(const std::string& objectID, const std::string& key) { \
     return std::make_pair(key, getParameter(objectID, key)); \
+}
+
+
+#define SWIGJAVA_CAST(CLASS) \
+static std::shared_ptr<CLASS> cast(std::shared_ptr<TraCIResult> res) { \
+    return std::dynamic_pointer_cast<CLASS>(res); \
 }
 
 
@@ -167,31 +174,46 @@ struct TraCIResult {
 };
 
 /** @struct TraCIPosition
- * @brief A 3D-position
+ * @brief A 2D or 3D-position, for 2D positions z == INVALID_DOUBLE_VALUE
  */
 struct TraCIPosition : TraCIResult {
-    std::string getString() const {
+    std::string getString() const override {
         std::ostringstream os;
-        os << "TraCIPosition(" << x << "," << y << "," << z << ")";
+        os << "TraCIPosition(" << x << "," << y;
+        if (z != INVALID_DOUBLE_VALUE) {
+            os << "," << z;
+        }
+        os << ")";
         return os.str();
     }
+    int getType() const override {
+        return z != INVALID_DOUBLE_VALUE ? POSITION_3D : POSITION_2D;
+    }
     double x = INVALID_DOUBLE_VALUE, y = INVALID_DOUBLE_VALUE, z = INVALID_DOUBLE_VALUE;
+#ifdef SWIGJAVA
+    SWIGJAVA_CAST(TraCIPosition)
+#endif
 };
 
 /** @struct TraCIRoadPosition
  * @brief An edgeId, position and laneIndex
  */
 struct TraCIRoadPosition : TraCIResult {
-    TraCIRoadPosition() {}
-    TraCIRoadPosition(const std::string e, const double p) : edgeID(e), pos(p) {}
-    std::string getString() const {
+    TraCIRoadPosition(const std::string e = "", const double p = INVALID_DOUBLE_VALUE, const int li = INVALID_INT_VALUE) : edgeID(e), pos(p), laneIndex(li) {}
+    std::string getString() const override {
         std::ostringstream os;
         os << "TraCIRoadPosition(" << edgeID << "_" << laneIndex << "," << pos << ")";
         return os.str();
     }
-    std::string edgeID = "";
-    double pos = INVALID_DOUBLE_VALUE;
-    int laneIndex = INVALID_INT_VALUE;
+    int getType() const override {
+        return POSITION_ROADMAP;
+    }
+    std::string edgeID;
+    double pos;
+    int laneIndex;
+#ifdef SWIGJAVA
+    SWIGJAVA_CAST(TraCIRoadPosition)
+#endif
 };
 
 /** @struct TraCIColor
@@ -200,12 +222,15 @@ struct TraCIRoadPosition : TraCIResult {
 struct TraCIColor : TraCIResult {
     TraCIColor() : r(0), g(0), b(0), a(255) {}
     TraCIColor(int r, int g, int b, int a = 255) : r(r), g(g), b(b), a(a) {}
-    std::string getString() const {
+    std::string getString() const override {
         std::ostringstream os;
         os << "TraCIColor(" << r << "," << g << "," << b << "," << a << ")";
         return os.str();
     }
     int r, g, b, a;
+#ifdef SWIGJAVA
+    SWIGJAVA_CAST(TraCIColor)
+#endif
 };
 
 
@@ -213,7 +238,7 @@ struct TraCIColor : TraCIResult {
  * @brief A list of positions
  */
 struct TraCIPositionVector : TraCIResult {
-    std::string getString() const {
+    std::string getString() const override {
         std::ostringstream os;
         os << "[";
         for (const TraCIPosition& v : value) {
@@ -223,51 +248,64 @@ struct TraCIPositionVector : TraCIResult {
         return os.str();
     }
     std::vector<TraCIPosition> value;
+#ifdef SWIGJAVA
+    SWIGJAVA_CAST(TraCIPositionVector)
+#endif
 };
 
 
 struct TraCIInt : TraCIResult {
-    TraCIInt() : value(0) {}
-    TraCIInt(int v) : value(v) {}
-    std::string getString() const {
+    TraCIInt(int v = 0, int t = libsumo::TYPE_INTEGER) : value(v), traciType(t) {}
+    std::string getString() const override {
         std::ostringstream os;
         os << value;
         return os.str();
     }
+    int getType() const override {
+        return traciType;
+    }
     int value;
+    int traciType;
+#ifdef SWIGJAVA
+    SWIGJAVA_CAST(TraCIInt)
+#endif
 };
 
 
 struct TraCIDouble : TraCIResult {
-    TraCIDouble() : value(0.) {}
-    TraCIDouble(double v) : value(v) {}
-    std::string getString() const {
+    TraCIDouble(double v = 0.) : value(v) {}
+    std::string getString() const override {
         std::ostringstream os;
         os << value;
         return os.str();
     }
-    int getType() const {
+    int getType() const override {
         return libsumo::TYPE_DOUBLE;
     }
     double value;
+#ifdef SWIGJAVA
+    SWIGJAVA_CAST(TraCIDouble)
+#endif
 };
 
 
 struct TraCIString : TraCIResult {
-    TraCIString() : value("") {}
-    TraCIString(std::string v) : value(v) {}
-    std::string getString() const {
+    TraCIString(std::string v = "") : value(v) {}
+    std::string getString() const override {
         return value;
     }
-    int getType() const {
+    int getType() const override {
         return libsumo::TYPE_STRING;
     }
     std::string value;
+#ifdef SWIGJAVA
+    SWIGJAVA_CAST(TraCIString)
+#endif
 };
 
 
 struct TraCIStringList : TraCIResult {
-    std::string getString() const {
+    std::string getString() const override {
         std::ostringstream os;
         os << "[";
         for (std::string v : value) {
@@ -277,11 +315,14 @@ struct TraCIStringList : TraCIResult {
         return os.str();
     }
     std::vector<std::string> value;
+#ifdef SWIGJAVA
+    SWIGJAVA_CAST(TraCIStringList)
+#endif
 };
 
 
 struct TraCIDoubleList : TraCIResult {
-    std::string getString() const {
+    std::string getString() const override {
         std::ostringstream os;
         os << "[";
         for (double v : value) {
@@ -291,6 +332,43 @@ struct TraCIDoubleList : TraCIResult {
         return os.str();
     }
     std::vector<double> value;
+#ifdef SWIGJAVA
+    SWIGJAVA_CAST(TraCIDoubleList)
+#endif
+};
+
+
+struct TraCIIntList : TraCIResult {
+    std::string getString() const override {
+        std::ostringstream os;
+        os << "[";
+        for (int v : value) {
+            os << v << ",";
+        }
+        os << "]";
+        return os.str();
+    }
+    std::vector<int> value;
+#ifdef SWIGJAVA
+    SWIGJAVA_CAST(TraCIIntList)
+#endif
+};
+
+
+struct TraCIStringDoublePairList : TraCIResult {
+    std::string getString() const override {
+        std::ostringstream os;
+        os << "[";
+        for (const auto& v : value) {
+            os << "(" << v.first << "," << v.second << "),";
+        }
+        os << "]";
+        return os.str();
+    }
+    std::vector<std::pair<std::string, double> > value;
+#ifdef SWIGJAVA
+    SWIGJAVA_CAST(TraCIStringDoublePairList)
+#endif
 };
 
 
@@ -301,14 +379,14 @@ typedef std::map<std::string, libsumo::TraCIResults> SubscriptionResults;
 typedef std::map<std::string, libsumo::SubscriptionResults> ContextSubscriptionResults;
 
 
-class TraCIPhase {
-public:
+struct TraCIPhase {
     TraCIPhase() {}
     TraCIPhase(const double _duration, const std::string& _state, const double _minDur = libsumo::INVALID_DOUBLE_VALUE,
                const double _maxDur = libsumo::INVALID_DOUBLE_VALUE,
                const std::vector<int>& _next = std::vector<int>(),
-               const std::string& _name = "") :
-        duration(_duration), state(_state), minDur(_minDur), maxDur(_maxDur), next(_next), name(_name) {}
+               const std::string& _name = "",
+               const std::string& _earlyTarget = "") :
+        duration(_duration), state(_state), minDur(_minDur), maxDur(_maxDur), next(_next), name(_name), earlyTarget(_earlyTarget) {}
     ~TraCIPhase() {}
 
     double duration;
@@ -316,6 +394,7 @@ public:
     double minDur, maxDur;
     std::vector<int> next;
     std::string name;
+    std::string earlyTarget;
 };
 }
 
@@ -326,13 +405,18 @@ public:
 
 
 namespace libsumo {
-class TraCILogic {
-public:
+struct TraCILogic {
     TraCILogic() {}
     TraCILogic(const std::string& _programID, const int _type, const int _currentPhaseIndex,
                const std::vector<std::shared_ptr<libsumo::TraCIPhase> >& _phases = std::vector<std::shared_ptr<libsumo::TraCIPhase> >())
         : programID(_programID), type(_type), currentPhaseIndex(_currentPhaseIndex), phases(_phases) {}
     ~TraCILogic() {}
+
+    std::string getString() const {
+        std::ostringstream os;
+        os << "TraCILink(" << programID << "," << type << "," << currentPhaseIndex << ")";
+        return os.str();
+    }
 
     std::string programID;
     int type;
@@ -342,12 +426,32 @@ public:
 };
 
 
-class TraCILink {
-public:
+struct TraCILogicVectorWrapped : TraCIResult {
+    std::string getString() const override {
+        std::ostringstream os;
+        os << "TraCILogicVectorWrapped[";
+        for (const TraCILogic& v : value) {
+            os << v.getString() << ",";
+        }
+        os << "]";
+        return os.str();
+    }
+
+    std::vector<TraCILogic> value;
+};
+
+
+struct TraCILink {
     TraCILink() {}
     TraCILink(const std::string& _from, const std::string& _via, const std::string& _to)
         : fromLane(_from), viaLane(_via), toLane(_to) {}
     ~TraCILink() {}
+
+    std::string getString() const {
+        std::ostringstream os;
+        os << "TraCILink(" << fromLane << "," << viaLane << "," << toLane << ")";
+        return os.str();
+    }
 
     std::string fromLane;
     std::string viaLane;
@@ -355,14 +459,38 @@ public:
 };
 
 
-class TraCIConnection {
-public:
+struct TraCILinkVectorVectorWrapped : TraCIResult {
+    std::string getString() const override {
+        std::ostringstream os;
+        os << "TraCILinkVectorVectorWrapped[";
+        for (const std::vector<TraCILink>& v : value) {
+            os << "[";
+            for (const TraCILink& tl : v) {
+                os << tl.getString() << ",";
+            }
+        }
+        os << "]";
+        return os.str();
+    }
+
+    std::vector<std::vector<TraCILink> > value;
+};
+
+
+struct TraCIConnection {
     TraCIConnection() {} // this is needed by SWIG when building a vector of this type, please don't use it
     TraCIConnection(const std::string& _approachedLane, const bool _hasPrio, const bool _isOpen, const bool _hasFoe,
                     const std::string _approachedInternal, const std::string _state, const std::string _direction, const double _length)
         : approachedLane(_approachedLane), hasPrio(_hasPrio), isOpen(_isOpen), hasFoe(_hasFoe),
           approachedInternal(_approachedInternal), state(_state), direction(_direction), length(_length) {}
     ~TraCIConnection() {}
+
+    std::string getString() const {
+        std::ostringstream os;
+        os << "TraCIConnection(" << approachedLane << "," << hasPrio << "," << isOpen
+           << "," << hasFoe << "," << approachedInternal << "," << state << "," << direction << "," << length << ")";
+        return os.str();
+    }
 
     std::string approachedLane;
     bool hasPrio;
@@ -375,8 +503,30 @@ public:
 };
 
 
+struct TraCIConnectionVectorWrapped : TraCIResult {
+    std::string getString() const override {
+        std::ostringstream os;
+        os << "TraCIConnectionVectorWrapped[";
+        for (const TraCIConnection& v : value) {
+            os << v.getString() << ",";
+        }
+        os << "]";
+        return os.str();
+    }
+
+    std::vector<TraCIConnection> value;
+};
+
+
 /// @brief mirrors MSInductLoop::VehicleData
 struct TraCIVehicleData {
+    std::string getString() const {
+        std::ostringstream os;
+        os << "TraCIVehicleData(" << id << "," << length << "," << entryTime
+           << "," << leaveTime << "," << typeID << ")";
+        return os.str();
+    }
+
     /// @brief The id of the vehicle
     std::string id;
     /// @brief Length of the vehicle
@@ -390,7 +540,29 @@ struct TraCIVehicleData {
 };
 
 
+struct TraCIVehicleDataVectorWrapped : TraCIResult {
+    std::string getString() const override {
+        std::ostringstream os;
+        os << "TraCIVehicleDataVectorWrapped[";
+        for (const TraCIVehicleData& v : value) {
+            os << v.getString() << ",";
+        }
+        os << "]";
+        return os.str();
+    }
+
+    std::vector<TraCIVehicleData> value;
+};
+
+
 struct TraCINextTLSData {
+    std::string getString() const {
+        std::ostringstream os;
+        os << "TraCINextTLSData(" << id << "," << tlIndex << "," << dist
+           << "," << state << ")";
+        return os.str();
+    }
+
     /// @brief The id of the next tls
     std::string id;
     /// @brief The tls index of the controlled link
@@ -402,7 +574,22 @@ struct TraCINextTLSData {
 };
 
 
-struct TraCINextStopData : TraCIResult {
+struct TraCINextTLSDataVectorWrapped : TraCIResult {
+    std::string getString() const override {
+        std::ostringstream os;
+        os << "TraCINextTLSDataVectorWrapped[";
+        for (const TraCINextTLSData& v : value) {
+            os << v.getString() << ",";
+        }
+        os << "]";
+        return os.str();
+    }
+
+    std::vector<TraCINextTLSData> value;
+};
+
+
+struct TraCINextStopData {
 
     TraCINextStopData(const std::string& lane = "",
                       double startPos = INVALID_DOUBLE_VALUE,
@@ -481,15 +668,15 @@ struct TraCINextStopData : TraCIResult {
 };
 
 
-/** @struct TraCINextStopDataVector
+/** @struct TraCINextStopDataVectorWrapped
  * @brief A list of vehicle stops
  * @see TraCINextStopData
  */
-struct TraCINextStopDataVector : TraCIResult {
-    std::string getString() const {
+struct TraCINextStopDataVectorWrapped : TraCIResult {
+    std::string getString() const override {
         std::ostringstream os;
-        os << "TraCINextStopDataVector[";
-        for (TraCINextStopData v : value) {
+        os << "TraCINextStopDataVectorWrapped[";
+        for (const TraCINextStopData& v : value) {
             os << v.getString() << ",";
         }
         os << "]";
@@ -501,6 +688,17 @@ struct TraCINextStopDataVector : TraCIResult {
 
 
 struct TraCIBestLanesData {
+    std::string getString() const {
+        std::ostringstream os;
+        os << "TraCIBestLanesData(" << laneID << "," << length << "," << occupation
+           << "," << bestLaneOffset << "," << allowsContinuation << ",[";
+        for (const std::string& s : continuationLanes) {
+            os << s << ",";
+        }
+        os << "])";
+        return os.str();
+    }
+
     /// @brief The id of the lane
     std::string laneID;
     /// @brief The length than can be driven from that lane without lane change
@@ -516,7 +714,22 @@ struct TraCIBestLanesData {
 };
 
 
-class TraCIStage {
+struct TraCIBestLanesDataVectorWrapped : TraCIResult {
+    std::string getString() const override {
+        std::ostringstream os;
+        os << "TraCIBestLanesDataVectorWrapped[";
+        for (const TraCIBestLanesData& v : value) {
+            os << v.getString() << ",";
+        }
+        os << "]";
+        return os.str();
+    }
+
+    std::vector<TraCIBestLanesData> value;
+};
+
+
+struct TraCIStage : TraCIResult {
 public:
     TraCIStage(int type = INVALID_INT_VALUE, const std::string& vType = "", const std::string& line = "", const std::string& destStop = "",
                const std::vector<std::string>& edges = std::vector<std::string>(),
@@ -555,8 +768,7 @@ public:
 
 
 
-class TraCIReservation {
-public:
+struct TraCIReservation {
     TraCIReservation() {}
     TraCIReservation(const std::string& id,
                      const std::vector<std::string>& persons,
@@ -590,7 +802,29 @@ public:
     double reservationTime;
     /// @brief the state of this reservation
     int state;
+
+    std::string getString() const {
+        std::ostringstream os;
+        os << "TraCIReservation(id=" << id << ")";
+        return os.str();
+    }
 };
+
+
+struct TraCIReservationVectorWrapped : TraCIResult {
+    std::string getString() const override {
+        std::ostringstream os;
+        os << "TraCIReservationVectorWrapped[";
+        for (const TraCIReservation& v : value) {
+            os << v.getString() << ",";
+        }
+        os << "]";
+        return os.str();
+    }
+
+    std::vector<TraCIReservation> value;
+};
+
 
 struct TraCICollision {
     /// @brief The ids of the participating vehicles and persons
@@ -606,6 +840,27 @@ struct TraCICollision {
     std::string lane;
     /// @brief The position of the collision along the lane
     double pos;
+
+    std::string getString() const {
+        std::ostringstream os;
+        os << "TraCICollision(collider=" << collider << ", victim=" << victim << ")";
+        return os.str();
+    }
+};
+
+
+struct TraCICollisionVectorWrapped : TraCIResult {
+    std::string getString() const override {
+        std::ostringstream os;
+        os << "TraCICollisionVectorWrapped[";
+        for (const TraCICollision& v : value) {
+            os << v.getString() << ",";
+        }
+        os << "]";
+        return os.str();
+    }
+
+    std::vector<TraCICollision> value;
 };
 
 
@@ -626,6 +881,8 @@ struct TraCISignalConstraint {
     bool mustWait;
     /// @brief whether this constraint is active
     bool active;
+    /// @brief additional parameters
+    std::map<std::string, std::string> param;
 
     std::string getString() const {
         std::ostringstream os;
@@ -633,6 +890,57 @@ struct TraCISignalConstraint {
         return os.str();
     }
 };
+
+
+struct TraCISignalConstraintVectorWrapped : TraCIResult {
+    std::string getString() const override {
+        std::ostringstream os;
+        os << "TraCISignalConstraintVectorWrapped[";
+        for (const TraCISignalConstraint& v : value) {
+            os << v.getString() << ",";
+        }
+        os << "]";
+        return os.str();
+    }
+
+    std::vector<TraCISignalConstraint> value;
+};
+
+
+struct TraCIJunctionFoe {
+    /// @brief the id of the vehicle with intersecting trajectory
+    std::string foeId;
+    double egoDist;
+    double foeDist;
+    double egoExitDist;
+    double foeExitDist;
+    std::string egoLane;
+    std::string foeLane;
+    bool egoResponse;
+    bool foeResponse;
+
+    std::string getString() const {
+        std::ostringstream os;
+        os << "TraCIJunctionFoe(foeId=" << foeId << ", egoDist=" << egoDist << ", foeDist=" << foeDist << ", foeDist=" << foeDist << ")";
+        return os.str();
+    }
+};
+
+
+struct TraCIJunctionFoeVectorWrapped : TraCIResult {
+    std::string getString() const override {
+        std::ostringstream os;
+        os << "TraCIJunctionFoeVectorWrapped[";
+        for (const TraCIJunctionFoe& v : value) {
+            os << v.getString() << ",";
+        }
+        os << "]";
+        return os.str();
+    }
+
+    std::vector<TraCIJunctionFoe> value;
+};
+
 
 }
 

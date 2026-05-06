@@ -11,14 +11,23 @@ parkingArea_onRoad
 # skip stops if possible
 onDemand
 
-# test invalid stop definitions
-errors
+# routes and trips with intentional gaps
+jumps
+
+# adapt speed in response to known stop arrival time
+arrival
 
 # Tests whether stops can be handled
 simple_stop
 
 # define stop at start of edge
 close_to_start
+
+# define stop at start of edge
+very_close_to_start
+
+# stop on position 0 of a lane
+at_start
 
 # tests  behavior when duration 0 is set
 duration_0
@@ -50,9 +59,6 @@ second_near_end1
 # As second_near_end1, but the last stop is on a lane which can not be used to continue the route
 second_near_end2
 
-# stop on position 0 of a lane
-at_start
-
 # Tests whether stopped vehicles can be overtaken
 overtaking
 
@@ -64,7 +70,6 @@ teleport_across_stopped
 
 # waiting for the stop to be free
 occupied
-simple_stop_expecting2
 
 # teleport should remove stops from the list
 teleport
@@ -80,6 +85,15 @@ looped_route
 # later stop is before previous stop edge and must be used on the second time it is reached
 looped_route2
 
+# stop edge is passed multiple times but vehicle doesn't stop on every iteration
+looped_skip
+
+# stop edge is passed multiple times but vehicle doesn't stop on every iteration (cannot skip enough)
+looped_skip_warn
+
+# stop edge is passed multiple times but vehicle doesn't stop on every iteration (cannot skip enough), no warning because the route doesn't even loop
+looped_skip_noWarn
+
 # public-transport-style stops:
 # - with until-attribute 
 # - inside a stand-alone route
@@ -91,6 +105,9 @@ busstop_stopping_position_assignment
 
 # test defining a custom stop position at a long busStop
 busstop_customPos
+
+# test behavior at busStop if last free pos is jammed
+busstop_jammed
 
 # long stopping times should not trigger teleport, but teleports should possible after the stop
 long_stop

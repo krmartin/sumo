@@ -1,5 +1,14 @@
 # go on even if the route is defect
 ignore_errors
+
+# keep valid input and remove invalid
+ignore_errors2
+
+# loaded route with disallowed edges
+ignore_errors3
+
+# loaded route with disallowed edges
+ignore_errors3_skip
 ignore_errors_invalid_depart_edge
 
 # randomize edge weights
@@ -29,3 +38,6 @@ skip_routing
 
 # keep some or all of the old routes
 keep_routes
+
+# test options that affect estimated travel times
+penalty

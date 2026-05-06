@@ -17,14 +17,12 @@ using command line options, the others have to be defined within {{AdditionalFil
 
 ## Converting Outputs
 
-All output files written by SUMO are in XML-format by default. However,
-with the python tool [xml2csv.py](../../Tools/Xml.md#xml2csvpy) you
-can convert any of them to a flat-file (CSV) format which can be opened
-with most spread-sheet software. If you need a more compressed but still
-"standardized" binary version, you can use
-[xml2protobuf.py](../../Tools/Xml.md#xml2protobufpy). Furthermore all
-files can be written and read in compressed form (gzip) which is triggered by the
-file extension .gz.
+All output files written by SUMO are in XML-format by default. However, by setting the file extension *.csv* or *.parqet* files will instead by written [tabular output](../../TabularOutputs.md) instead.
+It is also possible to convert existing XML output files with the python tool [xml2csv.py](../../Tools/Xml.md#xml2csvpy) to a flat-file (CSV) format which can be opened
+with most spread-sheet software. 
+
+The file endings *.xml.gz* or *.csv.gz* will automatically switch to gzip-compressed output files.
+Note, that *.xml.gz* files are also accepted as input by all SUMO applications.
 
 ## Separating outputs of repeated runs
 
@@ -41,18 +39,14 @@ found by following its link.
 
 ## vehicle-based information, disaggregated
 
-- [raw vehicle positions dump](RawDump.md):
-  all vehicle positions over time
-  *contains*: positions and speeds for all vehicles for all simulated
-  time steps
-  *used for*: obtaining movements of nodes (V2V, for ns-2)
+
 - [emission output](EmissionOutput.md):
   emission values of all vehicles for every simulation step
 - [full output](FullOutput.md): various
-  informations for all edges, lanes and vehicles (good for
-  visualisation purposes)
+  information for all edges, lanes and vehicles (good for
+  visualization purposes)
 - [vtk output](VTKOutput.md): generates
-  Files in the well known [VTK](http://www.vtk.org/) (Visualization
+  Files in the well known [VTK](https://www.vtk.org/) (Visualization
   Toolkit) format, to show the positions the speed value for every
   vehicle
 - [fcd output](FCDOutput.md): Floating Car
@@ -69,6 +63,12 @@ found by following its link.
 - [vehicle type probe](VTypeProbe.md):
   positions of vehicles over time for a certain vehicle type
   (deprecated, use vType filters with FCD-output instead)
+- [raw vehicle positions dump](RawDump.md):
+  all vehicle positions over time
+  *contains*: positions and speeds for all vehicles for all simulated
+  time steps
+  *used for*: obtaining movements of nodes (V2V, for ns-2)
+  **caution: this output deprecated in favor of fcd-output**
 
 ## simulated detectors
 
@@ -115,7 +115,7 @@ There is no dedicated output format for traffic at junctions. Instead junction r
   or separate the approaching edges and to include or exclude the
   junction interior. (area-based detection on edges)
 
-Alternatively, the [values for edges or lanes](#values_for_edges_or_lanes) can be manually aggregated to obtain the flow at at a junction.
+Alternatively, the [values for edges or lanes](#values_for_edges_or_lanes) can be aggregated to obtain the flow at a junction by using edgeData attribute `edges` and `aggregate="true"`.
 
 ## vehicle-based information
 
@@ -127,7 +127,7 @@ Alternatively, the [values for edges or lanes](#values_for_edges_or_lanes) can b
   about each vehicle's routes over simulation run
 - [stop output](StopOutput.md): information
   about vehicle
-  [stops](../../Definition_of_Vehicles,_Vehicle_Types,_and_Routes.md#stops)
+  [stops](../../Definition_of_Vehicles,_Vehicle_Types,_and_Routes.md#stops_and_waypoints)
   and loading/unloading of persons and containers
 - [battery usage](../../Models/Electric.md#battery-output):
   information about battery state for electric vehicles
@@ -136,9 +136,9 @@ Alternatively, the [values for edges or lanes](#values_for_edges_or_lanes) can b
 
 ## simulation(network)-based information
 
-- [simulation state statistics](Summary.md):
+- [simulation state summary statistics](Summary.md):
   information about the current state of the simulation (vehicle count etc.)
-- [simulation state person statistics](PersonSummary.md):
+- [simulation state person summary statistics](PersonSummary.md):
   information about the current state of persons the simulation (person count etc.)
 - [statistic output](StatisticOutput.md):
   overall statistics of the simulation (vehicles, teleports, safety, persons, vehicleTripStatistics, rideStatistics, etc.)
@@ -153,7 +153,8 @@ Alternatively, the [values for edges or lanes](#values_for_edges_or_lanes) can b
 - [traffic light states, by switch](Traffic_Lights.md#tls_switch_states):
   information about the states (lights) of a traffic light signal,
   written only when changed
-- [areal detectors coupled to tls](Traffic_Lights.md#coupled_areal_detectors):
+- [recorded programs](Traffic_Lights.md#tls_programs): Stores the sequence of states as a [static](../Traffic_Lights.md#traffic_lights_with_fixed_timing) signal program which can be loaded and re-run.
+- [lane area detectors coupled to tls](Traffic_Lights.md#coupled_lane_area_detectors):
   simulated vehicle tracking cameras triggered by tls
 
 ## Additional Debugging Outputs
@@ -191,7 +192,7 @@ By default, sumo will print some "heartbeat" information to indicate that it is 
 - **ACT**: number of currently running vehicles
 - **BUF**: number of vehicles with delayed insertion
 
-This output can be disabled with the option **--no-step-log**. It's period can be configured with the option **--step-log.period TIME**.
+This output can be disabled with the option **--no-step-log**. Its period can be configured with the option **--step-log.period TIME**.
 
 # Commandline Output (verbose)
 
@@ -243,7 +244,7 @@ If the simulation contained persons the following output will be added:
   time*. If one hour is simulated in 360 seconds the real time factor
   is 10.
 - UPS: (updates per second). The number of vehicle updates that were
-  performed on average per second of computation time. If a single 
+  performed on average per second of computation time. If a single
   vehicle update takes on average one millisecond, this will be 1000.
 
 If routing took place in the simulation, Each routing algorithm instance
@@ -302,7 +303,7 @@ following output will be added:
 - Aborted rides: rides that could not be completed because no suitable
   vehicle was available
 
-You can also take a look at [statistic output](StatisticOutput.md) for a more overall statistics of the entire simulation, including those mentioned above and additional ones safety-, ride- and transport-related. 
+You can also take a look at [statistic output](StatisticOutput.md) for a more overall statistics of the entire simulation, including those mentioned above and additional ones safety-, ride- and transport-related.
 
 When setting this option and using [sumo-gui](../../sumo-gui.md), the
 network parameter dialog will also show a running average for these

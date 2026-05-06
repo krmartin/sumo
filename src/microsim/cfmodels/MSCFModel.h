@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -25,7 +25,9 @@
 
 #include <cmath>
 #include <string>
+#include <vector>
 #include <utils/common/StdDefs.h>
+#include <utils/common/LinearApproxHelpers.h>
 #include <utils/common/SUMOTime.h>
 
 #define INVALID_SPEED 299792458 + 1 // nothing can go faster than the speed of light!
@@ -108,6 +110,9 @@ public:
     /// @brief apply speed adaptation on startup
     virtual double applyStartupDelay(const MSVehicle* veh, const double vMin, const double vMax, const SUMOTime addTime = 0) const;
 
+    /// @brief Get current interpolated value from a profile
+    virtual double interpolateProfile(const double speed, const std::vector<std::pair<double, double> > profile) const;
+
 
     /** @brief Computes the vehicle's safe speed without a leader
      *
@@ -131,7 +136,7 @@ public:
      * Returns the velocity of the vehicle in dependence to the vehicle's and its leader's values and the distance between them.
      * @param[in] veh The vehicle (EGO)
      * @param[in] speed The vehicle's speed
-     * @param[in] gap2pred The (netto) distance to the LEADER
+     * @param[in] gap2pred The (net) distance to the LEADER
      * @param[in] predSpeed The speed of LEADER
      * @param[in] usage What the return value is used for
      * @return EGO's safe speed
@@ -148,7 +153,7 @@ public:
      * Returns the velocity of the vehicle in dependence to the vehicle's and its leader's values and the distance between them.
      * @param[in] veh The vehicle (EGO)
      * @param[in] speed The vehicle's speed
-     * @param[in] gap2pred The (netto) distance to the LEADER
+     * @param[in] gap2pred The (net) distance to the LEADER
      * @param[in] predSpeed The speed of LEADER
      * @return EGO's safe speed
      */
@@ -160,7 +165,7 @@ public:
      * Returns the velocity of the vehicle when approaching a static object (such as the end of a lane) assuming no reaction time is needed.
      * @param[in] veh The vehicle (EGO)
      * @param[in] speed The vehicle's speed
-     * @param[in] gap The (netto) distance to the the obstacle
+     * @param[in] gap The (net) distance to the obstacle
      * @param[in] usage What the return value is used for
      * @return EGO's safe speed for approaching a non-moving obstacle
      * @todo generic Interface, models can call for the values they need
@@ -174,7 +179,7 @@ public:
      * Returns the velocity of the vehicle when approaching a static object (such as the end of a lane) assuming no reaction time is needed.
      * @param[in] veh The vehicle (EGO)
      * @param[in] speed The vehicle's speed
-     * @param[in] gap The (netto) distance to the the obstacle
+     * @param[in] gap The (net) distance to the obstacle
      * @param[in] decel The desired deceleration rate
      * @param[in] usage What the return value is used for
      * @return EGO's safe speed for approaching a non-moving obstacle
@@ -187,7 +192,7 @@ public:
      *         due to acceleration capabilities and previous speeds.
      * @param[in] veh The vehicle (EGO)
      * @param[in] speed The vehicle's speed
-     * @param[in] gap The (netto) distance to the the obstacle
+     * @param[in] gap The (net) distance to the obstacle
      * @return EGO's safe speed for approaching a non-moving obstacle at insertion
      * @see stopSpeed() and insertionFollowSpeed()
      *
@@ -199,9 +204,9 @@ public:
      * Returns the velocity of the vehicle in dependence to the vehicle's and its leader's values and the distance between them.
      * @param[in] veh The vehicle (EGO)
      * @param[in] speed The vehicle's speed
-     * @param[in] gap2pred The (netto) distance to the LEADER
+     * @param[in] gap2pred The (net) distance to the LEADER
      * @param[in] predSpeed The speed of LEADER
-     * @param[in] predMaxDecel The maximum leader decelration
+     * @param[in] predMaxDecel The maximum leader deceleration
      * @return EGO's safe speed
      */
     virtual double followSpeedTransient(double duration, const MSVehicle* const veh, double speed, double gap2pred, double predSpeed, double predMaxDecel) const;
@@ -221,8 +226,10 @@ public:
      * @param[in] maxSpeed The maximum achievable speed in the next step
      * @param[in] maxSpeedLane The maximum speed the vehicle wants to drive on this lane (Speedlimit*SpeedFactor)
      */
-    virtual double maximumLaneSpeedCF(double maxSpeed, double maxSpeedLane) const {
-        return MIN2(maxSpeed, maxSpeedLane);
+    virtual double maximumLaneSpeedCF(const MSVehicle* const veh, double maxSpeed, double maxSpeedLane) const {
+        double result = MIN2(maxSpeed, maxSpeedLane);
+        applyOwnSpeedPerceptionError(veh, result);
+        return result;
     }
 
 
@@ -264,7 +271,7 @@ public:
     }
 
 
-    /** @brief Get the vehicle type's maximal phisically possible deceleration [m/s^2]
+    /** @brief Get the vehicle type's maximal physically possible deceleration [m/s^2]
      * @return The maximal physically possible deceleration (in m/s^2) of vehicles of this class
      */
     inline double getEmergencyDecel() const {
@@ -279,12 +286,35 @@ public:
         return myApparentDecel;
     }
 
+
     /** @brief Get the vehicle type's startupDelay
      * @return The startupDelay
      */
     inline SUMOTime getStartupDelay() const {
         return myStartupDelay;
     }
+
+    /** @brief Get the vehicle type's maximum acceleration [m/s^2]
+     * @return The maximum acceleration (in m/s^2) of vehicles of this class
+     */
+    virtual double getCurrentAccel(const double speed) const;
+
+
+    /** @brief Get the vehicle type's maximum acceleration profile depending on the velocity [m/s^2]
+     * @return The maximum acceleration profile (in m/s^2) of vehicles of this class
+     */
+    inline LinearApproxHelpers::LinearApproxMap getMaxAccelProfile() const {
+        return myMaxAccelProfile;
+    }
+
+
+    /** @brief Get the vehicle type's desired acceleration profile depending on the velocity [m/s^2]
+     * @return The desired acceleration profile (in m/s^2) of vehicles of this class
+     */
+    inline LinearApproxHelpers::LinearApproxMap getDesAccelProfile() const {
+        return myDesAccelProfile;
+    }
+
 
     /** @brief Get the factor of minGap that must be maintained to avoid a collision event
      */
@@ -308,6 +338,11 @@ public:
      */
     virtual double getHeadwayTime() const {
         return myHeadwayTime;
+    }
+
+    /// @brief whether startupDelay should be applied after stopping
+    virtual bool startupDelayStopped() const {
+        return false;
     }
     /// @}
 
@@ -387,14 +422,7 @@ public:
      * @param[in] leaderSpeed LEADER's speed
      * @param[in] leaderMaxDecel LEADER's max. deceleration rate
      */
-    inline virtual double getSecureGap(const MSVehicle* const /*veh*/, const MSVehicle* const /*pred*/, const double speed, const double leaderSpeed, const double leaderMaxDecel) const {
-        // The solution approach leaderBrakeGap >= followerBrakeGap is not
-        // secure when the follower can brake harder than the leader because the paths may still cross.
-        // As a workaround we use a value of leaderDecel which errs on the side of caution
-        const double maxDecel = MAX2(myDecel, leaderMaxDecel);
-        double secureGap = MAX2((double) 0, brakeGap(speed, myDecel, myHeadwayTime) - brakeGap(leaderSpeed, maxDecel, 0));
-        return secureGap;
-    }
+    virtual double getSecureGap(const MSVehicle* const veh, const MSVehicle* const /*pred*/, const double speed, const double leaderSpeed, const double leaderMaxDecel) const;
 
     virtual /** @brief Returns the velocity after maximum deceleration
      * @param[in] v The velocity
@@ -505,7 +533,7 @@ public:
     static double speedAfterTime(const double t, const double oldSpeed, const double dist);
 
 
-    /// @brief calculates the distance travelled after accelerating for time t
+    /// @brief calculates the distance traveled after accelerating for time t
     virtual double distAfterTime(double t, double speed, double accel) const;
 
 
@@ -554,6 +582,29 @@ public:
     }
 
 
+    /** @brief Sets a new value for the factor of minGap that must be maintained to avoid a collision event
+     * @param[in] factor The new minGap factor
+     */
+    inline void setCollisionMinGapFactor(const double factor) {
+        myCollisionMinGapFactor = factor;
+    }
+
+
+    /** @brief Sets a new value for maximum acceleration profile [m/s^2]
+     * @param[in] accelProfile The new acceleration profile in m/s^2
+     */
+    virtual void setMaxAccelProfile(const LinearApproxHelpers::LinearApproxMap& accelProfile) {
+        myMaxAccelProfile = accelProfile;
+    }
+
+    /** @brief Sets a new value for desired acceleration profile [m/s^2]
+     * @param[in] accelProfile The new acceleration profile in m/s^2
+     */
+    virtual void setDesAccelProfile(const LinearApproxHelpers::LinearApproxMap&  accelProfile) {
+        myDesAccelProfile = accelProfile;
+    }
+
+
     /** @brief Sets a new value for driver imperfection
      * @param[in] accel The new driver imperfection
      */
@@ -571,7 +622,7 @@ public:
     /// @}
 
     /** @brief Returns the maximum safe velocity for following the given leader
-     * @param[in] gap2pred The (netto) distance to the LEADER
+     * @param[in] gap2pred The (net) distance to the LEADER
      * @param[in] egoSpeed The FOLLOWERS's speed
      * @param[in] predSpeed The LEADER's speed
      * @param[in] predMaxDecel The LEADER's maximum deceleration
@@ -582,7 +633,7 @@ public:
 
 
     /** @brief Returns the minimal deceleration for following the given leader safely
-     * @param[in] gap The (netto) distance to the LEADER
+     * @param[in] gap The (net) distance to the LEADER
      * @param[in] egoSpeed The FOLLOWERS's speed
      * @param[in] predSpeed The LEADER's speed
      * @param[in] predMaxDecel The LEADER's maximum deceleration
@@ -596,18 +647,19 @@ public:
 
 
     /** @brief Returns the maximum next velocity for stopping within gap
-     * @param[in] gap The (netto) distance to the desired stopping point
+     * @param[in] gap The (net) distance to the desired stopping point
      * @param[in] decel The desired deceleration rate
      * @param[in] currentSpeed The current speed of the ego vehicle
      * @param[in] onInsertion Indicator whether the call is triggered during vehicle insertion
      * @param[in] headway The desired time headway to be included in the calculations (default argument -1 induces the use of myHeadway)
+     * @param[in] relaxEmergency Whether emergency deceleration should be reduced (at the cost of staying in a dangerous situation for longer)
      */
-    double maximumSafeStopSpeed(double gap, double decel, double currentSpeed, bool onInsertion = false, double headway = -1) const;
+    double maximumSafeStopSpeed(double gap, double decel, double currentSpeed, bool onInsertion = false, double headway = -1, bool relaxEmergency = true) const;
 
 
     /** @brief Returns the maximum next velocity for stopping within gap
      * when using the semi-implicit Euler update
-     * @param[in] gap The (netto) distance to the LEADER
+     * @param[in] gap The (net) distance to the LEADER
      * @param[in] decel The desired deceleration rate
      * @param[in] onInsertion Indicator whether the call is triggered during vehicle insertion
      * @param[in] headway The desired time headway to be included in the calculations (-1 induces the use of myHeadway)
@@ -619,7 +671,7 @@ public:
      * when using the ballistic positional update.
      * @note This takes into account the driver's reaction time tau (i.e. the desired headway) and the car's current speed.
      * (The latter is required to calculate the distance covered in the following timestep.)
-     * @param[in] gap The (netto) distance to the desired stopping point
+     * @param[in] gap The (net) distance to the desired stopping point
      * @param[in] decel The desired deceleration rate
      * @param[in] currentSpeed The current speed of the ego vehicle
      * @param[in] onInsertion Indicator whether the call is triggered during vehicle insertion
@@ -653,15 +705,23 @@ public:
         UNUSED_PARAMETER(veh);
         UNUSED_PARAMETER(key);
         UNUSED_PARAMETER(value);
+        throw InvalidArgument("Setting parameter '" + key + "' is not supported by carFollowModel");
     }
 
 protected:
+
+    /** @brief Overwrites sped by the perceived values obtained from the vehicle's driver state,
+     *  @see MSCFModel_Krauss::freeSpeed()
+     * @param[in] veh The vehicle (EGO)
+     * @param[in, out] speed The vehicle's speed
+     */
+    void applyOwnSpeedPerceptionError(const MSVehicle* const veh, double& speed) const;
 
     /** @brief Overwrites gap2pred and predSpeed by the perceived values obtained from the vehicle's driver state,
      *  @see MSCFModel_Krauss::stopSpeed() and MSCFModel_Krauss::followSpeed() for integration into a CF model
      * @param[in] veh The vehicle (EGO)
      * @param[in] speed The vehicle's speed
-     * @param[in, out] gap2pred The (netto) distance to the LEADER
+     * @param[in, out] gap2pred The (net) distance to the LEADER
      * @param[in, out] predSpeed The speed of LEADER
      * @param[in] pred The leading vehicle (LEADER)
      */
@@ -670,7 +730,7 @@ protected:
     /** @brief Overwrites gap by the perceived value obtained from the vehicle's driver state
      * @param[in] veh The vehicle (EGO)
      * @param[in] speed The vehicle's speed
-     * @param[in, out] gap The (netto) distance to the the obstacle
+     * @param[in, out] gap The (net) distance to the obstacle
      */
     void applyHeadwayPerceptionError(const MSVehicle* const veh, double speed, double& gap) const;
 
@@ -697,9 +757,12 @@ protected:
     /// @brief The startup delay after halting [s]
     SUMOTime myStartupDelay;
 
+    /// @brief The vehicle's maximum acceleration profile [m/s^2]
+    LinearApproxHelpers::LinearApproxMap myMaxAccelProfile;
+
+    /// @brief The vehicle's desired acceleration profile [m/s^2]
+    LinearApproxHelpers::LinearApproxMap myDesAccelProfile;
+
 
 
 };
-
-
-

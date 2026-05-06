@@ -27,3 +27,9 @@ reset_to_default
 
 # begin time=0, first change at time=100
 speed0
+
+# begin time=0, first change at time=100, override vclass-related speed settings
+vclass
+
+# writing defaults for an unused edge should print the vss speed
+empty_edge

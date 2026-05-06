@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -38,7 +38,6 @@
 #ifndef CALLBACK
 #define CALLBACK
 #endif
-
 
 // ===========================================================================
 // static members
@@ -119,7 +118,11 @@ TesselatedPolygon::drawTesselation(const PositionVector& shape) const {
     if (myTesselation.empty()) {
         myCurrentTesselated = this;
         // draw the tesselated shape
-        double* points = new double[shape.size() * 3];
+        size_t numPoints = shape.size() * 3;
+        for (const PositionVector& hole : myHoles) {
+            numPoints += hole.size() * 3;
+        }
+        double* points = new double[numPoints];
         GLUtesselator* tobj = gluNewTess();
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -150,11 +153,21 @@ TesselatedPolygon::drawTesselation(const PositionVector& shape) const {
             gluTessVertex(tobj, points + 3 * i, points + 3 * i);
         }
         gluTessEndContour(tobj);
-
+        size_t startIndex = shape.size() * 3;
+        for (const PositionVector& hole : myHoles) {
+            gluTessBeginContour(tobj);
+            for (int i = 0; i < (int)hole.size(); i++) {
+                points[startIndex + 3 * i] = hole[i].x();
+                points[startIndex + 3 * i + 1] = hole[i].y();
+                points[startIndex + 3 * i + 2] = 0.;
+                gluTessVertex(tobj, points + startIndex + 3 * i, points + startIndex + 3 * i);
+            }
+            startIndex += hole.size() * 3;
+            gluTessEndContour(tobj);
+        }
         gluTessEndPolygon(tobj);
         gluDeleteTess(tobj);
         delete[] points;
-
     }
     for (GLPrimitive& pr : myTesselation) {
         // XXX change to glDrawArrays
@@ -166,16 +179,14 @@ TesselatedPolygon::drawTesselation(const PositionVector& shape) const {
     }
 }
 
-
 // ===========================================================================
 // GUIPolygon method definitions
 // ===========================================================================
 
 GUIPolygon::GUIPolygon(const std::string& id, const std::string& type, const RGBColor& color,
-                       const PositionVector& shape, bool geo, bool fill,
-                       double lineWidth, double layer, double angle, const std::string& imgFile,
-                       bool relativePath, const std::string& name):
-    TesselatedPolygon(id, type, color, shape, geo, fill, lineWidth, layer, angle, imgFile, relativePath, name),
+                       const PositionVector& shape, bool geo, bool fill, double lineWidth,
+                       double layer, double angle, const std::string& imgFile, const std::string& name):
+    TesselatedPolygon(id, type, color, shape, geo, fill, lineWidth, layer, angle, imgFile, name),
     GUIGlObject_AbstractAdd(GLO_POLYGON, id, GUIIconSubSys::getIcon(GUIIcon::POLY)),
     myRotatedShape(nullptr) {
     if (angle != 0.) {
@@ -192,7 +203,7 @@ GUIPolygon::~GUIPolygon() {
 GUIGLObjectPopupMenu*
 GUIPolygon::getPopUpMenu(GUIMainWindow& app,
                          GUISUMOAbstractView& parent) {
-    GUIGLObjectPopupMenu* ret = new GUIGLObjectPopupMenu(app, parent, *this);
+    GUIGLObjectPopupMenu* ret = new GUIGLObjectPopupMenu(app, parent, this);
     buildPopupHeader(ret, app, false);
     GUIDesigns::buildFXMenuCommand(ret, "(" + getShapeType() + ")", nullptr, nullptr, 0);
     new FXMenuSeparator(ret);
@@ -237,15 +248,15 @@ GUIPolygon::getCenteringBoundary() const {
 void
 GUIPolygon::drawGL(const GUIVisualizationSettings& s) const {
     // first check if polygon can be drawn
-    if (checkDraw(s, this, this)) {
+    if (myIsActive && checkDraw(s, this, this)) {
         FXMutexLock locker(myLock);
         // push name (needed for getGUIGlObjectsUnderCursor(...)
         GLHelper::pushName(getGlID());
         // draw inner polygon
         if (myRotatedShape) {
-            drawInnerPolygon(s, this, this, *myRotatedShape, getShapeLayer(), getFill());
+            drawInnerPolygon(s, this, this, *myRotatedShape, s.polyUseCustomLayer ? s.polyCustomLayer : getShapeLayer(), getFill());
         } else {
-            drawInnerPolygon(s, this, this, myShape, getShapeLayer(), getFill());
+            drawInnerPolygon(s, this, this, myShape, s.polyUseCustomLayer ? s.polyCustomLayer : getShapeLayer(), getFill());
         }
         // pop name
         GLHelper::popName();

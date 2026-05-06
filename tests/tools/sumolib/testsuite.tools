@@ -1,3 +1,6 @@
+# parsing XML and accessing objects
+xml
+
 # parsing a network and accessing objects
 net
 
@@ -9,14 +12,23 @@ net_roundabout
 
 # parsing a network and accessing objects
 net_intermodal
+
+# test functions when shape length and lane length differ (#16269)
+net_customLength
 sumolib3d
 
 # unit tests for functions in init
 init
+
+# unit tests for functions from the miscutils module
+miscutils
 geomhelper
 
 # parsing a network working with tlLogic
 tls
+
+# parsing a network working with tlLogic
+tls_subsecond
 
 # generate a patch file to update the network
 patch_network
@@ -24,17 +36,32 @@ patch_network
 # finding routes
 getShortestRoute
 
+# finding routes
+getShortestRoute_ped
+
 # finding routes in a railway network
 getShortestRoute_rail
 
 # finding fastest routes
 getFastestRoute
 
-# parsing XML and accessing objects
-xml
+# test using routingType to influence results. refs #17560
+getOptimalPath_routingType
 
-# testing statistics 
+# test using routingType to influence results. refs #17560
+getOptimalPath_routingType2
+
+# testing statistics
 statistics
 
 # read polygons
 shapes
+
+# parsing a network and an additional file with tls
+net_and_additional
+
+# reading files with BOM marker
+utf8_bom
+
+# see #16633
+connection_permissions

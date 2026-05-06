@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -30,6 +30,7 @@
 // ===========================================================================
 class OutputDevice;
 class SUMOVehicle;
+class MSStop;
 
 
 // ===========================================================================
@@ -67,6 +68,8 @@ public:
     /// @brief Destructor.
     virtual ~MSStopOut();
 
+    void stopBlocked(const SUMOVehicle* veh, SUMOTime time);
+    void stopNotStarted(const SUMOVehicle* veh);
     void stopStarted(const SUMOVehicle* veh, int numPersons, int numContainers, SUMOTime time);
 
     void loadedPersons(const SUMOVehicle* veh, int n);
@@ -75,7 +78,7 @@ public:
     void loadedContainers(const SUMOVehicle* veh, int n);
     void unloadedContainers(const SUMOVehicle* veh, int n);
 
-    void stopEnded(const SUMOVehicle* veh, const SUMOVehicleParameter::Stop& stop, const std::string& laneOrEdgeID, bool simEnd = false);
+    void stopEnded(const SUMOVehicle* veh, const MSStop& stop, bool simEnd = false);
 
     /// @brief generate output for vehicles which are still stopped at simulation end
     void generateOutputForUnfinished();
@@ -83,7 +86,8 @@ public:
 private:
     struct StopInfo {
 
-        StopInfo(int numPersons, int numContainers) :
+        StopInfo(SUMOTime now, int numPersons, int numContainers) :
+            blockTime(now),
             initialNumPersons(numPersons),
             loadedPersons(0),
             unloadedPersons(0),
@@ -92,6 +96,7 @@ private:
             unloadedContainers(0) {
         }
 
+        SUMOTime blockTime;
         int initialNumPersons;
         int loadedPersons;
         int unloadedPersons;

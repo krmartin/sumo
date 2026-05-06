@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -127,7 +127,7 @@ public:
     /** @brief Performs the network building steps
      *
      * @param[in] oc Container that contains options for building
-     * @param[in] explicitTurnarounds List of edge ids for which turn-arounds should be added (used by NETEDIT)
+     * @param[in] explicitTurnarounds List of edge ids for which turn-arounds should be added (used by netedit)
      * @param[in] mayAddOrRemove whether processing steps which cause nodes and edges to be added or removed shall be triggered (used by netedit)
      * @exception ProcessError (recheck)
      */
@@ -195,7 +195,7 @@ public:
      * @param[in,out] from The coordinate to be transformed
      * @param[in] includeInBoundary Whether to patch the convex boundary of the GeoConvHelper default instance
      * @param[in] from_srs The spatial reference system of the input coordinate
-     * @notde These methods are located outside of GeoConvHelper to avoid linker-dependencies on GDAL for libgeom
+     * @note These methods are located outside of GeoConvHelper to avoid linker-dependencies on GDAL for libgeom
      */
     static bool transformCoordinate(Position& from, bool includeInBoundary = true, GeoConvHelper* from_srs = nullptr);
     static bool transformCoordinates(PositionVector& from, bool includeInBoundary = true, GeoConvHelper* from_srs = nullptr);
@@ -203,7 +203,7 @@ public:
     /// @brief insertion geometry points to ensure maximum segment length between points
     static int addGeometrySegments(PositionVector& from, const PositionVector& cartesian, const double maxLength);
 
-    /// @brief whether netbuilding takes place in the context of NETEDIT
+    /// @brief whether netbuilding takes place in the context of netedit
     static bool runningNetedit();
 
 
@@ -256,6 +256,9 @@ protected:
 private:
     /// @brief shift network so its lower left corner is at 0,0
     void moveToOrigin(GeoConvHelper& geoConvHelper, bool lefthand);
+
+    /// @brief ensure consistency between input and output geometries and speeds
+    void roundInputs();
 
     /// @brief mirror the network along the X-axis
     void mirrorX();

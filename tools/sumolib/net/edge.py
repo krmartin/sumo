@@ -1,5 +1,5 @@
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2011-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2011-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -27,7 +27,7 @@ class Edge:
 
     """ Edges from a sumo network """
 
-    def __init__(self, id, fromN, toN, prio, function, name, edgeType=''):
+    def __init__(self, id, fromN, toN, prio, function, name, edgeType='', routingType=''):
         self._id = id
         self._from = fromN
         self._to = toN
@@ -52,8 +52,14 @@ class Edge:
         self._tls = None
         self._name = name
         self._type = edgeType
+        self._routingType = routingType
         self._params = {}
         self._bidi = None
+        self._selected = False
+        self._lengthGeometryFactor = 1
+
+    def __lt__(self, other):
+        return self.getID() < other.getID()
 
     def getName(self):
         return self._name
@@ -74,6 +80,10 @@ class Edge:
 
     def getType(self):
         return self._type
+
+    def getRoutingType(self):
+        """ Return the effective routingType that would be used by duarouter or sumo"""
+        return self._routingType if self._routingType != "" else self._type
 
     def getTLS(self):
         return self._tls
@@ -120,7 +130,8 @@ class Edge:
             for e, conns in self._outgoing.items():
                 allowedConns = [c for c in conns if
                                 c.getFromLane().allows(vClass) and
-                                c.getToLane().allows(vClass)]
+                                c.getToLane().allows(vClass) and
+                                c.allows(vClass)]
                 if allowedConns:
                     result[e] = allowedConns
             return result
@@ -158,7 +169,7 @@ class Edge:
 
     def getBoundingBox(self, includeJunctions=True):
         xmin, ymin, xmax, ymax = sumolib.geomhelper.addToBoundingBox(self.getShape(includeJunctions))
-        assert(xmin != xmax or ymin != ymax or self._function == "internal")
+        assert xmin != xmax or ymin != ymax or self._function == "internal"
         return (xmin, ymin, xmax, ymax)
 
     def getClosestLanePosDist(self, point, perpendicular=False):
@@ -185,6 +196,12 @@ class Edge:
     def getLanes(self):
         return self._lanes
 
+    def select(self, value=True):
+        self._selected = value
+
+    def isSelected(self):
+        return self._selected
+
     def rebuildShape(self):
         numLanes = len(self._lanes)
         if numLanes % 2 == 1:
@@ -192,19 +209,18 @@ class Edge:
         else:
             self._shape3D = []
             minLen = -1
-            for l in self._lanes:
-                if minLen == -1 or minLen > len(l.getShape()):
-                    minLen = len(l._shape)
+            for _lane in self._lanes:
+                if minLen == -1 or minLen > len(_lane.getShape()):
+                    minLen = len(_lane.getShape())
             for i in range(minLen):
                 x = 0.
                 y = 0.
                 z = 0.
-                for l in self._lanes:
-                    x += l.getShape3D()[i][0]
-                    y += l.getShape3D()[i][1]
-                    z += l.getShape3D()[i][2]
-                self._shape3D.append(
-                    (x / float(numLanes), y / float(numLanes), z / float(numLanes)))
+                for _lane in self._lanes:
+                    x += _lane.getShape3D()[i][0]
+                    y += _lane.getShape3D()[i][1]
+                    z += _lane.getShape3D()[i][2]
+                self._shape3D.append((x / float(numLanes), y / float(numLanes), z / float(numLanes)))
 
         if self._function in ["crossing", "walkingarea"]:
             self._shapeWithJunctions3D = self._shape3D
@@ -216,13 +232,18 @@ class Edge:
                 self._rawShape3D = [self._from.getCoord3D(), self._to.getCoord3D()]
 
         # 2d - versions
-        self._shape = [(x, y) for x, y, z in self._shape3D]
-        self._shapeWithJunctions = [(x, y)
-                                    for x, y, z in self._shapeWithJunctions3D]
-        self._rawShape = [(x, y) for x, y, z in self._rawShape3D]
+        self._shape = [(x, y) for x, y, z in self._shape3D]  # noqa
+        self._shapeWithJunctions = [(x, y) for x, y, z in self._shapeWithJunctions3D]  # noqa
+        self._rawShape = [(x, y) for x, y, z in self._rawShape3D]  # noqa
+        shapeLength = sumolib.geomhelper.polyLength(self.getShape())
+        if shapeLength > 0:
+            self._lengthGeometryFactor = self.getLength() / shapeLength
 
     def getLength(self):
         return self._lanes[0].getLength()
+
+    def getLengthGeometryFactor(self):
+        return self._lengthGeometryFactor
 
     def setTLS(self, tls):
         self._tls = tls
@@ -244,13 +265,21 @@ class Edge:
                     self.is_fringe(self._outgoing, checkJunctions))
         else:
             if checkJunctions:
-                assert(connections is not None)
+                assert connections is not None
                 if connections == self._incoming:
                     return self.getFromNode().getFringe() is not None
                 elif connections == self._outgoing:
                     return self.getToNode().getFringe() is not None
             cons = sum([c for c in connections.values()], [])
-            return len([c for c in cons if c._direction != Connection.LINKDIR_TURN]) == 0
+            return len([c for c in cons if c._direction not in (
+                Connection.LINKDIR_TURN, Connection.LINKDIR_TURN_LEFTHAND)]) == 0
+
+    def getPermissions(self):
+        """return the allowed vehicle classes for all lanes"""
+        allowed = set()
+        for lane in self._lanes:
+            allowed.update(lane.getPermissions())
+        return list(allowed)
 
     def allows(self, vClass):
         """true if this edge has a lane which allows the given vehicle class"""

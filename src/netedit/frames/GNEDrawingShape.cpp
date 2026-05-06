@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,14 +17,14 @@
 ///
 // Frame for draw shapes
 /****************************************************************************/
-#include <config.h>
 
 #include <netedit/frames/common/GNEInspectorFrame.h>
+#include <netedit/GNEViewNet.h>
+#include <utils/foxtools/MFXDynamicLabel.h>
 #include <utils/gui/div/GUIDesigns.h>
 #include <utils/gui/windows/GUIAppEnum.h>
 
 #include "GNEDrawingShape.h"
-
 
 // ===========================================================================
 // FOX callback mapping
@@ -37,7 +37,7 @@ FXDEFMAP(GNEDrawingShape) DrawingShapeMap[] = {
 };
 
 // Object implementation
-FXIMPLEMENT(GNEDrawingShape,               MFXGroupBoxModule,     DrawingShapeMap,                ARRAYNUMBER(DrawingShapeMap))
+FXIMPLEMENT(GNEDrawingShape,               GNEGroupBoxModule,     DrawingShapeMap,                ARRAYNUMBER(DrawingShapeMap))
 
 
 // ===========================================================================
@@ -45,25 +45,21 @@ FXIMPLEMENT(GNEDrawingShape,               MFXGroupBoxModule,     DrawingShapeMa
 // ===========================================================================
 
 GNEDrawingShape::GNEDrawingShape(GNEFrame* frameParent) :
-    MFXGroupBoxModule(frameParent, "Drawing"),
+    GNEGroupBoxModule(frameParent, TL("Drawing")),
     myFrameParent(frameParent),
     myDeleteLastCreatedPoint(false) {
     // create start and stop buttons
-    myStartDrawingButton = new FXButton(getCollapsableFrame(), "Start drawing", 0, this, MID_GNE_STARTDRAWING, GUIDesignButton);
-    myStopDrawingButton = new FXButton(getCollapsableFrame(), "Stop drawing", 0, this, MID_GNE_STOPDRAWING, GUIDesignButton);
-    myAbortDrawingButton = new FXButton(getCollapsableFrame(), "Abort drawing", 0, this, MID_GNE_ABORTDRAWING, GUIDesignButton);
+    myStartDrawingButton = GUIDesigns::buildFXButton(getCollapsableFrame(), TL("Start drawing"), "", "", 0, this, MID_GNE_STARTDRAWING, GUIDesignButton);
+    myStopDrawingButton = GUIDesigns::buildFXButton(getCollapsableFrame(), TL("Stop drawing"), "", "", 0, this, MID_GNE_STOPDRAWING, GUIDesignButton);
+    myAbortDrawingButton = GUIDesigns::buildFXButton(getCollapsableFrame(), TL("Abort drawing"), "", "", 0, this, MID_GNE_ABORTDRAWING, GUIDesignButton);
     // create information label
     std::ostringstream information;
     information
-            << "- 'Start drawing' or ENTER\n"
-            << "  to create shape.\n"
-            << "- 'Stop drawing' or ENTER to\n"
-            << "  finish shape creation.\n"
-            << "- 'Abort drawing' or ESC to\n"
-            << "  abort shape creation.\n"
-            << "- 'Shift + Click' to remove\n"
-            << "  last inserted point.";
-    myInformationLabel = new FXLabel(getCollapsableFrame(), information.str().c_str(), 0, GUIDesignLabelFrameInformation);
+            << "- " << TL("'Start drawing' or ENTER to create a shape.") << "\n"
+            << "- " << TL("'Stop drawing' or ENTER to finish shape creation.") << "\n"
+            << "- " << TL("'Abort drawing' or ESC to abort shape creation.") << "\n"
+            << "- " << TL("'Shift + Click' to remove the last inserted point.");
+    myInformationLabel = new MFXDynamicLabel(getCollapsableFrame(), information.str().c_str(), 0, GUIDesignLabelFrameInformation);
     // disable stop and abort functions as init
     myStopDrawingButton->disable();
     myAbortDrawingButton->disable();
@@ -76,16 +72,16 @@ GNEDrawingShape::~GNEDrawingShape() {}
 void GNEDrawingShape::showDrawingShape() {
     // abort current drawing before show
     abortDrawing();
-    // show MFXGroupBoxModule
-    MFXGroupBoxModule::show();
+    // show GNEGroupBoxModule
+    GNEGroupBoxModule::show();
 }
 
 
 void GNEDrawingShape::hideDrawingShape() {
     // abort current drawing before hide
     abortDrawing();
-    // show MFXGroupBoxModule
-    MFXGroupBoxModule::hide();
+    // show GNEGroupBoxModule
+    GNEGroupBoxModule::hide();
 }
 
 
@@ -134,7 +130,7 @@ GNEDrawingShape::addNewPoint(const Position& P) {
     if (myStopDrawingButton->isEnabled()) {
         myTemporalShape.push_back(P);
     } else {
-        throw ProcessError("A new point cannot be added if drawing wasn't started");
+        throw ProcessError(TL("A new point cannot be added if drawing wasn't started"));
     }
 }
 
@@ -162,6 +158,7 @@ GNEDrawingShape::isDrawing() const {
 void
 GNEDrawingShape::setDeleteLastCreatedPoint(bool value) {
     myDeleteLastCreatedPoint = value;
+    myFrameParent->getViewNet()->updateViewNet();
 }
 
 

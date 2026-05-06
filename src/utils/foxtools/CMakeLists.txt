@@ -1,33 +1,33 @@
 set(utils_foxtools_STAT_SRCS
-   fxheader.h
    fxexdefs.h
-   MFXAddEditTypedTable.cpp
-   MFXAddEditTypedTable.h
+   fxheader.h
    MFXBaseObject.cpp
    MFXBaseObject.h
    MFXButtonTooltip.cpp
    MFXButtonTooltip.h
-   MFXToggleButtonTooltip.cpp
-   MFXToggleButtonTooltip.h
+   MFXCheckButtonTooltip.cpp
+   MFXCheckButtonTooltip.h
    MFXCheckableButton.cpp
    MFXCheckableButton.h
-   MFXComboBox.cpp
-   MFXComboBox.h
-   MFXEditableTable.cpp
-   MFXEditableTable.h
-   MFXGroupBoxModule.cpp
-   MFXGroupBoxModule.h
-   MFXIconComboBox.cpp
-   MFXIconComboBox.h
+   MFXComboBoxIcon.cpp
+   MFXComboBoxIcon.h
+   MFXDecalsTable.cpp
+   MFXDecalsTable.h
+   MFXDynamicLabel.cpp
+   MFXDynamicLabel.h
    MFXImageHelper.cpp
    MFXImageHelper.h
    MFXInterThreadEventClient.h
-   MFXLabelTooltip.cpp
-   MFXLabelTooltip.h
    MFXLCDLabel.cpp
    MFXLCDLabel.h
+   MFXLabelTooltip.cpp
+   MFXLabelTooltip.h
    MFXLinkLabel.cpp
    MFXLinkLabel.h
+   MFXListIcon.cpp
+   MFXListIcon.h
+   MFXListIconItem.cpp
+   MFXListIconItem.h
    MFXMenuButtonTooltip.cpp
    MFXMenuButtonTooltip.h
    MFXMenuCheckIcon.cpp
@@ -48,15 +48,19 @@ set(utils_foxtools_STAT_SRCS
    MFXSynchSet.h
    MFXTextFieldIcon.cpp
    MFXTextFieldIcon.h
-   MFXTextFieldTooltip.cpp
-   MFXTextFieldTooltip.h
+   MFXTextFieldSearch.cpp
+   MFXTextFieldSearch.h
    MFXThreadEvent.cpp
    MFXThreadEvent.h
+   MFXToggleButtonTooltip.cpp
+   MFXToggleButtonTooltip.h
    MFXTreeListDynamic.cpp
    MFXTreeListDynamic.h
    MFXUtils.cpp
    MFXUtils.h
    MFXWorkerThread.h
+   MFXOptionalLock.h
+   MFXLock.h
    MsgHandlerSynchronized.h
 )
 

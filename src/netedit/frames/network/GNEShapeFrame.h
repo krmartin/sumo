@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,19 +21,19 @@
 #include <config.h>
 
 #include <netedit/frames/GNEFrame.h>
-#include <netedit/frames/GNEAttributesCreator.h>
-#include <netedit/frames/GNETagSelector.h>
-#include <netedit/frames/GNEDrawingShape.h>
-#include <netedit/frames/GNENeteditAttributes.h>
 
+// ===========================================================================
+// class declaration
+// ===========================================================================
+
+class GNEAttributesEditor;
+class GNETagSelector;
+class GNEDrawingShape;
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
-* @class GNEShapeFrame
-* The Widget for setting internal attributes of shape elements
-*/
+
 class GNEShapeFrame : public GNEFrame {
 
 public:
@@ -42,7 +42,7 @@ public:
     // class GEOPOICreator
     // ===========================================================================
 
-    class GEOPOICreator : public MFXGroupBoxModule {
+    class GEOPOICreator : public GNEGroupBoxModule {
         /// @brief FOX-declaration
         FXDECLARE(GNEShapeFrame::GEOPOICreator)
 
@@ -101,7 +101,7 @@ public:
     * @brief viewParent GNEViewParent in which this GNEFrame is placed
     * @brief viewNet viewNet that uses this GNEFrame
     */
-    GNEShapeFrame(GNEViewParent *viewParent, GNEViewNet* viewNet);
+    GNEShapeFrame(GNEViewParent* viewParent, GNEViewNet* viewNet);
 
     /// @brief Destructor
     ~GNEShapeFrame();
@@ -111,10 +111,10 @@ public:
 
     /**@brief process click over Viewnet
      * @param[in] clickedPosition clicked position over ViewNet
-     * @param[in] ObjectsUnderCursor objects under cursor after click over view
+     * @param[in] viewObjects objects under cursor after click over view
      * @return AddShapeStatus with the result of operation
      */
-    bool processClick(const Position& clickedPosition, const GNEViewNetHelper::ObjectsUnderCursor& objectsUnderCursor, bool& updateTemporalShape);
+    bool processClick(const Position& clickedPosition, const GNEViewNetHelper::ViewObjectsSelector& viewObjects, bool& updateTemporalShape);
 
     /// @brief get list of selecte id's in string format
     static std::string getIdsSelected(const FXList* list);
@@ -138,22 +138,28 @@ protected:
     /// @brief Tag selected in GNETagSelector
     void tagSelected();
 
-    /// @brief add shape (using base shape)
-    void addShape();
+    /// @brief process click for Polygons
+    bool processClickPolygons(const Position& clickedPosition, bool& updateTemporalShape);
+
+    /// @brief process click for POIs over view
+    bool processClickPOI(SumoXMLTag POITag, const Position& clickedPosition);
+
+    /// @brief process click for POIGeo
+    bool processClickPOIGeo(const Position& clickedPosition);
+
+    /// @brief process click for POILanes
+    bool processClickPOILanes(const GNEViewNetHelper::ViewObjectsSelector& viewObjects);
 
 private:
     /// @brief shape tag selector
     GNETagSelector* myShapeTagSelector;
 
-    /// @brief shape internal attributes
-    GNEAttributesCreator* myShapeAttributes;
-
-    /// @brief Netedit parameter
-    GNENeteditAttributes* myNeteditAttributes;
+    /// @brief shape attributes editor
+    GNEAttributesEditor* myShapeAttributesEditor = nullptr;
 
     /// @brief Drawing shape
-    GNEDrawingShape* myDrawingShape;
+    GNEDrawingShape* myDrawingShape = nullptr;
 
     /// @brief GEOPOICreator
-    GEOPOICreator* myGEOPOICreator;
+    GEOPOICreator* myGEOPOICreator = nullptr;
 };

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2004-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2004-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -24,13 +24,17 @@
 #include <config.h>
 
 #include "fxheader.h"
-#include "MFXStaticToolTip.h"
 
+// ===========================================================================
+// class declaration
+// ===========================================================================
 
-/** @brief A widget which has the seven-segment display used as the drawing object for each letter
- * in the label.  Supports display of leading zeros, such as when you need to display a
- * number.  Also supports the 'JUSTIFY_RIGHT' option, for right alignment.
- */
+class MFXStaticToolTip;
+
+// ===========================================================================
+// class definitions
+// ===========================================================================
+
 class MFXLCDLabel : public FXHorizontalFrame {
     /// @brief FOX-declaration
     FXDECLARE(MFXLCDLabel)
@@ -113,7 +117,7 @@ public:
     virtual FXint getDefaultHeight();
 
     /// @brief set tooltip text
-    void setToolTipText(const FXString &text);
+    void setToolTipText(const FXString& text);
 
     /// @brief save resources
     virtual void save(FXStream& store) const;
@@ -129,10 +133,10 @@ public:
 
     /// @brief called when mouse leaves in MFXMenuButtonTooltip
     long onLeave(FXObject* obj, FXSelector sel, void* ptr);
-    
+
     /// @brief called when mouse motion in MFXMenuButtonTooltip
     long onMotion(FXObject* obj, FXSelector sel, void* ptr);
-    
+
     /// @brief Update value from a message
     long onCmdSetValue(FXObject*, FXSelector, void* ptr);
 
@@ -169,9 +173,9 @@ protected:
 
     /// @brief The currently shown label
     FXString myLabel;
-    
+
     /// @brief The number of shown figuresi, greater than zero
-    FXint myNFigures;    
+    FXint myNFigures;
 
     /// @brief pointer to staticToolTip
     MFXStaticToolTip* myStaticToolTip;

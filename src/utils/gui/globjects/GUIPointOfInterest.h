@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -29,11 +29,6 @@
 
 
 // ===========================================================================
-// class declarations
-// ===========================================================================
-
-
-// ===========================================================================
 // class definitions
 // ===========================================================================
 /*
@@ -41,6 +36,7 @@
  * @brief The GUI-version of a point of interest
  */
 class GUIPointOfInterest : public PointOfInterest, public GUIGlObject_AbstractAdd {
+
 public:
     /** @brief Constructor
      * @param[in] id The name of the POI
@@ -52,17 +48,17 @@ public:
      * @param[in] posOverLane The position over Lane
      * @param[in] friendlyPos enable or disable friendlyPos
      * @param[in] posLat The position lateral over Lane
+     * @param[in] icon The icon of the POI
      * @param[in] layer The layer of the POI
      * @param[in] angle The rotation of the POI
      * @param[in] imgFile The raster image of the shape
-     * @param[in] relativePath set image file as relative path
      * @param[in] width The width of the POI image
      * @param[in] height The height of the POI image
      */
     GUIPointOfInterest(const std::string& id, const std::string& type, const RGBColor& color,
                        const Position& pos, bool geo, const std::string& lane, double posOverLane,
-                       bool friendlyPos, double posLat, double layer, double angle, const std::string& imgFile,
-                       bool relativePath, double width, double height);
+                       bool friendlyPos, double posLat, const std::string& icon, double layer, double angle,
+                       const std::string& imgFile, double width, double height);
 
     /// @brief Destructor
     virtual ~GUIPointOfInterest();
@@ -107,15 +103,16 @@ public:
     double getClickPriority() const override {
         return getShapeLayer();
     }
+
+    /// @brief Returns the name of the object (default "")
+    virtual const std::string getOptionalName() const override {
+        return getShapeName();
+    }
     //@}
 
     /// @brief check if POI can be drawn
     static bool checkDraw(const GUIVisualizationSettings& s, const GUIGlObject* o);
 
-    /// @brief set color
-    static void setColor(const GUIVisualizationSettings& s, const PointOfInterest* POI, const GUIGlObject* o, bool forceSelectionColor);
-
-    /// @brief draw inner POI (before pushName() )
-    static void drawInnerPOI(const GUIVisualizationSettings& s, const PointOfInterest* POI, const GUIGlObject* o, const bool disableSelectionColor,
-                             const double layer, const double width, const double height);
+    /// @brief set POI color
+    static void setPOIColor(const GUIVisualizationSettings& s, const RGBColor& shapeColor, const GUIGlObject* o, const bool forceSelectionColor);
 };

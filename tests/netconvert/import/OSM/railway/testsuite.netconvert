@@ -34,3 +34,47 @@ superfluous_edges
 
 # inconsistent stops and edges when importing PT
 consistent_ptline
+
+# see #13249
+inconsistent_directions
+
+# see #13249
+inconsistent_directions2
+
+# see #14534
+S5
+
+# keep railway.rail when used for light_rail route but remove it otherwise
+mixed_traffic_filter
+
+# see #17537
+jena_tram
+
+# see #17537
+jena_tram_allBidi
+
+# see #17537
+jena_tram2
+
+# see #17537
+jena_tram2_noBidiStops
+
+# see #17537
+# 
+# includes a road so the tram edge is split differently
+jena_tram2_noBidiStops_split
+
+# see #17766
+bs_tram
+
+# see #17781
+signal_dir_unpreferred
+
+# see #17781
+signal_dir_unpreferred_allBidi
+
+# see #17823
+spreadType
+
+# tests using S42 (Berlin)
+S42

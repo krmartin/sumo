@@ -1,3 +1,6 @@
+# test routing taxi trips
+taxi
+
 # test attributes fromJunction toJunction and viaJunctions
 junctionTaz
 
@@ -12,6 +15,9 @@ vtype
 
 # car use requested
 car
+
+# vehicle choice
+car_bike_taxi
 
 # car use requested, network contains bicycle lanes
 car_intermodal_net
@@ -34,8 +40,14 @@ car_walk_arrivalpos
 # car and walk possible with departPos > 0
 car_walk_departPos
 
+# see #17178
+car_with_busStop
+
 # public transport and walk possible
 public_walk
+
+# public transport with distict stop sequences that have the same line id
+public_walk_ambiguous_line
 
 # public transport and walk possible
 public_walk_singleveh
@@ -45,6 +57,12 @@ unusable_bus
 
 # public transport via bustops
 busstop
+
+# public transport via bustops
+busstop_any
+
+# public transport via bustops
+busstop_line
 
 # public transport via bustops, person arrives very early
 busstop_early
@@ -83,6 +101,9 @@ intermodal_car_walk_no_place
 
 # train access
 access
+
+# train access at random location
+access_random
 
 # train access
 access_shortcut
@@ -140,6 +161,7 @@ bike_public_walk
 
 # back and forth using walkingarea
 walk_walkingareas
+walk_crossings_tl
 
 # back and forth using normal vehicle connections
 walk_normal_connections
@@ -185,6 +207,29 @@ geoTrips
 # test reading trips with geo-coordinates
 geoTrips_lonLat
 
-# test routing taxi trips
-taxi
+# test reading trips with geo-coordinates
+geoTrips_lonLat_stop_junctions
+
+# test reading walk with geo-coordinates
+geoWalk_lonLat
+
+# test reading ride with geo-coordinates
+geoRide_lonLat
+carNoRoute
+
+# test for #14343
+pt_looped_disconnected
+
+# test for #14343
+# 
+# the passenger must switch between two trains running on the same line
+pt_looped_need_transfer
+
+# test for #14343
+# 
+# the passenger must switch between two trains running on the same line
+pt_looped_need_transfer2
+
+# Copy of basic
+max-traveltime
 errors

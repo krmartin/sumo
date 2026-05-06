@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -85,7 +85,7 @@ OptionsIO::getOptions(const bool commandLineOnly) {
     // preparse the options
     //  (maybe another configuration file was chosen)
     if (!OptionsParser::parse(myArgs, true)) {
-        throw ProcessError("Could not parse commandline options.");
+        throw ProcessError(TL("Could not parse commandline options."));
     }
     if (!commandLineOnly || OptionsCont::getOptions().isSet("save-configuration", false)) {
         // read the configuration when everything's ok
@@ -100,11 +100,11 @@ OptionsIO::loadConfiguration() {
     if (oc.exists("configuration-file") && oc.isSet("configuration-file")) {
         const std::string path = oc.getString("configuration-file");
         if (!FileHelpers::isReadable(path)) {
-            throw ProcessError("Could not access configuration '" + oc.getString("configuration-file") + "'.");
+            throw ProcessError(TLF("Could not access configuration '%'.", oc.getString("configuration-file")));
         }
         const bool verbose = !oc.exists("verbose") || oc.getBool("verbose");
         if (verbose) {
-            PROGRESS_BEGIN_MESSAGE("Loading configuration");
+            PROGRESS_BEGIN_MESSAGE(TL("Loading configuration"));
         }
         oc.resetWritable();
         // build parser
@@ -112,13 +112,13 @@ OptionsIO::loadConfiguration() {
         parser.setValidationScheme(XERCES_CPP_NAMESPACE::SAXParser::Val_Never);
         parser.setDisableDefaultEntityResolution(true);
         // start the parsing
-        OptionsLoader handler;
+        OptionsLoader handler(OptionsCont::getOptions());
         try {
             parser.setDocumentHandler(&handler);
             parser.setErrorHandler(&handler);
             parser.parse(StringUtils::transcodeToLocal(path).c_str());
             if (handler.errorOccurred()) {
-                throw ProcessError("Could not load configuration '" + path + "'.");
+                throw ProcessError(TLF("Could not load configuration '%'.", path));
             }
         } catch (const XERCES_CPP_NAMESPACE::XMLException& e) {
             throw ProcessError("Could not load configuration '" + path + "':\n " + StringUtils::transcode(e.getMessage()));
@@ -132,7 +132,7 @@ OptionsIO::loadConfiguration() {
         // reparse the options (overwrite the settings from the configuration file)
         oc.resetWritable();
         if (!OptionsParser::parse(myArgs)) {
-            throw ProcessError("Could not parse commandline options.");
+            throw ProcessError(TL("Could not parse commandline options."));
         }
     }
 }
@@ -145,13 +145,13 @@ OptionsIO::getRoot(const std::string& filename) {
     parser.setValidationScheme(XERCES_CPP_NAMESPACE::SAXParser::Val_Never);
     parser.setDisableDefaultEntityResolution(true);
     // start the parsing
-    OptionsLoader handler;
+    OptionsLoader handler(OptionsCont::getOptions());
     try {
         parser.setDocumentHandler(&handler);
         parser.setErrorHandler(&handler);
         XERCES_CPP_NAMESPACE::XMLPScanToken token;
         if (!FileHelpers::isReadable(filename) || FileHelpers::isDirectory(filename)) {
-            throw ProcessError("Could not open '" + filename + "'.");
+            throw ProcessError(TLF("Could not open '%'.", filename));
         }
 #ifdef HAVE_ZLIB
         zstr::ifstream istream(StringUtils::transcodeToLocal(filename).c_str(), std::fstream::in | std::fstream::binary);
@@ -161,11 +161,11 @@ OptionsIO::getRoot(const std::string& filename) {
         const bool result = parser.parseFirst(StringUtils::transcodeToLocal(filename).c_str(), token);
 #endif
         if (!result) {
-            throw ProcessError("Can not read XML-file '" + filename + "'.");
+            throw ProcessError(TLF("Can not read XML-file '%'.", filename));
         }
         while (parser.parseNext(token) && handler.getItem() == "");
         if (handler.errorOccurred()) {
-            throw ProcessError("Could not load '" + filename + "'.");
+            throw ProcessError(TLF("Could not load '%'.", filename));
         }
     } catch (const XERCES_CPP_NAMESPACE::XMLException& e) {
         throw ProcessError("Could not load '" + filename + "':\n " + StringUtils::transcode(e.getMessage()));

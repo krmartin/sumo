@@ -1,3 +1,6 @@
+# give access only to vehicles with the right badges
+access
+
 # block on road line while using parkingArea
 onRoad
 
@@ -9,3 +12,6 @@ long_lots
 
 # not enough parking spaces
 congestion
+
+# fill in upstream direction when there is only 1 lane
+1lane

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2012-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -12,7 +12,7 @@
 // SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSCFModel_Rail.cpp
-/// @author  Gregor L\"ammel
+/// @author  Gregor Laemmel
 /// @author  Leander Flamm
 /// @date    Tue, 08 Feb 2017
 ///
@@ -22,10 +22,40 @@
 
 #include <iostream>
 #include <utils/common/MsgHandler.h>
+#include <utils/common/StringUtils.h>
+#include <utils/common/StringTokenizer.h>
 #include <utils/geom/GeomHelper.h>
 #include <microsim/MSVehicle.h>
 #include <microsim/lcmodels/MSAbstractLaneChangeModel.h>
 #include "MSCFModel_Rail.h"
+
+// ===========================================================================
+// trainParams method definitions
+// ===========================================================================
+
+double
+MSCFModel_Rail::TrainParams::getResistance(double speed) const {
+    if (resCoef_constant != INVALID_DOUBLE) {
+        return (resCoef_quadratic * speed * speed + resCoef_linear * speed + resCoef_constant); // kN
+    } else {
+        return LinearApproxHelpers::getInterpolatedValue(resistance, speed); // kN
+    }
+}
+
+
+double
+MSCFModel_Rail::TrainParams::getTraction(double speed) const {
+    if (maxPower != INVALID_DOUBLE) {
+        return MIN2(maxPower / speed, maxTraction); // kN
+    } else {
+        return LinearApproxHelpers::getInterpolatedValue(traction, speed); // kN
+    }
+}
+
+// ===========================================================================
+// method definitions
+// ===========================================================================
+
 
 MSCFModel_Rail::MSCFModel_Rail(const MSVehicleType* vtype) :
     MSCFModel(vtype) {
@@ -46,8 +76,14 @@ MSCFModel_Rail::MSCFModel_Rail(const MSVehicleType* vtype) :
         myTrainParams = initFreightParams();
     } else if (trainType.compare("ICE3") == 0) {
         myTrainParams = initICE3Params();
+    } else if (trainType.compare("MireoPlusB") == 0) {
+        myTrainParams = initMireoPlusB2TParams();
+    } else if (trainType.compare("MireoPlusH") == 0) {
+        myTrainParams = initMireoPlusH2TParams();
+    } else if (trainType.compare("custom") == 0) {
+        myTrainParams = initCustomParams();
     } else {
-        WRITE_ERROR("Unknown train type: " + trainType + ". Exiting!");
+        WRITE_ERRORF(TL("Unknown train type: %. Exiting!"), trainType);
         throw ProcessError();
     }
     // override with user values
@@ -57,16 +93,61 @@ MSCFModel_Rail::MSCFModel_Rail(const MSVehicleType* vtype) :
     if (vtype->wasSet(VTYPEPARS_LENGTH_SET)) {
         myTrainParams.length = vtype->getLength();
     }
+    myTrainParams.mf = vtype->getParameter().getCFParam(SUMO_ATTR_MASSFACTOR, myTrainParams.mf);
     myTrainParams.decl = vtype->getParameter().getCFParam(SUMO_ATTR_DECEL, myTrainParams.decl);
     setMaxDecel(myTrainParams.decl);
     setEmergencyDecel(vtype->getParameter().getCFParam(SUMO_ATTR_EMERGENCYDECEL, myTrainParams.decl + 0.3));
     // update type parameters so they are shown correctly in the gui (if defaults from trainType are used)
     const_cast<MSVehicleType*>(vtype)->setMaxSpeed(myTrainParams.vmax);
     const_cast<MSVehicleType*>(vtype)->setLength(myTrainParams.length);
+    if (!vtype->wasSet(VTYPEPARS_MASS_SET)) {
+        // tons to kg
+        const_cast<MSVehicleType*>(vtype)->setMass(myTrainParams.weight * 1000);
+    }
 
+    // init tabular curves
+    myTrainParams.traction = vtype->getParameter().getCFProfile(SUMO_ATTR_TRACTION_TABLE, myTrainParams.traction);
+    myTrainParams.resistance = vtype->getParameter().getCFProfile(SUMO_ATTR_RESISTANCE_TABLE, myTrainParams.resistance);
+
+    // init parametric curves
+    myTrainParams.maxPower = vtype->getParameter().getCFParam(SUMO_ATTR_MAXPOWER, INVALID_DOUBLE);
+    myTrainParams.maxTraction = vtype->getParameter().getCFParam(SUMO_ATTR_MAXTRACTION, INVALID_DOUBLE);
+    myTrainParams.resCoef_constant = vtype->getParameter().getCFParam(SUMO_ATTR_RESISTANCE_COEFFICIENT_CONSTANT, INVALID_DOUBLE);
+    myTrainParams.resCoef_linear = vtype->getParameter().getCFParam(SUMO_ATTR_RESISTANCE_COEFFICIENT_LINEAR, INVALID_DOUBLE);
+    myTrainParams.resCoef_quadratic = vtype->getParameter().getCFParam(SUMO_ATTR_RESISTANCE_COEFFICIENT_QUADRATIC, INVALID_DOUBLE);
+
+    if (myTrainParams.maxPower != INVALID_DOUBLE && myTrainParams.maxTraction == INVALID_DOUBLE) {
+        throw ProcessError(TLF("Undefined maxPower for vType '%'.", vtype->getID()));
+    } else if (myTrainParams.maxPower == INVALID_DOUBLE && myTrainParams.maxTraction != INVALID_DOUBLE) {
+        throw ProcessError(TLF("Undefined maxTraction for vType '%'.", vtype->getID()));
+    }
+    if (myTrainParams.maxPower != INVALID_DOUBLE && vtype->getParameter().getCFParamString(SUMO_ATTR_TRACTION_TABLE, "") != "") {
+        WRITE_WARNING(TLF("Ignoring tractionTable because maxPower and maxTraction are set for vType '%'.", vtype->getID()));
+    }
+    const bool hasSomeResCoef = (myTrainParams.resCoef_constant != INVALID_DOUBLE
+                                 || myTrainParams.resCoef_linear != INVALID_DOUBLE
+                                 || myTrainParams.resCoef_quadratic != INVALID_DOUBLE);
+    const bool hasAllResCoef = (myTrainParams.resCoef_constant != INVALID_DOUBLE
+                                && myTrainParams.resCoef_linear != INVALID_DOUBLE
+                                && myTrainParams.resCoef_quadratic != INVALID_DOUBLE);
+    if (hasSomeResCoef && !hasAllResCoef) {
+        throw ProcessError(TLF("Some undefined resistance coefficients for vType '%' (requires resCoef_constant, resCoef_linear and resCoef_quadratic)", vtype->getID()));
+    }
+    if (myTrainParams.resCoef_constant != INVALID_DOUBLE && vtype->getParameter().getCFParamString(SUMO_ATTR_RESISTANCE_TABLE, "") != "") {
+        WRITE_WARNING(TLF("Ignoring resistanceTable because resistance coefficients are set for vType '%'.", vtype->getID()));
+    }
+
+    if (myTrainParams.traction.empty() && myTrainParams.maxPower == INVALID_DOUBLE) {
+        throw ProcessError(TLF("Either tractionTable or maxPower must be defined for vType '%' with Rail model type '%'.", vtype->getID(), trainType));
+    }
+    if (myTrainParams.resistance.empty() && myTrainParams.resCoef_constant == INVALID_DOUBLE) {
+        throw ProcessError(TLF("Either resistanceTable or resCoef_constant must be defined for vType '%' with Rail model type '%'.", vtype->getID(), trainType));
+    }
 }
 
+
 MSCFModel_Rail::~MSCFModel_Rail() { }
+
 
 double MSCFModel_Rail::followSpeed(const MSVehicle* const veh, double speed, double gap,
                                    double /* predSpeed */, double /* predMaxDecel*/, const MSVehicle* const /*pred*/, const CalcReason /*usage*/) const {
@@ -81,7 +162,7 @@ double MSCFModel_Rail::followSpeed(const MSVehicle* const veh, double speed, dou
         gap = MAX2(0.0, gap + veh->getVehicleType().getMinGap() - 50);
     }
 
-    const double vsafe = maximumSafeStopSpeed(gap, myDecel, speed, false, TS); // absolute breaking distance
+    const double vsafe = maximumSafeStopSpeed(gap, myDecel, speed, false, TS, false); // absolute breaking distance
     const double vmin = minNextSpeed(speed, veh);
     const double vmax = maxNextSpeed(speed, veh);
 
@@ -94,14 +175,27 @@ double MSCFModel_Rail::followSpeed(const MSVehicle* const veh, double speed, dou
     }
 }
 
+
 int
 MSCFModel_Rail::getModelID() const {
     return SUMO_TAG_CF_RAIL;
 }
 
+
 MSCFModel*
 MSCFModel_Rail::duplicate(const MSVehicleType* vtype) const {
     return new MSCFModel_Rail(vtype);
+}
+
+double
+MSCFModel_Rail::getRotWeight(const MSVehicle* const veh) const {
+    return getWeight(veh) * myTrainParams.mf;
+}
+
+double
+MSCFModel_Rail::getWeight(const MSVehicle* const veh) const {
+    // kg to tons
+    return veh->getVehicleType().getMass() / 1000;
 }
 
 double MSCFModel_Rail::maxNextSpeed(double speed, const MSVehicle* const veh) const {
@@ -112,39 +206,38 @@ double MSCFModel_Rail::maxNextSpeed(double speed, const MSVehicle* const veh) co
 
     double targetSpeed = myTrainParams.vmax;
 
-    double res = getInterpolatedValueFromLookUpMap(speed, &(myTrainParams.resistance)); // kN
+    double res = myTrainParams.getResistance(speed); // kN
 
     double slope = veh->getSlope();
-    double gr = myTrainParams.weight * GRAVITY * sin(DEG2RAD(slope)); //kN
+    double gr = getWeight(veh) * GRAVITY * sin(DEG2RAD(slope)); //kN
 
     double totalRes = res + gr; //kN
 
-    double trac = getInterpolatedValueFromLookUpMap(speed, &(myTrainParams.traction)); // kN
-
+    double trac = myTrainParams.getTraction(speed); // kN
     double a;
     if (speed < targetSpeed) {
-        a = (trac - totalRes) / myTrainParams.rotWeight; //kN/t == N/kg
+        a = (trac - totalRes) / getRotWeight(veh); //kN/t == N/kg
     } else {
         a = 0.;
         if (totalRes > trac) {
-            a = (trac - totalRes) / myTrainParams.rotWeight; //kN/t == N/kg
+            a = (trac - totalRes) / getRotWeight(veh); //kN/t == N/kg
         }
     }
-
     double maxNextSpeed = speed + ACCEL2SPEED(a);
 
 //    std::cout << veh->getID() << " speed: " << (speed*3.6) << std::endl;
 
-    return maxNextSpeed;
+    return MIN2(myTrainParams.vmax, maxNextSpeed);
 }
+
 
 double MSCFModel_Rail::minNextSpeed(double speed, const MSVehicle* const veh) const {
 
     const double slope = veh->getSlope();
-    const double gr = myTrainParams.weight * GRAVITY * sin(DEG2RAD(slope)); //kN
-    const double res = getInterpolatedValueFromLookUpMap(speed, &(myTrainParams.resistance)); // kN
+    const double gr = getWeight(veh) * GRAVITY * sin(DEG2RAD(slope)); //kN
+    const double res = myTrainParams.getResistance(speed); // kN
     const double totalRes = res + gr; //kN
-    const double a = myTrainParams.decl + totalRes / myTrainParams.rotWeight;
+    const double a = myTrainParams.decl + totalRes / getRotWeight(veh);
     const double vMin = speed - ACCEL2SPEED(a);
     if (MSGlobals::gSemiImplicitEulerUpdate) {
         return MAX2(vMin, 0.);
@@ -162,43 +255,13 @@ MSCFModel_Rail::minNextSpeedEmergency(double speed, const MSVehicle* const veh) 
 }
 
 
-double MSCFModel_Rail::getInterpolatedValueFromLookUpMap(double speed, const LookUpMap* lookUpMap) const {
-    speed = speed * 3.6; // lookup values in km/h
-    std::map<double, double>::const_iterator low, prev;
-    low = lookUpMap->lower_bound(speed);
-
-    if (low == lookUpMap->end()) { //speed > max speed
-        return (lookUpMap->rbegin())->second;
-    }
-
-    if (low == lookUpMap->begin()) {
-        return low->second;
-    }
-
-    prev = low;
-    --prev;
-
-    double range = low->first - prev->first;
-    double dist = speed - prev->first;
-    assert(range > 0);
-    assert(dist > 0);
-
-    double weight = dist / range;
-
-    double res = (1 - weight) * prev->second + weight * low->second;
-
-    return res;
-
-}
-
-
-
 //void
 //MSCFModel_Rail::initVehicleVariables(const MSVehicle *const veh, MSCFModel_Rail::VehicleVariables *pVariables) const {
 //
 //    pVariables->setInitialized();
 //
 //}
+
 
 double MSCFModel_Rail::getSpeedAfterMaxDecel(double /* speed */) const {
 
@@ -208,9 +271,10 @@ double MSCFModel_Rail::getSpeedAfterMaxDecel(double /* speed */) const {
 //    double a = 0;//trainParams.decl - gr/trainParams.rotWeight;
 //
 //    return speed + a * DELTA_T / 1000.;
-    WRITE_ERROR("function call not allowd for rail model. Exiting!");
+    WRITE_ERROR("function call not allowed for rail model. Exiting!");
     throw ProcessError();
 }
+
 
 MSCFModel::VehicleVariables* MSCFModel_Rail::createVehicleVariables() const {
     VehicleVariables* ret = new VehicleVariables();
@@ -221,6 +285,7 @@ MSCFModel::VehicleVariables* MSCFModel_Rail::createVehicleVariables() const {
 double MSCFModel_Rail::finalizeSpeed(MSVehicle* const veh, double vPos) const {
     return MSCFModel::finalizeSpeed(veh, vPos);
 }
+
 
 double MSCFModel_Rail::freeSpeed(const MSVehicle* const /* veh */, double /* speed */, double dist, double targetSpeed,
                                  const bool onInsertion, const CalcReason /*usage*/) const {
@@ -249,11 +314,12 @@ double MSCFModel_Rail::freeSpeed(const MSVehicle* const /* veh */, double /* spe
         const double fullSpeedGain = (yFull + (onInsertion ? 1. : 0.)) * ACCEL2SPEED(myTrainParams.decl);
         return DIST2SPEED(MAX2(0.0, dist - exactGap) / (yFull + 1)) + fullSpeedGain + targetSpeed;
     } else {
-        WRITE_ERROR("Anything else than semi implicit euler update is not yet implemented. Exiting!");
+        WRITE_ERROR(TL("Anything else than semi implicit euler update is not yet implemented. Exiting!"));
         throw ProcessError();
     }
 }
 
+
 double MSCFModel_Rail::stopSpeed(const MSVehicle* const veh, const double speed, double gap, double decel, const CalcReason /*usage*/) const {
-    return MIN2(maximumSafeStopSpeed(gap, decel, speed, false, TS), maxNextSpeed(speed, veh));
+    return MIN2(maximumSafeStopSpeed(gap, decel, speed, false, TS, false), maxNextSpeed(speed, veh));
 }

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xsd:schema elementFormDefault="qualified" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
 
-    <xsd:include schemaLocation="routeTypes.xsd" />
+    <xsd:include schemaLocation="types/route.xsd" />
 
     <xsd:element name="ptLines" type="ptLinesType"/>
 
@@ -31,8 +31,10 @@
         <xsd:attribute name="color" type="colorType"/>
         <xsd:attribute name="completeness" type="nonNegativeFloatType"/>
         <xsd:attribute name="vClass" type="xsd:string"/>
-        <xsd:attribute name="period" type="xsd:float"/>
+        <xsd:attribute name="period" type="floatType"/>
         <xsd:attribute name="nightService" type="xsd:string"/>
+        <xsd:attribute name="missingBefore" type="nonNegativeIntType"/>
+        <xsd:attribute name="missingAfter" type="nonNegativeIntType"/>
     </xsd:complexType>
 
     <xsd:complexType name="ptLineStopType">

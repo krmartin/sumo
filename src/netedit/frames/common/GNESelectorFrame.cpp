@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,25 +17,30 @@
 ///
 // The Widget for modifying selections of network-elements
 /****************************************************************************/
-#include <config.h>
 
+#include <netedit/GNEApplicationWindow.h>
 #include <netedit/GNENet.h>
+#include <netedit/GNETagPropertiesDatabase.h>
 #include <netedit/GNEUndoList.h>
 #include <netedit/GNEViewNet.h>
+#include <netedit/GNEViewParent.h>
+#include <netedit/dialogs/basic/GNEErrorBasicDialog.h>
+#include <netedit/dialogs/basic/GNEQuestionBasicDialog.h>
 #include <netedit/elements/network/GNEConnection.h>
 #include <netedit/elements/network/GNECrossing.h>
 #include <netedit/elements/network/GNEWalkingArea.h>
+#include <utils/foxtools/MFXDynamicLabel.h>
 #include <utils/gui/div/GUIDesigns.h>
 #include <utils/gui/globjects/GUIGlObjectStorage.h>
 #include <utils/gui/windows/GUIAppEnum.h>
 
+#include "GNEMatchAttribute.h"
 #include "GNESelectorFrame.h"
-#include "GNEElementSet.h"
-
 
 // ===========================================================================
 // FOX callback mapping
 // ===========================================================================
+
 FXDEFMAP(GNESelectorFrame::ModificationMode) ModificationModeMap[] = {
     FXMAPFUNC(SEL_COMMAND,  MID_CHOOSEN_OPERATION,  GNESelectorFrame::ModificationMode::onCmdSelectModificationMode)
 };
@@ -60,10 +65,10 @@ FXDEFMAP(GNESelectorFrame::SelectionHierarchy) SelectionHierarchyMap[] = {
 };
 
 // Object implementation
-FXIMPLEMENT(GNESelectorFrame::ModificationMode,     MFXGroupBoxModule,   ModificationModeMap,    ARRAYNUMBER(ModificationModeMap))
-FXIMPLEMENT(GNESelectorFrame::VisualScaling,        MFXGroupBoxModule,   VisualScalingMap,       ARRAYNUMBER(VisualScalingMap))
-FXIMPLEMENT(GNESelectorFrame::SelectionOperation,   MFXGroupBoxModule,   SelectionOperationMap,  ARRAYNUMBER(SelectionOperationMap))
-FXIMPLEMENT(GNESelectorFrame::SelectionHierarchy,   MFXGroupBoxModule,   SelectionHierarchyMap,  ARRAYNUMBER(SelectionHierarchyMap))
+FXIMPLEMENT(GNESelectorFrame::ModificationMode,     GNEGroupBoxModule,   ModificationModeMap,    ARRAYNUMBER(ModificationModeMap))
+FXIMPLEMENT(GNESelectorFrame::VisualScaling,        GNEGroupBoxModule,   VisualScalingMap,       ARRAYNUMBER(VisualScalingMap))
+FXIMPLEMENT(GNESelectorFrame::SelectionOperation,   GNEGroupBoxModule,   SelectionOperationMap,  ARRAYNUMBER(SelectionOperationMap))
+FXIMPLEMENT(GNESelectorFrame::SelectionHierarchy,   GNEGroupBoxModule,   SelectionHierarchyMap,  ARRAYNUMBER(SelectionHierarchyMap))
 
 // ===========================================================================
 // method definitions
@@ -74,7 +79,7 @@ FXIMPLEMENT(GNESelectorFrame::SelectionHierarchy,   MFXGroupBoxModule,   Selecti
 // ---------------------------------------------------------------------------
 
 GNESelectorFrame::SelectionInformation::SelectionInformation(GNESelectorFrame* selectorFrameParent) :
-    MFXGroupBoxModule(selectorFrameParent, "Selection information"),
+    GNEGroupBoxModule(selectorFrameParent, TL("Selection information")),
     mySelectorFrameParent(selectorFrameParent) {
     // information label
     myInformationLabel = new FXLabel(getCollapsableFrame(), "", nullptr, GUIDesignLabelFrameInformation);
@@ -92,34 +97,35 @@ GNESelectorFrame::SelectionInformation::updateInformationLabel() {
     const auto ACs = mySelectorFrameParent->getViewNet()->getNet()->getAttributeCarriers();
     // continue depending of supermode
     if (mySelectorFrameParent->getViewNet()->getEditModes().isCurrentSupermodeNetwork()) {
-        updateInformationLabel("Junctions", ACs->getNumberOfSelectedJunctions());
-        updateInformationLabel("Edges", ACs->getNumberOfSelectedEdges());
-        updateInformationLabel("Lanes", ACs->getNumberOfSelectedLanes());
-        updateInformationLabel("Connections", ACs->getNumberOfSelectedConnections());
-        updateInformationLabel("Crossings", ACs->getNumberOfSelectedCrossings());
-        updateInformationLabel("WalkingAreas", ACs->getNumberOfSelectedWalkingAreas());
-        updateInformationLabel("Additionals", ACs->getNumberOfSelectedPureAdditionals());
-        updateInformationLabel("Wires", ACs->getNumberOfSelectedWires());
-        updateInformationLabel("TAZs", ACs->getNumberOfSelectedTAZs());
-        updateInformationLabel("TAZSources", ACs->getNumberOfSelectedTAZSources());
-        updateInformationLabel("TAZSinks", ACs->getNumberOfSelectedTAZSinks());
-        updateInformationLabel("Polygon", ACs->getNumberOfSelectedPolygons());
-        updateInformationLabel("POIs", ACs->getNumberOfSelectedPOIs());
+        updateInformationLabel(TL("Junctions"), ACs->getNumberOfSelectedJunctions());
+        updateInformationLabel(TL("Edges"), ACs->getNumberOfSelectedEdges());
+        updateInformationLabel(TL("Lanes"), ACs->getNumberOfSelectedLanes());
+        updateInformationLabel(TL("Connections"), ACs->getNumberOfSelectedConnections());
+        updateInformationLabel(TL("Crossings"), ACs->getNumberOfSelectedCrossings());
+        updateInformationLabel(TL("WalkingAreas"), ACs->getNumberOfSelectedWalkingAreas());
+        updateInformationLabel(TL("Additionals"), ACs->getNumberOfSelectedPureAdditionals());
+        updateInformationLabel(TL("Wires"), ACs->getNumberOfSelectedWires());
+        updateInformationLabel(TL("TAZs"), ACs->getNumberOfSelectedTAZs());
+        updateInformationLabel(TL("Polygons"), ACs->getNumberOfSelectedPolygons());
+        updateInformationLabel(TL("POIs"), ACs->getNumberOfSelectedPOIs());
+        updateInformationLabel(TL("JuPedSim elements"),
+                               ACs->getNumberOfSelectedJpsWalkableAreas() +
+                               ACs->getNumberOfSelectedJpsObstacles());
     } else if (mySelectorFrameParent->getViewNet()->getEditModes().isCurrentSupermodeDemand()) {
-        updateInformationLabel("Routes", ACs->getNumberOfSelectedRoutes());
-        updateInformationLabel("Vehicles", ACs->getNumberOfSelectedVehicles());
-        updateInformationLabel("Persons", ACs->getNumberOfSelectedPersons());
-        updateInformationLabel("Person trips", ACs->getNumberOfSelectedPersonTrips());
-        updateInformationLabel("Walks", ACs->getNumberOfSelectedWalks());
-        updateInformationLabel("Rides", ACs->getNumberOfSelectedRides());
-        updateInformationLabel("Containers", ACs->getNumberOfSelectedContainers());
-        updateInformationLabel("Transport", ACs->getNumberOfSelectedTransport());
-        updateInformationLabel("Tranships", ACs->getNumberOfSelectedTranships());
-        updateInformationLabel("Stops", ACs->getNumberOfSelectedStops());
+        updateInformationLabel(TL("Routes"), ACs->getNumberOfSelectedRoutes());
+        updateInformationLabel(TL("Vehicles"), ACs->getNumberOfSelectedVehicles());
+        updateInformationLabel(TL("Persons"), ACs->getNumberOfSelectedPersons());
+        updateInformationLabel(TL("Person trips"), ACs->getNumberOfSelectedPersonTrips());
+        updateInformationLabel(TL("Walks"), ACs->getNumberOfSelectedWalks());
+        updateInformationLabel(TL("Rides"), ACs->getNumberOfSelectedRides());
+        updateInformationLabel(TL("Containers"), ACs->getNumberOfSelectedContainers());
+        updateInformationLabel(TL("Transport"), ACs->getNumberOfSelectedTransport());
+        updateInformationLabel(TL("Tranships"), ACs->getNumberOfSelectedTranships());
+        updateInformationLabel(TL("Stops"), ACs->getNumberOfSelectedStops());
     } else if (mySelectorFrameParent->getViewNet()->getEditModes().isCurrentSupermodeData()) {
-        updateInformationLabel("EdgeDatas", ACs->getNumberOfSelectedEdgeDatas());
-        updateInformationLabel("EdgeRelDatas", ACs->getNumberOfSelectedEdgeRelDatas());
-        updateInformationLabel("EdgeTAZRel", ACs->getNumberOfSelectedEdgeTAZRel());
+        updateInformationLabel(TL("EdgeDatas"), ACs->getNumberOfSelectedEdgeDatas());
+        updateInformationLabel(TL("EdgeRelDatas"), ACs->getNumberOfSelectedEdgeRelDatas());
+        updateInformationLabel(TL("EdgeTAZRel"), ACs->getNumberOfSelectedEdgeTAZRel());
     }
     // adjust format
     const auto numberLines = std::count(myInformation.begin(), myInformation.end(), ':');
@@ -146,17 +152,17 @@ GNESelectorFrame::SelectionInformation::updateInformationLabel(const std::string
 // ---------------------------------------------------------------------------
 
 GNESelectorFrame::ModificationMode::ModificationMode(GNESelectorFrame* selectorFrameParent) :
-    MFXGroupBoxModule(selectorFrameParent, "Modification Mode"),
+    GNEGroupBoxModule(selectorFrameParent, TL("Modification Mode")),
     myModificationModeType(Operation::ADD) {
     // Create all options buttons
-    myAddRadioButton = new FXRadioButton(getCollapsableFrame(), "add\t\tSelected objects are added to the previous selection",
-                                         this, MID_CHOOSEN_OPERATION, GUIDesignRadioButton);
-    myRemoveRadioButton = new FXRadioButton(getCollapsableFrame(), "remove\t\tSelected objects are removed from the previous selection",
-                                            this, MID_CHOOSEN_OPERATION, GUIDesignRadioButton);
-    myKeepRadioButton = new FXRadioButton(getCollapsableFrame(), "keep\t\tRestrict previous selection by the current selection",
-                                          this, MID_CHOOSEN_OPERATION, GUIDesignRadioButton);
-    myReplaceRadioButton = new FXRadioButton(getCollapsableFrame(), "replace\t\tReplace previous selection by the current selection",
-            this, MID_CHOOSEN_OPERATION, GUIDesignRadioButton);
+    myAddRadioButton = GUIDesigns::buildFXRadioButton(getCollapsableFrame(), TL("add"), "", TL("Selected objects are added to the previous selection"),
+                       this, MID_CHOOSEN_OPERATION, GUIDesignRadioButton);
+    myRemoveRadioButton = GUIDesigns::buildFXRadioButton(getCollapsableFrame(), TL("remove"), "", TL("Selected objects are removed from the previous selection"),
+                          this, MID_CHOOSEN_OPERATION, GUIDesignRadioButton);
+    myKeepRadioButton = GUIDesigns::buildFXRadioButton(getCollapsableFrame(), TL("keep"), "", TL("Restrict previous selection by the current selection"),
+                        this, MID_CHOOSEN_OPERATION, GUIDesignRadioButton);
+    myReplaceRadioButton = GUIDesigns::buildFXRadioButton(getCollapsableFrame(), TL("replace"), "", TL("Replace previous selection by the current selection"),
+                           this, MID_CHOOSEN_OPERATION, GUIDesignRadioButton);
     myAddRadioButton->setCheck(true);
 }
 
@@ -210,7 +216,7 @@ GNESelectorFrame::ModificationMode::onCmdSelectModificationMode(FXObject* obj, F
 // ---------------------------------------------------------------------------
 
 GNESelectorFrame::VisualScaling::VisualScaling(GNESelectorFrame* selectorFrameParent) :
-    MFXGroupBoxModule(selectorFrameParent, "Visual Scaling"),
+    GNEGroupBoxModule(selectorFrameParent, TL("Visual Scaling")),
     mySelectorFrameParent(selectorFrameParent) {
     // Create spin button and configure it
     mySelectionScaling = new FXRealSpinner(getCollapsableFrame(), 7, this, MID_GNE_SELECTORFRAME_SELECTSCALE, GUIDesignSpinDial);
@@ -219,7 +225,7 @@ GNESelectorFrame::VisualScaling::VisualScaling(GNESelectorFrame* selectorFramePa
     mySelectionScaling->setIncrement(0.5);
     mySelectionScaling->setRange(1, 100000);
     mySelectionScaling->setValue(1);
-    mySelectionScaling->setHelpText("Enlarge selected objects");
+    mySelectionScaling->setHelpText(TL("Enlarge selected objects"));
 }
 
 
@@ -239,7 +245,7 @@ GNESelectorFrame::VisualScaling::onCmdScaleSelection(FXObject*, FXSelector, void
 // ---------------------------------------------------------------------------
 
 GNESelectorFrame::SelectionOperation::SelectionOperation(GNESelectorFrame* selectorFrameParent) :
-    MFXGroupBoxModule(selectorFrameParent, "Selection operations"),
+    GNEGroupBoxModule(selectorFrameParent, TL("Selection operations")),
     mySelectorFrameParent(selectorFrameParent) {
     // tabular buttons, see GNETLSEditorFrame
 
@@ -248,51 +254,38 @@ GNESelectorFrame::SelectionOperation::SelectionOperation(GNESelectorFrame* selec
     FXVerticalFrame* col2 = new FXVerticalFrame(selectionButtons, LAYOUT_FILL_X, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0); // right button column
 
     // Create "Clear List" Button
-    new FXButton(col1, "Clear\t\tDeselect all objects (hotkey: ESC)", nullptr, this, MID_CHOOSEN_CLEAR, GUIDesignButton);
+    GUIDesigns::buildFXButton(col1, TL("Clear"), "", TL("Deselect all objects (hotkey: ESC)"), nullptr, this, MID_CHOOSEN_CLEAR, GUIDesignButton);
     // Create "Invert" Button
-    new FXButton(col2, "Invert\t\tInvert selection status of all objects", nullptr, this, MID_CHOOSEN_INVERT, GUIDesignButton);
+    GUIDesigns::buildFXButton(col2, TL("Invert"), "", TL("Invert selection status of all objects"), nullptr, this, MID_CHOOSEN_INVERT, GUIDesignButton);
     // Create "Save" Button
-    new FXButton(col1, "Save\t\tSave ids of currently selected objects to a file.", nullptr, this, MID_CHOOSEN_SAVE, GUIDesignButton);
+    GUIDesigns::buildFXButton(col1, TL("Save"), "", TL("Save ids of currently selected objects to a file."), nullptr, this, MID_CHOOSEN_SAVE, GUIDesignButton);
     // Create "Load" Button
-    new FXButton(col2, "Load\t\tLoad ids from a file according to the current modfication mode.", nullptr, this, MID_CHOOSEN_LOAD, GUIDesignButton);
+    GUIDesigns::buildFXButton(col2, TL("Load"), "", TL("Load ids from a file according to the current modification mode."), nullptr, this, MID_CHOOSEN_LOAD, GUIDesignButton);
     // Create "Delete" Button
-    new FXButton(col1, "Delete\t\tDelete all selected objects (hotkey: DEL)", nullptr, this, MID_CHOOSEN_DELETE, GUIDesignButton);
+    GUIDesigns::buildFXButton(col1, TL("Delete"), "", TL("Delete all selected objects (hotkey: DEL)"), nullptr, this, MID_CHOOSEN_DELETE, GUIDesignButton);
     // Create "reduce" Button
-    new FXButton(col2, "Reduce\t\tReduce network to current selection.", nullptr, this, MID_CHOOSEN_REDUCE, GUIDesignButton);
+    GUIDesigns::buildFXButton(col2, TL("Reduce"), "", TL("Reduce network to current selection."), nullptr, this, MID_CHOOSEN_REDUCE, GUIDesignButton);
 }
 
 
 GNESelectorFrame::SelectionOperation::~SelectionOperation() {}
 
 
-long
-GNESelectorFrame::SelectionOperation::onCmdLoad(FXObject*, FXSelector, void*) {
-    // get the new file name
-    FXFileDialog opendialog(getCollapsableFrame(), "Open List of Selected Items");
-    opendialog.setIcon(GUIIconSubSys::getIcon(GUIIcon::OPEN_CONFIG));
-    opendialog.setSelectMode(SELECTFILE_EXISTING);
-    opendialog.setPatternList("Selection files (*.txt)\nAll files (*)");
-    if (gCurrentFolder.length() != 0) {
-        opendialog.setDirectory(gCurrentFolder);
-    }
-    if (opendialog.execute()) {
-        std::vector<GNEAttributeCarrier*> loadedACs;
-        gCurrentFolder = opendialog.getDirectory();
-        std::string file = opendialog.getFilename().text();
-        std::ostringstream msg;
-        std::ifstream strm(file.c_str());
-        // check if file can be opened
-        if (!strm.good()) {
-            WRITE_ERROR("Could not open '" + file + "'.");
-            return 0;
-        }
+void
+GNESelectorFrame::SelectionOperation::loadFromFile(const std::string& file) const {
+    std::vector<GNEAttributeCarrier*> loadedACs;
+    std::ifstream strm(file.c_str());
+    // check if file can be opened
+    if (!strm.good()) {
+        WRITE_ERRORF(TL("Could not open '%'."), file);
+    } else {
         // convert all glObjects into GNEAttributeCarriers
         std::map<const std::string, GNEAttributeCarrier*> GLFUllNameAC;
         const auto GLObjects = GUIGlObjectStorage::gIDStorage.getAllGLObjects();
         for (const auto& GLObject : GLObjects) {
             // try to parse GLObject to AC
             GNEAttributeCarrier* AC = dynamic_cast<GNEAttributeCarrier*>(GLObject);
-            // if was sucesfully parsed and is NOT a template, add into GLFUllNameAC using fullName
+            // if was successfully parsed and is NOT a template, add into GLFUllNameAC using fullName
             if (AC && !AC->isTemplate()) {
                 GLFUllNameAC[GUIGlObject::TypeNames.getString(GLObject->getType()) + ":" + AC->getID()] = AC;
             }
@@ -304,13 +297,16 @@ GNESelectorFrame::SelectionOperation::onCmdLoad(FXObject*, FXSelector, void*) {
             // check if line isn't empty
             if (line.length() != 0) {
                 // obtain AC from GLFUllNameAC
+                if (StringUtils::startsWith(line, "node:")) {
+                    line = StringUtils::replace(line, "node:", "junction:");
+                }
                 GNEAttributeCarrier* AC = GLFUllNameAC.count(line) > 0 ? GLFUllNameAC.at(line) : nullptr;
                 // check if AC exist, is selectable, and isn't locked
-                if (AC && AC->getTagProperty().isSelectable() && !mySelectorFrameParent->getViewNet()->getLockManager().isObjectLocked(AC->getGUIGlObject()->getType(), false)) {
+                if (AC && AC->getTagProperty()->isSelectable() && !mySelectorFrameParent->getViewNet()->getLockManager().isObjectLocked(AC->getGUIGlObject()->getType(), false)) {
                     // now check if we're in the correct supermode to load this element
-                    if (((mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeNetwork()) && !AC->getTagProperty().isDemandElement()) ||
-                            ((mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeDemand()) && AC->getTagProperty().isDemandElement()) ||
-                            ((mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeData()) && AC->getTagProperty().isDataElement())) {
+                    if (((mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeNetwork()) && !AC->getTagProperty()->isDemandElement()) ||
+                            ((mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeDemand()) && AC->getTagProperty()->isDemandElement()) ||
+                            ((mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeData()) && AC->getTagProperty()->isDataElement())) {
                         loadedACs.push_back(AC);
                     }
                 }
@@ -318,20 +314,36 @@ GNESelectorFrame::SelectionOperation::onCmdLoad(FXObject*, FXSelector, void*) {
         }
         // change selected attribute in loaded ACs allowing undo/redo
         if (loadedACs.size() > 0) {
-            mySelectorFrameParent->myViewNet->getUndoList()->begin(GUIIcon::MODESELECT, "load selection");
+            mySelectorFrameParent->myViewNet->getUndoList()->begin(GUIIcon::MODESELECT, TL("load selection"));
             mySelectorFrameParent->handleIDs(loadedACs);
             mySelectorFrameParent->myViewNet->getUndoList()->end();
         }
     }
-    mySelectorFrameParent->myViewNet->updateViewNet();
+}
+
+
+long
+GNESelectorFrame::SelectionOperation::onCmdLoad(FXObject*, FXSelector, void*) {
+    // get the new file name
+    FXFileDialog opendialog(getCollapsableFrame(), TL("Open List of Selected Items"));
+    opendialog.setIcon(GUIIconSubSys::getIcon(GUIIcon::OPEN));
+    opendialog.setSelectMode(SELECTFILE_EXISTING);
+    opendialog.setPatternList(SUMOXMLDefinitions::TXTFileExtensions.getMultilineString().c_str());
+    if (gCurrentFolder.length() != 0) {
+        opendialog.setDirectory(gCurrentFolder);
+    }
+    if (opendialog.execute()) {
+        gCurrentFolder = opendialog.getDirectory();
+        loadFromFile(opendialog.getFilename().text());
+    }
     return 1;
 }
 
 
 long
 GNESelectorFrame::SelectionOperation::onCmdSave(FXObject*, FXSelector, void*) {
-    FXString file = MFXUtils::getFilename2Write(this,
-                    "Save List of selected Items", ".txt",
+    FXString file = MFXUtils::getFilename2Write(this, TL("Save List of selected Items"),
+                    SUMOXMLDefinitions::TXTFileExtensions.getMultilineString().c_str(),
                     GUIIconSubSys::getIcon(GUIIcon::SAVE), gCurrentFolder);
     if (file == "") {
         return 1;
@@ -348,12 +360,9 @@ GNESelectorFrame::SelectionOperation::onCmdSave(FXObject*, FXSelector, void*) {
         }
         dev.close();
     } catch (IOError& e) {
-        // write warning if netedit is running in testing mode
-        WRITE_DEBUG("Opening FXMessageBox 'error storing selection'");
         // open message box error
-        FXMessageBox::error(getCollapsableFrame(), MBOX_OK, "Storing Selection failed", "%s", e.what());
-        // write warning if netedit is running in testing mode
-        WRITE_DEBUG("Closed FXMessageBox 'error storing selection' with 'OK'");
+        GNEErrorBasicDialog(mySelectorFrameParent->getViewNet()->getViewParent()->getGNEAppWindows(),
+                            TL("Storing Selection failed"), e.what());
     }
     return 1;
 }
@@ -361,24 +370,40 @@ GNESelectorFrame::SelectionOperation::onCmdSave(FXObject*, FXSelector, void*) {
 
 long
 GNESelectorFrame::SelectionOperation::onCmdClear(FXObject*, FXSelector, void*) {
-    bool ignoreLocking = false;
-    // only continue if there is element for selecting
-    if ((mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeNetwork() && processNetworkElementSelection(true, false, ignoreLocking)) ||
-            (mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeDemand() &&  processDemandElementSelection(true, false, ignoreLocking)) ||
-            (mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeData() && processDataElementSelection(true, false, ignoreLocking))) {
-        // for invert selection, first clean current selection and next select elements of set "unselectedElements"
-        mySelectorFrameParent->myViewNet->getUndoList()->begin(GUIIcon::MODESELECT, "invert selection");
-        // invert selection of elements depending of current supermode
-        if (mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeNetwork()) {
-            processNetworkElementSelection(false, true, ignoreLocking);
-        } else if (mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeDemand()) {
-            processDemandElementSelection(false, true, ignoreLocking);
-        } else if (mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeData()) {
-            processDataElementSelection(false, true, ignoreLocking);
+    const auto& editModes = mySelectorFrameParent->myViewNet->getEditModes();
+    GNEUndoList* undoList = mySelectorFrameParent->myViewNet->getUndoList();
+    // declare massive selection
+    MassiveSelection massiveSelection =
+        editModes.isCurrentSupermodeNetwork() ? processMassiveNetworkElementSelection(false) :
+        editModes.isCurrentSupermodeDemand() ? processMassiveDemandElementSelection() :
+        processMassiveDataElementSelection();
+    // only continue if there are elements to unselect
+    if (massiveSelection.isElementToProcess()) {
+        // check if add locked elements
+        bool askedContinueIfLock = false;
+        bool addLockedElements = false;
+        bool unlockedElements = false;
+        for (const auto& ACToUnselect : massiveSelection.ACsToUnselect) {
+            if (ACToUnselect.second == false) {
+                // there are unlocked elements
+                unlockedElements = true;
+            } else if (!askedContinueIfLock) {
+                addLockedElements = askContinueIfLock();
+                // only ask one time for locking
+                askedContinueIfLock = true;
+            }
         }
-        // finish selection operation
-        mySelectorFrameParent->myViewNet->getUndoList()->end();
+        if (unlockedElements || addLockedElements) {
+            mySelectorFrameParent->myViewNet->getUndoList()->begin(GUIIcon::MODESELECT, TL("clear selection"));
+            for (const auto& ACToUnselect : massiveSelection.ACsToUnselect) {
+                if (addLockedElements || !ACToUnselect.second) {
+                    ACToUnselect.first->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
+                }
+            }
+            mySelectorFrameParent->myViewNet->getUndoList()->end();
+        }
     }
+    mySelectorFrameParent->myViewNet->updateViewNet();
     return 1;
 }
 
@@ -392,26 +417,53 @@ GNESelectorFrame::SelectionOperation::onCmdDelete(FXObject*, FXSelector, void*) 
 
 long
 GNESelectorFrame::SelectionOperation::onCmdInvert(FXObject*, FXSelector, void*) {
-    bool ignoreLocking = false;
-    // only continue if there is element for selecting
-    if ((mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeNetwork() && processNetworkElementSelection(true, false, ignoreLocking)) ||
-            (mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeDemand() &&  processDemandElementSelection(true, false, ignoreLocking)) ||
-            (mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeData() && processDataElementSelection(true, false, ignoreLocking))) {
-        // for invert selection, first clean current selection and next select elements of set "unselectedElements"
-        mySelectorFrameParent->myViewNet->getUndoList()->begin(GUIIcon::MODESELECT, "invert selection");
-        // invert selection of elements depending of current supermode
-        if (mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeNetwork()) {
-            // invert network elements
-            processNetworkElementSelection(false, false, ignoreLocking);
-        } else if (mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeDemand()) {
-            // invert demand elements
-            processDemandElementSelection(false, false, ignoreLocking);
-        } else if (mySelectorFrameParent->myViewNet->getEditModes().isCurrentSupermodeData()) {
-            // invert data elements
-            processDataElementSelection(false, false, ignoreLocking);
+    const auto& editModes = mySelectorFrameParent->myViewNet->getEditModes();
+    GNEUndoList* undoList = mySelectorFrameParent->myViewNet->getUndoList();
+    // declare massive selection
+    MassiveSelection massiveSelection =
+        editModes.isCurrentSupermodeNetwork() ? processMassiveNetworkElementSelection(true) :
+        editModes.isCurrentSupermodeDemand() ? processMassiveDemandElementSelection() :
+        processMassiveDataElementSelection();
+    // only continue if there are elements to select and unselect
+    if (massiveSelection.isElementToProcess()) {
+        // check if add locked elements
+        bool askedContinueIfLock = false;
+        bool addLockedElements = false;
+        bool unlockedElements = false;
+        for (const auto& ACToSelect : massiveSelection.ACsToSelect) {
+            if (ACToSelect.second == false) {
+                // there are unlocked elements
+                unlockedElements = true;
+            } else if (!askedContinueIfLock) {
+                addLockedElements = askContinueIfLock();
+                // only ask one time for locking
+                askedContinueIfLock = true;
+            }
         }
-        // finish selection operation
-        mySelectorFrameParent->myViewNet->getUndoList()->end();
+        for (const auto& ACToUnselect : massiveSelection.ACsToUnselect) {
+            if (ACToUnselect.second == false) {
+                // there are unlocked elements
+                unlockedElements = true;
+            } else if (!askedContinueIfLock) {
+                addLockedElements = askContinueIfLock();
+                // only ask one time for locking
+                askedContinueIfLock = true;
+            }
+        }
+        if (unlockedElements || addLockedElements) {
+            mySelectorFrameParent->myViewNet->getUndoList()->begin(GUIIcon::MODESELECT, TL("invert selection"));
+            for (const auto& ACToSelect : massiveSelection.ACsToSelect) {
+                if (addLockedElements || !ACToSelect.second) {
+                    ACToSelect.first->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
+                }
+            }
+            for (const auto& ACToUnselect : massiveSelection.ACsToUnselect) {
+                if (addLockedElements || !ACToUnselect.second) {
+                    ACToUnselect.first->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
+                }
+            }
+            mySelectorFrameParent->myViewNet->getUndoList()->end();
+        }
     }
     return 1;
 }
@@ -420,7 +472,7 @@ GNESelectorFrame::SelectionOperation::onCmdInvert(FXObject*, FXSelector, void*) 
 long
 GNESelectorFrame::SelectionOperation::onCmdReduce(FXObject*, FXSelector, void*) {
     // begin undoList operation
-    mySelectorFrameParent->getViewNet()->getUndoList()->begin(Supermode::NETWORK, GUIIcon::SIMPLIFYNETWORK, "simplify network");
+    mySelectorFrameParent->getViewNet()->getUndoList()->begin(Supermode::NETWORK, GUIIcon::SIMPLIFYNETWORK, TL("reduce network"));
     // invert and clear
     onCmdInvert(0, 0, 0);
     onCmdDelete(0, 0, 0);
@@ -430,716 +482,191 @@ GNESelectorFrame::SelectionOperation::onCmdReduce(FXObject*, FXSelector, void*) 
 }
 
 
-bool
-GNESelectorFrame::SelectionOperation::processNetworkElementSelection(const bool onlyCount, const bool onlyUnselect, bool& ignoreLocking) {
-    // obtan locks (only for improve code legibly)
-    const auto& locks = mySelectorFrameParent->getViewNet()->getLockManager();
-    // get attribute carriers (only for improve code legibly)
+GNESelectorFrame::SelectionOperation::MassiveSelection
+GNESelectorFrame::SelectionOperation::processMassiveNetworkElementSelection(const bool filterLanes) const {
     const auto& ACs = mySelectorFrameParent->myViewNet->getNet()->getAttributeCarriers();
-    // obtain undoList (only for improve code legibly)
-    GNEUndoList* undoList = mySelectorFrameParent->myViewNet->getUndoList();
-    // iterate over junctions
+    const bool selectEdges = mySelectorFrameParent->getViewNet()->getNetworkViewOptions().selectEdges();
+    // extract all network elements
+    std::unordered_set<GNEAttributeCarrier*> networkACs;
+    // add junctions
     for (const auto& junction : ACs->getJunctions()) {
-        // check if junction selection is locked
-        if (ignoreLocking || !locks.isObjectLocked(GLO_JUNCTION, false)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || junction.second->isAttributeCarrierSelected()) {
-                junction.second->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                junction.second->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        } else if (onlyCount) {
-            ignoreLocking = askContinueIfLock();
-            return true;
-        }
-        // due we iterate over all junctions, only it's neccesary iterate over incoming edges
+        networkACs.insert(junction.second);
+        // due we iterate over all junctions, only it's necessary iterate over incoming edges
         for (const auto& incomingEdge : junction.second->getGNEIncomingEdges()) {
-            // special case for clear
-            if (onlyUnselect) {
-                // check if edge selection is locked
-                if (ignoreLocking || !locks.isObjectLocked(GLO_EDGE, false)) {
-                    if (onlyCount) {
-                        return true;
-                    } else {
-                        incomingEdge->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    }
-                } else if (onlyCount) {
-                    ignoreLocking = askContinueIfLock();
-                    return true;
-                }
-                // check if lane selection is locked
-                if (ignoreLocking || !locks.isObjectLocked(GLO_LANE, false)) {
-                    for (const auto& lane : incomingEdge->getLanes()) {
-                        if (onlyCount) {
-                            return true;
-                        } else {
-                            lane->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                        }
-                    }
-                } else if (onlyCount) {
-                    ignoreLocking = askContinueIfLock();
-                    return true;
-                }
-            } else if (mySelectorFrameParent->myViewNet->getNetworkViewOptions().selectEdges()) {
-                // check if edge selection is locked
-                if (ignoreLocking || !locks.isObjectLocked(GLO_EDGE, false)) {
-                    if (onlyCount) {
-                        return true;
-                    } else if (onlyUnselect || incomingEdge->isAttributeCarrierSelected()) {
-                        incomingEdge->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        incomingEdge->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                } else if (onlyCount) {
-                    ignoreLocking = askContinueIfLock();
-                    return true;
-                }
-            } else {
-                // check if lane selection is locked
-                if (ignoreLocking || !locks.isObjectLocked(GLO_LANE, false)) {
-                    for (const auto& lane : incomingEdge->getLanes()) {
-                        if (onlyCount) {
-                            return true;
-                        } else if (onlyUnselect || lane->isAttributeCarrierSelected()) {
-                            lane->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                        } else {
-                            lane->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                        }
-                    }
-                } else if (onlyCount) {
-                    ignoreLocking = askContinueIfLock();
-                    return true;
+            if (!filterLanes || selectEdges) {
+                networkACs.insert(incomingEdge);
+            }
+            // add lanes
+            if (!filterLanes || !selectEdges) {
+                for (const auto& lane : incomingEdge->getChildLanes()) {
+                    networkACs.insert(lane);
                 }
             }
-            // check if connection selection is locked
-            if (ignoreLocking || !locks.isObjectLocked(GLO_CONNECTION, false)) {
-                for (const auto& connection : incomingEdge->getGNEConnections()) {
-                    if (onlyCount) {
-                        return true;
-                    } else if (onlyUnselect || connection->isAttributeCarrierSelected()) {
-                        connection->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        connection->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                }
-            } else if (onlyCount) {
-                ignoreLocking = askContinueIfLock();
-                return true;
+            // add connections
+            for (const auto& connection : incomingEdge->getGNEConnections()) {
+                networkACs.insert(connection);
             }
         }
-        // check if crossing selection is locked
-        if (ignoreLocking || !locks.isObjectLocked(GLO_CROSSING, false)) {
-            for (const auto& crossing : junction.second->getGNECrossings()) {
-                if (onlyCount) {
-                    return true;
-                } else if (onlyUnselect || crossing->isAttributeCarrierSelected()) {
-                    crossing->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                } else {
-                    crossing->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                }
-            }
-        } else if (onlyCount) {
-            ignoreLocking = askContinueIfLock();
-            return true;
+        // add crossings
+        for (const auto& crossing : junction.second->getGNECrossings()) {
+            networkACs.insert(crossing);
         }
-        // check if walkingArea selection is locked
-        if (ignoreLocking || !locks.isObjectLocked(GLO_WALKINGAREA, false)) {
-            for (const auto& walkingArea : junction.second->getGNEWalkingAreas()) {
-                if (onlyCount) {
-                    return true;
-                } else if (onlyUnselect || walkingArea->isAttributeCarrierSelected()) {
-                    walkingArea->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                } else {
-                    walkingArea->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                }
-            }
-        } else if (onlyCount) {
-            ignoreLocking = askContinueIfLock();
-            return true;
+        // add walkingArea
+        for (const auto& walkingArea : junction.second->getGNEWalkingAreas()) {
+            networkACs.insert(walkingArea);
         }
     }
-    // check if additionals selection is locked
-    if (ignoreLocking || !locks.isObjectLocked(GLO_ADDITIONALELEMENT, false)) {
-        for (const auto& additionalTag : ACs->getAdditionals()) {
-            // first check if additional is selectable
-            if (GNEAttributeCarrier::getTagProperty(additionalTag.first).isAdditionalPureElement() && GNEAttributeCarrier::getTagProperty(additionalTag.first).isSelectable()) {
-                for (const auto& additional : additionalTag.second) {
-                    if (onlyCount) {
-                        return true;
-                    } else if (onlyUnselect || additional->isAttributeCarrierSelected()) {
-                        additional->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        additional->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                }
+    // add additionals
+    for (const auto& additionalTags : ACs->getAdditionals()) {
+        for (const auto& additional : additionalTags.second) {
+            if (additional.second->getTagProperty()->isSelectable()) {
+                networkACs.insert(additional.second);
             }
         }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
     }
-    // check if wires selection is locked
-    if (ignoreLocking || !locks.isObjectLocked(GLO_WIRE, false)) {
-        for (const auto& wireTag : ACs->getAdditionals()) {
-            // first check if wire is selectable
-            if (GNEAttributeCarrier::getTagProperty(wireTag.first).isWireElement() && GNEAttributeCarrier::getTagProperty(wireTag.first).isSelectable()) {
-                for (const auto& wire : wireTag.second) {
-                    if (onlyCount) {
-                        return true;
-                    } else if (onlyUnselect || wire->isAttributeCarrierSelected()) {
-                        wire->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        wire->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                }
-            }
+    // declare massive selection
+    GNESelectorFrame::SelectionOperation::MassiveSelection massiveSelection(ACs->getNumberOfNetworkElements());
+    // iterate over network ACs
+    for (const auto& networkAC : networkACs) {
+        const auto networkACObjectType = networkAC->getGUIGlObject()->getType();
+        // save locking status in lockedTypes
+        if (massiveSelection.lockedTypes.find(networkACObjectType) == massiveSelection.lockedTypes.end()) {
+            massiveSelection.lockedTypes[networkACObjectType] = networkAC->getGUIGlObject()->isGLObjectLocked();
         }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
+        // save element and their locking status
+        if (networkAC->isAttributeCarrierSelected()) {
+            massiveSelection.ACsToUnselect[networkAC] = massiveSelection.lockedTypes.at(networkACObjectType);
+        } else {
+            massiveSelection.ACsToSelect[networkAC] = massiveSelection.lockedTypes.at(networkACObjectType);
+        }
     }
-    // invert polygons
-    if (ignoreLocking || !locks.isObjectLocked(GLO_POLYGON, false)) {
-        for (const auto& polygon : ACs->getAdditionals().at(SUMO_TAG_POLY)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || polygon->isAttributeCarrierSelected()) {
-                polygon->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                polygon->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
-    }
-    // invert TAZs
-    if (ignoreLocking || !locks.isObjectLocked(GLO_TAZ, false)) {
-        for (const auto& TAZ : ACs->getAdditionals().at(SUMO_TAG_TAZ)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || TAZ->isAttributeCarrierSelected()) {
-                TAZ->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                TAZ->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& TAZSource : ACs->getAdditionals().at(SUMO_TAG_TAZSOURCE)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || TAZSource->isAttributeCarrierSelected()) {
-                TAZSource->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                TAZSource->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& TAZSink : ACs->getAdditionals().at(SUMO_TAG_TAZSINK)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || TAZSink->isAttributeCarrierSelected()) {
-                TAZSink->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                TAZSink->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
-    }
-    // invert POIs and POILanes
-    if (ignoreLocking || !locks.isObjectLocked(GLO_POI, false)) {
-        for (const auto& POI : ACs->getAdditionals().at(SUMO_TAG_POI)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || POI->isAttributeCarrierSelected()) {
-                POI->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                POI->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& POILane : ACs->getAdditionals().at(GNE_TAG_POILANE)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || POILane->isAttributeCarrierSelected()) {
-                POILane->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                POILane->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& POIGeo : ACs->getAdditionals().at(GNE_TAG_POIGEO)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || POIGeo->isAttributeCarrierSelected()) {
-                POIGeo->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                POIGeo->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
-    }
-    return false;
+    return massiveSelection;
 }
 
 
-bool
-GNESelectorFrame::SelectionOperation::processDemandElementSelection(const bool onlyCount, const bool onlyUnselect, bool& ignoreLocking) {
-    // obtan locks (only for improve code legibly)
-    const auto& locks = mySelectorFrameParent->getViewNet()->getLockManager();
-    // obtain undoList (only for improve code legibly)
-    GNEUndoList* undoList = mySelectorFrameParent->myViewNet->getUndoList();
-    // get demand elements
-    const auto& demandElements = mySelectorFrameParent->myViewNet->getNet()->getAttributeCarriers()->getDemandElements();
-    // invert routes
-    if (ignoreLocking || !locks.isObjectLocked(GLO_ROUTE, false)) {
-        for (const auto& route : demandElements.at(SUMO_TAG_ROUTE)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || route->isAttributeCarrierSelected()) {
-                route->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                route->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
+GNESelectorFrame::SelectionOperation::MassiveSelection
+GNESelectorFrame::SelectionOperation::processMassiveDemandElementSelection() const {
+    const auto& ACs = mySelectorFrameParent->myViewNet->getNet()->getAttributeCarriers();
+    // declare massive selection
+    GNESelectorFrame::SelectionOperation::MassiveSelection massiveSelection(ACs->getNumberOfDemandElements());
+    // iterate over selectable demand elements
+    for (const auto& demandElementTag : ACs->getDemandElements()) {
+        for (const auto& demandElement : demandElementTag.second) {
+            if (demandElement.second->getTagProperty()->isSelectable()) {
+                const auto networkACObjectType = demandElement.first->getType();
+                // save locking status in lockedTypes
+                if (massiveSelection.lockedTypes.find(networkACObjectType) == massiveSelection.lockedTypes.end()) {
+                    massiveSelection.lockedTypes[networkACObjectType] = demandElement.first->isGLObjectLocked();
+                }
+                // save element and their locking status
+                if (demandElement.second->isAttributeCarrierSelected()) {
+                    massiveSelection.ACsToUnselect[demandElement.second] = massiveSelection.lockedTypes.at(networkACObjectType);
+                } else {
+                    massiveSelection.ACsToSelect[demandElement.second] = massiveSelection.lockedTypes.at(networkACObjectType);
+                }
             }
         }
-        // iterate over all embedded routes
-        for (const auto& vehicle : demandElements.at(GNE_TAG_VEHICLE_WITHROUTE)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || vehicle->getChildDemandElements().front()->isAttributeCarrierSelected()) {
-                vehicle->getChildDemandElements().front()->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                vehicle->getChildDemandElements().front()->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& routeFlow : demandElements.at(GNE_TAG_FLOW_WITHROUTE)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || routeFlow->getChildDemandElements().front()->isAttributeCarrierSelected()) {
-                routeFlow->getChildDemandElements().front()->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                routeFlow->getChildDemandElements().front()->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
     }
-    // invert vehicles
-    if (ignoreLocking || !locks.isObjectLocked(GLO_VEHICLE, false)) {
-        for (const auto& vehicle : demandElements.at(SUMO_TAG_VEHICLE)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || vehicle->isAttributeCarrierSelected()) {
-                vehicle->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                vehicle->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& vehicle : demandElements.at(GNE_TAG_VEHICLE_WITHROUTE)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || vehicle->isAttributeCarrierSelected()) {
-                vehicle->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                vehicle->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& trip : demandElements.at(SUMO_TAG_TRIP)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || trip->isAttributeCarrierSelected()) {
-                trip->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                trip->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& flow : demandElements.at(SUMO_TAG_FLOW)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || flow->isAttributeCarrierSelected()) {
-                flow->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                flow->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& routeFlow : demandElements.at(GNE_TAG_FLOW_ROUTE)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || routeFlow->isAttributeCarrierSelected()) {
-                routeFlow->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                routeFlow->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& routeFlow : demandElements.at(GNE_TAG_FLOW_WITHROUTE)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || routeFlow->isAttributeCarrierSelected()) {
-                routeFlow->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                routeFlow->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& routeFlow : demandElements.at(GNE_TAG_TRIP_JUNCTIONS)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || routeFlow->isAttributeCarrierSelected()) {
-                routeFlow->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                routeFlow->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& routeFlow : demandElements.at(GNE_TAG_FLOW_JUNCTIONS)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || routeFlow->isAttributeCarrierSelected()) {
-                routeFlow->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                routeFlow->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
-    }
-    // invert persons
-    if (ignoreLocking || !locks.isObjectLocked(GLO_PERSON, false)) {
-        for (const auto& person : demandElements.at(SUMO_TAG_PERSON)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || person->isAttributeCarrierSelected()) {
-                person->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                person->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& personFlow : demandElements.at(SUMO_TAG_PERSONFLOW)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || personFlow->isAttributeCarrierSelected()) {
-                personFlow->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                personFlow->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
-    }
-    // invert person trip
-    if (ignoreLocking || !locks.isObjectLocked(GLO_PERSONTRIP, false)) {
-        for (const auto& person : demandElements.at(SUMO_TAG_PERSON)) {
-            for (const auto& personPlan : person->getChildDemandElements()) {
-                if (onlyCount) {
-                    return true;
-                } else if (personPlan->getTagProperty().isPersonTrip()) {
-                    if (onlyUnselect || personPlan->isAttributeCarrierSelected()) {
-                        personPlan->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        personPlan->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                }
-            }
-        }
-        for (const auto& personFlow : demandElements.at(SUMO_TAG_PERSONFLOW)) {
-            for (const auto& personPlan : personFlow->getChildDemandElements()) {
-                if (onlyCount) {
-                    return true;
-                } else if (personPlan->getTagProperty().isPersonTrip()) {
-                    if (onlyUnselect || personPlan->isAttributeCarrierSelected()) {
-                        personPlan->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        personPlan->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                }
-            }
-        }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
-    }
-    // invert ride
-    if (ignoreLocking || !locks.isObjectLocked(GLO_PERSONTRIP, false)) {
-        for (const auto& person : demandElements.at(SUMO_TAG_PERSON)) {
-            for (const auto& personPlan : person->getChildDemandElements()) {
-                if (personPlan->getTagProperty().isRide()) {
-                    if (onlyCount) {
-                        return true;
-                    } else if (onlyUnselect || personPlan->isAttributeCarrierSelected()) {
-                        personPlan->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        personPlan->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                }
-            }
-        }
-        for (const auto& personFlow : demandElements.at(SUMO_TAG_PERSONFLOW)) {
-            for (const auto& personPlan : personFlow->getChildDemandElements()) {
-                if (personPlan->getTagProperty().isRide()) {
-                    if (onlyCount) {
-                        return true;
-                    } else if (onlyUnselect || personPlan->isAttributeCarrierSelected()) {
-                        personPlan->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        personPlan->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                }
-            }
-        }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
-    }
-    // invert walks
-    if (ignoreLocking || !locks.isObjectLocked(GLO_PERSONTRIP, false)) {
-        for (const auto& person : demandElements.at(SUMO_TAG_PERSON)) {
-            for (const auto& personPlan : person->getChildDemandElements()) {
-                if (personPlan->getTagProperty().isWalk()) {
-                    if (onlyCount) {
-                        return true;
-                    } else if (onlyUnselect || personPlan->isAttributeCarrierSelected()) {
-                        personPlan->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        personPlan->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                }
-            }
-        }
-        for (const auto& personFlow : demandElements.at(SUMO_TAG_PERSONFLOW)) {
-            for (const auto& personPlan : personFlow->getChildDemandElements()) {
-                if (personPlan->getTagProperty().isWalk()) {
-                    if (onlyCount) {
-                        return true;
-                    } else if (onlyUnselect || personPlan->isAttributeCarrierSelected()) {
-                        personPlan->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        personPlan->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                }
-            }
-        }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
-    }
-    // invert containers
-    if (ignoreLocking || !locks.isObjectLocked(GLO_CONTAINER, false)) {
-        for (const auto& container : demandElements.at(SUMO_TAG_CONTAINER)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || container->isAttributeCarrierSelected()) {
-                container->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                container->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-        for (const auto& containerFlow : demandElements.at(SUMO_TAG_CONTAINERFLOW)) {
-            if (onlyCount) {
-                return true;
-            } else if (onlyUnselect || containerFlow->isAttributeCarrierSelected()) {
-                containerFlow->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-            } else {
-                containerFlow->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-            }
-        }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
-    }
-    // invert container
-    if (ignoreLocking || !locks.isObjectLocked(GLO_TRANSPORT, false)) {
-        for (const auto& container : demandElements.at(SUMO_TAG_CONTAINER)) {
-            for (const auto& containerPlan : container->getChildDemandElements()) {
-                if (containerPlan->getTagProperty().isTransportPlan()) {
-                    if (onlyCount) {
-                        return true;
-                    } else if (onlyUnselect || containerPlan->isAttributeCarrierSelected()) {
-                        containerPlan->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        containerPlan->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                }
-            }
-        }
-        for (const auto& containerFlow : demandElements.at(SUMO_TAG_CONTAINERFLOW)) {
-            for (const auto& containerPlan : containerFlow->getChildDemandElements()) {
-                if (containerPlan->getTagProperty().isTransportPlan()) {
-                    if (onlyCount) {
-                        return true;
-                    } else if (onlyUnselect || containerPlan->isAttributeCarrierSelected()) {
-                        containerPlan->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        containerPlan->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                }
-            }
-        }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
-    }
-    // invert ride
-    if (ignoreLocking || !locks.isObjectLocked(GLO_TRANSHIP, false)) {
-        for (const auto& container : demandElements.at(SUMO_TAG_CONTAINER)) {
-            for (const auto& containerPlan : container->getChildDemandElements()) {
-                if (containerPlan->getTagProperty().isTranshipPlan()) {
-                    if (onlyCount) {
-                        return true;
-                    } else if (onlyUnselect || containerPlan->isAttributeCarrierSelected()) {
-                        containerPlan->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        containerPlan->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                }
-            }
-        }
-        for (const auto& containerFlow : demandElements.at(SUMO_TAG_CONTAINERFLOW)) {
-            for (const auto& containerPlan : containerFlow->getChildDemandElements()) {
-                if (containerPlan->getTagProperty().isTranshipPlan()) {
-                    if (onlyCount) {
-                        return true;
-                    } else if (onlyUnselect || containerPlan->isAttributeCarrierSelected()) {
-                        containerPlan->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                    } else {
-                        containerPlan->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                    }
-                }
-            }
-        }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
-    }
-    // invert stops
-    if (ignoreLocking || !locks.isObjectLocked(GLO_STOP, false)) {
-        for (const auto& demandElementTag : demandElements) {
-            for (const auto& demandElement : demandElementTag.second) {
-                // avoid vTypes
-                if (!demandElement->getTagProperty().isVehicleType()) {
-                    // iterate over every child
-                    for (const auto& stop : demandElement->getChildDemandElements()) {
-                        if (stop->getTagProperty().isStop() || stop->getTagProperty().isStopPerson() || stop->getTagProperty().isStopContainer()) {
-                            if (onlyCount) {
-                                return true;
-                            } else if (onlyUnselect || stop->isAttributeCarrierSelected()) {
-                                stop->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                            } else {
-                                stop->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                            }
-                        } else {
-                            // special case for embedded routes
-                            for (const auto& stopEmbeddedRoute : stop->getChildDemandElements()) {
-                                if (stopEmbeddedRoute->getTagProperty().isStop() ||
-                                        stopEmbeddedRoute->getTagProperty().isStopPerson() ||
-                                        stopEmbeddedRoute->getTagProperty().isStopContainer()) {
-                                    if (onlyCount) {
-                                        return true;
-                                    } else if (onlyUnselect || stopEmbeddedRoute->isAttributeCarrierSelected()) {
-                                        stopEmbeddedRoute->setAttribute(GNE_ATTR_SELECTED, "false", undoList);
-                                    } else {
-                                        stopEmbeddedRoute->setAttribute(GNE_ATTR_SELECTED, "true", undoList);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    } else if (onlyCount) {
-        ignoreLocking = askContinueIfLock();
-        return true;
-    }
-    return false;
+    return massiveSelection;
 }
 
 
-bool
-GNESelectorFrame::SelectionOperation::processDataElementSelection(const bool onlyCount, const bool onlyUnselect, bool& ignoreLocking) {
-    // obtan locks (only for improve code legibly)
-    const auto& locks = mySelectorFrameParent->getViewNet()->getLockManager();
-    // invert dataSets
+GNESelectorFrame::SelectionOperation::MassiveSelection
+GNESelectorFrame::SelectionOperation::processMassiveDataElementSelection() const {
+    const auto& ACs = mySelectorFrameParent->myViewNet->getNet()->getAttributeCarriers();
+    // declare massive selection
+    GNESelectorFrame::SelectionOperation::MassiveSelection massiveSelection(ACs->getNumberOfDataElements());
+    // iterate over selectable demand elements
     for (const auto& genericDataTag : mySelectorFrameParent->myViewNet->getNet()->getAttributeCarriers()->getGenericDatas()) {
         for (const auto& genericData : genericDataTag.second) {
-            if (onlyCount && locks.isObjectLocked(genericData->getType(), false)) {
-                ignoreLocking = askContinueIfLock();
-                return true;
-            } else if ((ignoreLocking || (!locks.isObjectLocked(GLO_EDGEDATA, false) && genericData->getType() == GLO_EDGEDATA)) ||
-                       (ignoreLocking || (!locks.isObjectLocked(GLO_EDGERELDATA, false) && genericData->getType() == GLO_EDGERELDATA)) ||
-                       (ignoreLocking || (!locks.isObjectLocked(GLO_TAZRELDATA, false) && genericData->getType() == GLO_TAZRELDATA))) {
-                if (onlyCount) {
-                    return true;
-                } else if (onlyUnselect || genericData->isAttributeCarrierSelected()) {
-                    genericData->setAttribute(GNE_ATTR_SELECTED, "false", mySelectorFrameParent->myViewNet->getUndoList());
+            if (genericData.second->getTagProperty()->isSelectable()) {
+                const auto networkACObjectType = genericData.first->getType();
+                // save locking status in lockedTypes
+                if (massiveSelection.lockedTypes.find(networkACObjectType) == massiveSelection.lockedTypes.end()) {
+                    massiveSelection.lockedTypes[networkACObjectType] = genericData.first->isGLObjectLocked();
+                }
+                // save element and their locking status
+                if (genericData.second->isAttributeCarrierSelected()) {
+                    massiveSelection.ACsToUnselect[genericData.second] = massiveSelection.lockedTypes.at(networkACObjectType);
                 } else {
-                    genericData->setAttribute(GNE_ATTR_SELECTED, "true", mySelectorFrameParent->myViewNet->getUndoList());
+                    massiveSelection.ACsToSelect[genericData.second] = massiveSelection.lockedTypes.at(networkACObjectType);
                 }
             }
         }
     }
-    return false;
+    return massiveSelection;
 }
 
 
 bool
 GNESelectorFrame::SelectionOperation::askContinueIfLock() const {
-    WRITE_DEBUG("Opening FXMessageBox 'confirm selection operation'");
-    // open question box
-    const FXuint answer = FXMessageBox::question(mySelectorFrameParent->getViewNet()->getApp(),
-                          MBOX_YES_NO, "Confirm selection operation", "There are locked elements in currentselection.\nApply operation to locked elements?");
-    if (answer != 1) { //1:yes, 2:no, 4:esc
-        // write warning if netedit is running in testing mode
-        if (answer == 2) {
-            WRITE_DEBUG("Closed FXMessageBox 'confirm selection operation' with 'No'");
-        } else if (answer == 4) {
-            WRITE_DEBUG("Closed FXMessageBox 'confirm selection operation' with 'ESC'");
-        }
-        return false;
-    } else {
-        // write warning if netedit is running in testing mode
-        WRITE_DEBUG("Closed FXMessageBox 'confirm selection operation' with 'Yes'");
-        return true;
-    }
+    // open question dialog box
+    const GNEQuestionBasicDialog questionDialog(mySelectorFrameParent->getViewNet()->getViewParent()->getGNEAppWindows(),
+            GNEDialog::Buttons::YES_NO,
+            TL("Confirm selection operation"),
+            TL("There are locked elements in the current selection."),
+            TL("Apply operation to locked elements?"));
+    // check result
+    return (questionDialog.getResult() == GNEDialog::Result::ACCEPT);
 }
+
+// ---------------------------------------------------------------------------
+// ModificationMode::SelectionOperation::SelectionHierarchy - methods
+// ---------------------------------------------------------------------------
+
+GNESelectorFrame::SelectionOperation::MassiveSelection::MassiveSelection(const int bucketSize) {
+    ACsToSelect.reserve(bucketSize);
+    ACsToUnselect.reserve(bucketSize);
+}
+
+
+GNESelectorFrame::SelectionOperation::MassiveSelection::~MassiveSelection() {}
+
+
+inline bool GNESelectorFrame::SelectionOperation::MassiveSelection::isElementToProcess() const {
+    return (ACsToSelect.size() + ACsToUnselect.size()) > 0;
+}
+
+
+GNESelectorFrame::SelectionOperation::MassiveSelection::MassiveSelection() {}
 
 // ---------------------------------------------------------------------------
 // ModificationMode::SelectionHierarchy - methods
 // ---------------------------------------------------------------------------
 
 GNESelectorFrame::SelectionHierarchy::SelectionHierarchy(GNESelectorFrame* selectorFrameParent) :
-    MFXGroupBoxModule(selectorFrameParent, "Hierarchy operations"),
+    GNEGroupBoxModule(selectorFrameParent, TL("Hierarchy operations")),
     mySelectorFrameParent(selectorFrameParent),
     myCurrentSelectedParent(Selection::ALL),
     myCurrentSelectedChild(Selection::ALL) {
+    const auto staticTooltipMenu = selectorFrameParent->getViewNet()->getViewParent()->getGNEAppWindows()->getStaticTooltipMenu();
     // create label for parents
-    new FXLabel(getCollapsableFrame(), "Select parents", nullptr, GUIDesignLabelThickCenter);
-    // Create FXComboBox for parent comboBox
-    myParentsComboBox = new FXComboBox(getCollapsableFrame(), GUIDesignComboBoxNCol, this, MID_GNE_SELECT, GUIDesignComboBox);
+    new FXLabel(getCollapsableFrame(), TL("Select parents"), nullptr, GUIDesignLabelThick(JUSTIFY_NORMAL));
+    // Create MFXComboBoxIcon for parent comboBox
+    myParentsComboBox = new MFXComboBoxIcon(getCollapsableFrame(), staticTooltipMenu, true, GUIDesignComboBoxVisibleItems,
+                                            this, MID_GNE_SELECT, GUIDesignComboBox);
     // create parent buttons
     FXHorizontalFrame* parentButtons = new FXHorizontalFrame(getCollapsableFrame(), GUIDesignAuxiliarHorizontalFrame);
     // Create "select" Button
-    mySelectParentsButton = new FXButton(parentButtons, "Select", GUIIconSubSys::getIcon(GUIIcon::SELECT), this, MID_GNE_SELECTORFRAME_PARENTS, GUIDesignButton);
+    mySelectParentsButton = GUIDesigns::buildFXButton(parentButtons, TL("Select"), "", "", GUIIconSubSys::getIcon(GUIIcon::SELECT), this, MID_GNE_SELECTORFRAME_PARENTS, GUIDesignButton);
     // Create "unselect" Button
-    myUnselectParentsButton = new FXButton(parentButtons, "Unselect", GUIIconSubSys::getIcon(GUIIcon::UNSELECT), this, MID_GNE_SELECTORFRAME_PARENTS, GUIDesignButton);
+    myUnselectParentsButton = GUIDesigns::buildFXButton(parentButtons, TL("Unselect"), "", "", GUIIconSubSys::getIcon(GUIIcon::UNSELECT), this, MID_GNE_SELECTORFRAME_PARENTS, GUIDesignButton);
     // create label for parents
-    new FXLabel(getCollapsableFrame(), "Select children", nullptr, GUIDesignLabelThickCenter);
-    // Create FXComboBox for parent comboBox
-    myChildrenComboBox = new FXComboBox(getCollapsableFrame(), GUIDesignComboBoxNCol, this, MID_GNE_SELECT, GUIDesignComboBox);
+    new FXLabel(getCollapsableFrame(), TL("Select children"), nullptr, GUIDesignLabelThick(JUSTIFY_NORMAL));
+    // Create MFXComboBoxIcon for parent comboBox
+    myChildrenComboBox = new MFXComboBoxIcon(getCollapsableFrame(), staticTooltipMenu, true, GUIDesignComboBoxVisibleItems,
+            this, MID_GNE_SELECT, GUIDesignComboBox);
     // create children buttons
     FXHorizontalFrame* childrenButtons = new FXHorizontalFrame(getCollapsableFrame(), GUIDesignAuxiliarHorizontalFrame);
     // Create "select" Button
-    mySelectChildrenButton = new FXButton(childrenButtons, "Select", GUIIconSubSys::getIcon(GUIIcon::SELECT), this, MID_GNE_SELECTORFRAME_CHILDREN, GUIDesignButton);
+    mySelectChildrenButton = GUIDesigns::buildFXButton(childrenButtons, TL("Select"), "", "", GUIIconSubSys::getIcon(GUIIcon::SELECT), this, MID_GNE_SELECTORFRAME_CHILDREN, GUIDesignButton);
     // Create "unselect" Button
-    myUnselectChildrenButton = new FXButton(childrenButtons, "Unselect", GUIIconSubSys::getIcon(GUIIcon::UNSELECT), this, MID_GNE_SELECTORFRAME_CHILDREN, GUIDesignButton);
+    myUnselectChildrenButton = GUIDesigns::buildFXButton(childrenButtons, TL("Unselect"), "", "", GUIIconSubSys::getIcon(GUIIcon::UNSELECT), this, MID_GNE_SELECTORFRAME_CHILDREN, GUIDesignButton);
     // fill comboBoxes
     for (const auto& item : myItems) {
-        myParentsComboBox->appendItem(item.second.c_str());
-        myChildrenComboBox->appendItem(item.second.c_str());
+        myParentsComboBox->appendIconItem(item.second.c_str());
+        myChildrenComboBox->appendIconItem(item.second.c_str());
     }
-    myParentsComboBox->setNumVisible(5);
-    myChildrenComboBox->setNumVisible(5);
 }
 
 
@@ -1155,7 +682,7 @@ GNESelectorFrame::SelectionHierarchy::onCmdSelectItem(FXObject* obj, FXSelector,
                 mySelectParentsButton->enable();
                 myUnselectParentsButton->enable();
                 // change text color
-                myParentsComboBox->setTextColor(FXRGB(0, 0, 0));
+                myParentsComboBox->setTextColor(GUIDesignTextColorBlack);
                 // set current selected parent
                 myCurrentSelectedParent = item.first;
                 return 1;
@@ -1166,7 +693,7 @@ GNESelectorFrame::SelectionHierarchy::onCmdSelectItem(FXObject* obj, FXSelector,
         // disable buttons
         mySelectParentsButton->disable();
         myUnselectParentsButton->disable();
-        myParentsComboBox->setTextColor(FXRGB(255, 0, 0));
+        myParentsComboBox->setTextColor(GUIDesignTextColorRed);
         return 1;
     } else if (obj == myChildrenComboBox) {
         for (const auto& item : myItems) {
@@ -1175,7 +702,7 @@ GNESelectorFrame::SelectionHierarchy::onCmdSelectItem(FXObject* obj, FXSelector,
                 mySelectChildrenButton->enable();
                 myUnselectChildrenButton->enable();
                 // change text color
-                myChildrenComboBox->setTextColor(FXRGB(0, 0, 0));
+                myChildrenComboBox->setTextColor(GUIDesignTextColorBlack);
                 // set current selected parent
                 myCurrentSelectedChild = item.first;
                 return 1;
@@ -1186,7 +713,7 @@ GNESelectorFrame::SelectionHierarchy::onCmdSelectItem(FXObject* obj, FXSelector,
         // disable buttons
         mySelectChildrenButton->disable();
         myUnselectChildrenButton->disable();
-        myChildrenComboBox->setTextColor(FXRGB(255, 0, 0));
+        myChildrenComboBox->setTextColor(GUIDesignTextColorRed);
         return 1;
     }
     return 0;
@@ -1195,63 +722,84 @@ GNESelectorFrame::SelectionHierarchy::onCmdSelectItem(FXObject* obj, FXSelector,
 
 long
 GNESelectorFrame::SelectionHierarchy::onCmdParents(FXObject* obj, FXSelector, void*) {
+    const auto viewNet = mySelectorFrameParent->getViewNet();
     // get selected elements
-    const auto selectedACs = mySelectorFrameParent->getViewNet()->getNet()->getAttributeCarriers()->getSelectedAttributeCarriers(true);
+    const auto selectedACs = viewNet->getNet()->getAttributeCarriers()->getSelectedAttributeCarriers(true);
     // check if there is selected ACs
     if ((selectedACs.size() > 0) && (myCurrentSelectedParent != Selection::NOTHING)) {
-        // vector of hierarchical elements to select
-        std::vector<GNEHierarchicalElement*> HEToSelect;
+        // vector of of element to select or unselect
+        std::vector<GNEAttributeCarrier*> editedParents;
         for (const auto& selectedAC : selectedACs) {
-            // get hierarchical element
-            const auto HE = selectedAC->getHierarchicalElement();
-            // junctions
-            if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::JUNCTION)) {
-                HEToSelect.insert(HEToSelect.end(), HE->getParentJunctions().begin(), HE->getParentJunctions().end());
-            }
-            // edges
-            if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::EDGE)) {
-                if (selectedAC->getTagProperty().getTag() == SUMO_TAG_LANE) {
-                    // special case for lanes
-                    HEToSelect.push_back(dynamic_cast<GNELane*>(selectedAC)->getParentEdge());
-                } else {
-                    HEToSelect.insert(HEToSelect.end(), HE->getParentEdges().begin(), HE->getParentEdges().end());
+            if (selectedAC->getTagProperty()->getTag() == SUMO_TAG_CONNECTION) {
+                const auto connection = viewNet->getNet()->getAttributeCarriers()->retrieveConnection(selectedAC->getGUIGlObject());
+                editedParents.push_back(connection->getLaneFrom());
+                editedParents.push_back(connection->getLaneTo());
+            } else if (selectedAC->getTagProperty()->getTag() == SUMO_TAG_CROSSING) {
+                const auto crossing = viewNet->getNet()->getAttributeCarriers()->retrieveCrossing(selectedAC->getGUIGlObject());
+                editedParents.push_back(crossing->getParentJunctions().front());
+            } else {
+                // get hierarchical element
+                const auto hierarchicalElement = selectedAC->getHierarchicalElement();
+                // get parent junctions
+                if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::JUNCTION)) {
+                    editedParents.insert(editedParents.end(), hierarchicalElement->getParentJunctions().begin(), hierarchicalElement->getParentJunctions().end());
                 }
-            }
-            // lanes
-            if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::LANE)) {
-                HEToSelect.insert(HEToSelect.end(), HE->getParentLanes().begin(), HE->getParentLanes().end());
-            }
-            // additional
-            if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::ADDITIONAL)) {
-                HEToSelect.insert(HEToSelect.end(), HE->getParentAdditionals().begin(), HE->getParentAdditionals().end());
-            }
-            // wire
-            if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::WIRE)) {
-                HEToSelect.insert(HEToSelect.end(), HE->getParentAdditionals().begin(), HE->getParentAdditionals().end());
-            }
-            // demand
-            if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::DEMAND)) {
-                HEToSelect.insert(HEToSelect.end(), HE->getParentDemandElements().begin(), HE->getParentDemandElements().end());
-            }
-            // data
-            if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::DATA)) {
-                HEToSelect.insert(HEToSelect.end(), HE->getParentGenericDatas().begin(), HE->getParentGenericDatas().end());
+                // get parent edges
+                if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::EDGE)) {
+                    if (selectedAC->getTagProperty()->getTag() == SUMO_TAG_LANE) {
+                        // special case for lanes
+                        editedParents.push_back(dynamic_cast<GNELane*>(selectedAC)->getParentEdge());
+                    } else if (selectedAC->getTagProperty()->getTag() == SUMO_TAG_TAZ) {
+                        // special case for taz: select edges of source/sinks directly
+                        for (const auto& tss : selectedAC->getHierarchicalElement()->getChildTAZSourceSinks()) {
+                            editedParents.push_back(tss->getParentEdges().front());
+                        }
+                    } else {
+                        editedParents.insert(editedParents.end(), hierarchicalElement->getParentEdges().begin(), hierarchicalElement->getParentEdges().end());
+                    }
+                }
+                // get parent lanes
+                if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::LANE)) {
+                    editedParents.insert(editedParents.end(), hierarchicalElement->getParentLanes().begin(), hierarchicalElement->getParentLanes().end());
+                }
+                // get parent additional
+                if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::ADDITIONAL)) {
+                    editedParents.insert(editedParents.end(), hierarchicalElement->getParentAdditionals().begin(), hierarchicalElement->getParentAdditionals().end());
+                }
+                // get parent wire
+                if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::WIRE)) {
+                    editedParents.insert(editedParents.end(), hierarchicalElement->getParentAdditionals().begin(), hierarchicalElement->getParentAdditionals().end());
+                }
+                // get parent demand
+                if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::DEMAND)) {
+                    editedParents.insert(editedParents.end(), hierarchicalElement->getParentDemandElements().begin(), hierarchicalElement->getParentDemandElements().end());
+                }
+                // get parent data
+                if ((myCurrentSelectedParent == Selection::ALL) || (myCurrentSelectedParent == Selection::DATA)) {
+                    editedParents.insert(editedParents.end(), hierarchicalElement->getParentGenericDatas().begin(), hierarchicalElement->getParentGenericDatas().end());
+                }
             }
         }
         // select HE
-        if (HEToSelect.size() > 0) {
-            for (const auto& HE : HEToSelect) {
+        if (editedParents.size() > 0) {
+            if (editedParents.size() > 1) {
+                viewNet->getUndoList()->begin(GUIIcon::SELECT, TL("select parents"));
+            }
+            for (const auto& HE : editedParents) {
                 if (obj == mySelectParentsButton) {
-                    HE->setAttribute(GNE_ATTR_SELECTED, "true", mySelectorFrameParent->getViewNet()->getUndoList());
+                    HE->setAttribute(GNE_ATTR_SELECTED, "true", viewNet->getUndoList());
                 } else {
-                    HE->setAttribute(GNE_ATTR_SELECTED, "false", mySelectorFrameParent->getViewNet()->getUndoList());
+                    HE->setAttribute(GNE_ATTR_SELECTED, "false", viewNet->getUndoList());
                 }
+            }
+            if (editedParents.size() > 1) {
+                viewNet->getUndoList()->end();
             }
         }
         // update information label
         mySelectorFrameParent->mySelectionInformation->updateInformationLabel();
         // update viewNet
-        mySelectorFrameParent->getViewNet()->update();
+        viewNet->update();
     }
     return 1;
 }
@@ -1263,73 +811,113 @@ GNESelectorFrame::SelectionHierarchy::onCmdChildren(FXObject* obj, FXSelector, v
     const auto selectedACs = mySelectorFrameParent->getViewNet()->getNet()->getAttributeCarriers()->getSelectedAttributeCarriers(true);
     // check if there is selected ACs
     if ((selectedACs.size() > 0) && (myCurrentSelectedChild != Selection::NOTHING)) {
-        // vector of hierarchical elements to select
-        std::vector<GNEHierarchicalElement*> HEToSelect;
+        // vector of of element to select or unselect
+        std::vector<GNEAttributeCarrier*> editedChildren;
         for (const auto& selectedAC : selectedACs) {
             // get hierarchical element
-            const auto HE = selectedAC->getHierarchicalElement();
+            const auto hierarchicalElement = selectedAC->getHierarchicalElement();
             // junctions
             if ((myCurrentSelectedChild == Selection::ALL) || (myCurrentSelectedChild == Selection::JUNCTION)) {
-                if (selectedAC->getTagProperty().getTag() == SUMO_TAG_JUNCTION) {
+                if (selectedAC->getTagProperty()->getTag() == SUMO_TAG_JUNCTION) {
                     // special case for junction
                     const auto junction = dynamic_cast<GNEJunction*>(selectedAC);
                     // insert edges
-                    HEToSelect.insert(HEToSelect.end(), junction->getGNEIncomingEdges().begin(), junction->getGNEIncomingEdges().end());
-                    HEToSelect.insert(HEToSelect.end(), junction->getGNEOutgoingEdges().begin(), junction->getGNEOutgoingEdges().end());
+                    editedChildren.insert(editedChildren.end(), junction->getGNEIncomingEdges().begin(), junction->getGNEIncomingEdges().end());
+                    editedChildren.insert(editedChildren.end(), junction->getGNEOutgoingEdges().begin(), junction->getGNEOutgoingEdges().end());
                 } else {
-                    HEToSelect.insert(HEToSelect.end(), HE->getChildJunctions().begin(), HE->getChildJunctions().end());
+                    editedChildren.insert(editedChildren.end(), hierarchicalElement->getChildJunctions().begin(), hierarchicalElement->getChildJunctions().end());
                 }
             }
             // edges
             if ((myCurrentSelectedChild == Selection::ALL) || (myCurrentSelectedChild == Selection::EDGE)) {
-                if (selectedAC->getTagProperty().getTag() == SUMO_TAG_EDGE) {
+                if (selectedAC->getTagProperty()->getTag() == SUMO_TAG_EDGE) {
                     // special case for edges
                     const auto edge = dynamic_cast<GNEEdge*>(selectedAC);
                     // insert lanes
-                    HEToSelect.insert(HEToSelect.end(), edge->getLanes().begin(), edge->getLanes().end());
+                    editedChildren.insert(editedChildren.end(), edge->getChildLanes().begin(), edge->getChildLanes().end());
                 } else {
-                    HEToSelect.insert(HEToSelect.end(), HE->getChildEdges().begin(), HE->getChildEdges().end());
+                    editedChildren.insert(editedChildren.end(), hierarchicalElement->getChildEdges().begin(), hierarchicalElement->getChildEdges().end());
+                }
+            }
+            // connections
+            if ((myCurrentSelectedChild == Selection::ALL) || (myCurrentSelectedChild == Selection::CONNECTION)) {
+                if (selectedAC->getTagProperty()->getTag() == SUMO_TAG_EDGE) {
+                    // case for edges
+                    const auto edge = dynamic_cast<GNEEdge*>(selectedAC);
+                    // insert connections
+                    editedChildren.insert(editedChildren.end(), edge->getGNEConnections().begin(), edge->getGNEConnections().end());
+                } else if (selectedAC->getTagProperty()->getTag() == SUMO_TAG_LANE) {
+                    // case for lanes
+                    const auto lane = dynamic_cast<GNELane*>(selectedAC);
+                    // insert connections
+                    for (const auto& connection : lane->getParentEdge()->getGNEConnections()) {
+                        if (connection->getAttribute(SUMO_ATTR_FROM_LANE) == lane->getAttribute(SUMO_ATTR_INDEX)) {
+                            editedChildren.push_back(connection);
+                        }
+                    }
+                } else if (selectedAC->getTagProperty()->getTag() == SUMO_TAG_JUNCTION) {
+                    // case for junction
+                    const auto junction = dynamic_cast<GNEJunction*>(selectedAC);
+                    // get connections
+                    const auto connections = junction->getGNEConnections();
+                    // insert connections
+                    editedChildren.insert(editedChildren.end(), connections.begin(), connections.end());
+                }
+            }
+            // crossings
+            if ((myCurrentSelectedChild == Selection::ALL) || (myCurrentSelectedChild == Selection::CROSSING)) {
+                if (selectedAC->getTagProperty()->getTag() == SUMO_TAG_JUNCTION) {
+                    // case for junction
+                    const auto junction = dynamic_cast<GNEJunction*>(selectedAC);
+                    // insert crossings
+                    editedChildren.insert(editedChildren.end(), junction->getGNECrossings().begin(), junction->getGNECrossings().end());
                 }
             }
             // lanes
             if ((myCurrentSelectedChild == Selection::ALL) || (myCurrentSelectedChild == Selection::LANE)) {
-                HEToSelect.insert(HEToSelect.end(), HE->getChildLanes().begin(), HE->getChildLanes().end());
+                editedChildren.insert(editedChildren.end(), hierarchicalElement->getChildLanes().begin(), hierarchicalElement->getChildLanes().end());
             }
             // additional
             if ((myCurrentSelectedChild == Selection::ALL) || (myCurrentSelectedChild == Selection::ADDITIONAL)) {
                 // avoid insert symbols
-                for (const auto& additionalChild : HE->getChildAdditionals()) {
-                    if (!additionalChild->getTagProperty().isWireElement() && !additionalChild->getTagProperty().isSymbol()) {
-                        HEToSelect.push_back(additionalChild);
+                for (const auto& additionalChild : hierarchicalElement->getChildAdditionals()) {
+                    if (!additionalChild->getTagProperty()->isWireElement() && !additionalChild->getTagProperty()->isSymbol()) {
+                        editedChildren.push_back(additionalChild);
                     }
                 }
             }
             // wire
             if ((myCurrentSelectedChild == Selection::ALL) || (myCurrentSelectedChild == Selection::WIRE)) {
                 // avoid insert symbols
-                for (const auto& wireChild : HE->getChildAdditionals()) {
-                    if (wireChild->getTagProperty().isWireElement() && !wireChild->getTagProperty().isSymbol()) {
-                        HEToSelect.push_back(wireChild);
+                for (const auto& wireChild : hierarchicalElement->getChildAdditionals()) {
+                    if (wireChild->getTagProperty()->isWireElement() && !wireChild->getTagProperty()->isSymbol()) {
+                        editedChildren.push_back(wireChild);
                     }
                 }
             }
             // demand
             if ((myCurrentSelectedChild == Selection::ALL) || (myCurrentSelectedChild == Selection::DEMAND)) {
-                HEToSelect.insert(HEToSelect.end(), HE->getChildDemandElements().begin(), HE->getChildDemandElements().end());
+                editedChildren.insert(editedChildren.end(), hierarchicalElement->getChildDemandElements().begin(), hierarchicalElement->getChildDemandElements().end());
             }
             // data
             if ((myCurrentSelectedChild == Selection::ALL) || (myCurrentSelectedChild == Selection::DATA)) {
-                HEToSelect.insert(HEToSelect.end(), HE->getChildGenericDatas().begin(), HE->getChildGenericDatas().end());
+                editedChildren.insert(editedChildren.end(), hierarchicalElement->getChildGenericDatas().begin(), hierarchicalElement->getChildGenericDatas().end());
             }
         }
         // select HE
-        if (HEToSelect.size() > 0) {
-            for (const auto& HE : HEToSelect) {
+        if (editedChildren.size() > 0) {
+            if (editedChildren.size() > 1) {
+                mySelectorFrameParent->getViewNet()->getUndoList()->begin(GUIIcon::SELECT, TL("select children"));
+            }
+            for (const auto& HE : editedChildren) {
                 if (obj == mySelectChildrenButton) {
                     HE->setAttribute(GNE_ATTR_SELECTED, "true", mySelectorFrameParent->getViewNet()->getUndoList());
                 } else {
                     HE->setAttribute(GNE_ATTR_SELECTED, "false", mySelectorFrameParent->getViewNet()->getUndoList());
                 }
+            }
+            if (editedChildren.size() > 1) {
+                mySelectorFrameParent->getViewNet()->getUndoList()->end();
             }
         }
         // update information label
@@ -1345,9 +933,9 @@ GNESelectorFrame::SelectionHierarchy::onCmdChildren(FXObject* obj, FXSelector, v
 // ---------------------------------------------------------------------------
 
 GNESelectorFrame::Information::Information(GNESelectorFrame* selectorFrameParent) :
-    MFXGroupBoxModule(selectorFrameParent, "Information") {
+    GNEGroupBoxModule(selectorFrameParent, TL("Information")) {
     // Create Selection Hint
-    new FXLabel(getCollapsableFrame(), " - Hold <SHIFT> for \n   rectangle selection.\n - Press <DEL> to\n   delete selected objects.", nullptr, GUIDesignLabelFrameInformation);
+    new MFXDynamicLabel(getCollapsableFrame(), (std::string("- ") + TL("Hold <SHIFT> for rectangle selection.") + std::string("\n- ") + TL("Press <DEL> to delete selected objects.")).c_str(), nullptr, GUIDesignLabelFrameInformation);
 }
 
 
@@ -1357,16 +945,14 @@ GNESelectorFrame::Information::~Information() {}
 // GNESelectorFrame - methods
 // ---------------------------------------------------------------------------
 
-GNESelectorFrame::GNESelectorFrame(GNEViewParent *viewParent, GNEViewNet* viewNet) :
-    GNEFrame(viewParent, viewNet, "Selection") {
+GNESelectorFrame::GNESelectorFrame(GNEViewParent* viewParent, GNEViewNet* viewNet) :
+    GNEFrame(viewParent, viewNet, TL("Selection")) {
     // create selection information
     mySelectionInformation = new SelectionInformation(this);
     // create Modification Mode modul
     myModificationMode = new ModificationMode(this);
     // create ElementSet modul
-    myNetworkElementSet = new GNEElementSet(this, Supermode::NETWORK, SUMO_TAG_EDGE, SUMO_ATTR_SPEED, ">10.0");
-    myDemandElementSet = new GNEElementSet(this, Supermode::DEMAND, SUMO_TAG_VEHICLE, SUMO_ATTR_ID, "");
-    myDataElementSet = new GNEElementSet(this, Supermode::DATA, SUMO_TAG_MEANDATA_EDGE, GNE_ATTR_PARAMETERS, "key=value");
+    myMatchAttribute = new GNEMatchAttribute(this);
     // create VisualScaling modul
     myVisualScaling = new VisualScaling(this);
     // create SelectionOperation modul
@@ -1383,23 +969,7 @@ GNESelectorFrame::~GNESelectorFrame() {}
 
 void
 GNESelectorFrame::show() {
-    // refresh element set
-    if (myViewNet->getEditModes().isCurrentSupermodeNetwork()) {
-        // only show network element set
-        myNetworkElementSet->showElementSet();
-        myDemandElementSet->hideElementSet();
-        myDataElementSet->hideElementSet();
-    } else if (myViewNet->getEditModes().isCurrentSupermodeDemand()) {
-        // only show demand element set
-        myNetworkElementSet->hideElementSet();
-        myDemandElementSet->showElementSet();
-        myDataElementSet->hideElementSet();
-    } else if (myViewNet->getEditModes().isCurrentSupermodeData()) {
-        // only show data element set
-        myNetworkElementSet->hideElementSet();
-        myDemandElementSet->hideElementSet();
-        myDataElementSet->showElementSet();
-    }
+    myMatchAttribute->showMatchAttribute();
     // update information label
     mySelectionInformation->updateInformationLabel();
     // Show frame
@@ -1427,10 +997,10 @@ GNESelectorFrame::clearCurrentSelection() const {
 }
 
 
-bool 
-GNESelectorFrame::selectAttributeCarrier(const GNEViewNetHelper::ObjectsUnderCursor& objectsUnderCursor) {
+bool
+GNESelectorFrame::selectAttributeCarrier(const GNEViewNetHelper::ViewObjectsSelector& viewObjects) {
     // get front AC
-    auto AC = objectsUnderCursor.getAttributeCarrierFront();
+    auto AC = viewObjects.getAttributeCarrierFront();
     // check AC
     if (AC == nullptr) {
         return false;
@@ -1440,18 +1010,18 @@ GNESelectorFrame::selectAttributeCarrier(const GNEViewNetHelper::ObjectsUnderCur
         return false;
     }
     // check modes
-    if ((AC->getTagProperty().isNetworkElement() || AC->getTagProperty().isAdditionalElement()) && 
-        !myViewNet->getEditModes().isCurrentSupermodeNetwork()) {
+    if ((AC->getTagProperty()->isNetworkElement() || AC->getTagProperty()->isAdditionalElement()) &&
+            !myViewNet->getEditModes().isCurrentSupermodeNetwork()) {
         return false;
     }
-    if (AC->getTagProperty().isDemandElement() && !myViewNet->getEditModes().isCurrentSupermodeDemand()) {
+    if (AC->getTagProperty()->isDemandElement() && !myViewNet->getEditModes().isCurrentSupermodeDemand()) {
         return false;
     }
-    if (AC->getTagProperty().isDataElement() && !myViewNet->getEditModes().isCurrentSupermodeData()) {
+    if (AC->getTagProperty()->isDataElement() && !myViewNet->getEditModes().isCurrentSupermodeData()) {
         return false;
     }
     // filter GLObjects by layer
-    auto filteredGLObjects = GNEViewNetHelper::filterElementsByLayer(objectsUnderCursor.getClickedGLObjects());
+    auto filteredGLObjects = GNEViewNetHelper::filterElementsByLayer(viewObjects.getGLObjects());
     // check if we have to open dialog
     if (filteredGLObjects.size() > 1) {
         myViewNet->openSelectDialogAtCursor(filteredGLObjects);
@@ -1478,7 +1048,7 @@ GNESelectorFrame::handleIDs(const std::vector<GNEAttributeCarrier*>& ACs, const 
     // in restrict AND replace mode all current selected attribute carriers will be unselected
     if ((setOperation == ModificationMode::Operation::REPLACE) || (setOperation == ModificationMode::Operation::RESTRICT)) {
         // obtain selected ACs depending of current supermode
-        std::vector<GNEAttributeCarrier*> selectedACs = myViewNet->getNet()->getAttributeCarriers()->getSelectedAttributeCarriers(false);
+        auto selectedACs = myViewNet->getNet()->getAttributeCarriers()->getSelectedAttributeCarriers(false);
         // add id into ACs to unselect
         for (const auto& selectedAC : selectedACs) {
             ACsToUnselect.insert(std::make_pair(selectedAC->getID(), selectedAC));
@@ -1486,7 +1056,7 @@ GNESelectorFrame::handleIDs(const std::vector<GNEAttributeCarrier*>& ACs, const 
     }
     // handle ids
     for (const auto& AC : ACs) {
-        // iterate over AtributeCarriers an place it in ACsToSelect or ACsToUnselect
+        // iterate over AttributeCarriers an place it in ACsToSelect or ACsToUnselect
         switch (setOperation) {
             case GNESelectorFrame::ModificationMode::Operation::SUB:
                 ACsToUnselect.insert(std::make_pair(AC->getID(), AC));
@@ -1506,7 +1076,7 @@ GNESelectorFrame::handleIDs(const std::vector<GNEAttributeCarrier*>& ACs, const 
         std::set<GNEEdge*> edgesToSelect;
         // iterate over ACsToSelect and extract edges
         for (const auto& AC : ACsToSelect) {
-            if (AC.second->getTagProperty().getTag() == SUMO_TAG_EDGE) {
+            if (AC.second->getTagProperty()->getTag() == SUMO_TAG_EDGE) {
                 edgesToSelect.insert(myViewNet->getNet()->getAttributeCarriers()->retrieveEdge(AC.second->getID()));
             }
         }
@@ -1523,7 +1093,7 @@ GNESelectorFrame::handleIDs(const std::vector<GNEAttributeCarrier*>& ACs, const 
             for (const auto& fromWalkingAreaToSelect : edgeToSelect->getFromJunction()->getGNEWalkingAreas()) {
                 ACsToSelect.insert(std::make_pair(fromWalkingAreaToSelect->getID(), fromWalkingAreaToSelect));
             }
-            // select junction destiny and all connections, crossings and walkingAreas
+            // select junction destination and all connections, crossings and walkingAreas
             ACsToSelect.insert(std::make_pair(edgeToSelect->getToJunction()->getID(), edgeToSelect->getToJunction()));
             for (const auto& connectionToSelect : edgeToSelect->getToJunction()->getGNEConnections()) {
                 ACsToSelect.insert(std::make_pair(connectionToSelect->getID(), connectionToSelect));
@@ -1539,142 +1109,20 @@ GNESelectorFrame::handleIDs(const std::vector<GNEAttributeCarrier*>& ACs, const 
     // only continue if there is ACs to select or unselect
     if ((ACsToSelect.size() + ACsToUnselect.size()) > 0) {
         // first unselect AC of ACsToUnselect and then selects AC of ACsToSelect
-        myViewNet->getUndoList()->begin(GUIIcon::MODESELECT, "selection");
+        myViewNet->getUndoList()->begin(GUIIcon::MODESELECT, TL("selection"));
         for (const auto& ACToUnselect : ACsToUnselect) {
-            if (ACToUnselect.second->getTagProperty().isSelectable()) {
+            if (ACToUnselect.second->getTagProperty()->isSelectable()) {
                 ACToUnselect.second->setAttribute(GNE_ATTR_SELECTED, "false", myViewNet->getUndoList());
             }
         }
         for (const auto& ACToSelect : ACsToSelect) {
-            if (ACToSelect.second->getTagProperty().isSelectable()) {
+            if (ACToSelect.second->getTagProperty()->isSelectable()) {
                 ACToSelect.second->setAttribute(GNE_ATTR_SELECTED, "true", myViewNet->getUndoList());
             }
         }
         // finish operation
         myViewNet->getUndoList()->end();
     }
-}
-
-
-std::vector<GNEAttributeCarrier*>
-GNESelectorFrame::getMatches(const SumoXMLTag ACTag, const SumoXMLAttr ACAttr, const char compOp, const double val, const std::string& expr) {
-    std::vector<GNEAttributeCarrier*> result;
-    // first retrieve all ACs using ACTag
-    const auto allACbyTag = myViewNet->getNet()->getAttributeCarriers()->retrieveAttributeCarriers(ACTag);
-    // get Tag value
-    const auto& tagValue = GNEAttributeCarrier::getTagProperty(ACTag);
-    // iterate over all ACs
-    for (const auto& AC : allACbyTag) {
-        if (expr == "" && compOp == '@') {
-            result.push_back(AC);
-        } else if (tagValue.hasAttribute(ACAttr) && tagValue.getAttributeProperties(ACAttr).isNumerical()) {
-            double acVal;
-            std::istringstream buf(AC->getAttribute(ACAttr));
-            buf >> acVal;
-            switch (compOp) {
-                case '<':
-                    if (acVal < val) {
-                        result.push_back(AC);
-                    }
-                    break;
-                case '>':
-                    if (acVal > val) {
-                        result.push_back(AC);
-                    }
-                    break;
-                case '=':
-                    if (acVal == val) {
-                        result.push_back(AC);
-                    }
-                    break;
-            }
-        } else {
-            // string match
-            std::string acVal = AC->getAttributeForSelection(ACAttr);
-            switch (compOp) {
-                case '@':
-                    if (acVal.find(expr) != std::string::npos) {
-                        result.push_back(AC);
-                    }
-                    break;
-                case '!':
-                    if (acVal.find(expr) == std::string::npos) {
-                        result.push_back(AC);
-                    }
-                    break;
-                case '=':
-                    if (acVal == expr) {
-                        result.push_back(AC);
-                    }
-                    break;
-                case '^':
-                    if (acVal != expr) {
-                        result.push_back(AC);
-                    }
-                    break;
-            }
-        }
-    }
-    return result;
-}
-
-
-std::vector<GNEAttributeCarrier*>
-GNESelectorFrame::getGenericMatches(const std::vector<GNEGenericData*>& genericDatas, const std::string& attr, const char compOp, const double val, const std::string& expr) {
-    std::vector<GNEAttributeCarrier*> result;
-    // iterate over generic datas
-    for (const auto& genericData : genericDatas) {
-        if (expr == "" && compOp == '@') {
-            result.push_back(genericData);
-        } else if (attr != toString(GNE_ATTR_PARENT)) {
-            double acVal;
-            std::istringstream buf(genericData->getParameter(attr, "0"));
-            buf >> acVal;
-            switch (compOp) {
-                case '<':
-                    if (acVal < val) {
-                        result.push_back(genericData);
-                    }
-                    break;
-                case '>':
-                    if (acVal > val) {
-                        result.push_back(genericData);
-                    }
-                    break;
-                case '=':
-                    if (acVal == val) {
-                        result.push_back(genericData);
-                    }
-                    break;
-            }
-        } else {
-            // string match
-            std::string acVal = genericData->getAttributeForSelection(GNE_ATTR_PARENT);
-            switch (compOp) {
-                case '@':
-                    if (acVal.find(expr) != std::string::npos) {
-                        result.push_back(genericData);
-                    }
-                    break;
-                case '!':
-                    if (acVal.find(expr) == std::string::npos) {
-                        result.push_back(genericData);
-                    }
-                    break;
-                case '=':
-                    if (acVal == expr) {
-                        result.push_back(genericData);
-                    }
-                    break;
-                case '^':
-                    if (acVal != expr) {
-                        result.push_back(genericData);
-                    }
-                    break;
-            }
-        }
-    }
-    return result;
 }
 
 
@@ -1685,8 +1133,14 @@ GNESelectorFrame::getContentFrame() const {
 
 
 GNESelectorFrame::ModificationMode*
-GNESelectorFrame::getModificationModeModule() const {
+GNESelectorFrame::getModificationModeModul() const {
     return myModificationMode;
+}
+
+
+GNESelectorFrame::SelectionOperation*
+GNESelectorFrame::getSelectionOperationModul() const {
+    return mySelectionOperation;
 }
 
 

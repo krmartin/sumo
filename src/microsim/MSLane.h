@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -225,7 +225,8 @@ public:
            SVCPermissions permissions,
            SVCPermissions changeLeft, SVCPermissions changeRight,
            int index, bool isRampAccel,
-           const std::string& type);
+           const std::string& type,
+           const PositionVector& outlineShape);
 
 
     /// @brief Destructor
@@ -274,9 +275,28 @@ public:
      * @param[in] id The lane's id
      */
     void setOpposite(MSLane* oppositeLane);
+
+    /** @brief Adds the (overlapping) reverse direction lane to this lane
+     *
+     * @param[in] id The lane's id
+     */
+    void setBidiLane(MSLane* bidyLane);
     ///@}
 
+    /// @name Used by the GUI for secondary shape visualization
+    /// @{
+    virtual void addSecondaryShape(const PositionVector& /*shape*/) {}
 
+    virtual double getLengthGeometryFactor(bool /*secondaryShape*/) const {
+        return myLengthGeometryFactor;
+    }
+
+    virtual const PositionVector& getShape(bool /*secondaryShape*/) const {
+        return myShape;
+    }
+    ///@}
+
+    virtual void updateMesoGUISegments() {}
 
     /// @name interaction with MSMoveReminder
     /// @{
@@ -287,7 +307,15 @@ public:
      *
      * @param[in] rem The move reminder to add
      */
-    virtual void addMoveReminder(MSMoveReminder* rem);
+    virtual void addMoveReminder(MSMoveReminder* rem, bool addToVehicles = true);
+
+
+    /** @brief Remove a move-reminder from move-reminder container
+     *
+     * The move reminder will not be deleted by the lane.
+     * @param[in] rem The move reminder to remvoe
+     */
+    virtual void removeMoveReminder(MSMoveReminder* rem);
 
 
     /** @brief Return the list of this lane's move reminders
@@ -545,13 +573,27 @@ public:
      * @return This lane's resulting max. speed
      */
     inline double getVehicleMaxSpeed(const SUMOTrafficObject* const veh) const {
+        return getVehicleMaxSpeed(veh, veh->getMaxSpeed());
+    }
+
+
+    inline double getVehicleMaxSpeed(const SUMOTrafficObject* const veh, double vehMaxSpeed) const {
         if (myRestrictions != nullptr) {
             std::map<SUMOVehicleClass, double>::const_iterator r = myRestrictions->find(veh->getVClass());
             if (r != myRestrictions->end()) {
-                return MIN2(veh->getMaxSpeed(), r->second * veh->getChosenSpeedFactor());
+                if (mySpeedModified) {
+                    return MIN2(myMaxSpeed, MIN2(vehMaxSpeed, r->second * veh->getChosenSpeedFactor()));
+                } else {
+                    return MIN2(vehMaxSpeed, r->second * veh->getChosenSpeedFactor());
+                }
             }
         }
-        return MIN2(veh->getMaxSpeed(), myMaxSpeed * veh->getChosenSpeedFactor());
+        return MIN2(vehMaxSpeed, myMaxSpeed * veh->getChosenSpeedFactor());
+    }
+
+
+    inline bool isSpeedModified() const {
+        return mySpeedModified;
     }
 
 
@@ -582,6 +624,20 @@ public:
      */
     inline SVCPermissions getPermissions() const {
         return myPermissions;
+    }
+
+    /** @brief Returns the vehicle class permissions for changing to the left neighbour lane
+     * @return The vehicle classes allowed to change to the left neighbour lane
+     */
+    inline SVCPermissions getChangeLeft() const {
+        return myChangeLeft;
+    }
+
+    /** @brief Returns the vehicle class permissions for changing to the right neighbour lane
+     * @return The vehicle classes allowed to change to the right neighbour lane
+     */
+    inline SVCPermissions getChangeRight() const {
+        return myChangeRight;
     }
 
     /** @brief Returns the lane's width
@@ -620,7 +676,7 @@ public:
      *
      * This method goes through all vehicles calling their * "setApproachingForAllLinks" method.
      */
-    virtual void setJunctionApproaches(const SUMOTime t) const;
+    virtual void setJunctionApproaches() const;
 
     /** @brief This updates the MSLeaderInfo argument with respect to the given MSVehicle.
      *         All leader-vehicles on the same edge, which are relevant for the vehicle
@@ -646,6 +702,10 @@ public:
 
     /// Insert buffered vehicle into the real lane.
     virtual void integrateNewVehicles();
+
+    /** @brief Set a flag to recalculate the brutto (including minGaps) occupancy of this lane (used if mingap is changed)
+     */
+    void markRecalculateBruttoSum();
 
     /// @brief updated current vehicle length sum (delayed to avoid lane-order-dependency)
     void updateLengthSum();
@@ -692,10 +752,12 @@ public:
         return myVehicles.empty();
     }
 
-    /** @brief Sets a new maximum speed for the lane (used by TraCI and MSCalibrator)
+    /** @brief Sets a new maximum speed for the lane (used by TraCI, MSLaneSpeedTrigger (VSS) and MSCalibrator)
      * @param[in] val the new speed in m/s
+     * @param[in] modified whether this modifies the original speed
+     * @param[in] jamThreshold also set a new jamThreshold
      */
-    void setMaxSpeed(double val);
+    void setMaxSpeed(const double val, const bool modified = true, const double jamThreshold = -1);
 
     /** @brief Sets a new friction coefficient for the lane [*to be later (used by TraCI and MSCalibrator)*]
     * @param[in] val the new friction coefficient [0..1]
@@ -714,6 +776,8 @@ public:
         return *myEdge;
     }
 
+    const MSJunction* getFromJunction() const;
+    const MSJunction* getToJunction() const;
 
     /** @brief Returns the lane's follower if it is an internal lane, the edge of the lane otherwise
      * @return This lane's follower
@@ -821,8 +885,20 @@ public:
     /** Returns whether the lane pertains to a normal edge*/
     bool isNormal() const;
 
+    /** Returns whether the lane pertains to a crossing edge*/
+    bool isCrossing() const;
+
+    /** Returns whether the lane pertains to a crossing edge*/
+    bool isPriorityCrossing() const;
+
+    /** Returns whether the lane pertains to a walkingarea*/
+    bool isWalkingArea() const;
+
     /// @brief returns the last vehicle for which this lane is responsible or 0
     MSVehicle* getLastFullVehicle() const;
+
+    /// @brief returns the first vehicle for which this lane is responsible or 0
+    MSVehicle* getFirstFullVehicle() const;
 
     /// @brief returns the last vehicle that is fully or partially on this lane
     MSVehicle* getLastAnyVehicle() const;
@@ -852,10 +928,21 @@ public:
     void resetPermissions(long long transientID);
     bool hadPermissionChanges() const;
 
+    /** @brief Sets the permissions for changing to the left neighbour lane
+     * @param[in] permissions The new permissions
+     */
+    void setChangeLeft(SVCPermissions permissions);
+
+    /** @brief Sets the permissions for changing to the right neighbour lane
+     * @param[in] permissions The new permissions
+     */
+    void setChangeRight(SVCPermissions permissions);
 
     inline bool allowsVehicleClass(SUMOVehicleClass vclass) const {
         return (myPermissions & vclass) == vclass;
     }
+
+    bool allowsVehicleClass(SUMOVehicleClass vclass, int routingMode) const;
 
     /** @brief Returns whether the given vehicle class may change left from this lane */
     inline bool allowsChangingLeft(SUMOVehicleClass vclass) const {
@@ -946,10 +1033,11 @@ public:
      * @param[in] speed The speed of the vehicle used for determining whether a subsequent link will be opened at arrival time
      * @param[in] veh The vehicle for which the information shall be computed
      * @param[in] bestLaneConts The lanes the vehicle will use in future
+     * @param[in] considerCrossingFoes Whether vehicles on crossing foe links should be considered
      * @return
      */
     std::pair<MSVehicle* const, double> getLeaderOnConsecutive(double dist, double seen,
-            double speed, const MSVehicle& veh, const std::vector<MSLane*>& bestLaneConts) const;
+            double speed, const MSVehicle& veh, const std::vector<MSLane*>& bestLaneConts, bool considerCrossingFoes = true) const;
 
     /// @brief Returns the immediate leaders and the distance to them (as getLeaderOnConsecutive but for the sublane case)
     void getLeadersOnConsecutive(double dist, double seen, double speed, const MSVehicle* ego,
@@ -1017,6 +1105,11 @@ public:
      * the lane itself is returned
      */
     const MSLane* getNormalPredecessorLane() const;
+
+    /** @brief get normal lane following this internal lane, for normal lanes,
+     * the lane itself is returned
+     */
+    const MSLane* getNormalSuccessorLane() const;
 
     /** @brief return the (first) predecessor lane from the given edge
      */
@@ -1146,13 +1239,13 @@ public:
      * @param[in] ego The ego vehicle
      * @param[in] dist The look-ahead distance when looking at consecutive lanes
      * @param[in] oppositeDir Whether the lane has the opposite driving direction of ego
-     * @return the leader vehicle and it's gap to ego
+     * @return the leader vehicle and its gap to ego
      */
     std::pair<MSVehicle* const, double> getOppositeLeader(const MSVehicle* ego, double dist, bool oppositeDir, MinorLinkMode mLinkMode = MinorLinkMode::FOLLOW_NEVER) const;
 
     /* @brief find follower for a vehicle that is located on the opposite of this lane
      * @param[in] ego The ego vehicle
-     * @return the follower vehicle and it's gap to ego
+     * @return the follower vehicle and its gap to ego
      */
     std::pair<MSVehicle* const, double> getOppositeFollower(const MSVehicle* ego) const;
 
@@ -1162,7 +1255,7 @@ public:
      * @param[in] egoPos The ego position mapped to the current lane
      * @param[in] dist The look-back distance when looking at consecutive lanes
      * @param[in] ignoreMinorLinks Whether backward search should stop at minor links
-     * @return the follower vehicle and it's gap to ego
+     * @return the follower vehicle and its gap to ego
      */
     std::pair<MSVehicle* const, double> getFollower(const MSVehicle* ego, double egoPos, double dist, MinorLinkMode mLinkMode) const;
 
@@ -1233,12 +1326,11 @@ public:
      *  Every vehicle is retrieved from the given MSVehicleControl and added to this
      *  lane.
      *
-     * @param[in] vehIDs The vehicle ids for the current que
-     * @param[in] vc The vehicle control to retrieve references vehicles from
+     * @param[in] vehs The vehicles for the current lane
      * @todo What about throwing an IOError?
      * @todo What about throwing an error if something else fails (a vehicle can not be referenced)?
      */
-    void loadState(const std::vector<std::string>& vehIDs, MSVehicleControl& vc);
+    void loadState(const std::vector<SUMOVehicle*>& vehs);
 
 
     /* @brief helper function for state saving: checks whether any outgoing
@@ -1271,11 +1363,29 @@ public:
     /// @brief compute maximum braking distance on this lane
     double getMaximumBrakeDist() const;
 
+    inline const PositionVector* getOutlineShape() const {
+        return myOutlineShape;
+    }
+
     static void initCollisionOptions(const OptionsCont& oc);
+    static void initCollisionAction(const OptionsCont& oc, const std::string& option, CollisionAction& myAction);
 
     static CollisionAction getCollisionAction() {
         return myCollisionAction;
     }
+
+    static CollisionAction getIntermodalCollisionAction() {
+        return myIntermodalCollisionAction;
+    }
+
+    static DepartSpeedDefinition& getDefaultDepartSpeedDefinition() {
+        return myDefaultDepartSpeedDefinition;
+    }
+
+    static double& getDefaultDepartSpeed() {
+        return myDefaultDepartSpeed;
+    }
+
 
     static const long CHANGE_PERMISSIONS_PERMANENT = 0;
     static const long CHANGE_PERMISSIONS_GUI = 1;
@@ -1301,7 +1411,9 @@ protected:
 
     /// @brief detect whether a vehicle collids with pedestrians on the junction
     void detectPedestrianJunctionCollision(const MSVehicle* collider, const PositionVector& colliderBoundary, const MSLane* foeLane,
-                                           SUMOTime timestep, const std::string& stage);
+                                           SUMOTime timestep, const std::string& stage,
+                                           std::set<const MSVehicle*, ComparatorNumericalIdLess>& toRemove,
+                                           std::set<const MSVehicle*, ComparatorNumericalIdLess>& toTeleport);
 
     /// @brief detect whether there is a collision between the two vehicles
     bool detectCollisionBetween(SUMOTime timestep, const std::string& stage, MSVehicle* collider, MSVehicle* victim,
@@ -1313,6 +1425,11 @@ protected:
                                 double gap, double latGap,
                                 std::set<const MSVehicle*, ComparatorNumericalIdLess>& toRemove,
                                 std::set<const MSVehicle*, ComparatorNumericalIdLess>& toTeleport) const;
+
+    void handleIntermodalCollisionBetween(SUMOTime timestep, const std::string& stage, const MSVehicle* collider, const MSTransportable* victim,
+                                          double gap, const std::string& collisionType,
+                                          std::set<const MSVehicle*, ComparatorNumericalIdLess>& toRemove,
+                                          std::set<const MSVehicle*, ComparatorNumericalIdLess>& toTeleport) const;
 
     /* @brief determine depart speed and whether it may be patched
      * @param[in] veh The departing vehicle
@@ -1340,11 +1457,17 @@ protected:
     /// @brief return length of fractional vehicles on this lane
     double getFractionalVehicleLength(bool brutto) const;
 
+    /// @brief detect frontal collisions
+    static bool isFrontalCollision(const MSVehicle* collider, const MSVehicle* victim);
+
     /// Unique numerical ID (set on reading by netload)
     int myNumericalID;
 
     /// The shape of the lane
     PositionVector myShape;
+
+    /// @brief the outline of the lane (optional)
+    PositionVector* myOutlineShape = nullptr;
 
     /// The lane index
     int myIndex;
@@ -1409,10 +1532,13 @@ protected:
     /// The lane's edge, for routing only.
     MSEdge* const myEdge;
 
-    /// Lane-wide speedlimit [m/s]
+    /// Lane-wide speed limit [m/s]
     double myMaxSpeed;
     /// Lane-wide friction coefficient [0..1]
     double myFrictionCoefficient;
+
+    /// @brief Whether the current speed limit is set by a variable speed sign (VSS), TraCI or a MSCalibrator
+    bool mySpeedModified;
 
     /// The vClass permissions for this lane
     SVCPermissions myPermissions;
@@ -1451,7 +1577,10 @@ protected:
     /// @brief The length of all vehicles that have left this lane in the current step (this lane, excluding their minGaps)
     double myNettoVehicleLengthSumToRemove;
 
-    /** The lane's Links to it's succeeding lanes and the default
+    /// @brief Flag to recalculate the occupancy (including minGaps) after a change in minGap
+    bool myRecalculateBruttoSum;
+
+    /** The lane's Links to its succeeding lanes and the default
         right-of-way rule, i.e. blocked or not blocked. */
     std::vector<MSLink*> myLinks;
 
@@ -1485,8 +1614,11 @@ protected:
     /// @brief whether a collision check is currently needed
     bool myNeedsCollisionCheck;
 
-    // @brief the ids of the opposite direction lane
+    // @brief the neighboring opposite direction or nullptr
     MSLane* myOpposite;
+
+    // @brief bidi lane or nullptr
+    MSLane* myBidiLane;
 
     // @brief transient changes in permissions
     std::map<long long, SVCPermissions> myPermissionChanges;
@@ -1508,12 +1640,15 @@ private:
 
     /// @brief the action to take on collisions
     static CollisionAction myCollisionAction;
+    static CollisionAction myIntermodalCollisionAction;
     static bool myCheckJunctionCollisions;
     static double myCheckJunctionCollisionMinGap;
     static SUMOTime myCollisionStopTime;
+    static SUMOTime myIntermodalCollisionStopTime;
     static double myCollisionMinGapFactor;
     static bool myExtrapolateSubstepDepart;
-
+    static DepartSpeedDefinition myDefaultDepartSpeedDefinition;
+    static double myDefaultDepartSpeed;
     /**
      * @class vehicle_position_sorter
      * @brief Sorts vehicles by their position (descending)

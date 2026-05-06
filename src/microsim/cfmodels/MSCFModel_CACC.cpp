@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -97,8 +97,7 @@ MSCFModel_CACC::MSCFModel_CACC(const MSVehicleType* vtype) :
     myHeadwayTimeACC(vtype->getParameter().getCFParam(SUMO_ATTR_HEADWAY_TIME_CACC_TO_ACC, DEFAULT_HEADWAYTIME_ACC)),
     myApplyDriverstate(vtype->getParameter().getCFParam(SUMO_ATTR_APPLYDRIVERSTATE, 0)),
     myEmergencyThreshold(vtype->getParameter().getCFParam(SUMO_ATTR_CA_OVERRIDE, DEFAULT_EMERGENCY_OVERRIDE_THRESHOLD)),
-    mySpeedControlMinGap(vtype->getParameter().getCFParam(SUMO_ATTR_SC_MIN_GAP, DEFAULT_SC_MIN_GAP))
-{
+    mySpeedControlMinGap(vtype->getParameter().getCFParam(SUMO_ATTR_SC_MIN_GAP, DEFAULT_SC_MIN_GAP)) {
     myCollisionMinGapFactor = vtype->getParameter().getCFParam(SUMO_ATTR_COLLISION_MINGAP_FACTOR, 0.1);
     acc_CFM.setHeadwayTime(myHeadwayTimeACC);
 }
@@ -107,9 +106,12 @@ MSCFModel_CACC::~MSCFModel_CACC() {}
 
 double
 MSCFModel_CACC::freeSpeed(const MSVehicle* const veh, double speed, double seen, double maxSpeed, const bool onInsertion, const CalcReason usage) const {
-    // set "caccVehicleMode" parameter to default value
     if (!MSGlobals::gComputeLC && usage == CalcReason::CURRENT) {
-        const_cast<SUMOVehicleParameter&>(veh->getParameter()).setParameter("caccVehicleMode", VehicleModeNames[CC_MODE]);
+        CACCVehicleVariables* vars = (CACCVehicleVariables*)veh->getCarFollowVariables();
+        if (vars->lastUpdateTime != MSNet::getInstance()->getCurrentTimeStep()) {
+            // _v was not called in this step
+            const_cast<SUMOVehicleParameter&>(veh->getParameter()).setParameter("caccVehicleMode", VehicleModeNames[CC_MODE]);
+        }
     }
     return MSCFModel::freeSpeed(veh, speed, seen, maxSpeed, onInsertion, usage);
 }
@@ -286,7 +288,7 @@ MSCFModel_CACC::speedGapControl(const MSVehicle* const veh, const double gap2pre
             double desSpacing = myHeadwayTime * speed;
             double spacingErr = gap2pred - desSpacing;
             double accel = veh->getAcceleration();
-            double speedErr = predSpeed - speed + myHeadwayTime * accel;
+            double speedErr = predSpeed - speed - myHeadwayTime * accel;
 
             if ((spacingErr > 0 && spacingErr < 0.2) && (vErr < 0.1)) {
                 // gap mode
@@ -362,7 +364,7 @@ MSCFModel_CACC::_v(const MSVehicle* const veh, const MSVehicle* const pred, cons
     if (commMode == CACC_NO_OVERRIDE) { // old CACC logic (rely on time gap from predecessor)
         // @note: using (gap2pred + minGap) here increases oscillations but may
         // actually be a good idea once the acceleration-spike-problem is fixed
-        double time_gap = gap2pred / speed;
+        double time_gap = gap2pred / MAX2(NUMERICAL_EPS, speed);
         double spacingErr = gap2pred - myHeadwayTime * speed;
 
         if (time_gap > 2 && spacingErr > mySpeedControlMinGap) {
@@ -421,7 +423,7 @@ MSCFModel_CACC::_v(const MSVehicle* const veh, const MSVehicle* const pred, cons
         double desSpacing = myHeadwayTime * speed;
         double spacingErr = gap2pred - desSpacing;
         double accel = veh->getAcceleration();
-        double speedErr = predSpeed - speed + myHeadwayTime * accel;
+        double speedErr = predSpeed - speed - myHeadwayTime * accel;
 
         if ((spacingErr > 0 && spacingErr < 0.2) && (vErr < 0.1)) {
             // gap mode
@@ -443,7 +445,7 @@ MSCFModel_CACC::_v(const MSVehicle* const veh, const MSVehicle* const pred, cons
             // gap closing mode
             if (DEBUG_COND) {
                 std::cout << "        applying CACC_GAP_CLOSING_MODE " << std::endl;
-            }         
+            }
             newSpeed = speed + myGapClosingControlGainGap * spacingErr + myGapClosingControlGainGapDot * speedErr;
             vehMode = CACC_GAP_CLOSING_MODE;
         }
@@ -479,4 +481,3 @@ MSCFModel*
 MSCFModel_CACC::duplicate(const MSVehicleType* vtype) const {
     return new MSCFModel_CACC(vtype);
 }
-

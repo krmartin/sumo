@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -57,6 +57,7 @@ class NBPTLineCont;
  * @brief Storage for edges, including some functionality operating on multiple edges
  */
 class NBEdgeCont {
+
 public:
     /** @brief Constructor
      * @param[in] tc The net builded; used to obtain types
@@ -208,9 +209,9 @@ public:
         int offsetFactor = 1;
     };
 
+    /// @brief process splits
     void processSplits(NBEdge* e, std::vector<Split> splits,
                        NBNodeCont& nc, NBDistrictCont& dc, NBTrafficLightLogicCont& tlc);
-
 
     /** @brief Splits the edge at the position nearest to the given node
      *
@@ -226,7 +227,6 @@ public:
      * @see NBEdge::splitAt(NBDistrictCont &, NBEdge *, NBNode *, const std::string &, const std::string &, int , int)
      */
     bool splitAt(NBDistrictCont& dc, NBEdge* edge, NBNode* node);
-
 
     /** @brief Splits the edge at the position nearest to the given node using the given modifications
      *
@@ -277,8 +277,9 @@ public:
                  int noLanesFirstEdge, int noLanesSecondEdge,
                  const double speed = -1., const double friction = 1., const int changedLeft = 0);
     /// @}
-
-
+    
+    /// @brief if base is an existing edge id, find a unused id of the form base + sep + INT
+    std::string createUnusedID(const std::string& base, const std::string& sep);
 
     /// @name container access methods
     /// @{
@@ -307,6 +308,8 @@ public:
         return &split->second;
     }
 
+    NBEdge* getSplitBase(const std::string& edgeID) const;
+
     /** @brief Returns the number of edge splits
      * @return How often an edge was split
      */
@@ -321,9 +324,9 @@ public:
     /** @brief Removes unwished edges (not in keep-edges)
      * @param[in, opt. changed] dc The district container needed to remove edges
      * @todo Recheck usage; check whether keep-edges.postload is really useful
+     * @return The number of removed edges
      */
-    void removeUnwishedEdges(NBDistrictCont& dc);
-
+    int removeUnwishedEdges(NBDistrictCont& dc);
 
     /** @brief Splits edges into multiple if they have a complex geometry
      *
@@ -335,13 +338,11 @@ public:
      */
     void splitGeometry(NBDistrictCont& dc, NBNodeCont& nc);
 
-
     /** @brief
      * @param[in] nc The node container needed to build (geometry) nodes
      * @see NBEdge::reduceGeometry
      */
     void reduceGeometries(const double minDist);
-
 
     /** @brief
      * @param[in] maxAngle The maximum geometry angle allowed
@@ -349,10 +350,8 @@ public:
      * @param[in] fix Whether to prune geometry points to avoid sharp turns at start and end
      * @see NBEdge::checkGeometry
      */
-    void checkGeometries(const double maxAngle, const double minRadius, bool fix, bool fixRailways, bool silent = false);
+    void checkGeometries(const double maxAngle, bool fixAngle, const double minRadius, bool fix, bool fixRailways, bool silent = false);
     /// @}
-
-
 
     /// @name processing methods
     /// @{
@@ -366,7 +365,6 @@ public:
      */
     void sortOutgoingLanesConnections();
 
-
     /** @brief Computes for each edge the approached edges
      *
      * Calls "NBEdge::computeEdge2Edges" for all edges within the container.
@@ -377,7 +375,6 @@ public:
      */
     void computeEdge2Edges(bool noLeftMovers);
 
-
     /** @brief Computes for each edge which lanes approach the next edges
      *
      * Calls "NBEdge::computeLanes2Edges" for all edges within the container.
@@ -387,7 +384,6 @@ public:
      */
     void computeLanes2Edges();
 
-
     /** @brief Rechecks whether all lanes have a successor for each of the stored edges
      *
      * Calls "NBEdge::recheckLanes" for all edges within the container.
@@ -396,7 +392,6 @@ public:
      * @see NBEdge::recheckLanes
      */
     void recheckLanes();
-
 
     /** @brief Appends turnarounds to all edges stored in the container
      *
@@ -411,7 +406,6 @@ public:
      */
     void appendTurnarounds(bool noTLSControlled, bool noFringe, bool onlyDeadends, bool onlyTurnlane, bool noGeometryLike);
 
-
     /** @brief Appends turnarounds to all edges stored in the container
      * Calls "NBEdge::appendTurnaround" for edges with the given ids
      * @param[in] ids The list of ids for which to append a turnaround
@@ -420,10 +414,8 @@ public:
      */
     void appendTurnarounds(const std::set<std::string>& ids, bool noTLSControlled);
 
-    /** @brief Appends turnarounds to all bidiRail edges with stops
-     */
+    /// @brief Appends turnarounds to all bidiRail edges with stops
     void appendRailwayTurnarounds(const NBPTStopCont& sc);
-
 
     /** @brief Computes the shapes of all edges stored in the container
      *
@@ -435,7 +427,6 @@ public:
      */
     void computeEdgeShapes(double smoothElevationThreshold = -1);
 
-
     /** @brief Computes the shapes of all lanes of all edges stored in the container
      *
      * Calls "NBEdge::computeLaneShapes" for all edges within the container.
@@ -446,11 +437,8 @@ public:
      */
     void computeLaneShapes();
 
-
-    /** @brief Clears information about controlling traffic lights for all connenections of all edges
-     */
+    /// @brief Clears information about controlling traffic lights for all connenections of all edges
     void clearControllingTLInformation() const;
-
 
     /** @brief Joins the given edges because they connect the same nodes
      *
@@ -462,11 +450,8 @@ public:
     void joinSameNodeConnectingEdges(NBDistrictCont& dc,
                                      NBTrafficLightLogicCont& tlc, EdgeVector edges);
 
-
-    /** @brief Sets opposite lane information for geometrically close edges
-     */
+    /// @brief Sets opposite lane information for geometrically close edges
     void guessOpposites();
-
 
     /** @brief Rechecks whether the lane spread is proper
      *
@@ -483,11 +468,17 @@ public:
     NBEdge* getByID(const std::string& edgeID) const;
 
     /** @brief Determines which edges belong to roundabouts and increases their priority
-     * @param[out] marked Edges which belong to a roundabout are stored here
      * @return The number of guessed roundabouts
      */
     int guessRoundabouts();
 
+    /** @brief Determines which edges have been marked as roundabouts and stores them internally
+     * @return The number of found roundabouts
+     */
+    int extractRoundabouts();
+
+    // brief ensure myRoundabouts only holds valid edges
+    void cleanupRoundabouts();
 
     /** @brief Returns whether the edge with the id was ignored during parsing
      * @return Whether the edge with the id was ignored during parsing
@@ -501,17 +492,13 @@ public:
         myIgnoredEdges.insert(id);
     }
 
-    /** @brief Returns whether the edge with the id was deleted explicitly
-     */
+    /// @brief Returns whether the edge with the id was deleted explicitly
     bool wasRemoved(std::string id) const {
         return myExtractedEdges.count(id) != 0;
     }
 
-    /** @brief Renames the edge. Throws exception if newID already exists
-     */
+    /// @brief Renames the edge. Throws exception if newID already exists
     void rename(NBEdge* edge, const std::string& newID);
-
-
 
     /// @name Connections handling
     /// @{
@@ -542,11 +529,10 @@ public:
                                   SVCPermissions changeLeft = SVC_UNSPECIFIED,
                                   SVCPermissions changeRight = SVC_UNSPECIFIED);
 
+    /// @brief add post process connections
     bool hasPostProcessConnection(const std::string& from, const std::string& to = "");
 
-
-    /** @brief Try to set any stored connections
-     */
+    /// @brief Try to set any stored connections
     void recheckPostProcessConnections();
     /// @}
 
@@ -557,12 +543,12 @@ public:
     int guessSpecialLanes(SUMOVehicleClass svc, double width, double minSpeed, double maxSpeed, bool fromPermissions, const std::string& excludeOpt,
                           NBTrafficLightLogicCont& tlc);
 
-
     /** @brief Returns the determined roundabouts
      * @return The list of roundabout edges
      */
     const std::set<EdgeSet> getRoundabouts() const;
 
+    /// @brief check if there is guessed roundabouts
     bool hasGuessedRoundabouts() const {
         return myGuessedRoundabouts.size() > 0;
     }
@@ -585,14 +571,13 @@ public:
     bool ignoreFilterMatch(NBEdge* edge);
 
     /// @brief remap node IDs accoring to options --numerical-ids and --reserved-ids
-    int remapIDs(bool numericaIDs, bool reservedIDs, const std::string& prefix, NBPTStopCont& sc);
+    int remapIDs(bool numericaIDs, bool reservedIDs, bool keptIDs, const std::string& prefix, NBPTStopCont& sc);
 
     /// @brief check whether edges overlap
     void checkOverlap(double threshold, double zThreshold) const;
 
     /// @brief check whether edges are to steep
     void checkGrade(double threshold) const;
-
 
     /** @brief Returns the edges which have been built by splitting the edge of the given id
      *
@@ -610,6 +595,8 @@ public:
 
     /// @brief return all edges
     EdgeVector getAllEdges() const;
+
+    /// @brief return all router edges
     RouterEdgeVector getAllRouterEdges() const;
 
     /// @brief ensure that all edges have valid nodes
@@ -618,13 +605,33 @@ public:
     /// @brief modify all restrictions on lane changing for edges and connections
     void updateAllChangeRestrictions(SVCPermissions ignoring);
 
+    /// @brief add prefix to all edges
+    void addPrefix(const std::string& prefix);
+
+    /// @brief adapt custom lengths of split edges to account for intersection size
+    void fixSplitCustomLength();
+
+    /// @brief compute all edge angles
+    void computeAngles();
+
+    /// @brief return all edge types in used
+    std::set<std::string> getUsedTypes() const;
+
+    /// @brief return number of edges removed
+    int removeEdgesBySpeed(NBDistrictCont& dc);
+    int removeEdgesByPermissions(NBDistrictCont& dc);
+    int removeLanesByWidth(NBDistrictCont& dc, const double minWidth);
+
+    /// @brief return number of edges split
+    int attachRemoved(NBNodeCont& nc, NBDistrictCont& dc, const double maxDist);
+
 private:
     /// @brief compute the form factor for a loop of edges
     static double formFactor(const EdgeVector& loopEdges);
 
+    /// @brief remove roundabout edges
     void removeRoundaboutEdges(const EdgeSet& toRemove, std::set<EdgeSet>& roundabouts);
 
-private:
     /// @brief The network builder; used to obtain type information
     NBTypeCont& myTypeCont;
 
@@ -632,6 +639,7 @@ private:
      * @brief A structure representing a connection between two lanes
      */
     struct PostProcessConnection {
+
     public:
         /** @brief Constructor
          * @param[in] from The id of the edge the connection starts at
@@ -665,49 +673,71 @@ private:
             changeRight(changeRight_),
             warnOnly(warnOnly_)
         {}
+
         /// @brief The id of the edge the connection starts at
         std::string from;
+
         /// @brief The number of the lane the connection starts at
         int fromLane;
+
         /// @brief The id of the edge the connection ends at
         std::string to;
+
         /// @brief The number of the lane the connection ends at
         int toLane;
+
         /// @brief Whether the connection may be passed without braking
         bool mayDefinitelyPass;
+
         /// @brief Whether the connection may be passed without braking
         KeepClear keepClear;
+
         /// @brief custom position for internal junction on this connection
         double contPos;
+
         /// @brief custom foe visiblity for connection
         double visibility;
+
         /// @brief custom speed for connection
         double speed;
+
         /// @brief custom friction for connection
         double friction;
+
         /// @brief custom length for connection
         double customLength;
+
         /// @brief custom shape for connection
         PositionVector customShape;
+
         /// @brief whether this connection shall not be controlled by a traffic light
         bool uncontrolled;
+
         /// @brief custom permissions for connection
         SVCPermissions permissions;
+
         /// @brief whether this connection is an indirect left turn
         bool indirectLeft;
+
         /// @brief custom edge type
         std::string edgeType;
+
         /// @brief custom lane changing permissions for connection
         SVCPermissions changeLeft;
+
         /// @brief custom lane changing permissions for connection
         SVCPermissions changeRight;
+
         /// @brief whether a failure to set this connection is a warning or an error
         bool warnOnly;
     };
 
+    struct MinLaneComparatorIdLess {
+        bool operator()(const std::pair<NBEdge*, int>& a, const std::pair<NBEdge*, int>& b) const;
+    };
+
     /// @brief The list of connections to recheck
     std::map<std::string, std::vector<PostProcessConnection> > myConnections;
-
 
     /// @brief The type of the dictionary where an edge may be found by its id
     typedef std::map<std::string, NBEdge*> EdgeCont;
@@ -715,14 +745,19 @@ private:
     /// @brief The instance of the dictionary (id->edge)
     EdgeCont myEdges;
 
-    /// @brief The extracted nodes which are kept for reference
+    /// @brief The extracted edges which are kept for reference
     EdgeCont myExtractedEdges;
+
+    /// @brief The edges which got extracted twice but may still be referenced somewhere TODO smart_ptr?
+    std::set<NBEdge*> myEdgeCemetery;
 
     /// @brief The ids of ignored edges
     std::set<std::string> myIgnoredEdges;
 
     /// @brief the number of splits of edges during the building
     std::map<const NBEdge*, std::pair<NBEdge*, NBEdge*> > myEdgesSplit;
+    /// @brief the edges that were created as result of splitting
+    std::set<const NBEdge*> myWasSplit;
 
     /// @name Settings for accepting/dismissing edges
     /// @{
@@ -730,8 +765,8 @@ private:
     /// @brief The minimum speed an edge may have in order to be kept (default: -1)
     double myEdgesMinSpeed;
 
-    /// @brief Whether edges shall be joined first, then removed
-    bool myRemoveEdgesAfterJoining;
+    /// @brief Whether edges shall be joined and patched first, then removed
+    bool myRemoveEdgesAfterLoading;
 
     /// @brief Set of ids of edges which shall explicitly be kept
     std::set<std::string> myEdges2Keep;
@@ -760,6 +795,7 @@ private:
 
     /// @brief Edges marked as belonging to a roundabout by the user (each EdgeVector is a roundabout)
     std::set<EdgeSet> myRoundabouts;
+
     /// @brief Edges marked as belonging to a roundabout after guessing
     std::set<EdgeSet> myGuessedRoundabouts;
 
@@ -777,12 +813,9 @@ private:
         }
     };
 
-
-private:
     /// @brief invalidated copy constructor
-    NBEdgeCont(const NBEdgeCont& s);
+    NBEdgeCont(const NBEdgeCont& s) = delete;
 
     /// @brief invalidated assignment operator
-    NBEdgeCont& operator=(const NBEdgeCont& s);
-
+    NBEdgeCont& operator=(const NBEdgeCont& s) = delete;
 };

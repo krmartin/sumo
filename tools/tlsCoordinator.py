@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2010-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2010-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -25,6 +25,7 @@ from collections import namedtuple
 
 import sumolib
 from sumolib.output import parse_fast
+from sumolib.options import ArgumentParser
 
 TLTuple = namedtuple('TLTuple', ['edgeID', 'dist', 'time', 'connection'])
 PairKey = namedtuple('PairKey', ['edgeID', 'edgeID2', 'dist'])
@@ -49,22 +50,22 @@ def logAddedPair(TLSP, sets, operation):
 
 
 def get_options(args=None):
-    optParser = sumolib.options.ArgumentParser()
-    optParser.add_option("-n", "--net-file", dest="netfile", required=True,
-                         help="define the net file (mandatory)")
-    optParser.add_option("-o", "--output-file", dest="outfile",
-                         default="tlsOffsets.add.xml", help="define the output filename")
-    optParser.add_option("-r", "--route-file", dest="routefile", required=True,
-                         help="define the input route file (mandatory)")
-    optParser.add_option("-a", "--additional-file", dest="addfile",
-                         help="define replacement tls plans to be coordinated")
-    optParser.add_option("-v", "--verbose", action="store_true",
+    optParser = ArgumentParser()
+    optParser.add_option("-n", "--net-file", category="input", dest="netfile", required=True,
+                         type=ArgumentParser.net_file, help="define the net file (mandatory)")
+    optParser.add_option("-o", "--output-file", category="output", dest="outfile",
+                         default="tlsOffsets.add.xml", type=ArgumentParser.file, help="define the output filename")
+    optParser.add_option("-r", "--route-file", category="input", dest="routefile", required=True,
+                         type=ArgumentParser.route_file, help="define the input route file (mandatory)")
+    optParser.add_option("-a", "--additional-file", category="input", dest="addfile",
+                         type=ArgumentParser.additional_file, help="define replacement tls plans to be coordinated")
+    optParser.add_option("-v", "--verbose", category="processing", action="store_true",
                          default=False, help="tell me what you are doing")
-    optParser.add_option("-i", "--ignore-priority", dest="ignorePriority", action="store_true",
+    optParser.add_option("-i", "--ignore-priority", category="processing", dest="ignorePriority", action="store_true",
                          default=False, help="ignore road priority when sorting TLS pairs")
-    optParser.add_option("--speed-factor", type=float,
+    optParser.add_option("--speed-factor", category="processing", type=float,
                          default=0.8, help="avg ratio of vehicle speed in relation to the speed limit")
-    optParser.add_option("-e", "--evaluate", action="store_true",
+    optParser.add_option("-e", "--evaluate", category="processing", action="store_true",
                          default=False, help="run the scenario and print duration statistics")
     return optParser.parse_args(args=args)
 
@@ -179,7 +180,7 @@ def computePairOffsets(TLSPList, verbose):
 
     print("operations: newSet=%s addToSet=%s addToSet2=%s addHalfCoordinated=%s mergeSets=%s" % (
         c1, c2, c3, c4, c5))
-    return(sets)
+    return sets
 
 
 def merge(sets, list1, list2, dt):
@@ -219,8 +220,8 @@ def getTLSInRoute(net, edge_ids):
         edge = net.getEdge(edgeID)
         nextEdge = net.getEdge(nextEdgeID)
         if nextEdge not in edge.getOutgoing():
-            # disconnected route, maybe warn?
-            continue
+            sys.stderr.write("Warning: Skipping disconnected route (edges %s, %s)\n" % (edgeID, nextEdgeID))
+            return []
         connection = edge.getOutgoing()[nextEdge][0]
 
         TLS = None if edge.getToNode().getType() in ("rail_crossing", "rail_signal") else edge.getTLS()

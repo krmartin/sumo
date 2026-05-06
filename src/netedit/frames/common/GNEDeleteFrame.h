@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -20,15 +20,20 @@
 #pragma once
 #include <config.h>
 
+#include <netedit/GNEViewNetHelper.h>
 #include <netedit/frames/GNEFrame.h>
+#include <netedit/frames/common/GNEGroupBoxModule.h>
+
+// ===========================================================================
+// class declaration
+// ===========================================================================
+
+class GNEHierarchicalElement;
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @class GNEDeleteFrame
- * The Widget for deleting elements
- */
+
 class GNEDeleteFrame : public GNEFrame {
 
 public:
@@ -37,7 +42,7 @@ public:
     // class DeleteOptions
     // ===========================================================================
 
-    class DeleteOptions : public MFXGroupBoxModule {
+    class DeleteOptions : public GNEGroupBoxModule {
         /// @brief FOX-declaration
         FXDECLARE(GNEDeleteFrame::DeleteOptions)
 
@@ -74,7 +79,9 @@ public:
     // class ProtectElements
     // ===========================================================================
 
-    class ProtectElements : public MFXGroupBoxModule {
+    class ProtectElements : public GNEGroupBoxModule {
+        /// @brief FOX-declaration
+        FXDECLARE(GNEDeleteFrame::ProtectElements)
 
     public:
         /// @brief constructor
@@ -82,6 +89,9 @@ public:
 
         /// @brief destructor
         ~ProtectElements();
+
+        /// @brief get delete frame parent
+        GNEDeleteFrame* getDeleteFrameParent() const;
 
         /// @brief check if protect additional elements checkbox is enabled
         bool protectAdditionals() const;
@@ -95,18 +105,53 @@ public:
         /// @brief check if protect generic datas checkbox is enabled
         bool protectGenericDatas() const;
 
+        /// @name FOX-callbacks
+        /// @{
+        /// @brief protect all elements
+        long onCmdProtectAll(FXObject*, FXSelector, void*);
+
+        /// @brief unprotect all elements
+        long onCmdUnprotectAll(FXObject*, FXSelector, void*);
+
+        /// @brief update protect all elements
+        long onUpdProtectAll(FXObject*, FXSelector, void*);
+
+        /// @brief update unprotect all elements
+        long onUpdUnprotectAll(FXObject*, FXSelector, void*);
+
+        /// @}
+
+    protected:
+        /// @brief FOX need this
+        FOX_CONSTRUCTOR(ProtectElements)
+
     private:
+        /// @brief pointer to delete frame parent
+        GNEDeleteFrame* myDeleteFrameParent = nullptr;
+
+        /// @brief protect all button
+        FXButton* myProtectAllButton = nullptr;
+
+        /// @brief unprotect all button
+        FXButton* myUnprotectAllButton = nullptr;
+
         /// @brief checkbox for enable/disable protect additionals
-        FXCheckButton* myProtectAdditionals;
+        FXCheckButton* myProtectAdditionals = nullptr;
 
         /// @brief checkbox for enable/disable protect TAZs
-        FXCheckButton* myProtectTAZs;
+        FXCheckButton* myProtectTAZs = nullptr;
 
         /// @brief checkbox for enable/disable protect demand elements
-        FXCheckButton* myProtectDemandElements;
+        FXCheckButton* myProtectDemandElements = nullptr;
 
         /// @brief checkbox for enable/disable protect generic datas
-        FXCheckButton* myProtectGenericDatas;
+        FXCheckButton* myProtectGenericDatas = nullptr;
+
+        /// @brief Invalidated copy constructor.
+        ProtectElements(const ProtectElements&) = delete;
+
+        /// @brief Invalidated assignment operator.
+        ProtectElements& operator=(const ProtectElements&) = delete;
     };
 
     /// @brief struct for saving subordinated elements (Junction->Edge->Lane->(Additional | DemandElement)
@@ -173,7 +218,7 @@ public:
         void addValuesFromSubordinatedElements(SubordinatedElements* originalSE, const SubordinatedElements& newSE);
 
         // @brief open warning dialog
-        void openWarningDialog(const std::string& elementType, const size_t number, const bool isChild);
+        void openWarningDialog(const std::string& elementType, const size_t number, const bool isChild, const bool runningInternalTests);
 
         /// @brief Invalidated copy constructor.
         SubordinatedElements(const SubordinatedElements&) = delete;
@@ -186,7 +231,7 @@ public:
      * @brief viewParent GNEViewParent in which this GNEFrame is placed
      * @brief viewNet viewNet that uses this GNEFrame
      */
-    GNEDeleteFrame(GNEViewParent *viewParent, GNEViewNet* viewNet);
+    GNEDeleteFrame(GNEViewParent* viewParent, GNEViewNet* viewNet);
 
     /// @brief Destructor
     ~GNEDeleteFrame();
@@ -201,14 +246,14 @@ public:
     void removeSelectedAttributeCarriers();
 
     /**@brief remove attribute carrier (element)
-     * @param objectsUnderCursor objects under cursors
+     * @param viewObjects objects under cursors
      */
-    void removeAttributeCarrier(const GNEViewNetHelper::ObjectsUnderCursor& objectsUnderCursor);
+    void removeAttributeCarrier(const GNEViewNetHelper::ViewObjectsSelector& viewObjects);
 
     /**@brief remove geometry point
-    * @param objectsUnderCursor objects under cursors
-    */
-    void removeGeometryPoint(const GNEViewNetHelper::ObjectsUnderCursor& objectsUnderCursor);
+     * @param viewObjects objects under cursors
+     */
+    bool removeGeometryPoint(const GNEViewNetHelper::ViewObjectsSelector& viewObjects);
 
     /// @brief get delete options modul
     DeleteOptions* getDeleteOptions() const;

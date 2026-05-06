@@ -4,9 +4,9 @@ title: polyconvert
 
 # From 30.000 feet
 
-**polyconvert** imports geometrical shapes (polygons or points of
+**polyconvert** imports geometrical [shapes](Simulation/Shapes.md) (polygons or points of
 interest) from different sources, converts them to a representation that
-may be visualized using [sumo-gui](sumo-gui.md).
+may be visualized using [sumo-gui](sumo-gui.md) and [netedit](netedit.md).
 
 - **Purpose:** Polygon and POI import, conversion, and projection
 - **System:** portable (Linux/Windows is tested); runs on command line
@@ -31,20 +31,20 @@ the type name is used as option name and the value indicates the
 position of the file. So
 
 ```
-polyconvert --visum mynet.net -o converted.poi.xml
+polyconvert --visum mynet.net -o converted.poi.xml
 ```
 imports from a VISUM-net file.
 
-Furthermore, if you have already projected SHP-files, you can directly set the options
-shapefile.traditional-axis-mapping and proj-utm with true in order to avoid polygons to
-be projected in Polyconvert again.
+Furthermore, if you have already projected SHP files, you can directly set the options
+**--shapefile.traditional-axis-mapping** and **--proj-utm** with **true** in order to avoid polygons to
+be projected in polyconvert again.
 
 
 ## Options
 
 You may use a XML schema definition file for setting up a polyconvert
 configuration:
-[polyconvertConfiguration.xsd](http://sumo.dlr.de/xsd/polyconvertConfiguration.xsd).
+[polyconvertConfiguration.xsd](https://sumo.dlr.de/xsd/polyconvertConfiguration.xsd).
 
 ### Configuration
 
@@ -68,25 +68,28 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 attributes to the imported shapes in dependence of their "type". Not all
 imported formats have a type information. When using shape files, for
 example, all instances of an artifact type are normally stored in a
-distinct shape file.
+distinct shape file. **polyconvert** supports [virtual file systems](https://gdal.org/en/latest/user/virtual_file_systems.html) when
+importing shape files. So if you have your shapes in myshapes.zip and the main file has the name arcview.shp
+you can import them via `polyconvert --shapefile /vsizip/myshapes.zip/arcview` (**--shapefile** is an alias to **--shapefile-prefixes**).
 
 | Option | Description |
 |--------|-------------|
 | **-n** {{DT_FILE}}<br> **--net-file** {{DT_FILE}} | Loads SUMO-network FILE as reference to offset and projection |
 | **--dlr-navteq-poly-files** {{DT_FILE}} | Reads polygons from FILE assuming they're coded in DLR-Navteq (Elmar)-format |
-| **--dlr-navteq-poi-files** {{DT_FILE}} | Reads pois from FILE+ assuming they're coded in DLR-Navteq (Elmar)-format |
+| **--dlr-navteq-poi-files** {{DT_FILE}} | Reads pois from FILE assuming they're coded in DLR-Navteq (Elmar)-format |
 | **--visum-files** {{DT_FILE}} | Reads polygons from FILE assuming it's a Visum-net |
 | **--visum.language-file** {{DT_FILE}} | Load language mappings from FILE |
 | **--xml-files** {{DT_FILE}} | Reads pois and shapes from FILE assuming they're coded in XML |
-| **--osm-files** {{DT_FILE}} | Reads pois from FILE+ assuming they're coded in OSM |
+| **--osm-files** {{DT_FILE}} | Reads pois from FILE assuming they're coded in OSM |
 | **--osm.keep-full-type** {{DT_BOOL}} | The type will be made of the key-value - pair; *default:* **false** |
 | **--osm.use-name** {{DT_BOOL}} | The id will be set from the given 'name' attribute; *default:* **false** |
 | **--osm.merge-relations** {{DT_FLOAT}} | If FLOAT >= 0, assemble one polygon from all ways of a relation if they all connect with gaps below FLOAT; *default:* **-1** |
-| **--shapefile-prefixes** {{DT_FILE}} | Reads shapes from shapefiles FILE+ |
+| **--geojson-files** {{DT_FILE}} | Reads shapes from geojson FILE |
+| **--shapefile-prefixes** {{DT_FILE}} | Reads shapes from shapefiles FILE |
 | **--shapefile.guess-projection** {{DT_BOOL}} | Guesses the shapefile's projection; *default:* **false** |
 | **--shapefile.traditional-axis-mapping** {{DT_BOOL}} | Use traditional axis order (lon, lat); *default:* **false** |
 | **--shapefile.id-column** {{DT_STR}} | Defines in which column the id can be found |
-| **--shapefile.type-columns** {{DT_STR[]}} | Defines which columns form the type id (comma separated list) |
+| **--shapefile.type-columns** {{DT_STR_LIST}} | Defines which columns form the type id (comma separated list) |
 | **--shapefile.use-running-id** {{DT_BOOL}} | A running number will be used as id; *default:* **false** |
 | **--shapefile.add-param** {{DT_BOOL}} | Extract all additional columns as params; *default:* **false** |
 | **--shapefile.fill** {{DT_STR}} | [auto,true,false]. Forces the 'fill' status to the given value. Default 'auto' tries to determine it from the data type |
@@ -100,9 +103,15 @@ which has to be defined using **--output** {{DT_FILE}}.
 | Option | Description |
 |--------|-------------|
 | **--write-license** {{DT_BOOL}} | Include license info into every output file; *default:* **false** |
+| **--write-metadata** {{DT_BOOL}} | Write parsable metadata (configuration etc.) instead of comments; *default:* **false** |
 | **--output-prefix** {{DT_STR}} | Prefix which is applied to all output files. The special string 'TIME' is replaced by the current time. |
+| **--output-suffix** {{DT_STR}} | Suffix which is applied to all output files. The special string 'TIME' is replaced by the current time. |
 | **--precision** {{DT_INT}} | Defines the number of digits after the comma for floating point output; *default:* **2** |
 | **--precision.geo** {{DT_INT}} | Defines the number of digits after the comma for lon,lat output; *default:* **6** |
+| **--output.compression** {{DT_STR}} | Defines the standard compression algorithm (currently only for parquet output) |
+| **--output.format** {{DT_STR}} | Defines the standard output format if not derivable from the file name ('xml', 'csv', 'parquet'); *default:* **xml** |
+| **--output.column-header** {{DT_STR}} | How to derive column headers from attribute names ('none', 'tag', 'auto', 'plain'); *default:* **tag** |
+| **--output.column-separator** {{DT_STR}} | Separator in CSV output; *default:* **;** |
 | **-H** {{DT_BOOL}}<br> **--human-readable-time** {{DT_BOOL}} | Write time values as hour:minute:second or day:hour:minute:second rather than seconds; *default:* **false** |
 | **-o** {{DT_FILE}}<br> **--output-file** {{DT_FILE}} | Write generated polygons/pois to FILE |
 | **--dlr-tdp-output** {{DT_FILE}} | Write generated polygons/pois to a dlr-tdp file with the given prefix |
@@ -113,8 +122,7 @@ One of the major uses of **polyconvert** is to
 apply a projection on the read shapes. Normally, one wants the shapes to
 be aligned in accordance to a previously imported road network. In this
 case, the network should be given using **--net-file** {{DT_FILE}}. But it is also possible to use
-a different projection. In any case, if the read coordinates shall be
-changed, **--use-projection** must be given.
+a different projection.
 
 | Option | Description |
 |--------|-------------|
@@ -142,7 +150,7 @@ this boundary are discarded in these cases.
 | **--prune.in-net.offsets** {{DT_STR}} | Uses FLOAT,FLOAT,FLOAT,FLOAT as offset definition added to the net boundary. Positive values grow the boundary on all sides while negative values shrink it.; *default:* **0,0,0,0** |
 | **--prune.boundary** {{DT_STR}} | Uses STR as pruning boundary |
 | **--prune.keep-list** {{DT_STR}} | Items in STR will be kept though out of boundary |
-| **--prune.explicit** {{DT_STR[]}} | Items with names in STR[] will be removed |
+| **--prune.explicit** {{DT_STR_LIST}} | Items with names in STR[] will be removed |
 
 ### Processing
 
@@ -154,6 +162,7 @@ this boundary are discarded in these cases.
 | **--all-attributes** {{DT_BOOL}} | Imports all attributes as key/value pairs; *default:* **false** |
 | **--ignore-errors** {{DT_BOOL}} | Continue on broken input; *default:* **false** |
 | **--poi-layer-offset** {{DT_FLOAT}} | Adds FLOAT to the layer value for each poi (i.e. to raise it above polygons); *default:* **0** |
+| **--flatten** {{DT_BOOL}} | Remove all z-data; *default:* **false** |
 
 ### Building Defaults
 
@@ -167,6 +176,7 @@ command line.
 | **--prefix** {{DT_STR}} | Sets STR as default prefix |
 | **--type** {{DT_STR}} | Sets STR as default type; *default:* **unknown** |
 | **--fill** {{DT_BOOL}} | Fills polygons by default; *default:* **true** |
+| **--icon** {{DT_STR}} | Sets STR as default icon |
 | **--layer** {{DT_FLOAT}} | Sets FLOAT as default layer; *default:* **-1** |
 | **--discard** {{DT_BOOL}} | Sets default action to discard; *default:* **false** |
 
@@ -190,6 +200,9 @@ Options](Basics/Using_the_Command_Line_Applications.md#reporting_options).
 | **-l** {{DT_FILE}}<br> **--log** {{DT_FILE}} | Writes all messages to FILE (implies verbose) |
 | **--message-log** {{DT_FILE}} | Writes all non-error messages to FILE (implies verbose) |
 | **--error-log** {{DT_FILE}} | Writes all warnings and errors to FILE |
+| **--log.timestamps** {{DT_BOOL}} | Writes timestamps in front of all messages; *default:* **false** |
+| **--log.processid** {{DT_BOOL}} | Writes process ID in front of all messages; *default:* **false** |
+| **--language** {{DT_STR}} | Language to use in messages; *default:* **C** |
 
 # See Also
 

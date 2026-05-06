@@ -17,12 +17,14 @@ the definition. The declaration values are:
 | Attribute Name | Value Type  | Description                                                                                            |
 | -------------- | ----------- | ------------------------------------------------------------------------------------------------------ |
 | **id**         | id (string) | The id of of the rerouter                                                                              |
-| **edges**      | float       | An edge id or a list of edge ids where vehicles shall be rerouted                                      |
-| file           | float       | The path to the definition file (alternatively, the intervals may defined as children of the rerouter) |
+| **edges**      | stringList  | A list of edge ids where vehicles shall be rerouted                                                    |
 | probability    | float       | The probability for vehicle rerouting (0-1), default 1                                                 |
 | timeThreshold  | time (s)    | minimum accumulated waiting time before the rerouter takes effect (default 0 applies always)           |
 | vTypes         | stringList  | Space-separated list of vType IDs for which this rerouter should apply (default "" applies to all)     |
 | off            | bool        | Whether the router should be inactive initially (and switched on in the gui), *default:false*          |
+| optional       | bool        | Whether the vehicle / person needs to request rerouting actively, *default:false*                      |
+| pos            | float       | The position on the edge, *default:undefined*                                                          |
+| radius         | float       | At which distance the rerouter will trigger, *default:infinity*                                        |
 
 A rerouter may work in several different ways. Within a time period you
 may close an edge, or assign new destinations or predefined routes to
@@ -36,7 +38,7 @@ There are two styles in which to declare rerouters.
 
 The {{AdditionalFile}} looks like this:
 
-```
+```xml
 <additional>
    <rerouter id="<REROUTER_ID>" edges="<EDGE_ID>[;<EDGE_ID>]*" [probability="<PROBABILITY>"]>
       <interval begin="<BEGIN_TIME>" end="<END_TIME>">
@@ -54,10 +56,10 @@ The {{AdditionalFile}} looks like this:
 
 The {{AdditionalFile}} looks like this:
 
-```
-<additional>   
+```xml
+<additional>
    <rerouter id="<REROUTER_ID>" edges="<EDGE_ID>[;<EDGE_ID>]*" [probability="<PROBABILITY>"]>
-     <include href="definitions.xml"/>      
+     <include href="definitions.xml"/>
    </rerouter>
 
    ... further rerouters ...
@@ -67,7 +69,7 @@ The {{AdditionalFile}} looks like this:
 And the file `definitions.xml` (which describes the actions over time) looks
 like this:
 
-```
+```xml
    <interval begin="<BEGIN_TIME>" end="<END_TIME>">
       ... action description ...
    </interval>
@@ -80,7 +82,7 @@ Note, that the definition file has no root-level element
 All the following examples use the [everything-in-one-file](#everything_in_one_file)-syntax.
 
 !!! caution
-    Support for rerouter attribute `file` to include additional definitions was removed in version 1.13.0 
+    Support for rerouter attribute `file` to include additional definitions was removed in version 1.13.0
 
 ## Closing a Street
 
@@ -93,7 +95,7 @@ same as described at
 with the additional constraint that closed edges must be avoided. A
 closingReroute definition may look like this:
 
-```
+```xml
 <rerouter>
    <interval begin="<BEGIN_TIME>" end="<END_TIME>">
       <closingReroute id="<EDGE_ID>"/>
@@ -111,6 +113,7 @@ The attributes used within such definitions are:
 | **id**         | id (string)             | The id of the closed edge; the id must be the id of an edge within the network                                                                                                                                             |
 | allow          | list of vehicle classes | The (optional) ' '-separated list of [vehicle classes](../Definition_of_Vehicles,_Vehicle_Types,_and_Routes.md#abstract_vehicle_class) which are still allowed to drive on the closed edge. All others are forbidden. |
 | disallow       | list of vehicle classes | The (optional) ' '-separated list of [vehicle classes](../Definition_of_Vehicles,_Vehicle_Types,_and_Routes.md#abstract_vehicle_class) which are forbidden from driving on the closed edge. All others are allowed.   |
+| until       | time | optional estimated end time of the closing. Vehicles will stay on their old route and wait if a detour would take more time than waiting for the closing to end. |
 
 When using a `<closingReroute>` without attributes `allow` and `disallow`, vehicles that cannot reach their
 destination by an alternative route simply continue on their old route
@@ -123,6 +126,9 @@ jams, caused by spontaneous road closing.
 !!! caution
       When using modified permissions, it may be necessary to use the option **--ignore-route-errors** as vehicles which are inserted while the closing is active may raise a route error otherwise. Furthermore, permissions may cause emergency braking. This can be mitigated by placing [VariableSpeedSigns](../Simulation/Variable_Speed_Signs.md) ahead of the closing and slowing down traffic briefly before the closing.
 
+!!! caution
+    When using modified permissions together with option/param **device.rerouting.mode=8**, there should be at most one rerouter definition at any one time in the simulation that contains all closings. Otherwise vehicles may loop endlessly between two closed edges (because all closings other than the current rerouter are ignored).
+
 ## Closing a Lane
 
 A "closingLaneReroute" forces the rerouter to close the lane <LANE_ID\>
@@ -133,7 +139,7 @@ soon as they reach one of the edges given in the edges-attribute of the
 rerouter's declaration. A closingLaneReroute definition may look like
 this:
 
-```
+```xml
 <rerouter>
    <interval begin="<BEGIN_TIME>" end="<END_TIME>">
       <closingLaneReroute id="<LANE_ID>"/>
@@ -160,14 +166,14 @@ The attributes used within such definitions are:
 Two `closingLaneReroute` definitions may be used to simulate a reversible lane in the following way:
 
 - Define two edges in reverse directions with at least 2 lanes each
-- [prohibit driving on one of the central lanes](../Netedit/editModesCommon.md#inspecting_lanes) (disallow="all") 
+- [prohibit driving on one of the central lanes](../Netedit/editModesCommon.md#inspecting_lanes) (disallow="all")
 -  and modify the edge geometry so that the central lanes occupy the same space.
   - by shifting geometry of [both edges sideways (-1.6 for default lane width)](../Netedit/editModesCommon.md#frame_operation)
   - or by [setting the geometry directly](../Netedit/neteditUsageExamples.md#specifying_the_complete_geometry_of_an_edge_including_endpoints)
 
 To change their direction for a specific duration, the following rerouter may be used:
 
-```
+```xml
 <rerouter id="example" edges="E1 -E1">
       <interval begin="7:0:0" end="8:30:0">
             <closingLaneReroute id="E1_1" allow="all"/>
@@ -181,12 +187,12 @@ Alternatively to changing lane permissions with a rerouter, the traci functions 
 
 ## Assigning a new Destination
 
-A "dest_prob_reroute" forces the rerouter to assign a new route to
+A "destProbReroute" forces the rerouter to assign a new route to
 vehicles that pass one of the edges defined in the edges-attribute of
 the rerouter's declaration. A new route destination is used, defined by
 the name of a new destination in the according element:
 
-```
+```xml
 <rerouter>
    <interval begin="<BEGIN_TIME>" end="<END_TIME>">
       <destProbReroute id="<EDGE_ID1>" probability="<PROBABILITY1>"/>
@@ -206,13 +212,13 @@ first applicable value is used):
 - the current (smoothed) travel times in the network are used if the
    vehicle is equipped with a [rerouting
    device](../Demand/Automatic_Routing.md)
-- subjective edge costs for the current vehicle if set via[TraCI
+- subjective edge costs for the current vehicle if set via [TraCI
    command *change edge travel time
    information*](../TraCI/Change_Vehicle_State.md#change_edge_travel_time_information_0x58)
 - edge weights loaded via the [sumo](../sumo.md) option **--weight-files**
 - travel times in the empty network
 
-The attributes used within a dest_prob_reroute are:
+The attributes used within a destProbReroute are:
 
 | Attribute Name  | Value Type                        | Description                                                                                                                                         |
 | --------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -220,7 +226,7 @@ The attributes used within a dest_prob_reroute are:
 | **probability** | float (should be between 0 and 1) | The probability with which a vehicle will use the given edge as destination; the probabilities are automatically normalized to sum to 1             |
 
 !!! note
-      It is possible to combine **closingReroute** and **destProbReroute** within the same interval. In this case, only vehicles which cannot reach their original destination draw new destinations from the probability distribution.
+      It is possible to combine **closingReroute** and **destProbReroute** within the same interval. In this case, only vehicles which cannot reach their original destination (because it is closed or disconnected by the closing) draw new destinations from the probability distribution. Alternative destinations will be drawn until a reachable destination is found or the special value `terminateRoute` (see below) is drawn. The latter will force the vehicle to wait before the closed edge until the closing ends.
 
 ### Special Destination Values
 
@@ -230,12 +236,12 @@ The attributes used within a dest_prob_reroute are:
 
 ## Assigning a new Route
 
-A "route_prob_reroute" forces the rerouter to assign a new route to
+A "routeProbReroute" forces the rerouter to assign a new route to
 vehicles which pass one of the edges defined in the edges-attribute of
 the rerouter's declaration. In this case, the id of a complete route
 must be supplied instead of a new destination:
 
-```
+```xml
 <rerouter>
    <interval begin="<BEGIN_TIME>" end="<END_TIME>">
       <routeProbReroute id="<ROUTE_ID1>" probability="<PROBABILITY1>"/>
@@ -252,7 +258,7 @@ The attributes used within such definitions are:
 | Attribute Name | Value Type  | Description            |
 | -------------- | ----------- | ---------------------------------------------------------------------------------------------- |
 | **id**         | id (string) | The id of a new route to assign; the id must be the id of a previously loaded route                                                                          |
-| probability    | float       | The the probability with which a vehicle will use the given edge as destination; (default 1). The probabilities are automatically normalized for all entries |
+| probability    | float       | The probability with which a vehicle will use the given edge as destination; (default 1). The probabilities are automatically normalized for all entries |
 
 ### Repeated public transport routes
 
@@ -276,13 +282,13 @@ cases:
    lack of capacity
 - when a vehicle enters one of the rerouter-edges and the following
    conditions are all met:
-   - it's current destination parkingArea is among the set of
+   - its current destination parkingArea is among the set of
       parkingAreaReroute definitions and has attribute `visible="true"`
-   - it's current destination parkingArea is full
+   - its current destination parkingArea is full
 
 The definition looks like this:
 
-```
+```xml
    <rerouter id="myRerouter" edges="a b">
       <interval begin="0" end="2000">
          <parkingAreaReroute id="ParkAreaA"/>
@@ -306,14 +312,14 @@ The attributes used within such definitions are:
 
 Parking search refers to the situation where a vehicle encounters an occupied parkingArea and has to pick among a list of alternative destinations without knowing their occupancy state. The vehicle has to iteratively drive to alternative destinations until a free parking space is found. ParkingAreas that were visited earlier (and occupied) might be reasonably visited again with the expectation that they have cleared up since the last visit. By default, vehicles will not visit an occupied parkingArea again for 600s. This can be modified with vehicle-param or vType-param as follows:
 
-```
+```xml
    <vehicle ...>
       <param key="parking.memory" value="300"/>
    </vehicle
 ```
 
 !!! caution
-    Up to version 1.10.0 parking memory was 0 which could cause vehicles to only visited a small set of areas repeatedly
+    Up to version 1.10.0 parking memory was 0 which could cause vehicles to visit only a small set of areas repeatedly.
 
 ### Determining the alternative parking area
 
@@ -323,13 +329,14 @@ weighted sum over a number of attributes. For invisible parkingAreas
 (attribute `visible="false"`, the occupancy value is a taken as a random number from
 \[0,capacity\[ which means they are always among the set of alternatives
 even when full. Each attribute (i.e. occupancy, time, distance) is normalized to [0-1] with the maximum value of all candidate parkingAreas with positive remaining capacity) and inverted as necessary.
+Inversion means taking the remainder to 1 instead of the normalized value itself.
 
 By default only the distance from the current vehicle
 position to the new parking area is considered. The following table
 describes the weighting factors that can be customized using [generic
 parameters of the vehicle or its
 vType](../Simulation/GenericParameters.md):
- 
+
 
 | Parameter Name              | Default value | Description                                                              | Inverse (Bigger is better) |
 | --------------------------- | ------------- | ------------------------------------------------------------------------ | -------------------------- |
@@ -339,18 +346,23 @@ vType](../Simulation/GenericParameters.md):
 | parking.relfreespace.weight | 0             | The relative number of free spaces                                       | yes                        |
 | parking.distanceto.weight   | 1             | The road distance to the parking area                                    | no                         |
 | parking.timeto.weight       | 0             | The assumed travel time to the parking area                              | no                         |
-| parking.distancefrom.weight | 0             | The road distance from the parking area to the vehicles destination      | no                         |
+| parking.distancefrom.weight | 0             | The road distance from the parking area to the vehicle destination      | no                         |
 | parking.timefrom.weight     | 0             | The assumed travel time from the parking area to the vehicle destination | no                         |
 
-When 'parking.probability.weight' is set to a positive value, a random number between 0 and attribute 'probability' is drawn for each candidate parkingArea. This value is then normalized to then range [0,1] by dividing with the maximum probability value of all parkingAreaReroute elements. The negative normalized value is then multiplied with parking.probability.weight to enter into the candidate score.
+When 'parking.probability.weight' is set to a positive value, a random number between 0 and attribute 'probability' is drawn for each candidate parkingArea. This value is then normalized to the range [0,1] by dividing with the maximum probability value of all parkingAreaReroute elements. The inverted normalized value is then multiplied with parking.probability.weight to enter into the candidate score.
 
 ### Further parameters to affect parking behavior
 
-Parameter Name         | Default value | Description                                                              | 
+Parameter Name         | Default value | Description                                                              |
 | -------------------- | ------------- | ------------------------------------------------------------------------ |
 | parking.anywhere     | -1            | permit using any free parkingArea along the way after doing unsuccessful parkingAreaReroute x times (-1 disables this behavior) |
-| parking.frustration  | 100           | increases the preference for visibly free parkingAreas over time (after x unsuccessfull parkingAreaReroutes, targets with unknown occupancy will assumed to be *almost* full)                                 | 
+| parking.ignoreDest   | 0             | When rerouting is triggered, any alternative may be used regardless of visibility and occupancy of the current destination |
+| parking.frustration  | 100           | increases the preference for visibly free parkingAreas over time (after x unsuccessful parkingAreaReroutes, targets with unknown occupancy will assumed to be *almost* full)                                 |
 | parking.knowledge    | 0             | Let driver "guess" the exact occupancy of invisible parkingAreas with probability x                   |
+
+### Reserving a parking space
+
+Whenever a [parkingArea] defines attribute `reservable="true"`, vehicles that reroute to such a parkingArea will reserve a parking space which acts to decrease the remaining capacity of that parkingArea and prevents other vehicles from taking the spot. 
 
 ### Destination after rerouting
 
@@ -368,6 +380,63 @@ of the new parkingArea will be set as new arrivalPos.
 ### TraCI access to parkingSearch
 
 The current state of the parkingSearch can be accessed via calls to `traci.vehicle.getParameter` with the list permitted parameters given at [TraCI/Vehicle_Value_Retrieval](../TraCI/Vehicle_Value_Retrieval.md#supported_further_parameters).
+
+### Example scenarios for parkingSearch
+
+Test cases can be downloaded [here](https://sumo.dlr.de/extractTest.php?path=sumo/extended/rerouter/parking/parkingSearch)
+
+## Rerouting to a railroad siding to be overtaken by a faster train
+
+```xml
+<rerouter>
+   <interval begin="<BEGIN_TIME>" end="<END_TIME>">
+      <overtakingReroute main="E4 E5 E6" siding="E4b E5b E6b"/>
+   </interval>
+</rerouter>
+```
+
+The attributes used within such definitions are:
+
+| Attribute Name | Value Type              | Description                                                                                                                                                                                                                |
+| -------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **main**       | edge ids (stringList)   | The ids of consecutive edges that a train must take at some point after the rerouter edge to be considered for being overtaken | 
+| **siding**     | edge ids (stringList)   | The ids of consecutive edges that will be used instead of the main edges for waiting to be overtaken.    |
+| minSaving      | float                   | The minimum time saving in seconds to trigger an overtaking maneuver (see below for the saving computation)  |
+| defer          | bool                    | Whether a slow train may elect to be overtaking at some downstream location (defaults to *true* if more than one `<overtakingReroute>` element is defined within the rerouter)   |
+
+Requirements for the siding:
+- one of the edges of the saiding must have a rail_signal at it's end
+- the siding must be long enough to accomodate the train being overtaken ahead of the rail signal
+
+Definitions for `<overtakingReroute>` can be created with the tool [createOvertakingReroutes.py](../Tools/Railways.md#createovertakingreroutespy).
+
+### Computing the time saved by an overtaking maneuver
+
+To be overtaken, a train A must be followed by a **faster** train B. Train B may not be delayed by more than a delay threshold. This threshold is configured with [generic param](GenericParameters.md) `key="overtakingReroute.maxDelay"` (default 7200s). The savings computation compares two cases:
+
+1. train A continues along the main track and train B must follow until the routes of A and B diverge. This implies that the speed of train B is reduced to that of train A after train B has caught up.
+2. train B diverges onto the siding and waits until train B has caught up and passed the main edges. Train A can continue at it's full speed and potentially reaches it's destination faster whereas train B must wait at the exit signal of the siding and suffers timeLoss
+
+When comparing both cases, train A may save some time while train B typically loses some time in case 2. The savings and timeLoss are weighted according to the respective train priorities defined with [generic param](GenericParameters.md) `key="overtakingReroute.prio"` (which defaults to *1* for the faster train and to *0.001* for the slower train).
+The net saving is computed as:
+
+```
+netSaving = prioFast * (savingFast - accelTimeLossFast) - prioSlow * (lossSlow + accelTimeLossSlow);
+```
+
+The value of *accelTimeLossFast* is non-zero, only if the faster train reaches the signal block of the slow train before that latter has fully entered the siding. The value of *accelTimeLossSlow* is non-zero if the fast train has not left the main section before the slow train reaches the siding signal (this ignores the impact of the length of the block after the siding).
+
+## Rerouting to an alternative stop of the same station
+
+```xml
+<rerouter>
+   <interval begin="<BEGIN_TIME>" end="<END_TIME>">
+      <stationReroute id="ts_5"/>
+      <stationReroute id="ts_5b"/>
+      <stationReroute id="ts_5c"/>      
+   </interval>
+</rerouter>
+```
 
 # Vehicle Behavior when closing a street
 The interaction of vehicles with reroutes is complex and depends on many
@@ -391,6 +460,9 @@ along their route (other vehicles are not affected directly).
 5. closing time versus departure time
    - a) vehicle departs after closing becomes active
    - b) vehicle departs before closing becomes active (closing occurs while en-route)
+6. routing mode of the vehicle (set via **--device.rerouting.mode** or vehicle/vtype `<param key="device.rerouting.mode" value="8"/>`)
+   - a) routing mode 0 (or generally, not setting the 4th bit): all hard closings are visible during routing
+   - b) routing mode 8 (or generally setting the 4th bit): all hard-closings are ignored during routing and will never cause a route error
 
 The following vehicle behaviors are possible:
 
@@ -405,43 +477,43 @@ To following effects occur:
 
 ## Hard closing
 
-- 1a-2a-3a-4a-5a: **D** 
-- 1a-2a-3a-4a-5b: **R** 
-- 1a-2a-3a-4b-5a: **R** 
-- 1a-2a-3a-4b-5b: **R** 
-                       
+- 1a-2a-3a-4a-5a: **D**
+- 1a-2a-3a-4a-5b: **R**
+- 1a-2a-3a-4b-5a: **R**
+- 1a-2a-3a-4b-5b: **R**
+
 - 1a-2a-3b-4a-5a: **D**
 - 1a-2a-3b-4a-5b: **W**
 - 1a-2a-3b-4b-5a: **W**
 - 1a-2a-3b-4b-5b: **W**
-                       
-- 1a-2b-3a-4a-5a: **E** (becomes **W** with **--ignore-route-errors**)
+
+- 1a-2b-3a-4a-5a: **E** (becomes **W** with **--ignore-route-errors** or **--device.rerouting.mode 8**)
 - 1a-2b-3a-4a-5b: **W**
 - 1a-2b-3a-4b-5a: **W**
 - 1a-2b-3a-4b-5b: **W**
-                       
-- 1a-2b-3b-4a-5a: **E** (becomes **W** with **--ignore-route-errors**)
+
+- 1a-2b-3b-4a-5a: **E** (becomes **W** with **--ignore-route-errors** or **--device.rerouting.mode 8**)
 - 1a-2b-3b-4a-5b: **W**
 - 1a-2b-3b-4b-5a: **W**
 - 1a-2b-3b-4b-5b: **W**
-                       
-## Soft closing        
-                       
+
+## Soft closing
+
 - 1b-2a-3a-4a-5a: **R**
 - 1b-2a-3a-4a-5b: **R**
 - 1b-2a-3a-4b-5a: **R**
 - 1b-2a-3a-4b-5b: **R**
-                       
+
 - 1b-2a-3b-4a-5a: **I**
 - 1b-2a-3b-4a-5b: **I**
 - 1b-2a-3b-4b-5a: **I**
 - 1b-2a-3b-4b-5b: **I**
-                       
+
 - 1b-2b-3a-4a-5a: **I**
 - 1b-2b-3a-4a-5b: **I**
 - 1b-2b-3a-4b-5a: **I**
 - 1b-2b-3a-4b-5b: **I**
-                       
+
 - 1b-2b-3b-4a-5a: **I**
 - 1b-2b-3b-4a-5b: **I**
 - 1b-2b-3b-4b-5a: **I**
@@ -451,3 +523,14 @@ To following effects occur:
 
 When the departure edge for a vehicle is closed, vehicles will ignore this for
 'soft' closing. For a 'hard' closing the simulation will raise an error. If **--ignore-route-errors** is set, the vehicle will be discarded with a warning.
+
+## Skipping stops and optimizing reached stops
+
+When a vehicle reroutes that has one or more remainign stops on it's route, The default behavior is to find a route that reaches all stops. If some stops are unreachable, rerouting fails and the vehicle must wait at the closed edge until the closing ends.
+By setting attribute `priority` in the [stop definitions](../Definition_of_Vehicles%2C_Vehicle_Types%2C_and_Routes.md#stops_and_waypoints) of the vehicle, an algorithm that optimizes reachable stops is activated:
+
+- stops with priority >= 0 are skipped if they cannot be reached anymore
+- stops that define attribute `arrival` and which cannot be reached with an arrivalDelay below a configurable threshold (due to the required detour) are skipped. The threshold is configurable with a [generic vehicle param](GenericParameters.md) `key="closingReroute.maxDelay"` and defaults to 7200s
+- the chosen route minimizes the total priority value of all stops that can be reached within the delay threshold
+- stops without priority may never be skipped
+- a warning is issued for every stop that is skipped in this way

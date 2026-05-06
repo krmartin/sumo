@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2002-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -34,9 +34,9 @@
 #include <utils/common/ToString.h>
 #include <utils/common/StdDefs.h>
 #include <utils/common/ParametrisedWrappingCommand.h>
+
 #include "PolygonDynamics.h"
 #include "ShapeContainer.h"
-
 
 // Debug defines
 //#define DEBUG_DYNAMIC_SHAPES
@@ -44,7 +44,9 @@
 // ===========================================================================
 // method definitions
 // ===========================================================================
+
 ShapeContainer::ShapeContainer() {}
+
 
 ShapeContainer::~ShapeContainer() {
     for (auto& p : myPolygonUpdateCommands) {
@@ -59,13 +61,12 @@ ShapeContainer::~ShapeContainer() {
 
 }
 
+
 bool
-ShapeContainer::addPolygon(const std::string& id, const std::string& type,
-                           const RGBColor& color, double layer,
-                           double angle, const std::string& imgFile, bool relativePath,
-                           const PositionVector& shape, bool geo, bool fill, double lineWidth, bool ignorePruning,
-                           const std::string& name) {
-    return add(new SUMOPolygon(id, type, color, shape, geo, fill, lineWidth, layer, angle, imgFile, relativePath, name), ignorePruning);
+ShapeContainer::addPolygon(const std::string& id, const std::string& type, const RGBColor& color,
+                           double layer, double angle, const std::string& imgFile, const PositionVector& shape,
+                           bool geo, bool fill, double lineWidth, bool ignorePruning, const std::string& name) {
+    return add(new SUMOPolygon(id, type, color, shape, geo, fill, lineWidth, layer, angle, imgFile, name), ignorePruning);
 }
 
 
@@ -143,9 +144,9 @@ ShapeContainer::removePolygonDynamics(const std::string& polyID) {
 
 bool
 ShapeContainer::addPOI(const std::string& id, const std::string& type, const RGBColor& color, const Position& pos, bool geo,
-                       const std::string& lane, double posOverLane, bool friendlyPos, double posLat, double layer, double angle,
-                       const std::string& imgFile, bool relativePath, double width, double height, bool ignorePruning) {
-    return add(new PointOfInterest(id, type, color, pos, geo, lane, posOverLane, friendlyPos, posLat, layer, angle, imgFile, relativePath, width, height), ignorePruning);
+                       const std::string& lane, double posOverLane, bool friendlyPos, double posLat, const std::string& icon, double layer,
+                       double angle, const std::string& imgFile, double width, double height, bool ignorePruning) {
+    return add(new PointOfInterest(id, type, color, pos, geo, lane, posOverLane, friendlyPos, posLat, icon, layer, angle, imgFile, width, height), ignorePruning);
 }
 
 
@@ -155,12 +156,24 @@ ShapeContainer::removePolygon(const std::string& id, bool /* useLock */) {
     std::cout << "ShapeContainer: Removing Polygon '" << id << "'" << std::endl;
 #endif
     removePolygonDynamics(id);
+    SUMOPolygon* p = myPolygons.get(id);
+    if (p != nullptr) {
+        for (ShapeListener* listener : myListeners) {
+            listener->polygonChanged(p, false, true);
+        }
+    }
     return myPolygons.remove(id);
 }
 
 
 bool
 ShapeContainer::removePOI(const std::string& id) {
+    PointOfInterest* p = myPOIs.get(id);
+    if (p != nullptr) {
+        for (ShapeListener* listener : myListeners) {
+            listener->poiChanged(p, false, true);
+        }
+    }
     return myPOIs.remove(id);
 }
 
@@ -170,6 +183,9 @@ ShapeContainer::movePOI(const std::string& id, const Position& pos) {
     PointOfInterest* p = myPOIs.get(id);
     if (p != nullptr) {
         static_cast<Position*>(p)->set(pos);
+        for (ShapeListener* listener : myListeners) {
+            listener->poiChanged(p, false, false);
+        }
     }
 }
 
@@ -179,6 +195,9 @@ ShapeContainer::reshapePolygon(const std::string& id, const PositionVector& shap
     SUMOPolygon* p = myPolygons.get(id);
     if (p != nullptr) {
         p->setShape(shape);
+        for (ShapeListener* listener : myListeners) {
+            listener->polygonChanged(p, false, false);
+        }
     }
 }
 
@@ -189,6 +208,9 @@ ShapeContainer::add(SUMOPolygon* poly, bool /* ignorePruning */) {
         delete poly;
         return false;
     }
+    for (ShapeListener* listener : myListeners) {
+        listener->polygonChanged(poly, true, false);
+    }
     return true;
 }
 
@@ -198,6 +220,9 @@ ShapeContainer::add(PointOfInterest* poi, bool /* ignorePruning */) {
     if (!myPOIs.add(poi->getID(), poi)) {
         delete poi;
         return false;
+    }
+    for (ShapeListener* listener : myListeners) {
+        listener->poiChanged(poi, true, false);
     }
     return true;
 }

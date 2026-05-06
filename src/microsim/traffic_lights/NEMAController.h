@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -45,11 +45,12 @@ class PhaseTransitionLogic;
 // Enumeration
 // ===========================================================================
 enum class LightState {
+    RedXfer,
     Red,
     Yellow,
     Green,
     GreenXfer,
-    GreenRest
+    GreenRest,
 };
 
 
@@ -125,6 +126,7 @@ public:
     const MSPhaseDefinition& getCurrentPhaseDef() const override;
     /// @}
 
+    void resetLastSwitch(SUMOTime t) override;
 
     void activateProgram() override;
     void deactivateProgram() override;
@@ -387,10 +389,10 @@ protected:
     bool hasMajor(const std::string& state, const LaneVector& lanes) const;
 
     /**
-     * @brief converts a comma seperated string into a integer vector
+     * @brief converts a comma separated string into a integer vector
      * "1,2,3,4" -> {1,2,3,4}
      *
-     * @param s the string of comma seperated integers
+     * @param s the string of comma separated integers
      * @return std::vector<int>
      */
     std::vector<int> readParaFromString(std::string s);
@@ -461,7 +463,7 @@ protected:
     bool ignoreErrors;
 
     /**
-     * @brief return the default transition for t give it's and the ot's state
+     * @brief return the default transition for t give its and the ot's state
      *
      * @param t the target phase
      * @param ot the other active phase
@@ -547,8 +549,8 @@ protected:
  * @brief One phase in the NEMAController
  *
  * This represents one phase and all its parameters in a NEMA traffic light
- * The phse ultimately controls it's transition to the next phase,
- * and is resbonisble for determining the valid transitions given it's current state
+ * The phase ultimately controls its transition to the next phase,
+ * and is resbonisble for determining the valid transitions given its current state
  */
 class NEMAPhase {
 public:
@@ -662,6 +664,28 @@ public:
      */
     void exit(NEMALogic* controller, PhaseTransitionLogic* nextPhases[2]);
 
+    /**
+     * @brief handles the transition into a green rest state
+     *
+     * @param controller a reference to the NEMAController
+     * @param nextPhases the next phases that the controller wants to transition to
+     */
+    void handleGreenRestOrTransfer(NEMALogic* controller, PhaseTransitionLogic* nextPhases[2]);
+
+    /**
+     * @brief handles the transition into yellow
+     *
+     * @param controller a reference to the NEMAController
+     */
+    void enterYellow(NEMALogic* controller);
+
+    /**
+     * @brief handles the transition into a red xfer state, which is roughly the same as green rest
+     *
+     * @param controller a reference to the NEMAController
+     */
+    void handleRedXferOrNextPhase(NEMALogic* controller, PhaseTransitionLogic* nextPhases[2]);
+
     /// @brief simple method to check if there is a recall on the phase.
     inline bool hasRecall(void) {
         return minRecall || maxRecall;
@@ -714,6 +738,16 @@ public:
      */
     SUMOTime getTransitionTime(NEMALogic* controller);
 
+    /**
+     * @brief Get the Transition time given
+     *
+     * @param controller
+     * @return SUMOTime
+     */
+    inline SUMOTime getTransitionTimeStateless(void) {
+        return yellow + red;
+    }
+
     /// @brief get the prior phase
     inline PhasePtr getSequentialPriorPhase(void) {
         return sequentialPriorPhase;
@@ -765,6 +799,18 @@ public:
     SUMOTime nextMaxDuration;
     SUMOTime vehExt;
     /// @}
+
+    /// @brief public method to set whether phase is active or not
+    inline void cleanupExit(void) {
+        transitionActive = false;
+        readyToSwitch = false;
+        myLightState = LightState::Red;
+    }
+
+    /// @brief simple internal check to see if done okay to transition
+    inline bool okay2ForceSwitch(NEMALogic* controller) {
+        return readyToSwitch && !transitionActive && (getTransitionTime(controller) <= TIME2STEPS(0));
+    }
 
 private:
     /// @brief A reference to the core phase of which NEMAPhase wraps

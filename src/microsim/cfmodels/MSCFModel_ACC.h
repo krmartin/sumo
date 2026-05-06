@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -61,7 +61,7 @@ public:
     /** @brief Computes the vehicle's safe speed (no dawdling)
     * @param[in] veh The vehicle (EGO)
     * @param[in] speed The vehicle's speed
-    * @param[in] gap2pred The (netto) distance to the LEADER
+    * @param[in] gap2pred The (net) distance to the LEADER
     * @param[in] predSpeed The speed of LEADER
     * @return EGO's safe speed
     * @see MSCFModel::ffeV
@@ -72,7 +72,7 @@ public:
 
     /** @brief Computes the vehicle's safe speed for approaching a non-moving obstacle (no dawdling)
     * @param[in] veh The vehicle (EGO)
-    * @param[in] gap2pred The (netto) distance to the the obstacle
+    * @param[in] gap2pred The (net) distance to the obstacle
     * @return EGO's safe speed for approaching a non-moving obstacle
     * @see MSCFModel::ffeS
     * @todo generic Interface, models can call for the values they need
@@ -91,7 +91,7 @@ public:
      * @param[in] veh The vehicle (EGO)
      * @param[in] pred The leader vehicle, for obtaining other values
      * @param[in] speed The vehicle's speed
-     * @param[in] gap2pred The (netto) distance to the LEADER
+     * @param[in] gap2pred The (net) distance to the LEADER
      * @param[in] predSpeed The speed of LEADER
      * @return EGO's safe speed
      */
@@ -110,6 +110,17 @@ public:
     double interactionGap(const MSVehicle* const, double vL) const;
 
 
+    /** @brief Returns the maximum velocity the CF-model wants to achieve in the next step
+     * @param[in] maxSpeed The maximum achievable speed in the next step
+     * @param[in] maxSpeedLane The maximum speed the vehicle wants to drive on this lane (Speedlimit*SpeedFactor)
+     */
+    double maximumLaneSpeedCF(const MSVehicle* const veh, double maxSpeed, double maxSpeedLane) const {
+        double result = MIN2(maxSpeed, maxSpeedLane);
+        if (myApplyDriverstate) {
+            applyOwnSpeedPerceptionError(veh, result);
+        }
+        return result;
+    }
     /** @brief Returns the model's name
     * @return The model's name
     * @see MSCFModel::getModelName
@@ -162,10 +173,10 @@ private:
     double myGapControlGainSpace;
     double myCollisionAvoidanceGainSpeed;
     double myCollisionAvoidanceGainSpace;
+    double myApplyDriverstate;
     double myEmergencyThreshold;
 
 private:
     /// @brief Invalidated assignment operator
     MSCFModel_ACC& operator=(const MSCFModel_ACC& s);
 };
-

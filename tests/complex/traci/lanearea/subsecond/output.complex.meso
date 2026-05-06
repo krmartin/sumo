@@ -1,5 +1,27 @@
-Loading configuration ... done.
- Retrying in 1 seconds
+step 0.0
+  examining det0
+     pos 100.0
+     length 25.0
+     lane 2fi_0
+     vehNum 0
+     haltNum 0
+     meanSpeed 0.0
+     vehIDs ()
+     occupancy 0.0
+     jamLengthVeh 0
+     jamLengthMet 0.0
+  examining det1
+     pos 148.5
+     length 417.43314727863753
+     lane 2o_0
+     vehNum 0
+     haltNum 0
+     meanSpeed 0.0
+     vehIDs ()
+     occupancy 0.0
+     jamLengthVeh 0
+     jamLengthMet 0.0
+after the first simulation steps
 step 0.5
 step 1.0
   examining det0
@@ -15,7 +37,7 @@ step 1.0
      jamLengthMet 0.0
   examining det1
      pos 148.5
-     length 417.433147279
+     length 417.43314727863753
      lane 2o_0
      vehNum 0
      haltNum 0
@@ -39,7 +61,7 @@ step 2.0
      jamLengthMet 0.0
   examining det1
      pos 148.5
-     length 417.433147279
+     length 417.43314727863753
      lane 2o_0
      vehNum 0
      haltNum 0
@@ -63,7 +85,7 @@ step 3.0
      jamLengthMet 0.0
   examining det1
      pos 148.5
-     length 417.433147279
+     length 417.43314727863753
      lane 2o_0
      vehNum 0
      haltNum 0
@@ -87,7 +109,7 @@ step 4.0
      jamLengthMet 0.0
   examining det1
      pos 148.5
-     length 417.433147279
+     length 417.43314727863753
      lane 2o_0
      vehNum 0
      haltNum 0
@@ -96,6 +118,8 @@ step 4.0
      occupancy 0.0
      jamLengthVeh 0
      jamLengthMet 0.0
+parameter 42
+parameter from XML ''
 laneareas ('det0', 'det1')
 lanearea count 2
 subscriptionResults:  {16: 0}
@@ -117,7 +141,7 @@ step 5.0
      jamLengthMet 0.0
   examining det1
      pos 148.5
-     length 417.433147279
+     length 417.43314727863753
      lane 2o_0
      vehNum 0
      haltNum 0
@@ -145,7 +169,7 @@ step 6.0
      jamLengthMet 0.0
   examining det1
      pos 148.5
-     length 417.433147279
+     length 417.43314727863753
      lane 2o_0
      vehNum 0
      haltNum 0
@@ -173,7 +197,7 @@ step 7.0
      jamLengthMet 0.0
   examining det1
      pos 148.5
-     length 417.433147279
+     length 417.43314727863753
      lane 2o_0
      vehNum 0
      haltNum 0
@@ -201,7 +225,7 @@ step 8.0
      jamLengthMet 0.0
   examining det1
      pos 148.5
-     length 417.433147279
+     length 417.43314727863753
      lane 2o_0
      vehNum 0
      haltNum 0
@@ -229,7 +253,7 @@ step 9.0
      jamLengthMet 0.0
   examining det1
      pos 148.5
-     length 417.433147279
+     length 417.43314727863753
      lane 2o_0
      vehNum 0
      haltNum 0
@@ -257,7 +281,7 @@ step 10.0
      jamLengthMet 0.0
   examining det1
      pos 148.5
-     length 417.433147279
+     length 417.43314727863753
      lane 2o_0
      vehNum 0
      haltNum 0

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2002-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -66,7 +66,7 @@ NLDetectorBuilder::E3DetectorDefinition::E3DetectorDefinition(const std::string&
         SUMOTime haltingTimeThreshold, SUMOTime splInterval,
         const std::string name, const std::string& vTypes,
         const std::string& nextEdges,
-        int detectPersons, bool openEntry) :
+        int detectPersons, bool openEntry, bool expectArrival) :
     myID(id), myDevice(device),
     myHaltingSpeedThreshold(haltingSpeedThreshold),
     myHaltingTimeThreshold(haltingTimeThreshold),
@@ -75,7 +75,8 @@ NLDetectorBuilder::E3DetectorDefinition::E3DetectorDefinition(const std::string&
     myVehicleTypes(vTypes),
     myNextEdges(nextEdges),
     myDetectPersons(detectPersons),
-    myOpenEntry(openEntry) {
+    myOpenEntry(openEntry),
+    myExpectArrival(expectArrival) {
 }
 
 
@@ -131,13 +132,14 @@ NLDetectorBuilder::buildInstantInductLoop(const std::string& id,
         const std::string& device, bool friendlyPos,
         const std::string name,
         const std::string& vTypes,
-        const std::string& nextEdges) {
+        const std::string& nextEdges,
+        int detectPersons) {
     // get and check the lane
     MSLane* clane = getLaneChecking(lane, SUMO_TAG_INSTANT_INDUCTION_LOOP, id);
     // get and check the position
     pos = getPositionChecking(pos, clane, friendlyPos, SUMO_TAG_INSTANT_INDUCTION_LOOP, id);
     // build the loop
-    MSDetectorFileOutput* loop = createInstantInductLoop(id, clane, pos, device, name, vTypes, nextEdges);
+    MSDetectorFileOutput* loop = createInstantInductLoop(id, clane, pos, device, name, vTypes, nextEdges, detectPersons);
     // add the file output
     myNet.getDetectorControl().add(SUMO_TAG_INSTANT_INDUCTION_LOOP, loop);
     return loop;
@@ -316,9 +318,9 @@ NLDetectorBuilder::beginE3Detector(const std::string& id,
                                    const std::string name,
                                    const std::string& vTypes,
                                    const std::string& nextEdges,
-                                   int detectPersons, bool openEntry) {
+                                   int detectPersons, bool openEntry, bool expectArrival) {
     checkSampleInterval(splInterval, SUMO_TAG_E3DETECTOR, id);
-    myE3Definition = new E3DetectorDefinition(id, device, haltingSpeedThreshold, haltingTimeThreshold, splInterval, name, vTypes, nextEdges, detectPersons, openEntry);
+    myE3Definition = new E3DetectorDefinition(id, device, haltingSpeedThreshold, haltingTimeThreshold, splInterval, name, vTypes, nextEdges, detectPersons, openEntry, expectArrival);
     return myE3Definition;
 }
 
@@ -375,7 +377,8 @@ NLDetectorBuilder::endE3Detector() {
                                     myE3Definition->myVehicleTypes,
                                     myE3Definition->myNextEdges,
                                     myE3Definition->myDetectPersons,
-                                    myE3Definition->myOpenEntry);
+                                    myE3Definition->myOpenEntry,
+                                    myE3Definition->myExpectArrival);
         det->updateParameters(myE3Definition->getParametersMap());
         // add to net
         myNet.getDetectorControl().add(SUMO_TAG_ENTRY_EXIT_DETECTOR, det, myE3Definition->myDevice, myE3Definition->mySampleInterval);
@@ -430,8 +433,9 @@ MSDetectorFileOutput*
 NLDetectorBuilder::createInstantInductLoop(const std::string& id,
         MSLane* lane, double pos, const std::string& od,
         const std::string name, const std::string& vTypes,
-        const std::string& nextEdges) {
-    return new MSInstantInductLoop(id, OutputDevice::getDevice(od), lane, pos, name, vTypes, nextEdges);
+        const std::string& nextEdges,
+        int detectPersons) {
+    return new MSInstantInductLoop(id, OutputDevice::getDevice(od), lane, pos, name, vTypes, nextEdges, detectPersons);
 }
 
 
@@ -464,8 +468,9 @@ NLDetectorBuilder::createE3Detector(const std::string& id,
                                     const std::string name, const std::string& vTypes,
                                     const std::string& nextEdges,
                                     int detectPersons,
-                                    bool openEntry) {
-    return new MSE3Collector(id, entries, exits, haltingSpeedThreshold, haltingTimeThreshold, name, vTypes, nextEdges, detectPersons, openEntry);
+                                    bool openEntry,
+                                    bool expectArrival) {
+    return new MSE3Collector(id, entries, exits, haltingSpeedThreshold, haltingTimeThreshold, name, vTypes, nextEdges, detectPersons, openEntry, expectArrival);
 }
 
 
@@ -499,13 +504,13 @@ NLDetectorBuilder::getPositionChecking(double pos, MSLane* lane, bool friendlyPo
 void
 NLDetectorBuilder::createEdgeLaneMeanData(const std::string& id, SUMOTime frequency,
         SUMOTime begin, SUMOTime end, const std::string& type,
-        const bool useLanes, const bool withEmpty, const bool printDefaults,
+        const bool useLanes, const std::string& excludeEmpty,
         const bool withInternal, const bool trackVehicles, const int detectPersons,
         const double maxTravelTime, const double minSamples,
         const double haltSpeed, const std::string& vTypes,
         const std::string& writeAttributes,
         std::vector<MSEdge*> edges,
-        bool aggregate,
+        AggregateType aggregate,
         const std::string& device) {
     if (begin < 0) {
         throw InvalidArgument("Negative begin time for meandata dump '" + id + "'.");
@@ -518,21 +523,23 @@ NLDetectorBuilder::createEdgeLaneMeanData(const std::string& id, SUMOTime freque
     }
     checkStepLengthMultiple(begin, " for meandata dump '" + id + "'");
     MSMeanData* det = nullptr;
-    if (type == "" || type == "performance" || type == "traffic") {
-        det = new MSMeanData_Net(id, begin, end, useLanes, withEmpty,
-                                 printDefaults, withInternal, trackVehicles, detectPersons, maxTravelTime, minSamples, haltSpeed, vTypes, writeAttributes, edges, aggregate);
-    } else if (type == "emissions" || type == "hbefa") {
+    if ((type == SUMOXMLDefinitions::MeanDataTypes.getString(MeanDataType::DEFAULT)) ||
+            (type == SUMOXMLDefinitions::MeanDataTypes.getString(MeanDataType::TRAFFIC)) ||
+            (type == "performance")) {
+        det = new MSMeanData_Net(id, begin, end, useLanes, excludeEmpty,
+                                 withInternal, trackVehicles, detectPersons, maxTravelTime, minSamples, haltSpeed, vTypes, writeAttributes, edges, aggregate);
+    } else if ((type == SUMOXMLDefinitions::MeanDataTypes.getString(MeanDataType::EMISSIONS)) || (type == "hbefa")) {
         if (type == "hbefa") {
-            WRITE_WARNING("The netstate type 'hbefa' is deprecated. Please use the type 'emissions' instead.");
+            WRITE_WARNING(TL("The netstate type 'hbefa' is deprecated. Please use the type 'emissions' instead."));
         }
-        det = new MSMeanData_Emissions(id, begin, end, useLanes, withEmpty,
-                                       printDefaults, withInternal, trackVehicles, maxTravelTime, minSamples, vTypes, writeAttributes, edges, aggregate);
-    } else if (type == "harmonoise") {
-        det = new MSMeanData_Harmonoise(id, begin, end, useLanes, withEmpty,
-                                        printDefaults, withInternal, trackVehicles, maxTravelTime, minSamples, vTypes, writeAttributes, edges, aggregate);
-    } else if (type == "amitran") {
-        det = new MSMeanData_Amitran(id, begin, end, useLanes, withEmpty,
-                                     printDefaults, withInternal, trackVehicles, detectPersons, maxTravelTime, minSamples, haltSpeed, vTypes, writeAttributes, edges, aggregate);
+        det = new MSMeanData_Emissions(id, begin, end, useLanes, excludeEmpty,
+                                       withInternal, trackVehicles, maxTravelTime, minSamples, vTypes, writeAttributes, edges, aggregate);
+    } else if (type == SUMOXMLDefinitions::MeanDataTypes.getString(MeanDataType::HARMONOISE)) {
+        det = new MSMeanData_Harmonoise(id, begin, end, useLanes, excludeEmpty,
+                                        withInternal, trackVehicles, maxTravelTime, minSamples, vTypes, writeAttributes, edges, aggregate);
+    } else if (type == SUMOXMLDefinitions::MeanDataTypes.getString(MeanDataType::AMITRAN)) {
+        det = new MSMeanData_Amitran(id, begin, end, useLanes, excludeEmpty,
+                                     withInternal, trackVehicles, detectPersons, maxTravelTime, minSamples, haltSpeed, vTypes, writeAttributes, edges, aggregate);
     } else {
         throw InvalidArgument("Invalid type '" + type + "' for meandata dump '" + id + "'.");
     }

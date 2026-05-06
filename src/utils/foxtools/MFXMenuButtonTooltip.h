@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,26 +17,33 @@
 ///
 // MenuButton similar to FXMenuButton but with the possibility of showing tooltips
 /****************************************************************************/
-#ifndef MFXMenuButtonTooltip_h
-#define MFXMenuButtonTooltip_h
+#pragma once
 #include <config.h>
 
-#include "fxheader.h"
-#include "MFXStaticToolTip.h"
+#include <string>
 
-/**
- * @class MFXMenuButtonTooltip
- */
+#include "fxheader.h"
+
+// ===========================================================================
+// class declaration
+// ===========================================================================
+
+class MFXStaticToolTip;
+
+// ===========================================================================
+// class definitions
+// ===========================================================================
+
 class MFXMenuButtonTooltip : public FXMenuButton {
     /// @brief fox declaration
     FXDECLARE(MFXMenuButtonTooltip)
 
 public:
     /// @brief constructor (Exactly like the FXMenuButton constructor)
-    MFXMenuButtonTooltip(FXComposite* p, MFXStaticToolTip* staticToolTip, const FXString& text, FXIcon* ic, 
+    MFXMenuButtonTooltip(FXComposite* p, MFXStaticToolTip* staticToolTip, const std::string& text, FXIcon* ic,
                          FXPopup* pup, FXObject* optionalTarget,
-                         FXuint opts = JUSTIFY_NORMAL|ICON_BEFORE_TEXT|MENUBUTTON_DOWN, 
-                         FXint x = 0, FXint y = 0, FXint w = 0, FXint h = 0, 
+                         FXuint opts = JUSTIFY_NORMAL | ICON_BEFORE_TEXT | MENUBUTTON_DOWN,
+                         FXint x = 0, FXint y = 0, FXint w = 0, FXint h = 0,
                          FXint pl = DEFAULT_PAD, FXint pr = DEFAULT_PAD, FXint pt = DEFAULT_PAD, FXint pb = DEFAULT_PAD);
 
     /// @brief destructor (Called automatically)
@@ -81,6 +88,3 @@ private:
     /// @brief Invalidated assignment operator.
     MFXMenuButtonTooltip& operator=(const MFXMenuButtonTooltip&) = delete;
 };
-
-
-#endif

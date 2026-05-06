@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -29,11 +29,13 @@
 #include <microsim/MSLane.h>
 #include <microsim/MSLink.h>
 #include <microsim/MSMoveReminder.h>
+#include <microsim/traffic_lights/MSTrafficLightLogic.h>
 #include <microsim/output/MSXMLRawOut.h>
 #include <microsim/output/MSDetectorFileOutput.h>
 #include <microsim/MSVehicleControl.h>
 #include <microsim/devices/MSDevice.h>
 #include <utils/common/FileHelpers.h>
+#include <utils/common/MsgHandler.h>
 #include <utils/iodevices/OutputDevice.h>
 #include <utils/common/RandHelper.h>
 #include "MEVehicle.h"
@@ -53,11 +55,12 @@
 
 
 // ===========================================================================
-// static member defintion
+// static member definition
 // ===========================================================================
-MSEdge MESegment::myDummyParent("MESegmentDummyParent", -1, SumoXMLEdgeFunc::UNKNOWN, "", "", -1, 0);
+MSEdge MESegment::myDummyParent("MESegmentDummyParent", -1, SumoXMLEdgeFunc::UNKNOWN, "", "", "", -1, 0);
 MESegment MESegment::myVaporizationTarget("vaporizationTarget");
 const double MESegment::DO_NOT_PATCH_JAM_THRESHOLD(std::numeric_limits<double>::max());
+const std::string MESegment::OVERRIDE_TLS_PENALTIES("meso.tls.control");
 
 
 // ===========================================================================
@@ -80,6 +83,20 @@ MESegment::Queue::remove(MEVehicle* v) {
     return nullptr;
 }
 
+void
+MESegment::Queue::addDetector(MSMoveReminder* data) {
+    myDetectorData.push_back(data);
+    for (MEVehicle* const v : myVehicles) {
+        v->addReminder(data);
+    }
+}
+
+void
+MESegment::Queue::addReminders(MEVehicle* veh) const {
+    for (MSMoveReminder* rem : myDetectorData) {
+        veh->addReminder(rem);
+    }
+}
 
 // ===========================================================================
 // MESegment method definitions
@@ -109,9 +126,16 @@ MESegment::MESegment(const std::string& id,
             usableLanes++;
         }
     }
+    if (usableLanes == 0) {
+        // cars won't drive here. Give sensible tau values capacity for the ignored classes
+        usableLanes = 1;
+    }
     if (multiQueue) {
         if (next == nullptr) {
             for (const MSEdge* const edge : parent.getSuccessors()) {
+                if (edge->isTazConnector()) {
+                    continue;
+                }
                 const std::vector<MSLane*>* const allowed = parent.allowedLanes(*edge);
                 assert(allowed != nullptr);
                 assert(allowed->size() > 0);
@@ -233,16 +257,19 @@ MESegment::jamThresholdForSpeed(double speed, double jamThresh) const {
 
 
 void
-MESegment::addDetector(MSMoveReminder* data) {
-    myDetectorData.push_back(data);
-    for (const Queue& q : myQueues) {
-        for (MEVehicle* const v : q.getVehicles()) {
-            v->addReminder(data);
+MESegment::addDetector(MSMoveReminder* data, int queueIndex) {
+    if (queueIndex == -1) {
+        for (Queue& q : myQueues) {
+            q.addDetector(data);
         }
+    } else {
+        assert(queueIndex < (int)myQueues.size());
+        myQueues[queueIndex].addDetector(data);
     }
 }
 
 
+/*
 void
 MESegment::removeDetector(MSMoveReminder* data) {
     std::vector<MSMoveReminder*>::iterator it = std::find(myDetectorData.begin(), myDetectorData.end(), data);
@@ -255,14 +282,24 @@ MESegment::removeDetector(MSMoveReminder* data) {
         }
     }
 }
+*/
 
 
 void
-MESegment::prepareDetectorForWriting(MSMoveReminder& data) {
+MESegment::prepareDetectorForWriting(MSMoveReminder& data, int queueIndex) {
     const SUMOTime currentTime = MSNet::getInstance()->getCurrentTimeStep();
-    for (const Queue& q : myQueues) {
+    if (queueIndex == -1) {
+        for (const Queue& q : myQueues) {
+            SUMOTime earliestExitTime = currentTime;
+            for (std::vector<MEVehicle*>::const_reverse_iterator i = q.getVehicles().rbegin(); i != q.getVehicles().rend(); ++i) {
+                const SUMOTime exitTime = MAX2(earliestExitTime, (*i)->getEventTime());
+                (*i)->updateDetectorForWriting(&data, currentTime, exitTime);
+                earliestExitTime = exitTime + tauWithVehLength(myTau_ff, (*i)->getVehicleType().getLengthWithGap(), (*i)->getVehicleType().getCarFollowModel().getHeadwayTime());
+            }
+        }
+    } else {
         SUMOTime earliestExitTime = currentTime;
-        for (std::vector<MEVehicle*>::const_reverse_iterator i = q.getVehicles().rbegin(); i != q.getVehicles().rend(); ++i) {
+        for (std::vector<MEVehicle*>::const_reverse_iterator i = myQueues[queueIndex].getVehicles().rbegin(); i != myQueues[queueIndex].getVehicles().rend(); ++i) {
             const SUMOTime exitTime = MAX2(earliestExitTime, (*i)->getEventTime());
             (*i)->updateDetectorForWriting(&data, currentTime, exitTime);
             earliestExitTime = exitTime + tauWithVehLength(myTau_ff, (*i)->getVehicleType().getLengthWithGap(), (*i)->getVehicleType().getCarFollowModel().getHeadwayTime());
@@ -285,7 +322,7 @@ MESegment::hasSpaceFor(const MEVehicle* const veh, const SUMOTime entryTime, int
     }
     const SUMOVehicleClass svc = veh->getVClass();
     int minSize = std::numeric_limits<int>::max();
-    const MSEdge* const succ = myNextSegment == nullptr ? veh->succEdge(1) : nullptr;
+    const MSEdge* const succ = myNextSegment == nullptr ? veh->succEdge(veh->getEdge() == &myEdge ? 1 : 2) : nullptr;
     for (int i = 0; i < (int)myQueues.size(); i++) {
         const Queue& q = myQueues[i];
         const double newOccupancy = q.size() == 0 ? 0. : q.getOccupancy() + veh->getVehicleType().getLengthWithGap();
@@ -297,7 +334,10 @@ MESegment::hasSpaceFor(const MEVehicle* const veh, const SUMOTime entryTime, int
                         // - regular insertions must respect entryBlockTime
                         // - initial insertions should not cause additional jamming
                         // - inserted vehicle should be able to continue at the current speed
-                        if (q.getOccupancy() <= myJamThreshold && !hasBlockedLeader() && !myTLSPenalty) {
+                        if (veh->getInsertionChecks() == (int)InsertionCheck::NONE) {
+                            qIdx = i;
+                            minSize = q.size();
+                        } else if (q.getOccupancy() <= myJamThreshold && !hasBlockedLeader() && !myTLSPenalty) {
                             if (newOccupancy <= myJamThreshold) {
                                 qIdx = i;
                                 minSize = q.size();
@@ -333,7 +373,7 @@ MESegment::initialise(MEVehicle* veh, SUMOTime time) {
         // we can check only after insertion because insertion may change the route via devices
         std::string msg;
         if (MSGlobals::gCheckRoutes && !veh->hasValidRoute(msg)) {
-            throw ProcessError("Vehicle '" + veh->getID() + "' has no valid route. " + msg);
+            throw ProcessError(TLF("Vehicle '%' has no valid route. %", veh->getID(), msg));
         }
         return true;
     }
@@ -368,6 +408,11 @@ MESegment::getMeanSpeed(bool useCached) const {
 
 
 void
+MESegment::resetCachedSpeeds() {
+    myLastMeanSpeedUpdate = SUMOTime_MIN;
+}
+
+void
 MESegment::writeVehicles(OutputDevice& of) const {
     for (const Queue& q : myQueues) {
         for (const MEVehicle* const veh : q.getVehicles()) {
@@ -381,7 +426,7 @@ MEVehicle*
 MESegment::removeCar(MEVehicle* v, SUMOTime leaveTime, const MSMoveReminder::Notification reason) {
     Queue& q = myQueues[v->getQueIndex()];
     // One could be tempted to do  v->setSegment(next); here but position on lane will be invalid if next == 0
-    v->updateDetectors(leaveTime, true, reason);
+    v->updateDetectors(leaveTime, v->getEventTime(), true, reason);
     myNumVehicles--;
     myEdge.lock();
     MEVehicle* nextLeader = q.remove(v);
@@ -451,7 +496,8 @@ MESegment::isOpen(const MEVehicle* veh) const {
                       << " override=" << limitedControlOverride(link)
                       << " isOpen=" << link->opened(veh->getEventTime(), veh->getSpeed(), veh->estimateLeaveSpeed(link),
                                                     veh->getVehicleType().getLengthWithGap(), veh->getImpatience(),
-                                                    veh->getVehicleType().getCarFollowModel().getMaxDecel(), veh->getWaitingTime())
+                                                    veh->getVehicleType().getCarFollowModel().getMaxDecel(), veh->getWaitingTime(),
+                                                    0, nullptr, false, veh)
                       << " et=" << veh->getEventTime()
                       << " v=" << veh->getSpeed()
                       << " vLeave=" << veh->estimateLeaveSpeed(link)
@@ -472,7 +518,8 @@ MESegment::isOpen(const MEVehicle* veh) const {
             || limitedControlOverride(link)
             || link->opened(veh->getEventTime(), veh->getSpeed(), veh->estimateLeaveSpeed(link),
                             veh->getVehicleType().getLengthWithGap(), veh->getImpatience(),
-                            veh->getVehicleType().getCarFollowModel().getMaxDecel(), veh->getWaitingTime()));
+                            veh->getVehicleType().getCarFollowModel().getMaxDecel(), veh->getWaitingTime(),
+                            0, nullptr, false, veh));
 }
 
 
@@ -561,8 +608,8 @@ MESegment::overtake() {
 
 void
 MESegment::addReminders(MEVehicle* veh) const {
-    for (std::vector<MSMoveReminder*>::const_iterator i = myDetectorData.begin(); i != myDetectorData.end(); ++i) {
-        veh->addReminder(*i);
+    if (veh->getQueIndex() != PARKING_QUEUE) {
+        myQueues[veh->getQueIndex()].addReminders(veh);
     }
 }
 
@@ -575,23 +622,23 @@ MESegment::receive(MEVehicle* veh, const int qIdx, SUMOTime time, const bool isD
     veh->setBlockTime(SUMOTime_MAX);
     if (!isDepart && (
                 // arrival on entering a new edge
-                (newEdge && veh->moveRoutePointer())
+                (newEdge && myEdge.isNormal() && veh->moveRoutePointer())
                 // arrival on entering a new segment
                 || veh->hasArrived())) {
         // route has ended
         veh->setEventTime(time + TIME2STEPS(myLength / speed)); // for correct arrival speed
         addReminders(veh);
         veh->activateReminders(MSMoveReminder::NOTIFICATION_JUNCTION);
-        veh->updateDetectors(time, true,
+        veh->updateDetectors(time, veh->getEventTime(), true,
                              veh->getEdge()->isVaporizing() ? MSMoveReminder::NOTIFICATION_VAPORIZED_VAPORIZER : MSMoveReminder::NOTIFICATION_ARRIVED);
         MSNet::getInstance()->getVehicleControl().scheduleVehicleRemoval(veh);
         return;
     }
-    assert(veh->getEdge() == &getEdge());
+    assert(veh->getEdge() == &getEdge() || getEdge().isInternal());
     // route continues
-    const double maxSpeedOnEdge = veh->getEdge()->getVehicleMaxSpeed(veh);
-    const double uspeed = MAX2(maxSpeedOnEdge, MESO_MIN_SPEED);
     Queue& q = myQueues[qIdx];
+    const double maxSpeedOnEdge = veh->getEdge()->getLanes()[qIdx]->getVehicleMaxSpeed(veh);
+    const double uspeed = MAX2(maxSpeedOnEdge, MESO_MIN_SPEED);
     std::vector<MEVehicle*>& cars = q.getModifiableVehicles();
     MEVehicle* newLeader = nullptr; // first vehicle in the current queue
     const SUMOTime stopTime = veh->checkStop(time);
@@ -600,7 +647,8 @@ MESegment::receive(MEVehicle* veh, const int qIdx, SUMOTime time, const bool isD
         myEdge.addWaiting(veh);
     }
     if (veh->isParking()) {
-        veh->setEventTime(stopTime);
+        // parking stops should take at least 1ms
+        veh->setEventTime(MAX2(stopTime, veh->getEventTime() + 1));
         veh->setSegment(this, PARKING_QUEUE);
         myEdge.getLanes()[0]->addParking(veh);  // TODO for GUI only
     } else {
@@ -671,7 +719,10 @@ MESegment::vaporizeAnyCar(SUMOTime currentTime, const MSDetectorFileOutput* filt
 void
 MESegment::setSpeedForQueue(double newSpeed, SUMOTime currentTime, SUMOTime blockTime, const std::vector<MEVehicle*>& vehs) {
     MEVehicle* v = vehs.back();
-    v->updateDetectors(currentTime, false);
+    SUMOTime oldEarliestExitTime = currentTime;
+    const SUMOTime oldExit = MAX2(oldEarliestExitTime, v->getEventTime());
+    v->updateDetectors(currentTime, oldExit, false);
+    oldEarliestExitTime = oldExit + tauWithVehLength(myTau_ff, v->getVehicleType().getLengthWithGap(), v->getVehicleType().getCarFollowModel().getHeadwayTime());
     SUMOTime newEvent = MAX2(newArrival(v, newSpeed, currentTime), blockTime);
     if (v->getEventTime() != newEvent) {
         MSGlobals::gMesoNet->removeLeaderCar(v);
@@ -679,9 +730,11 @@ MESegment::setSpeedForQueue(double newSpeed, SUMOTime currentTime, SUMOTime bloc
         MSGlobals::gMesoNet->addLeaderCar(v, getLink(v));
     }
     for (std::vector<MEVehicle*>::const_reverse_iterator i = vehs.rbegin() + 1; i != vehs.rend(); ++i) {
-        (*i)->updateDetectors(currentTime, false);
-        newEvent = MAX2(newArrival(*i, newSpeed, currentTime), newEvent + myTau_ff);
-        //newEvent = MAX2(newArrival(*i, newSpeed, currentTime), newEvent + myTau_ff + (SUMOTime)((*(i - 1))->getVehicleType().getLength() / myTau_length));
+        const SUMOTime oldExitTime = MAX2(oldEarliestExitTime, (*i)->getEventTime());
+        (*i)->updateDetectors(currentTime, oldExitTime, false);
+        const SUMOTime minTau = tauWithVehLength(myTau_ff, (*i)->getVehicleType().getLengthWithGap(), (*i)->getVehicleType().getCarFollowModel().getHeadwayTime());
+        oldEarliestExitTime = oldExitTime + minTau;
+        newEvent = MAX2(newArrival(*i, newSpeed, currentTime), newEvent + minTau);
         (*i)->setEventTime(newEvent);
     }
 }
@@ -689,21 +742,26 @@ MESegment::setSpeedForQueue(double newSpeed, SUMOTime currentTime, SUMOTime bloc
 
 SUMOTime
 MESegment::newArrival(const MEVehicle* const v, double newSpeed, SUMOTime currentTime) {
-    // since speed is only an upper bound pos may be to optimistic
+    // since speed is only an upper bound, pos may be too optimistic
     const double pos = MIN2(myLength, STEPS2TIME(currentTime - v->getLastEntryTime()) * v->getSpeed());
     // traveltime may not be 0
-    return currentTime + MAX2(TIME2STEPS((myLength - pos) / newSpeed), SUMOTime(1));
+    double tt = (myLength - pos) / MAX2(newSpeed, MESO_MIN_SPEED);
+    return currentTime + MAX2(TIME2STEPS(tt), SUMOTime(1));
 }
 
 
 void
-MESegment::setSpeed(double newSpeed, SUMOTime currentTime, double jamThresh) {
+MESegment::setSpeed(double newSpeed, SUMOTime currentTime, double jamThresh, int qIdx) {
     recomputeJamThreshold(jamThresh);
     //myTau_length = MAX2(MESO_MIN_SPEED, newSpeed) * myEdge.getLanes().size() / TIME2STEPS(1);
+    int i = 0;
     for (const Queue& q : myQueues) {
         if (q.size() != 0) {
-            setSpeedForQueue(newSpeed, currentTime, q.getBlockTime(), q.getVehicles());
+            if (qIdx == -1 || qIdx == i) {
+                setSpeedForQueue(newSpeed, currentTime, q.getBlockTime(), q.getVehicles());
+            }
         }
+        i++;
     }
 }
 
@@ -735,7 +793,9 @@ MESegment::saveState(OutputDevice& out) const {
     if (write) {
         out.openTag(SUMO_TAG_SEGMENT).writeAttr(SUMO_ATTR_ID, getID());
         for (const Queue& q : myQueues) {
-            out.openTag(SUMO_TAG_VIEWSETTINGS_VEHICLES).writeAttr(SUMO_ATTR_TIME, toString<SUMOTime>(q.getBlockTime()));
+            out.openTag(SUMO_TAG_VIEWSETTINGS_VEHICLES);
+            out.writeAttr(SUMO_ATTR_TIME, toString<SUMOTime>(q.getBlockTime()));
+            out.writeAttr(SUMO_ATTR_BLOCKTIME, toString<SUMOTime>(q.getEntryBlockTime()));
             out.writeAttr(SUMO_ATTR_VALUE, q.getVehicles());
             out.closeTag();
         }
@@ -752,17 +812,18 @@ MESegment::clearState() {
 }
 
 void
-MESegment::loadState(const std::vector<std::string>& vehIds, MSVehicleControl& vc, const SUMOTime block, const int queIdx) {
+MESegment::loadState(const std::vector<SUMOVehicle*>& vehs, const SUMOTime blockTime, const SUMOTime entryBlockTime, const int queIdx) {
     Queue& q = myQueues[queIdx];
-    for (const std::string& id : vehIds) {
-        MEVehicle* v = static_cast<MEVehicle*>(vc.getVehicle(id));
-        // vehicle could be removed due to options
-        if (v != nullptr) {
-            assert(v->getSegment() == this);
-            q.getModifiableVehicles().push_back(v);
-            myNumVehicles++;
-            q.setOccupancy(q.getOccupancy() + v->getVehicleType().getLengthWithGap());
+    for (SUMOVehicle* veh : vehs) {
+        MEVehicle* v = static_cast<MEVehicle*>(veh);
+        assert(v->getSegment() == this || myEdge.isInternal());
+        if (myEdge.isInternal()) {
+            v->setSegment(this, v->getQueIndex());
         }
+        q.getModifiableVehicles().push_back(v);
+        myNumVehicles++;
+        q.setOccupancy(q.getOccupancy() + v->getVehicleType().getLengthWithGap());
+        addReminders(v);
     }
     if (q.size() != 0) {
         // add the last vehicle of this queue
@@ -770,7 +831,8 @@ MESegment::loadState(const std::vector<std::string>& vehIds, MSVehicleControl& v
         MEVehicle* veh = q.getVehicles().back();
         MSGlobals::gMesoNet->addLeaderCar(veh, getLink(veh));
     }
-    q.setBlockTime(block);
+    q.setBlockTime(blockTime);
+    q.setEntryBlockTime(entryBlockTime);
     q.setOccupancy(MIN2(q.getOccupancy(), myQueueCapacity));
 }
 
@@ -807,7 +869,7 @@ MESegment::getLinkPenalty(const MEVehicle* veh) const {
     const MSLink* link = getLink(veh, myTLSPenalty || myCheckMinorPenalty);
     if (link != nullptr) {
         SUMOTime result = 0;
-        if (link->isTLSControlled()) {
+        if (link->isTLSControlled() && myTLSPenalty) {
             result += link->getMesoTLSPenalty();
         }
         // minor tls links may get an additional penalty

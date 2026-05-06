@@ -9,7 +9,7 @@ routes that may be used by [sumo](sumo.md) using shortest path
 computation; When called iteratively **duarouter** performs [dynamic
 user assignment (DUA)](Demand/Dynamic_User_Assignment.md). This
 is facilitated by the tool
-[duaiterate.py](Tools/Assign.md#dua-iteratepy) which converges
+[duaIterate.py](Tools/Assign.md#duaiteratepy) which converges
 to an equilibrium state (DUE).
 
 - **Purpose:**
@@ -39,7 +39,7 @@ to an equilibrium state (DUE).
 
 # Usage Description
 
-Duarouter has two main purposes: [Computing fastest/optimal routes](Demand/Shortest_or_Optimal_Path_Routing.md) directly as well as iteratively in the context of 
+Duarouter has two main purposes: [Computing fastest/optimal routes](Demand/Shortest_or_Optimal_Path_Routing.md) directly as well as iteratively in the context of
 [Dynamic_User_Assignment](Demand/Dynamic_User_Assignment.md).
 
 ## Outputs
@@ -57,7 +57,7 @@ directly into [sumo](sumo.md).
 
 You may use a XML schema definition file for setting up a duarouter
 configuration:
-[duarouterConfiguration.xsd](http://sumo.dlr.de/xsd/duarouterConfiguration.xsd).
+[duarouterConfiguration.xsd](https://sumo.dlr.de/xsd/duarouterConfiguration.xsd).
 
 ### Configuration
 
@@ -80,8 +80,8 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 | Option | Description |
 |--------|-------------|
 | **-n** {{DT_FILE}}<br> **--net-file** {{DT_FILE}} | Use FILE as SUMO-network to route on |
-| **-d** {{DT_FILE}}<br> **--additional-files** {{DT_FILE}} | Read additional network data (districts, bus stops) from FILE(s) |
-| **-t** {{DT_FILE}}<br> **--route-files** {{DT_FILE}} | Read sumo routes, alternatives, flows, and trips from FILE(s) |
+| **-a** {{DT_FILE}}<br> **--additional-files** {{DT_FILE}} | Read additional network data (districts, bus stops) from FILE(s) |
+| **-r** {{DT_FILE}}<br> **--route-files** {{DT_FILE}} | Read sumo routes, alternatives, flows, and trips from FILE(s) |
 | **--phemlight-path** {{DT_FILE}} | Determines where to load PHEMlight definitions from; *default:* **./PHEMlight/** |
 | **--phemlight-year** {{DT_INT}} | Enable fleet age modelling with the given reference year in PHEMlight5; *default:* **0** |
 | **--phemlight-temperature** {{DT_FLOAT}} | Set ambient temperature to correct NOx emissions in PHEMlight5; *default:* **1.79769e+308** |
@@ -100,9 +100,15 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 | **--emissions.volumetric-fuel** {{DT_BOOL}} | Return fuel consumption values in (legacy) unit l instead of mg; *default:* **false** |
 | **--named-routes** {{DT_BOOL}} | Write vehicles that reference routes by their id; *default:* **false** |
 | **--write-license** {{DT_BOOL}} | Include license info into every output file; *default:* **false** |
+| **--write-metadata** {{DT_BOOL}} | Write parsable metadata (configuration etc.) instead of comments; *default:* **false** |
 | **--output-prefix** {{DT_STR}} | Prefix which is applied to all output files. The special string 'TIME' is replaced by the current time. |
+| **--output-suffix** {{DT_STR}} | Suffix which is applied to all output files. The special string 'TIME' is replaced by the current time. |
 | **--precision** {{DT_INT}} | Defines the number of digits after the comma for floating point output; *default:* **2** |
 | **--precision.geo** {{DT_INT}} | Defines the number of digits after the comma for lon,lat output; *default:* **6** |
+| **--output.compression** {{DT_STR}} | Defines the standard compression algorithm (currently only for parquet output) |
+| **--output.format** {{DT_STR}} | Defines the standard output format if not derivable from the file name ('xml', 'csv', 'parquet'); *default:* **xml** |
+| **--output.column-header** {{DT_STR}} | How to derive column headers from attribute names ('none', 'tag', 'auto', 'plain'); *default:* **tag** |
+| **--output.column-separator** {{DT_STR}} | Separator in CSV output; *default:* **;** |
 | **-H** {{DT_BOOL}}<br> **--human-readable-time** {{DT_BOOL}} | Write time values as hour:minute:second or day:hour:minute:second rather than seconds; *default:* **false** |
 | **--alternatives-output** {{DT_FILE}} | Write generated route alternatives to FILE |
 | **--intermodal-network-output** {{DT_FILE}} | Write edge splits and connectivity to FILE |
@@ -128,27 +134,35 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 | **--repair** {{DT_BOOL}} | Tries to correct a false route; *default:* **false** |
 | **--repair.from** {{DT_BOOL}} | Tries to correct an invalid starting edge by using the first usable edge instead; *default:* **false** |
 | **--repair.to** {{DT_BOOL}} | Tries to correct an invalid destination edge by using the last usable edge instead; *default:* **false** |
+| **--repair.max-detour-factor** {{DT_FLOAT}} | Backtrack on route if the detour is longer than the gap by FACTOR; *default:* **10** |
 | **--mapmatch.distance** {{DT_FLOAT}} | Maximum distance when mapping input coordinates (fromXY etc.) to the road network; *default:* **100** |
 | **--mapmatch.junctions** {{DT_BOOL}} | Match positions to junctions instead of edges; *default:* **false** |
+| **--mapmatch.taz** {{DT_BOOL}} | Match positions to taz instead of edges; *default:* **false** |
 | **--bulk-routing** {{DT_BOOL}} | Aggregate routing queries with the same origin; *default:* **false** |
 | **--routing-threads** {{DT_INT}} | The number of parallel execution threads used for routing; *default:* **0** |
 | **--routing-algorithm** {{DT_STR}} | Select among routing algorithms ['dijkstra', 'astar', 'CH', 'CHWrapper']; *default:* **dijkstra** |
-| **--restriction-params** {{DT_STR[]}} | Comma separated list of param keys to compare for additional restrictions |
+| **--restriction-params** {{DT_STR_LIST}} | Comma separated list of param keys to compare for additional restrictions |
 | **--weights.interpolate** {{DT_BOOL}} | Interpolate edge weights at interval boundaries; *default:* **false** |
 | **--weights.expand** {{DT_BOOL}} | Expand the end of the last loaded weight interval to infinity; *default:* **false** |
 | **--weights.minor-penalty** {{DT_FLOAT}} | Apply the given time penalty when computing routing costs for minor-link internal lanes; *default:* **1.5** |
+| **--weights.tls-penalty** {{DT_FLOAT}} | Apply the given time penalty when computing routing costs across a traffic light; *default:* **0** |
+| **--weights.turnaround-penalty** {{DT_FLOAT}} | Apply the given time penalty when computing routing costs for turnaround internal lanes; *default:* **5** |
+| **--weights.reversal-penalty** {{DT_FLOAT}} | Apply the given time penalty when computing routing costs for train reversal. Negative values disable reversal; *default:* **60** |
 | **--weights.random-factor** {{DT_FLOAT}} | Edge weights for routing are dynamically disturbed by a random factor drawn uniformly from [1,FLOAT); *default:* **1** |
 | **--weight-period** {{DT_TIME}} | Aggregation period for the given weight files; triggers rebuilding of Contraction Hierarchy; *default:* **3600** |
 | **--weights.priority-factor** {{DT_FLOAT}} | Consider edge priorities in addition to travel times, weighted by factor; *default:* **0** |
 | **--astar.all-distances** {{DT_FILE}} | Initialize lookup table for astar from the given file (generated by marouter --all-pairs-output) |
 | **--astar.landmark-distances** {{DT_FILE}} | Initialize lookup table for astar ALT-variant from the given file |
 | **--astar.save-landmark-distances** {{DT_FILE}} | Save lookup table for astar ALT-variant to the given file |
-| **--gawron.beta** {{DT_FLOAT}} | Use FLOAT as Gawron's beta; *default:* **0.3** |
-| **--gawron.a** {{DT_FLOAT}} | Use FLOAT as Gawron's a; *default:* **0.05** |
+| **--scale** {{DT_FLOAT}} | Scale demand by the given factor (by discarding or duplicating vehicles); *default:* **1** |
+| **--scale-suffix** {{DT_STR}} | Suffix to be added when creating ids for cloned vehicles; *default:* **.** |
+| **--gawron.beta** {{DT_FLOAT}} | Use FLOAT as Gawron's beta; *default:* **0.9** |
+| **--gawron.a** {{DT_FLOAT}} | Use FLOAT as Gawron's a; *default:* **0.5** |
 | **--keep-all-routes** {{DT_BOOL}} | Save routes with near zero probability; *default:* **false** |
 | **--skip-new-routes** {{DT_BOOL}} | Only reuse routes from input, do not calculate new ones; *default:* **false** |
 | **--keep-route-probability** {{DT_FLOAT}} | The probability of keeping the old route; *default:* **0** |
 | **--ptline-routing** {{DT_BOOL}} | Route all public transport input; *default:* **false** |
+| **--keep-flows** {{DT_BOOL}} | Write flows instead of expanding them into vehicles; *default:* **false** |
 | **--route-choice-method** {{DT_STR}} | Choose a route choice method: gawron, logit, or lohse; *default:* **gawron** |
 | **--logit** {{DT_BOOL}} | Use c-logit model (deprecated in favor of --route-choice-method logit); *default:* **false** |
 | **--logit.beta** {{DT_FLOAT}} | Use FLOAT as logit's beta; *default:* **-1** |
@@ -156,11 +170,13 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 | **--logit.theta** {{DT_FLOAT}} | Use FLOAT as logit's theta (negative values mean auto-estimation); *default:* **-1** |
 | **--persontrip.walkfactor** {{DT_FLOAT}} | Use FLOAT as a factor on pedestrian maximum speed during intermodal routing; *default:* **0.75** |
 | **--persontrip.walk-opposite-factor** {{DT_FLOAT}} | Use FLOAT as a factor on walking speed against vehicle traffic direction; *default:* **1** |
-| **--persontrip.transfer.car-walk** {{DT_STR[]}} | Where are mode changes from car to walking allowed (possible values: 'parkingAreas', 'ptStops', 'allJunctions' and combinations); *default:* **parkingAreas** |
-| **--persontrip.transfer.taxi-walk** {{DT_STR[]}} | Where taxis can drop off customers ('allJunctions, 'ptStops') |
-| **--persontrip.transfer.walk-taxi** {{DT_STR[]}} | Where taxis can pick up customers ('allJunctions, 'ptStops') |
+| **--persontrip.transfer.car-walk** {{DT_STR_LIST}} | Where are mode changes from car to walking allowed (possible values: 'parkingAreas', 'ptStops', 'allJunctions' and combinations); *default:* **parkingAreas** |
+| **--persontrip.transfer.taxi-walk** {{DT_STR_LIST}} | Where taxis can drop off customers ('allJunctions, 'ptStops') |
+| **--persontrip.transfer.walk-taxi** {{DT_STR_LIST}} | Where taxis can pick up customers ('allJunctions, 'ptStops') |
 | **--persontrip.taxi.waiting-time** {{DT_TIME}} | Estimated time for taxi pickup; *default:* **300** |
+| **--persontrip.ride-public-line** {{DT_BOOL}} | Only use the intended public transport line rather than any alternative line that stops at the destination; *default:* **false** |
 | **--railway.max-train-length** {{DT_FLOAT}} | Use FLOAT as a maximum train length when initializing the railway router; *default:* **1000** |
+| **--max-traveltime** {{DT_TIME}} | Declare routing failure if traveltime exceeds the given positive TIME; *default:* **-1** |
 
 ### Defaults
 
@@ -202,6 +218,9 @@ Options](Basics/Using_the_Command_Line_Applications.md#reporting_options).
 | **-l** {{DT_FILE}}<br> **--log** {{DT_FILE}} | Writes all messages to FILE (implies verbose) |
 | **--message-log** {{DT_FILE}} | Writes all non-error messages to FILE (implies verbose) |
 | **--error-log** {{DT_FILE}} | Writes all warnings and errors to FILE |
+| **--log.timestamps** {{DT_BOOL}} | Writes timestamps in front of all messages; *default:* **false** |
+| **--log.processid** {{DT_BOOL}} | Writes process ID in front of all messages; *default:* **false** |
+| **--language** {{DT_STR}} | Language to use in messages; *default:* **C** |
 | **--ignore-errors** {{DT_BOOL}} | Continue if a route could not be build; *default:* **false** |
 | **--stats-period** {{DT_INT}} | Defines how often statistics shall be printed; *default:* **-1** |
 | **--no-step-log** {{DT_BOOL}} | Disable console output of route parsing step; *default:* **false** |
@@ -221,3 +240,4 @@ Options](Basics/Using_the_Command_Line_Applications.md#random_number_options).
 # Further Documentation
 
 - [Supported Routing Algorithms](Simulation/Routing.md#routing_algorithms)
+- [Custom access restrictions](Simulation/VehiclePermissions.md#custom_access_restrictions)

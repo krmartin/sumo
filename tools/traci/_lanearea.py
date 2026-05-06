@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2011-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2011-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -52,9 +52,9 @@ class LaneAreaDomain(Domain):
         return self._getUniversal(tc.LAST_STEP_MEAN_SPEED, detID)
 
     def getLastStepVehicleIDs(self, detID):
-        """getLastStepVehicleIDs(string) -> list(string)
+        """getLastStepVehicleIDs(string) -> tuple(string)
 
-        Returns the list of ids of vehicles that were on the named detector in the last simulation step.
+        Returns the tuple of ids of vehicles that were on the named detector in the last simulation step.
         """
         return self._getUniversal(tc.LAST_STEP_VEHICLE_ID_LIST, detID)
 
@@ -99,6 +99,76 @@ class LaneAreaDomain(Domain):
         Returns the number of vehicles which were halting during the last time step.
         """
         return self._getUniversal(tc.LAST_STEP_VEHICLE_HALTING_NUMBER, detID)
+
+    def getIntervalOccupancy(self, detID):
+        """getIntervalOccupancy(string) -> double
+
+        Returns the mean occupancy during the current interval
+        """
+        return self._getUniversal(tc.VAR_INTERVAL_OCCUPANCY, detID)
+
+    def getIntervalMeanSpeed(self, detID):
+        """getIntervalMeanSpeed(string) -> double
+
+        Returns the mean speed during the current interval
+        """
+        return self._getUniversal(tc.VAR_INTERVAL_SPEED, detID)
+
+    def getIntervalMeanTimeLoss(self, detID):
+        """getIntervalMeanTimeLoss(string) -> double
+
+        Returns the mean timeLoss per vehicle during the current interval
+        """
+        return self._getUniversal(tc.VAR_INTERVAL_TIMELOSS, detID)
+
+    def getIntervalMaxJamLengthInMeters(self, detID):
+        """getIntervalMaxJamLengthInMeters(string) -> double
+
+        Returns the max jam length during the current interval
+        """
+        return self._getUniversal(tc.VAR_INTERVAL_MAX_JAM_LENGTH_METERS, detID)
+
+    def getIntervalVehicleNumber(self, detID):
+        """getIntervalVehicleNumber(string) -> int
+
+        Returns the number of seen vehicles during the current interval
+        """
+        return self._getUniversal(tc.VAR_INTERVAL_NUMBER, detID)
+
+    def getLastIntervalOccupancy(self, detID):
+        """getLastIntervalOccupancy(string) -> double
+
+        Returns the mean occupancy during the previous interval
+        """
+        return self._getUniversal(tc.VAR_LAST_INTERVAL_OCCUPANCY, detID)
+
+    def getLastIntervalMeanSpeed(self, detID):
+        """getLastIntervalMeanSpeed(string) -> double
+
+        Returns the mean speed during the previous interval
+        """
+        return self._getUniversal(tc.VAR_LAST_INTERVAL_SPEED, detID)
+
+    def getLastIntervalMeanTimeLoss(self, detID):
+        """getLastIntervalMeanTimeLoss(string) -> double
+
+        Returns the mean timeLoss per vehicle during the previous interval
+        """
+        return self._getUniversal(tc.VAR_LAST_INTERVAL_TIMELOSS, detID)
+
+    def getLastIntervalMaxJamLengthInMeters(self, detID):
+        """getLastIntervalMaxJamLengthInMeters(string) -> double
+
+        Returns the max jam length during the previous interval
+        """
+        return self._getUniversal(tc.VAR_LAST_INTERVAL_MAX_JAM_LENGTH_METERS, detID)
+
+    def getLastIntervalVehicleNumber(self, detID):
+        """getLastIntervalVehicleNumber(string) -> int
+
+        Returns the number of seen vehicles during the previous interval
+        """
+        return self._getUniversal(tc.VAR_LAST_INTERVAL_NUMBER, detID)
 
     def overrideVehicleNumber(self, detID, vehNum):
         """overrideVehicleNumber(string, integer) -> None

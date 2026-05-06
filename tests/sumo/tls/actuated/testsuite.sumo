@@ -1,6 +1,9 @@
 # test branching plans (multiple 'next' phases) with default logic
 multiNext
 
+# actuated pedestrian crossing
+crossing
+
 # exclude jammed detectors from gapControl
 jamDetection
 
@@ -17,6 +20,9 @@ from_additional
 # test supplying additional parameters
 parameters
 
+# test supplying additional parameters
+param_vTypes
+
 # test using custom detectors
 custom_detector
 
@@ -25,6 +31,9 @@ custom_detector_staticPhase
 
 # set custom max-gap value for a single detector
 custom_detector_maxGap
+
+# set custom max-gap from params inside the .net.xml
+custom_detector_net
 
 # check that the initialization can handle different begin times
 simstart_at_100
@@ -46,7 +55,7 @@ partialy_green_lane_uncontrollable
 joined_sequential
 
 # joined traffic light with detectors on sequential lanes.
-# detectors should not be moved accross signals (#10837)
+# detectors should not be moved across signals (#10837)
 joined_sequential2
 
 # links with green minor should not be used for actuation
@@ -58,7 +67,7 @@ green_minor_uncontrolled2
 # test handling of junction with custom link indices (only part of the state is used)
 unused_indices
 
-# test for moving detector upstream when the the lane that is incoming to the intersection is too short.
+# test for moving detector upstream when the lane that is incoming to the intersection is too short.
 short_lane
 
 # network contains a static traffic light, load actuated as additional program (new default) with linkMinDur constraints
@@ -72,3 +81,9 @@ controlling_detectors
 
 # if minDur is set, interpret missing maxDur as unlimited
 maxDur_missing
+
+# network contains a static traffic light, load actuated as additional program (new default)
+minDur0
+
+# test for #14692
+right_turn_crossing_usable

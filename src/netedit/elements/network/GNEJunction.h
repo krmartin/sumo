@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,36 +21,37 @@
 #pragma once
 #include <config.h>
 
-#include <netedit/elements/GNECandidateElement.h>
-#include <utils/gui/globjects/GUIPolygon.h>
 #include <netbuild/NBNode.h>
+#include <netedit/elements/GNECandidateElement.h>
+#include <netedit/elements/moving/GNEMoveResult.h>
+#include <utils/gui/globjects/GUIPolygon.h>
 
 #include "GNENetworkElement.h"
 
 // ===========================================================================
 // class declarations
 // ===========================================================================
-class GNENet;
-class GNEEdge;
-class GNECrossing;
-class NBTrafficLightDefinition;
+
 class GNEConnection;
+class GNECrossing;
+class GNEEdge;
+class GNEInternalLane;
+class GNEMoveElementJunction;
+class GNEMoveOperation;
+class GNENet;
+class GNEWalkingArea;
+class NBTrafficLightDefinition;
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @class GNEJunction
- *
- * In the case the represented junction's shape is empty, the boundary
- *  is computed using the junction's position to which an offset of 1m to each
- *  side is added.
- */
+
 class GNEJunction : public GNENetworkElement, public GNECandidateElement {
 
     /// @brief Declare friend class
     friend class GNEChange_TLS;
     friend class GNEChange_Crossing;
+    friend class GNEMoveElementJunction;
 
 public:
     /**@brief Constructor
@@ -63,13 +64,27 @@ public:
     /// @brief Destructor
     ~GNEJunction();
 
+    /// @brief methods to retrieve the elements linked to this junction
+    /// @{
+
+    /// @brief get GNEMoveElement associated with this junction
+    GNEMoveElement* getMoveElement() const override;
+
+    /// @brief get parameters associated with this junction
+    Parameterised* getParameters() override;
+
+    /// @brief get parameters associated with this junction (constant)
+    const Parameterised* getParameters() const override;
+
+    /// @}
+
     /// @name Functions related with geometry of element
     /// @{
     /// @brief get junction shape
     const PositionVector& getJunctionShape() const;
 
     /// @brief update pre-computed geometry information (including crossings)
-    void updateGeometry();
+    void updateGeometry() override;
 
     /// @brief update pre-computed geometry information without modifying netbuild structures
     // @note: using an extra function because updateGeometry overrides an abstract virtual function
@@ -77,15 +92,36 @@ public:
 
     /// @brief Returns position of hierarchical element in view
     Position getPositionInView() const;
+
     /// @}
 
-    /// @name Functions related with move elements
+    /// @name Function related with contour drawing
     /// @{
-    /// @brief get move operation for the given shapeOffset (can be nullptr)
-    GNEMoveOperation* getMoveOperation();
 
-    /// @brief remove geometry point in the clicked position
-    void removeGeometryPoint(const Position clickedPosition, GNEUndoList* undoList);
+    /// @brief check if draw from contour (green)
+    bool checkDrawFromContour() const override;
+
+    /// @brief check if draw from contour (magenta)
+    bool checkDrawToContour() const override;
+
+    /// @brief check if draw related contour (cyan)
+    bool checkDrawRelatedContour() const override;
+
+    /// @brief check if draw over contour (orange)
+    bool checkDrawOverContour() const override;
+
+    /// @brief check if draw delete contour (pink/white)
+    bool checkDrawDeleteContour() const override;
+
+    /// @brief check if draw delete contour small (pink/white)
+    bool checkDrawDeleteContourSmall() const override;
+
+    /// @brief check if draw select contour (blue)
+    bool checkDrawSelectContour() const override;
+
+    /// @brief check if draw move contour (red)
+    bool checkDrawMoveContour() const override;
+
     /// @}
 
     /// @name inherited from GUIGlObject
@@ -97,10 +133,13 @@ public:
      * @return The built popup-menu
      * @see GUIGlObject::getPopUpMenu
      */
-    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent);
+    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /// @brief return exaggeration associated with this GLObject
-    double getExaggeration(const GUIVisualizationSettings& s) const;
+    double getExaggeration(const GUIVisualizationSettings& s) const override;
+
+    /// @brief Returns the boundary to which the view shall be centered in order to show the object
+    Boundary getCenteringBoundary() const override;
 
     /// @brief update centering boundary (implies change in RTREE)
     void updateCenteringBoundary(const bool updateGrid);
@@ -109,13 +148,13 @@ public:
      * @param[in] s The settings for the current view (may influence drawing)
      * @see GUIGlObject::drawGL
      */
-    void drawGL(const GUIVisualizationSettings& s) const;
+    void drawGL(const GUIVisualizationSettings& s) const override;
 
     /// @brief delete element
-    void deleteGLObject();
+    void deleteGLObject() override;
 
     /// @brief update GLObject (geometry, ID, etc.)
-    void updateGLObject();
+    void updateGLObject() override;
     /// @}
 
     /// @brief Return net build node
@@ -166,35 +205,51 @@ public:
      * @param[in] key The attribute key
      * @return string with the value associated to key
      */
-    std::string getAttribute(SumoXMLAttr key) const;
+    std::string getAttribute(SumoXMLAttr key) const override;
+
+    /* @brief method for getting the Attribute of an XML key in double format
+     * @param[in] key The attribute key
+     * @return double with the value associated to key
+     */
+    double getAttributeDouble(SumoXMLAttr key) const override;
+
+    /* @brief method for getting the Attribute of an XML key in position format
+     * @param[in] key The attribute key
+     * @return position with the value associated to key
+     */
+    Position getAttributePosition(SumoXMLAttr key) const override;
+
+    /* @brief method for getting the Attribute of an XML key in Position format
+     * @param[in] key The attribute key
+     * @return position with the value associated to key
+     */
+    PositionVector getAttributePositionVector(SumoXMLAttr key) const override;
 
     /* @brief method for setting the attribute and letting the object perform additional changes
      * @param[in] key The attribute key
      * @param[in] value The new value
      * @param[in] undoList The undoList on which to register changes
      */
-    void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList);
+    void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList) override;
 
     /* @brief method for checking if the key and their correspond attribute are valids
      * @param[in] key The attribute key
      * @param[in] value The value associated to key key
      * @return true if the value is valid, false in other case
      */
-    bool isValid(SumoXMLAttr key, const std::string& value);
+    bool isValid(SumoXMLAttr key, const std::string& value) override;
 
     /* @brief method for check if the value for certain attribute is set
      * @param[in] key The attribute key
      */
-    bool isAttributeEnabled(SumoXMLAttr key) const;
+    bool isAttributeEnabled(SumoXMLAttr key) const override;
 
     /* @brief method for check if the value for certain attribute is computed (for example, due a network recomputing)
      * @param[in] key The attribute key
      */
-    bool isAttributeComputed(SumoXMLAttr key) const;
-    /// @}
+    bool isAttributeComputed(SumoXMLAttr key) const override;
 
-    /// @brief get parameters map
-    const Parameterised::Map& getACParametersMap() const;
+    /// @}
 
     /// @brief set responsibility for deleting internal structures
     void setResponsible(bool newVal);
@@ -251,18 +306,33 @@ public:
     /// @brief set junction Type (using undo/redo)
     void setJunctionType(const std::string& value, GNEUndoList* undoList);
 
-    /// @brief get the maximum size (in either x-, or y-dimension) for determining whether to draw or not
-    double getMaxDrawingSize() const;
-
     /// @brief clear walking areas
     void clearWalkingAreas();
 
     /// @brief rebuilds WalkingAreas objects for this junction
     void rebuildGNEWalkingAreas();
 
+    /// @brief add internal lane
+    void addInternalLane(const GNEInternalLane* internalLane);
+
+    /// @brief remove internal lane
+    void removeInternalLane(const GNEInternalLane* internalLane);
+
 protected:
+    /// @brief move element junction
+    GNEMoveElementJunction* myMoveElementJunction = nullptr;
+
     /// @brief A reference to the represented junction
     NBNode* myNBNode;
+
+    /// @brief edge boundary
+    Boundary myJunctionBoundary;
+
+    /// @brief drawing toggle (used to avoid double draws)
+    int* myDrawingToggle;
+
+    /// @brief variable used for draw circle contours
+    GNEContour myCircleContour;
 
     /// @brief vector with the (child) incomings GNEEdges vinculated with this junction
     std::vector<GNEEdge*> myGNEIncomingEdges;
@@ -276,52 +346,67 @@ protected:
     /// @brief the built walkingArea objects
     std::vector<GNEWalkingArea*> myGNEWalkingAreas;
 
-    /// @brief The maximum size (in either x-, or y-dimension) for determining whether to draw or not
-    double myMaxDrawingSize;
+    /// @brief internal lanes related placed in this junction
+    std::vector<const GNEInternalLane*> myInternalLanes;
 
     /// @brief whether this junction is the first junction for a newly creatededge
     /// @see GNEApplicationWindow::createEdgeSource)
-    bool myAmCreateEdgeSource;
+    bool myAmCreateEdgeSource = false;
 
     /// @brief modification status of the junction logic (all connections across this junction)
     std::string myLogicStatus;
 
     /// @brief whether we are responsible for deleting myNBNode
-    bool myAmResponsible;
+    bool myAmResponsible = false;
 
     /// @brief whether this junctions logic is valid
     bool myHasValidLogic;
 
     /// @brief whether this junction is selected in tls-mode
-    bool myAmTLSSelected;
+    bool myAmTLSSelected = false;
 
     /// @brief whether this junction probably should have some connections but doesn't
-    bool myColorForMissingConnections;
+    bool myColorForMissingConnections = false;
 
     /// @brief An object that stores the shape and its tesselation
     mutable TesselatedPolygon myTesselation;
 
     /// @brief exaggeration used in tesselation
-    mutable double myExaggeration;
+    mutable double myExaggeration = 1;
 
 private:
+    /// @brief check if draw junction as bubble
+    bool drawAsBubble(const GUIVisualizationSettings& s, const double junctionShapeArea) const;
+
+    /// @brief draw junction as bubble
+    void drawJunctionAsBubble(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                              const double exaggeration) const;
+
+    /// @brief draw junction as bubble
+    void drawJunctionAsShape(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                             const double exaggeration) const;
+
+    /// @brief draw junction center (only in move mode)
+    void drawJunctionCenter(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d) const;
+
     /// @brief draw TLS icon
     void drawTLSIcon(const GUIVisualizationSettings& s) const;
 
-    /// @brief draw junction childs
-    void drawJunctionChildren(const GUIVisualizationSettings& s) const;
+    /// @brief draw elevation
+    void drawElevation(const GUIVisualizationSettings& s) const;
 
-    /// @brief draw dotted contours
-    void drawDottedContours(const GUIVisualizationSettings& s, const bool drawShape, const bool drawBubble, const double junctionExaggeration, const double bubbleRadius) const;
+    /// @brief draw junction name
+    void drawJunctionName(const GUIVisualizationSettings& s) const;
+
+    /// @brief draw junction childs
+    void drawJunctionChildren(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d) const;
+
+    /// @brief calculate contour
+    void calculateJunctioncontour(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                                  const double exaggeration, const bool drawBubble) const;
 
     /// @brief method for setting the attribute and nothing else (used in GNEChange_Attribute)
-    void setAttribute(SumoXMLAttr key, const std::string& value);
-
-    /// @brief set move shape
-    void setMoveShape(const GNEMoveResult& moveResult);
-
-    /// @brief commit move shape
-    void commitMoveShape(const GNEMoveResult& moveResult, GNEUndoList* undoList);
+    void setAttribute(SumoXMLAttr key, const std::string& value) override;
 
     /**@brief reposition the node at pos without updating GRID and informs the edges
      * @param[in] pos The new position
@@ -333,7 +418,7 @@ private:
     RGBColor setColor(const GUIVisualizationSettings& s, bool bubble) const;
 
     /// @brief determines color value
-    double getColorValue(const GUIVisualizationSettings& s, int activeScheme) const;
+    double getColorValue(const GUIVisualizationSettings& s, int activeScheme) const override;
 
     /// @brief compute whether this junction probably should have some connections but doesn't
     void checkMissingConnections();

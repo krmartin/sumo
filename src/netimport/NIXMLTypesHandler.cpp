@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -24,16 +24,13 @@
 
 #include <string>
 #include <iostream>
-#include <xercesc/sax/HandlerBase.hpp>
-#include <xercesc/sax/AttributeList.hpp>
-#include <xercesc/sax/SAXParseException.hpp>
-#include <xercesc/sax/SAXException.hpp>
 #include <utils/xml/SUMOSAXHandler.h>
 #include <utils/xml/SUMOXMLDefinitions.h>
 #include <utils/common/StringUtils.h>
 #include <utils/common/MsgHandler.h>
 #include <utils/common/ToString.h>
 #include <utils/common/SUMOVehicleClass.h>
+#include <utils/options/OptionsCont.h>
 #include <netbuild/NBEdge.h>
 #include <netbuild/NBTypeCont.h>
 #include "NIXMLTypesHandler.h"
@@ -64,7 +61,7 @@ NIXMLTypesHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) {
             const double speed = attrs.getOpt<double>(SUMO_ATTR_SPEED, id, ok, myTypeCont.getEdgeTypeSpeed(defType));
             const std::string allowS = attrs.getOpt<std::string>(SUMO_ATTR_ALLOW, id, ok, "");
             const std::string disallowS = attrs.getOpt<std::string>(SUMO_ATTR_DISALLOW, id, ok, "");
-            const std::string spreadTypeS = attrs.getOpt<std::string>(SUMO_ATTR_SPREADTYPE, id, ok, "right");
+            const std::string spreadTypeS = attrs.getOpt<std::string>(SUMO_ATTR_SPREADTYPE, id, ok, toString(LaneSpreadFunction::SPREAD_UNKNOWN));
             const bool oneway = attrs.getOpt<bool>(SUMO_ATTR_ONEWAY, id, ok, myTypeCont.getEdgeTypeIsOneWay(defType));
             const bool discard = attrs.getOpt<bool>(SUMO_ATTR_DISCARD, id, ok, false);
             const double width = attrs.getOpt<double>(SUMO_ATTR_WIDTH, id, ok, myTypeCont.getEdgeTypeWidth(defType));
@@ -86,7 +83,7 @@ NIXMLTypesHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) {
                 if (SUMOXMLDefinitions::LaneSpreadFunctions.hasString(spreadTypeS)) {
                     spreadType = SUMOXMLDefinitions::LaneSpreadFunctions.get(spreadTypeS);
                 } else {
-                    WRITE_ERROR("Invalid lane spread type '" + spreadTypeS + "'. Using default 'right'");
+                    WRITE_ERRORF(TL("Invalid lane spread type '%'. Using default 'right'"), spreadTypeS);
                 }
                 // insert edgeType in container
                 myTypeCont.insertEdgeType(myCurrentTypeID, numLanes, speed, priority, permissions, spreadType, width,
@@ -115,7 +112,7 @@ NIXMLTypesHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) {
             const int index = attrs.get<int>(SUMO_ATTR_INDEX, edgeTypeId, ok);
             const std::string defType = myTypeCont.knows(myCurrentTypeID) ? myCurrentTypeID : "";
             if (index >= myTypeCont.getEdgeTypeNumLanes(defType)) {
-                WRITE_ERROR("Invalid lane index " + toString(index) + " for edge type '" + defType + "' with " + toString(myTypeCont.getEdgeTypeNumLanes(defType)) + " lanes");
+                WRITE_ERRORF(TL("Invalid lane index % for edge type '%' with % lanes"), toString(index), defType, toString(myTypeCont.getEdgeTypeNumLanes(defType)));
                 ok = false;
             }
             const double speed = attrs.getOpt<double>(SUMO_ATTR_SPEED, edgeTypeId, ok, myTypeCont.getEdgeTypeSpeed(edgeTypeId));

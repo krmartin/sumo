@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2008-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -19,6 +19,7 @@
 import os
 import subprocess
 import sys
+
 if len(sys.argv) < 2:
     sys.exit('required argument <tool> missing')
 idx = len(sys.argv) - 1
@@ -34,6 +35,6 @@ if tool[0].endswith(".jar"):
     tool = ["java", "-jar"] + tool
 
 if tool[0].endswith(".py"):
-    #    tool = [os.environ.get('PYTHON', 'python'), "-W", "default::DeprecationWarning", "-W", "default::ResourceWarning"] + tool
-    tool = [os.environ.get('PYTHON', 'python'), "-W", "default::DeprecationWarning"] + tool
+    python = sys.executable
+    tool = ([python] + tool) if python.endswith("2") else ([python, "-Wd"] + tool)
 subprocess.call(tool + sys.argv[1:], env=os.environ, stdout=sys.stdout, stderr=sys.stderr)

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -15,74 +15,73 @@
 /// @author  Pablo Alvarez Lopez
 /// @date    Jan 2020
 ///
-// A abstract class for data sets
+// A abstract class for generic datas
 /****************************************************************************/
 #pragma once
 #include <config.h>
 
-
-// ===========================================================================
-// included modules
-// ===========================================================================
-#include <config.h>
-
+#include <netedit/elements/GNEAttributeCarrier.h>
 #include <netedit/elements/GNEHierarchicalElement.h>
-#include <utils/gui/div/GUIGeometry.h>
-#include <netedit/GNEPathManager.h>
-#include <utils/common/Parameterised.h>
-#include <utils/geom/PositionVector.h>
+#include <netedit/elements/GNEPathElement.h>
 #include <utils/gui/globjects/GUIGlObject.h>
-#include <utils/router/SUMOAbstractRouter.h>
-#include <netbuild/NBVehicle.h>
-#include <netbuild/NBEdge.h>
+#include <utils/common/Parameterised.h>
 
 // ===========================================================================
 // class declarations
 // ===========================================================================
 
-class GNEViewNet;
 class GNEDataInterval;
+class GNENet;
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
 
-/**
- * @class GNEGenericData
- * @brief An Element which don't belong to GNENet but has influence in the simulation
- */
-class GNEGenericData : public GUIGlObject, public Parameterised, public GNEHierarchicalElement, public GNEPathManager::PathElement {
+class GNEGenericData : public GNEAttributeCarrier, public GNEHierarchicalElement, public GUIGlObject, public GNEPathElement, public Parameterised {
 
 public:
+    /// @brief default Constructor
+    GNEGenericData(SumoXMLTag tag, GNENet* net);
+
     /**@brief Constructor
      * @param[in] tag generic data Tag (edgeData, laneData, etc.)
-     * @param[in] GLType GUIGlObjectType associated to this Generic Data
      * @param[in] dataIntervalParent pointer to data interval parent
      * @param[in] parameters parameters map
-     * @param[in] junctionParents vector of junction parents
-     * @param[in] edgeParents vector of edge parents
-     * @param[in] laneParents vector of lane parents
-     * @param[in] additionalParents vector of additional parents
-     * @param[in] demandElementParents vector of demand element parents
-     * @param[in] genericDataParents vector of generic data parents
      */
-    GNEGenericData(const SumoXMLTag tag, FXIcon *icon, const GUIGlObjectType type, GNEDataInterval* dataIntervalParent,
-                   const Parameterised::Map& parameters,
-                   const std::vector<GNEJunction*>& junctionParents,
-                   const std::vector<GNEEdge*>& edgeParents,
-                   const std::vector<GNELane*>& laneParents,
-                   const std::vector<GNEAdditional*>& additionalParents,
-                   const std::vector<GNEDemandElement*>& demandElementParents,
-                   const std::vector<GNEGenericData*>& genericDataParents);
+    GNEGenericData(const SumoXMLTag tag, GNEDataInterval* dataIntervalParent,
+                   const Parameterised::Map& parameters);
 
     /// @brief Destructor
     virtual ~GNEGenericData();
 
+    /// @brief methods to retrieve the elements linked to this dataSet
+    /// @{
+
+    /// @brief get GNEHierarchicalElement associated with this genericData
+    GNEHierarchicalElement* getHierarchicalElement() override;
+
+    /// @brief get GNEMoveElement associated with this genericData
+    GNEMoveElement* getMoveElement() const override;
+
+    /// @brief get parameters associated with this genericData
+    Parameterised* getParameters() override;
+
+    /// @brief get parameters associated with this genericData (constant)
+    const Parameterised* getParameters() const override;
+
+    /// @brief get GUIGlObject associated with this genericData
+    GUIGlObject* getGUIGlObject() override;
+
+    /// @brief get GUIGlObject associated with this genericData (constant)
+    const GUIGlObject* getGUIGlObject() const override;
+
+    /// @}
+
     /// @brief check if current generic data is visible
     virtual bool isGenericDataVisible() const = 0;
 
-    /// @brief get GUIGlObject associated with this AttributeCarrier
-    GUIGlObject* getGUIGlObject();
+    /// @brief get reference to fileBucket in which save this AC
+    FileBucket* getFileBucket() const override;
 
     /// @brief get data interval parent
     GNEDataInterval* getDataIntervalParent() const;
@@ -90,11 +89,37 @@ public:
     // @brief draw attribute
     void drawAttribute(const PositionVector& shape) const;
 
-    /// @brief update pre-computed geometry information
-    virtual void updateGeometry() = 0;
-
     /// @brief Returns element position in view
     virtual Position getPositionInView() const = 0;
+
+    /// @name Function related with contour drawing
+    /// @{
+
+    /// @brief check if draw from contour (green)
+    bool checkDrawFromContour() const override;
+
+    /// @brief check if draw from contour (magenta)
+    bool checkDrawToContour() const override;
+
+    /// @brief check if draw related contour (cyan)
+    bool checkDrawRelatedContour() const override;
+
+    /// @brief check if draw over contour (orange)
+    bool checkDrawOverContour() const override;
+
+    /// @brief check if draw delete contour (pink/white)
+    bool checkDrawDeleteContour() const override;
+
+    /// @brief check if draw delete contour small (pink/white)
+    bool checkDrawDeleteContourSmall() const override;
+
+    /// @brief check if draw select contour (blue)
+    bool checkDrawSelectContour() const override;
+
+    /// @brief check if draw move contour (red)
+    bool checkDrawMoveContour() const override;
+
+    /// @}
 
     /// @name members and functions relative to write data sets into XML
     /// @{
@@ -103,7 +128,7 @@ public:
      */
     virtual void writeGenericData(OutputDevice& device) const = 0;
 
-    /// @brief check if current data set is valid to be writed into XML (by default true, can be reimplemented in children)
+    /// @brief check if current data set is valid to be written into XML (by default true, can be reimplemented in children)
     virtual bool isGenericDataValid() const;
 
     /// @brief return a string with the current data set problem (by default empty, can be reimplemented in children)
@@ -122,7 +147,7 @@ public:
      * @return The built popup-menu
      * @see GUIGlObject::getPopUpMenu
      */
-    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent);
+    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /**@brief Returns an own parameter window
      *
@@ -131,111 +156,43 @@ public:
      * @return The built parameter window
      * @see GUIGlObject::getParameterWindow
      */
-    GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent);
-
-    /**@brief Draws the object
-     * @param[in] s The settings for the current view (may influence drawing)
-     * @see GUIGlObject::drawGL
-     */
-    virtual void drawGL(const GUIVisualizationSettings& s) const = 0;
+    GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /// @brief delete element
-    void deleteGLObject();
+    void deleteGLObject() override;
 
     /// @brief select element
-    void selectGLObject();
+    void selectGLObject() override;
 
     /// @brief update GLObject (geometry, ID, etc.)
-    void updateGLObject();
-
-    /// @brief return exaggeration associated with this GLObject
-    virtual double getExaggeration(const GUIVisualizationSettings& s) const = 0;
-
-    //// @brief Returns the boundary to which the view shall be centered in order to show the object
-    virtual Boundary getCenteringBoundary() const = 0;
-
-    /// @}
-
-    /// @name inherited from GNEPathManager::PathElement
-    /// @{
-
-    /// @brief compute pathElement
-    virtual void computePathElement() = 0;
-
-    /**@brief Draws partial object (lane)
-     * @param[in] s The settings for the current view (may influence drawing)
-     * @param[in] lane GNELane in which draw partial
-     * @param[in] segment PathManager segment (used for segment options)
-     * @param[in] offsetFront extra front offset (used for drawing partial gl above other elements)
-     */
-    virtual void drawPartialGL(const GUIVisualizationSettings& s, const GNELane* lane, const GNEPathManager::Segment* segment, const double offsetFront) const = 0;
-
-    /**@brief Draws partial object (junction)
-     * @param[in] s The settings for the current view (may influence drawing)
-     * @param[in] fromLane from GNELane
-     * @param[in] toLane to GNELane
-     * @param[in] segment PathManager segment (used for segment options)
-     * @param[in] offsetFront extra front offset (used for drawing partial gl above other elements)
-     */
-    virtual void drawPartialGL(const GUIVisualizationSettings& s, const GNELane* fromLane, const GNELane* toLane, const GNEPathManager::Segment* segment, const double offsetFront) const = 0;
-
-    /// @brief get first path lane
-    virtual GNELane* getFirstPathLane() const = 0;
-
-    /// @brief get last path lane
-    virtual GNELane* getLastPathLane() const = 0;
-
-    /// @brief get path element depart lane pos
-    double getPathElementDepartValue() const;
-
-    /// @brief get path element depart position
-    Position getPathElementDepartPos() const;
-
-    /// @brief get path element arrival lane pos
-    double getPathElementArrivalValue() const;
-
-    /// @brief get path element arrival position
-    Position getPathElementArrivalPos() const;
+    void updateGLObject() override;
 
     /// @}
 
     /// @name inherited from GNEAttributeCarrier
     /// @{
-    /* @brief method for getting the Attribute of an XML key
+
+    /* @brief method for getting the Attribute of an XML key in position format
      * @param[in] key The attribute key
-     * @return string with the value associated to key
+     * @return position with the value associated to key
      */
-    virtual std::string getAttribute(SumoXMLAttr key) const = 0;
+    Position getAttributePosition(SumoXMLAttr key) const override;
 
-    /* @brief method for getting the Attribute of an XML key in double format (to avoid unnecessary parse<double>(...) for certain attributes)
+    /* @brief method for getting the Attribute of an XML key in positionVector format
      * @param[in] key The attribute key
-     * @return double with the value associated to key
+     * @return positionVector with the value associated to key
      */
-    virtual double getAttributeDouble(SumoXMLAttr key) const = 0;
+    PositionVector getAttributePositionVector(SumoXMLAttr key) const override;
 
-    /**@brief method for setting the attribute and letting the object perform data set changes
-     * @param[in] key The attribute key
-     * @param[in] value The new value
-     * @param[in] undoList The undoList on which to register changes
-     */
-    virtual void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList) = 0;
-
-    /**@brief method for checking if the key and their conrrespond attribute are valids
-     * @param[in] key The attribute key
-     * @param[in] value The value associated to key key
-     * @return true if the value is valid, false in other case
-     */
-    virtual bool isValid(SumoXMLAttr key, const std::string& value) = 0;
-
-    /// @brief get PopPup ID (Used in AC Hierarchy)
-    virtual std::string getPopUpID() const = 0;
-
-    /// @brief get Hierarchy Name (Used in AC Hierarchy)
-    virtual std::string getHierarchyName() const = 0;
     /// @}
 
-    /// @brief get parameters map
-    const Parameterised::Map& getACParametersMap() const;
+    /// @name inherited from GNEPathElement
+    /// @{
+
+    /// @brief check if path element is selected
+    bool isPathElementSelected() const override;
+
+    /// @}
 
 protected:
     /// @brief dataInterval Parent
@@ -260,9 +217,6 @@ protected:
     std::string getPartialID() const;
 
 private:
-    /// @brief method for setting the attribute and nothing else (used in GNEChange_Attribute)
-    virtual void setAttribute(SumoXMLAttr key, const std::string& value) = 0;
-
     /// @brief Invalidated copy constructor.
     GNEGenericData(const GNEGenericData&) = delete;
 
@@ -271,4 +225,3 @@ private:
 };
 
 /****************************************************************************/
-

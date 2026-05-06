@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -168,18 +168,18 @@ void StringTokenizer::prepare(const std::string& tosplit, const std::string& tok
 void StringTokenizer::prepareWhitechar(const std::string& tosplit) {
     std::string::size_type len = tosplit.length();
     std::string::size_type beg = 0;
-    while (beg < len && tosplit[beg] <= SPACE) {
+    while (beg < len && (unsigned char)tosplit[beg] <= SPACE) {
         beg++;
     }
     while (beg != std::string::npos && beg < len) {
         std::string::size_type end = beg;
-        while (end < len && tosplit[end] > SPACE) {
+        while (end < len && (unsigned char)tosplit[end] > SPACE) {
             end++;
         }
         myStarts.push_back((int)beg);
         myLengths.push_back((int)end - (int)beg);
         beg = end;
-        while (beg < len && tosplit[beg] <= SPACE) {
+        while (beg < len && (unsigned char)tosplit[beg] <= SPACE) {
             beg++;
         }
     }

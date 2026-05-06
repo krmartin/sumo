@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2014-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2014-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -27,7 +27,6 @@ import subprocess
 import importlib
 import struct
 import glob
-from optparse import OptionParser
 import xml.sax
 try:
     import lxml.etree
@@ -36,7 +35,9 @@ try:
 except ImportError:
     haveLxml = False
 
-import xml2csv
+if 'SUMO_HOME' in os.environ:
+    sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
+import sumolib  # noqa
 
 
 SUMO_LIBRARIES = os.environ.get("SUMO_LIBRARIES", os.path.join(os.environ.get("SUMO_HOME", ""), "..", "SUMOLibraries"))
@@ -54,7 +55,7 @@ class ProtoWriter(xml.sax.handler.ContentHandler):
     def __init__(self, module, attrFinder, output):
         self.module = module
         self.attrFinder = attrFinder
-        self.out = xml2csv.getOutStream(output)
+        self.out = sumolib.openz(output, "wb", trySocket=True)
         self.msgStack = []
         self.emptyRootMsg = None
 
@@ -104,30 +105,25 @@ class ProtoWriter(xml.sax.handler.ContentHandler):
 
 
 def get_options():
-    optParser = OptionParser(
-        usage=os.path.basename(sys.argv[0]) + " [<options>] <input_file_or_port>")
-    optParser.add_option("-p", "--protodir", default=".",
-                         help="where to put and read .proto files")
-    optParser.add_option("-x", "--xsd", help="xsd schema to use (mandatory)")
-    optParser.add_option("-a", "--validation", action="store_true",
-                         default=False, help="enable schema validation")
-    optParser.add_option("-o", "--output", help="output file name")
-    options, args = optParser.parse_args()
-    if len(args) != 1:
-        optParser.print_help()
-        sys.exit()
-    if not options.xsd:
-        print("a schema is mandatory", file=sys.stderr)
-        sys.exit()
+    optParser = sumolib.options.ArgumentParser(description="Convert a XML file to a protocol buffer")
+    optParser.add_argument("source", category="input", type=optParser.data_file,
+                           help="the input data (given by digits or a file")
+    optParser.add_argument("-p", "--protodir", category="input", default=".",
+                           help="where to put and read .proto files")
+    optParser.add_argument("-x", "--xsd", category="processing", required=True,
+                           help="xsd schema to use (mandatory)")
+    optParser.add_argument("-a", "--validation", category="processing", action="store_true", default=False,
+                           help="enable schema validation")
+    optParser.add_argument("-o", "--output", category="output", type=optParser.data_file,
+                           help="output file name")
+    options = optParser.parse_args()
     if options.validation and not haveLxml:
         print("lxml not available, skipping validation", file=sys.stderr)
         options.validation = False
-    if args[0].isdigit():
-        options.source = xml2csv.getSocketStream(int(args[0]))
-    else:
-        options.source = args[0]
+    if options.source.isdigit():
+        options.source = sumolib.miscutils.getSocketStream(int(options.source))
     if not options.output:
-        options.output = os.path.splitext(args[0])[0] + ".protomsg"
+        options.output = os.path.splitext(options.source)[0] + ".protomsg"
     return options
 
 
@@ -190,7 +186,7 @@ def generateProto(tagAttrs, depthTags, enums, protodir, base):
 def main():
     options = get_options()
     # get attributes
-    attrFinder = xml2csv.AttrFinder(options.xsd, options.source, False)
+    attrFinder = sumolib.xml.AttrFinder(options.xsd, options.source, False)
     base = os.path.basename(options.xsd).split('.')[0]
     # generate proto format description
     module = generateProto(attrFinder.tagAttrs, attrFinder.depthTags,

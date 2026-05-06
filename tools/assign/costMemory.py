@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2012-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -24,6 +24,7 @@ from collections import defaultdict
 from xml.sax import make_parser, handler
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+from sumolib import openz  # noqa
 from sumolib.net import readNet  # noqa
 
 
@@ -106,7 +107,7 @@ class CostMemory(handler.ContentHandler):
             sys.stderr.write(
                 "Skipped loading of costs because the weight was %s but should have been > 0\n" % weight)
             return
-        assert(weight > 0)
+        assert weight > 0
         if self.iteration is None and iteration != 0:
             print("Warning: continuing with empty memory")
         # update memory weights. memory is a weighted average across all runs
@@ -121,7 +122,7 @@ class CostMemory(handler.ContentHandler):
         self.num_loaded = 0
         parser = make_parser()
         parser.setContentHandler(self)
-        parser.parse(dumpfile)
+        parser.parse(openz(dumpfile))
         # decay costs of unseen edges
         self.num_decayed = 0
         for edges in self.intervals.values():
@@ -158,8 +159,7 @@ class CostMemory(handler.ContentHandler):
         length = len(list(values))
         if length > 0:
             return (sum(list(values)) / length)
-        else:
-            return 0
+        return 0
 
     def avg_abs_error(self):
         return self.avg_error(list(map(abs, self.errors)))
@@ -170,6 +170,7 @@ class CostMemory(handler.ContentHandler):
         values.sort()
         if values:
             return values[len(values) // 2]
+        return 0
 
     def mean_abs_error(self):
         return self.mean_error(list(map(abs, self.errors)))

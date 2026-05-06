@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -19,6 +19,7 @@
 /****************************************************************************/
 #include <config.h>
 
+#include <utils/common/FileBucket.h>
 #include <utils/common/MsgHandler.h>
 #include <utils/common/StringUtils.h>
 #include <utils/xml/XMLSubSys.h>
@@ -30,8 +31,9 @@
 // method definitions
 // ===========================================================================
 
-DataHandler::DataHandler(const std::string& file) :
-    SUMOSAXHandler(file) {
+DataHandler::DataHandler(FileBucket* fileBucket) :
+    CommonHandler(fileBucket),
+    SUMOSAXHandler(fileBucket->getFilename()) {
 }
 
 
@@ -47,39 +49,50 @@ DataHandler::parse() {
 
 void
 DataHandler::parseSumoBaseObject(CommonXMLStructure::SumoBaseObject* obj) {
-    // switch tag
-    switch (obj->getTag()) {
-        // Stopping Places
-        case SUMO_TAG_INTERVAL:
-            buildDataInterval(obj,
-                              obj->getStringAttribute(SUMO_ATTR_ID),
-                              obj->getDoubleAttribute(SUMO_ATTR_BEGIN),
-                              obj->getDoubleAttribute(SUMO_ATTR_END));
-            break;
-        case SUMO_TAG_EDGE:
-            buildEdgeData(obj,
-                          obj->getStringAttribute(SUMO_ATTR_ID),
-                          obj->getParameters());
-            break;
-        case SUMO_TAG_EDGEREL:
-            buildEdgeRelationData(obj,
-                                  obj->getStringAttribute(SUMO_ATTR_FROM),
-                                  obj->getStringAttribute(SUMO_ATTR_TO),
-                                  obj->getParameters());
-            break;
-        case SUMO_TAG_TAZREL:
-            buildTAZRelationData(obj,
-                                 obj->getStringAttribute(SUMO_ATTR_FROM),
-                                 obj->getStringAttribute(SUMO_ATTR_TO),
-                                 obj->getParameters());
-            break;
-        default:
-            break;
-    }
-    // now iterate over childrens
-    for (const auto& child : obj->getSumoBaseObjectChildren()) {
-        // call this function recursively
-        parseSumoBaseObject(child);
+    // check if loading was aborted
+    if (!myAbortLoading) {
+        // switch tag
+        switch (obj->getTag()) {
+            // Stopping Places
+            case SUMO_TAG_INTERVAL:
+                if (buildDataInterval(obj,
+                                      obj->getStringAttribute(SUMO_ATTR_ID),
+                                      obj->getDoubleAttribute(SUMO_ATTR_BEGIN),
+                                      obj->getDoubleAttribute(SUMO_ATTR_END))) {
+                    obj->markAsCreated();
+                }
+                break;
+            case SUMO_TAG_EDGE:
+                if (buildEdgeData(obj,
+                                  obj->getStringAttribute(SUMO_ATTR_ID),
+                                  obj->getParameters())) {
+                    obj->markAsCreated();
+                }
+                break;
+            case SUMO_TAG_EDGEREL:
+                if (buildEdgeRelationData(obj,
+                                          obj->getStringAttribute(SUMO_ATTR_FROM),
+                                          obj->getStringAttribute(SUMO_ATTR_TO),
+                                          obj->getParameters())) {
+                    obj->markAsCreated();
+                }
+                break;
+            case SUMO_TAG_TAZREL:
+                if (buildTAZRelationData(obj,
+                                         obj->getStringAttribute(SUMO_ATTR_FROM),
+                                         obj->getStringAttribute(SUMO_ATTR_TO),
+                                         obj->getParameters())) {
+                    obj->markAsCreated();
+                }
+                break;
+            default:
+                break;
+        }
+        // now iterate over childrens
+        for (const auto& child : obj->getSumoBaseObjectChildren()) {
+            // call this function recursively
+            parseSumoBaseObject(child);
+        }
     }
 }
 
@@ -108,13 +121,16 @@ DataHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) {
                 parseTAZRelationData(attrs);
                 break;
             case SUMO_TAG_PARAM:
-                WRITE_WARNING("Data elements cannot load attributes as params");
+                WRITE_WARNING(TL("Data elements cannot load attributes as params"));
+                myCommonXMLStructure.abortSUMOBaseOBject();
                 break;
             default:
+                // tag cannot be parsed in routeHandler
+                myCommonXMLStructure.abortSUMOBaseOBject();
                 break;
         }
     } catch (InvalidArgument& e) {
-        WRITE_ERROR(e.what());
+        writeError(e.what());
     }
 }
 
@@ -127,17 +143,19 @@ DataHandler::myEndElement(int element) {
     CommonXMLStructure::SumoBaseObject* obj = myCommonXMLStructure.getCurrentSumoBaseObject();
     // close SUMOBaseOBject
     myCommonXMLStructure.closeSUMOBaseOBject();
-    // check tag
-    switch (tag) {
-        // only interval
-        case SUMO_TAG_INTERVAL:
-            // parse object and all their childrens
-            parseSumoBaseObject(obj);
-            // delete object (and all of their childrens)
-            delete obj;
-            break;
-        default:
-            break;
+    if (obj) {
+        // check tag
+        switch (tag) {
+            // only interval
+            case SUMO_TAG_INTERVAL:
+                // parse object and all their childrens
+                parseSumoBaseObject(obj);
+                // delete object (and all of their childrens)
+                delete obj;
+                break;
+            default:
+                break;
+        }
     }
 }
 
@@ -148,8 +166,8 @@ DataHandler::parseInterval(const SUMOSAXAttributes& attrs) {
     bool parsedOk = true;
     // needed attributes
     const std::string id = attrs.get<std::string>(SUMO_ATTR_ID, "", parsedOk);
-    const double begin = attrs.get<double>(SUMO_ATTR_BEGIN, "", parsedOk);
-    const double end = attrs.get<double>(SUMO_ATTR_END, "", parsedOk);
+    const double begin = STEPS2TIME(attrs.getSUMOTimeReporting(SUMO_ATTR_BEGIN, "", parsedOk));
+    const double end = STEPS2TIME(attrs.getSUMOTimeReporting(SUMO_ATTR_END, "", parsedOk));
     // continue if flag is ok
     if (parsedOk) {
         // set tag
@@ -158,6 +176,8 @@ DataHandler::parseInterval(const SUMOSAXAttributes& attrs) {
         myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_ID, id);
         myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_BEGIN, begin);
         myCommonXMLStructure.getCurrentSumoBaseObject()->addDoubleAttribute(SUMO_ATTR_END, end);
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -176,6 +196,8 @@ DataHandler::parseEdgeData(const SUMOSAXAttributes& attrs) {
         myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_EDGE);
         // add all attributes
         myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_ID, id);
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -196,6 +218,8 @@ DataHandler::parseEdgeRelationData(const SUMOSAXAttributes& attrs) {
         // add all attributes
         myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROM, from);
         myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TO, to);
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -216,6 +240,8 @@ DataHandler::parseTAZRelationData(const SUMOSAXAttributes& attrs) {
         // add all attributes
         myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_FROM, from);
         myCommonXMLStructure.getCurrentSumoBaseObject()->addStringAttribute(SUMO_ATTR_TO, to);
+    } else {
+        myCommonXMLStructure.getCurrentSumoBaseObject()->setTag(SUMO_TAG_ERROR);
     }
 }
 
@@ -237,11 +263,11 @@ DataHandler::getAttributes(const SUMOSAXAttributes& attrs, const std::vector<Sum
 
 
 void
-DataHandler::checkParent(const SumoXMLTag currentTag, const SumoXMLTag parentTag, bool& ok) const {
+DataHandler::checkParent(const SumoXMLTag currentTag, const SumoXMLTag parentTag, bool& ok) {
     // check that parent SUMOBaseObject's tag is the parentTag
     if ((myCommonXMLStructure.getCurrentSumoBaseObject()->getParentSumoBaseObject() &&
             (myCommonXMLStructure.getCurrentSumoBaseObject()->getParentSumoBaseObject()->getTag() == parentTag)) == false) {
-        WRITE_ERROR(toString(currentTag) + " must be defined within the definition of a " + toString(parentTag));
+        writeError(toString(currentTag) + " must be defined within the definition of a " + toString(parentTag));
         ok = false;
     }
 }

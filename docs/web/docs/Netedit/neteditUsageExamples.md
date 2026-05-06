@@ -21,6 +21,14 @@ Either
 - load the additional file when cutting and then save the reduced additional file or
 - open the reduced network and load the original additional file. All objects outside the reduced network will be discarded with a warning.
 
+## Making curved roads
+
+1. switch to [selection mode](editModesCommon.md#select)
+2. click on both directional edges once to select them
+3. switch to [move mode](editModesCommon.md#move)
+4. click and drag to add / change geometry points (affecting both edges at the same time)
+5. (optionally) [smooth both edges](neteditPopupFunctions.md#smooth_edge) at the same time
+
 ## Specifying the complete geometry of an edge including endpoints
 
 By default, the geometry of an edge starts with the position of the source junction and ends at the position of the destination junction. However, this sometimes leads to undesired junction shapes when dealing with roads that have a large green median strip or when modeling edges that meet at a sharp angle such as highway ramps. Also, when edges in opposite directions have unequal number of lanes (i.e. due to added left-turn lanes) and the road shapes do not line up. The solution is to define an edge geometry with custom endpoints. Below are three alternative methods of accomplishing this.
@@ -34,7 +42,7 @@ By default, the geometry of an edge starts with the position of the source junct
 !!! caution
     When right-clicking the geometry point the click must be within the edge shape for this too work.
 
-Afterwards, you will have to recompute the junction shape to see how it looks (F5). If you want to modify the edge and it's reverse edge at once this works almost the same way:
+Afterwards, you will have to recompute the junction shape to see how it looks (F5). If you want to modify the edge and its reverse edge at once this works almost the same way:
 
 1.  switch to [select mode](editModesCommon.md#select)
 2.  select both edges
@@ -58,9 +66,16 @@ Afterwards, you will have to recompute the junction shape to see how it looks (F
   - Or [create a new edge with new junctions in create-edge mode](editModesNetwork.md#create_edges)
 2.  switch to [select mode](editModesCommon.md#select)
 3.  select the original junction and the new junction near it
-4.  Menu *Processing -> Join Selected Junctions (F7)*
+4.  Menu *Processing -> Join Selected Junctions* (<kbd>F7</kbd>)
 
 This will create a single joined junction but keep the endpoints at the original junction positions.
+
+### Using 'Shift Geometry'
+
+1. select the edge (i.e. by clicking on it in select mode)
+2. in move mode, enter the shift value in the input field below the label "Shift selected edges geometry" and press the "Apply shift value" button.
+
+Positive values shift the whole edge to the right (outward from the road center line) whereas negative values shift it inwards.
 
 ### Restoring edge geometry to its default state
 
@@ -74,7 +89,7 @@ The reverse operation to *Setting a custom geometry endpoint* as explained above
 ## Setting connection attributes
 
 1.  after opening the network press F5 to compute connection objects
-2.  in inspect-mode enable the *Show Connections* checkbox in the menu bar
+2.  in inspect-mode enable the *Show Connections* checkbox in the menu bar. (Alternatively, use the corresponding item in the *Edit menu* or press Alt+6)
 3.  click on a connection to inspect it and edit its attributes
 
 ## Converting an intersection into a roundabout
@@ -85,7 +100,7 @@ The reverse operation to *Setting a custom geometry endpoint* as explained above
 ## Converting a roundabout into a simple intersection
 
 1. select all junctions that are part of the roundabout
-2. join selected junctions (F7)
+2. join selected junctions (<kbd>F7</kbd>)
 3. select all edges that connected to the joined intersection
 4. right-click selection and select 'edge operations'->'restore geometry endpoints'
 
@@ -95,7 +110,7 @@ The reverse operation to *Setting a custom geometry endpoint* as explained above
     intersection (this will be the radius of the roundabout)
 2.  Delete the central intersection
 3.  Connect the new intersections with one-way roads going in a circle
-4.  Tweak the geometry of the roundabout by creating additional geometry points in [move mode](editModesCommon.md#move) to make it more rounded. 
+4.  Tweak the geometry of the roundabout by creating additional geometry points in [move mode](editModesCommon.md#move) to make it more rounded.
     You can also use the function 'smooth edge' from the edge context menu.
 5.  Check for correct right of way (the inside edge should have priority over the entering edges). This should work by default but may fail if the shape of the roundabout is not 'round' enough. Either correct the geometry or assign a higher priority value to the roundabout roads (compared to the adjoining roads)
 
@@ -173,13 +188,21 @@ directions. To make a unidirectional track usable in both directions,
 4.  set the new edge as [Edge template](editModesCommon.md#edge_template)
 5.  make the edge bidirectional as explained above in [Make an existing track bidirectional](#make_an_existing_track_bidirectional)
 6.  in [Create Edges](editModesNetwork.md#create_edges), set the checkbox to *Two-way* and optionally to *Chain*
-7.  continue to created edges. Each click will create bidirectional track
+7.  continue to create edges - each click will create bidirectional track
+
+## Define rail signals that only affect one track direction
+
+If a piece of railway track is [modelled for train operations in both directions](#creating_bidirectional_railway_tracks), any rail signal defined on this *bidi*-track will affect both direction of travel by default.
+To change this, the following steps have to be taken:
+
+1. ensure that [edges for both directions of travel are visible](../Simulation/Railways.md#working_with_bidirectional_tracks_in_netedit)
+2. [set connection attribute](#setting_connection_attributes) `uncontrolled=True` for the connection that shall not be controlled
 
 ## Creating a zipper merge
 
-1. use inspect mode to set junction type to 'zipper'
-2. use connection mode to add 2 connections which enter the zipper junction with the same target lane. The second connection must be created with CTRL+Click to override conflict protection.
-3. optionally: use inspect mode and enable 'show connections' (Alt+5). Click on the zipper connections (brown) and customize 'visibilityDistance' to set the range where vehicles start zipper merging.
+1. use inspect mode to set junction type to 'zipper'.
+2. use connection mode to add 2 connections which enter the zipper junction with the same target lane. The second connection must be created with <kbd>Ctrl</kbd> + <kbd>click</kbd> to override conflict protection.
+3. optionally: use inspect mode and enable 'show connections' (<kbd>Alt</kbd> + <kbd>5</kbd>). Click on the zipper connections (brown) and customize 'visibilityDistance' to set the range where vehicles start zipper merging.
 
 ![](../images/neteditZipper.png)
 
@@ -189,11 +212,11 @@ After deleting connections at a junction of type traffic_light, the traffic ligh
 This stability implies that the length of the phase state may be longer than needed and the list of used can contain gaps (where the unused states are).
 To clean up the states:
 
-1. enter traffic light mode (T)
+1. enter traffic light mode (<kbd>T</kbd>)
 2. click on the junction
 3. press the 'Clean States' button (this shortens the state and re-assigns indices to controlled connections)
 4. save the program
-5. recompute the network (F5) to see updated tls indices (when inspecting connections or drawing 'tls link index')
+5. recompute the network (<kbd>F5</kbd>) to see updated tls indices (when inspecting connections or drawing 'tls link index')
 
 ## Deleting all sidewalks
 
@@ -202,4 +225,52 @@ To clean up the states:
   - Object type: Lane
   - Attribute: allow
   - Value: "=pedestrian"
-3. press the `<del>` key.
+3. press the <kbd>del</kbd> key
+
+## Duplicating rightmost lane on all edges
+
+There are several solutions. The first one is as follows:
+
+1. toggle selection to work on lanes by default rather than edges (press Alt+5 when in select mode)
+2. select the desired lanes
+3. apply duplication by right clicking and going into lane operations
+
+The second solution is as follows:
+
+1. select the desired edges and go to the selection mode
+2. in selection panel on the left click: 'select children'
+3. toggle selection modification mode to 'keep'
+4. select lanes by attribute index=0 then apply selection
+5. apply duplication by right clicking and going into lane operations
+
+There is also another solution in case you want to add special lanes to your edges:
+
+1. select edges with the help of the select mode
+2. after right clicking use lane operation 'add restricted lane'
+
+
+## Building a [Two-Way-Left-Turn-lane](https://en.wikipedia.org/wiki/Reversible_lane#Turn_lanes_and_flush_medians)
+
+1. create a network with two lanes in each direction (on the road that should have a TWLT)
+2. select all edges that belong to that road using *select mode*
+3. switch to *move mode*, enter the value of -1.6 in the 'shift value' input field and press 'Apply shift value' (or hit <kbd>enter</kbd>)
+  - explanation: This makes it so that the inside lanes in both directions are directly on top of each other
+4. go to inspect mode and inspect the selection of edges
+5. activate the 'isBidi' checkbox
+
+## Building Pedestrian infrastructure
+
+In order to [simulate pedestrians](../Simulation/Pedestrians.md), the network needs sidewalks (or footpaths), walkingareas and it will usually contain pedestrian crossings.
+For pedestrian simulation to work, every lane of the network that is not meant for a shared-space simulation, should either disallow road vehicles or disallow pedestrian use.
+Prohibiting pedestrians from walking on the road can be accomplished using the 'allow' attribute of lanes but will happen automatically when either
+
+- edges are created and the 'add Sidwalk' option is active
+- edges are created with a custom 'allow' value (i.e. 'pedestrian' or 'passenger')
+- edge context menu function 'Lane operations/Add restricted Lane/Sidwealk' is applied to an edge or a selection of edges  
+
+Crossings can be created with 'crossing mode' by clicking on a junction and then clicking on one or more edges to be crossed and confirming with <kbd>ENTER</kbd>
+!!! note
+    Crossings can only be created if the edges to be crossed have lanes that prohibit pedestrian use
+    
+Walkingareas are created automatically if the network contains at least one pedestrian crossing or if option **walkingareas** is set in the options screen (<kd>F10</kbd>, in the Pedestrians tab).
+They will be created wherever footpaths or sidewalks are bordered by lanes that prohibit pedestrian use.

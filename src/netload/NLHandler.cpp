@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -45,6 +45,7 @@
 #include <microsim/MSStoppingPlace.h>
 #include <microsim/traffic_lights/MSTrafficLightLogic.h>
 #include <microsim/traffic_lights/MSRailSignal.h>
+#include <microsim/traffic_lights/MSRailSignalControl.h>
 #include <microsim/traffic_lights/MSRailSignalConstraint.h>
 #include <mesosim/MESegment.h>
 #include <utils/iodevices/OutputDevice.h>
@@ -74,8 +75,8 @@ NLHandler::NLHandler(const std::string& file, MSNet& net,
     myHaveSeenDefaultLength(false),
     myHaveSeenNeighs(false),
     myHaveSeenAdditionalSpeedRestrictions(false),
-    myHaveSeenMesoEdgeType(false),
-    myNetworkVersion(0),
+    myHaveSeenTLSParams(false),
+    myNetworkVersion(0, 0),
     myNetIsLoaded(false) {
 }
 
@@ -92,7 +93,7 @@ NLHandler::myStartElement(int element,
                 bool ok;
                 MSGlobals::gLefthand = attrs.getOpt<bool>(SUMO_ATTR_LEFTHAND, nullptr, ok, false);
                 myHaveJunctionHigherSpeeds = attrs.getOpt<bool>(SUMO_ATTR_HIGHER_SPEED, nullptr, ok, false);
-                myNetworkVersion = attrs.get<double>(SUMO_ATTR_VERSION, nullptr, ok, false);
+                myNetworkVersion = StringUtils::toVersion(attrs.get<std::string>(SUMO_ATTR_VERSION, nullptr, ok, false));
                 break;
             }
             case SUMO_TAG_EDGE:
@@ -125,6 +126,9 @@ NLHandler::myStartElement(int element,
                 break;
             case SUMO_TAG_CONNECTION:
                 addConnection(attrs);
+                break;
+            case SUMO_TAG_CONFLICT:
+                addConflict(attrs);
                 break;
             case SUMO_TAG_TLLOGIC:
                 initTrafficLightLogic(attrs);
@@ -253,8 +257,28 @@ NLHandler::myStartElement(int element,
                 }
                 break;
             }
-            case SUMO_TAG_MESO: {
-                addMesoEdgeType(attrs);
+            case SUMO_TAG_PREFERENCE: {
+                bool ok = true;
+                const std::string routingType = attrs.get<std::string>(SUMO_ATTR_ROUTINGTYPE, nullptr, ok);
+                const double prio = attrs.get<double>(SUMO_ATTR_PRIORITY, routingType.c_str(), ok);
+                if (prio <= 0) {
+                    throw InvalidArgument("In preference for routingType '" + routingType + "', priority must be positve");
+                }
+                if (attrs.hasAttribute(SUMO_ATTR_VCLASSES)) {
+                    StringTokenizer st(attrs.get<std::string>(SUMO_ATTR_VCLASSES, routingType.c_str(), ok));
+                    for (std::string className : st.getVector()) {
+                        myNet.addPreference(routingType, getVehicleClassID(className), prio);
+                    }
+                } else if (!attrs.hasAttribute(SUMO_ATTR_VTYPES)) {
+                    // general preferenze applying to all types and vClasses
+                    myNet.addPreference(routingType, "", prio);
+                }
+                if (attrs.hasAttribute(SUMO_ATTR_VTYPES)) {
+                    StringTokenizer st(attrs.get<std::string>(SUMO_ATTR_VTYPES, routingType.c_str(), ok));
+                    for (std::string typeName : st.getVector()) {
+                        myNet.addPreference(routingType, typeName, prio);
+                    }
+                }
                 break;
             }
             case SUMO_TAG_STOPOFFSET: {
@@ -282,8 +306,12 @@ NLHandler::myStartElement(int element,
             case SUMO_TAG_PREDECESSOR: // intended fall-through
             case SUMO_TAG_FOE_INSERTION: // intended fall-through
             case SUMO_TAG_INSERTION_PREDECESSOR: // intended fall-through
-            case SUMO_TAG_INSERTION_ORDER:
-                addPredecessorConstraint(element, attrs, myConstrainedSignal);
+            case SUMO_TAG_INSERTION_ORDER: // intended fall-through
+            case SUMO_TAG_BIDI_PREDECESSOR:
+                myLastParameterised.push_back(addPredecessorConstraint(element, attrs, myConstrainedSignal));
+                break;
+            case SUMO_TAG_DEADLOCK:
+                addDeadlock(attrs);
                 break;
             default:
                 break;
@@ -314,7 +342,6 @@ NLHandler::myEndElement(int element) {
         case SUMO_TAG_JUNCTION:
             if (!myCurrentIsBroken) {
                 try {
-                    myJunctionControlBuilder.closeJunctionLogic();
                     myJunctionControlBuilder.closeJunction(getFileName());
                 } catch (InvalidArgument& e) {
                     WRITE_ERROR(e.what());
@@ -327,6 +354,9 @@ NLHandler::myEndElement(int element) {
                 try {
                     myJunctionControlBuilder.closeTrafficLightLogic(getFileName());
                 } catch (InvalidArgument& e) {
+                    for (MSPhaseDefinition* const phase : myJunctionControlBuilder.getLoadedPhases()) {
+                        delete phase;
+                    }
                     WRITE_ERROR(e.what());
                 }
             }
@@ -358,6 +388,7 @@ NLHandler::myEndElement(int element) {
             }
             break;
         case SUMO_TAG_PARKING_AREA:
+            myTriggerBuilder.updateParkingAreaDefaultCapacity();
             myTriggerBuilder.endParkingArea();
             myLastParameterised.pop_back();
             break;
@@ -368,6 +399,13 @@ NLHandler::myEndElement(int element) {
             myTriggerBuilder.endStoppingPlace();
             myLastParameterised.pop_back();
             break;
+        case SUMO_TAG_PREDECESSOR: // intended fall-through
+        case SUMO_TAG_FOE_INSERTION: // intended fall-through
+        case SUMO_TAG_INSERTION_PREDECESSOR: // intended fall-through
+        case SUMO_TAG_INSERTION_ORDER: // intended fall-through
+        case SUMO_TAG_BIDI_PREDECESSOR:
+            myLastParameterised.pop_back();
+            break;
         case SUMO_TAG_NET:
             // build junction graph
             for (JunctionGraph::iterator it = myJunctionGraph.begin(); it != myJunctionGraph.end(); ++it) {
@@ -375,11 +413,11 @@ NLHandler::myEndElement(int element) {
                 MSJunction* from = myJunctionControlBuilder.retrieve(it->second.first);
                 MSJunction* to = myJunctionControlBuilder.retrieve(it->second.second);
                 if (from == nullptr) {
-                    WRITE_ERROR("Unknown from-node '" + it->second.first + "' for edge '" + it->first + "'.");
+                    WRITE_ERRORF(TL("Unknown from-node '%' for edge '%'."), it->second.first, it->first);
                     return;
                 }
                 if (to == nullptr) {
-                    WRITE_ERROR("Unknown to-node '" + it->second.second + "' for edge '" + it->first + "'.");
+                    WRITE_ERRORF(TL("Unknown to-node '%' for edge '%'."), it->second.second, it->first);
                     return;
                 }
                 if (edge != nullptr) {
@@ -439,6 +477,7 @@ NLHandler::beginEdgeParsing(const SUMOSAXAttributes& attrs) {
     const std::string streetName = attrs.getOpt<std::string>(SUMO_ATTR_NAME, id.c_str(), ok, "");
     // get the edge type
     const std::string edgeType = attrs.getOpt<std::string>(SUMO_ATTR_TYPE, id.c_str(), ok, "");
+    const std::string routingType = attrs.getOpt<std::string>(SUMO_ATTR_ROUTINGTYPE, id.c_str(), ok, "");
     // get the edge priority (only for visualization)
     const int priority = attrs.getOpt<int>(SUMO_ATTR_PRIORITY, id.c_str(), ok, -1); // default taken from netbuild/NBFrame option 'default.priority'
     // get the bidi-edge
@@ -452,7 +491,7 @@ NLHandler::beginEdgeParsing(const SUMOSAXAttributes& attrs) {
     }
     //
     try {
-        myEdgeControlBuilder.beginEdgeParsing(id, func, streetName, edgeType, priority, bidi, distance);
+        myEdgeControlBuilder.beginEdgeParsing(id, func, streetName, edgeType, routingType, priority, bidi, distance);
     } catch (InvalidArgument& e) {
         WRITE_ERROR(e.what());
         myCurrentIsBroken = true;
@@ -515,11 +554,12 @@ NLHandler::addLane(const SUMOSAXAttributes& attrs) {
     const std::string changeRightS = attrs.getOpt<std::string>(SUMO_ATTR_CHANGE_RIGHT, id.c_str(), ok, "");
     const double width = attrs.getOpt<double>(SUMO_ATTR_WIDTH, id.c_str(), ok, SUMO_const_laneWidth);
     const PositionVector shape = attrs.get<PositionVector>(SUMO_ATTR_SHAPE, id.c_str(), ok);
+    const PositionVector outlineShape = attrs.getOpt<PositionVector>(SUMO_ATTR_OUTLINESHAPE, id.c_str(), ok, PositionVector());
     const int index = attrs.get<int>(SUMO_ATTR_INDEX, id.c_str(), ok);
     const bool isRampAccel = attrs.getOpt<bool>(SUMO_ATTR_ACCELERATION, id.c_str(), ok, false);
     const std::string type = attrs.getOpt<std::string>(SUMO_ATTR_TYPE, id.c_str(), ok, "");
-    if (shape.size() < 2) {
-        WRITE_ERROR("Shape of lane '" + id + "' is broken.\n Can not build according edge.");
+    if (shape.size() < 2 && myEdgeControlBuilder.getCurrentEdgeFunction() != SumoXMLEdgeFunc::WALKINGAREA) {
+        WRITE_ERRORF(TL("Shape of lane '%' is broken.\n Can not build according edge."), id);
         myCurrentIsBroken = true;
         return;
     }
@@ -537,11 +577,11 @@ NLHandler::addLane(const SUMOSAXAttributes& attrs) {
     myCurrentIsBroken |= !ok;
     if (!myCurrentIsBroken) {
         try {
-            MSLane* lane = myEdgeControlBuilder.addLane(id, maxSpeed, friction, length, shape, width, permissions, changeLeft, changeRight, index, isRampAccel, type);
+            MSLane* lane = myEdgeControlBuilder.addLane(id, maxSpeed, friction, length, shape, width, permissions, changeLeft, changeRight, index, isRampAccel, type, outlineShape);
             // insert the lane into the lane-dictionary, checking
             if (!MSLane::dictionary(id, lane)) {
                 delete lane;
-                WRITE_ERROR("Another lane with the id '" + id + "' exists.");
+                WRITE_ERRORF(TL("Another lane with the id '%' exists."), id);
                 myCurrentIsBroken = true;
                 myLastParameterised.push_back(nullptr);
             } else {
@@ -611,7 +651,7 @@ NLHandler::parseLanes(const std::string& junctionID,
             continue;
         }
         if (lane == nullptr) {
-            WRITE_ERROR("An unknown lane ('" + laneID + "') was tried to be set as incoming to junction '" + junctionID + "'.");
+            WRITE_ERRORF(TL("An unknown lane ('%') was tried to be set as incoming to junction '%'."), laneID, junctionID);
             ok = false;
             continue;
         }
@@ -633,6 +673,9 @@ NLHandler::addParam(const SUMOSAXAttributes& attrs) {
     if (ok && myAmParsingTLLogicOrJunction) {
         assert(key != "");
         myJunctionControlBuilder.addParam(key, val);
+        if (myNetIsLoaded) {
+            myHaveSeenTLSParams = true;
+        }
     }
 }
 
@@ -765,18 +808,20 @@ NLHandler::initTrafficLightLogic(const SUMOSAXAttributes& attrs) {
         if (SUMOXMLDefinitions::TrafficLightTypes.hasString(typeS)) {
             type = SUMOXMLDefinitions::TrafficLightTypes.get(typeS);
         } else {
-            WRITE_ERROR("Traffic light '" + id + "' has unknown type '" + typeS + "'.");
+            WRITE_ERRORF(TL("Traffic light '%' has unknown type '%'."), id, typeS);
         }
         if (MSGlobals::gUseMesoSim && (type == TrafficLightType::ACTUATED || type == TrafficLightType::NEMA)) {
             if (!myHaveWarnedAboutInvalidTLType) {
-                WRITE_WARNING("Traffic light type '" + toString(type) + "' cannot be used in mesoscopic simulation. Using '" + toString(TrafficLightType::STATIC) + "' as fallback.");
+                WRITE_WARNINGF(TL("Traffic light type '%' cannot be used in mesoscopic simulation. Using '%' as fallback."), toString(type), toString(TrafficLightType::STATIC));
                 myHaveWarnedAboutInvalidTLType = true;
             }
             type = TrafficLightType::STATIC;
         }
     }
-    //
-    const SUMOTime offset = attrs.getOptSUMOTimeReporting(SUMO_ATTR_OFFSET, id.c_str(), ok, 0);
+    SUMOTime offset = attrs.getOptOffsetReporting(SUMO_ATTR_OFFSET, id.c_str(), ok, 0);
+    if (offset == SUMOTime_MAX) {
+        offset = string2time(OptionsCont::getOptions().getString("begin"));
+    }
     if (!ok) {
         myCurrentIsBroken = true;
         return;
@@ -795,7 +840,7 @@ NLHandler::addPhase(const SUMOSAXAttributes& attrs) {
     const SUMOTime duration = attrs.getSUMOTimeReporting(SUMO_ATTR_DURATION, myJunctionControlBuilder.getActiveKey().c_str(), ok);
     const std::string state = attrs.get<std::string>(SUMO_ATTR_STATE, nullptr, ok);
     if (duration == 0) {
-        WRITE_ERROR("Duration of phase " + toString(myJunctionControlBuilder.getNumberOfLoadedPhases())
+        WRITE_ERROR("Duration of phase " + toString(myJunctionControlBuilder.getLoadedPhases().size())
                     + " for tlLogic '" + myJunctionControlBuilder.getActiveKey()
                     + "' program '" + myJunctionControlBuilder.getActiveSubKey() + "' is zero.");
         return;
@@ -858,7 +903,7 @@ NLHandler::addPhase(const SUMOSAXAttributes& attrs) {
     }
 
     if (phase->maxDuration < phase->minDuration) {
-        WRITE_WARNINGF("maxDur % should not be smaller than minDir % in phase of tlLogic %", phase->maxDuration, phase->minDuration, id);
+        WRITE_WARNINGF(TL("maxDur % should not be smaller than minDir % in phase of tlLogic %"), phase->maxDuration, phase->minDuration, id);
         phase->maxDuration = phase->duration;
     }
 
@@ -873,7 +918,7 @@ NLHandler::addCondition(const SUMOSAXAttributes& attrs) {
     const std::string id = attrs.get<std::string>(SUMO_ATTR_ID, nullptr, ok);
     const std::string value = attrs.get<std::string>(SUMO_ATTR_VALUE, id.c_str(), ok);
     if (!myJunctionControlBuilder.addCondition(id, value)) {
-        WRITE_ERROR("Duplicate condition '" + id + "' in tlLogic '" + myJunctionControlBuilder.getActiveKey() + "'");
+        WRITE_ERRORF(TL("Duplicate condition '%' in tlLogic '%'"), id, myJunctionControlBuilder.getActiveKey());
     }
 }
 
@@ -921,16 +966,7 @@ NLHandler::addE1Detector(const SUMOSAXAttributes& attrs) {
     const std::string lane = attrs.get<std::string>(SUMO_ATTR_LANE, id.c_str(), ok);
     const std::string file = attrs.get<std::string>(SUMO_ATTR_FILE, id.c_str(), ok);
     const std::string detectPersonsString = attrs.getOpt<std::string>(SUMO_ATTR_DETECT_PERSONS, id.c_str(), ok, "");
-    int detectPersons = 0;
-    for (std::string mode : StringTokenizer(detectPersonsString).getVector()) {
-        if (SUMOXMLDefinitions::PersonModeValues.hasString(mode)) {
-            detectPersons |= (int)SUMOXMLDefinitions::PersonModeValues.get(mode);
-        } else {
-            WRITE_ERROR("Invalid person mode '" + mode + "' in E1 detector definition '" + id + "'");
-            myCurrentIsBroken = true;
-            return;
-        }
-    }
+    const int detectPersons = parseDetectPersons(detectPersonsString, id, ok);
     if (!ok) {
         myCurrentIsBroken = true;
         return;
@@ -967,12 +1003,14 @@ NLHandler::addInstantE1Detector(const SUMOSAXAttributes& attrs) {
     const std::string name = attrs.getOpt<std::string>(SUMO_ATTR_NAME, id.c_str(), ok, "");
     const std::string vTypes = attrs.getOpt<std::string>(SUMO_ATTR_VTYPES, id.c_str(), ok, "");
     const std::string nextEdges = attrs.getOpt<std::string>(SUMO_ATTR_NEXT_EDGES, id.c_str(), ok, "");
+    const std::string detectPersonsString = attrs.getOpt<std::string>(SUMO_ATTR_DETECT_PERSONS, id.c_str(), ok, "");
+    const int detectPersons = parseDetectPersons(detectPersonsString, id, ok);
     if (!ok) {
         myCurrentIsBroken = true;
         return;
     }
     try {
-        Parameterised* det = myDetectorBuilder.buildInstantInductLoop(id, lane, position, FileHelpers::checkForRelativity(file, getFileName()), friendlyPos, name, vTypes, nextEdges);
+        Parameterised* det = myDetectorBuilder.buildInstantInductLoop(id, lane, position, FileHelpers::checkForRelativity(file, getFileName()), friendlyPos, name, vTypes, nextEdges, detectPersons);
         myLastParameterised.push_back(det);
     } catch (InvalidArgument& e) {
         WRITE_ERROR(e.what());
@@ -985,7 +1023,7 @@ NLHandler::addInstantE1Detector(const SUMOSAXAttributes& attrs) {
 
 void
 NLHandler::addVTypeProbeDetector(const SUMOSAXAttributes& attrs) {
-    WRITE_WARNING("VTypeProbes are deprecated. Use fcd-output devices (assigned to the vType) instead.");
+    WRITE_WARNING(TL("VTypeProbes are deprecated. Use fcd-output devices (assigned to the vType) instead."));
     bool ok = true;
     std::string id = attrs.get<std::string>(SUMO_ATTR_ID, nullptr, ok);
     SUMOTime period = attrs.getOptPeriod(id.c_str(), ok, SUMOTime_MAX_PERIOD);
@@ -1045,7 +1083,7 @@ NLHandler::addE2Detector(const SUMOSAXAttributes& attrs) {
     const bool showDetector = attrs.getOpt<bool>(SUMO_ATTR_SHOW_DETECTOR, id.c_str(), ok, true);
     const std::string contStr = attrs.getOpt<std::string>(SUMO_ATTR_CONT, id.c_str(), ok, "");
     if (contStr != "") {
-        WRITE_WARNING("Ignoring deprecated argument 'cont' for E2 detector '" + id + "'");
+        WRITE_WARNINGF(TL("Ignoring deprecated argument 'cont' for E2 detector '%'"), id);
     }
     std::string lane = attrs.getOpt<std::string>(SUMO_ATTR_LANE, id.c_str(), ok, "");
     const std::string file = attrs.get<std::string>(SUMO_ATTR_FILE, id.c_str(), ok);
@@ -1056,16 +1094,7 @@ NLHandler::addE2Detector(const SUMOSAXAttributes& attrs) {
     double endPosition = attrs.getOpt<double>(SUMO_ATTR_ENDPOS, id.c_str(), ok, std::numeric_limits<double>::max());
     const std::string lanes = attrs.getOpt<std::string>(SUMO_ATTR_LANES, id.c_str(), ok, ""); // lanes has priority to lane
     const std::string detectPersonsString = attrs.getOpt<std::string>(SUMO_ATTR_DETECT_PERSONS, id.c_str(), ok, "");
-    int detectPersons = 0;
-    for (std::string mode : StringTokenizer(detectPersonsString).getVector()) {
-        if (SUMOXMLDefinitions::PersonModeValues.hasString(mode)) {
-            detectPersons |= (int)SUMOXMLDefinitions::PersonModeValues.get(mode);
-        } else {
-            WRITE_ERROR("Invalid person mode '" + mode + "' in E2 detector definition '" + id + "'");
-            myCurrentIsBroken = true;
-            return;
-        }
-    }
+    const int detectPersons = parseDetectPersons(detectPersonsString, id, ok);
     if (!ok) {
         myCurrentIsBroken = true;
         return;
@@ -1075,7 +1104,7 @@ NLHandler::addE2Detector(const SUMOSAXAttributes& attrs) {
     bool laneGiven = lane != "";
     if (!(lanesGiven || laneGiven)) {
         // in absence of any lane-specification assume specification by id
-        WRITE_WARNING("Trying to specify detector's lane by the given id since the argument 'lane' is missing.")
+        WRITE_WARNING(TL("Trying to specify detector's lane by the given id since the argument 'lane' is missing."))
         lane = id;
         laneGiven = true;
     }
@@ -1102,7 +1131,7 @@ NLHandler::addE2Detector(const SUMOSAXAttributes& attrs) {
             clanes.push_back(clane);
         }
         if (clanes.size() == 0) {
-            throw InvalidArgument("Malformed argument 'lanes' for E2Detector '" + id + "'.\nSpecify 'lanes' as a sequence of lane-IDs seperated by whitespace or comma (',')");
+            throw InvalidArgument("Malformed argument 'lanes' for E2Detector '" + id + "'.\nSpecify 'lanes' as a sequence of lane-IDs separated by whitespace or comma (',')");
         }
         if (laneGiven) {
             WRITE_WARNING("Ignoring argument 'lane' for E2Detector '" + id + "' since argument 'lanes' was given.\n"
@@ -1115,12 +1144,12 @@ NLHandler::addE2Detector(const SUMOSAXAttributes& attrs) {
         if (!posGiven) {
             // assuming start pos == lane start
             position = 0;
-            WRITE_WARNING("Missing argument 'pos' for E2Detector '" + id + "'. Assuming detector start == lane start of lane '" + clanes[0]->getID() + "'.");
+            WRITE_WARNINGF(TL("Missing argument 'pos' for E2Detector '%'. Assuming detector start == lane start of lane '%'."), id, clanes[0]->getID());
         }
         if (!endPosGiven) {
             // assuming end pos == lane end
             endPosition = clanes[clanes.size() - 1]->getLength();
-            WRITE_WARNING("Missing argument 'endPos' for E2Detector '" + id + "'. Assuming detector end == lane end of lane '" + clanes[clanes.size() - 1]->getID() + "'.");
+            WRITE_WARNINGF(TL("Missing argument 'endPos' for E2Detector '%'. Assuming detector end == lane end of lane '%'."), id, clanes[clanes.size() - 1]->getID());
         }
 
     } else {
@@ -1189,7 +1218,7 @@ NLHandler::addE2Detector(const SUMOSAXAttributes& attrs) {
             throw InvalidArgument("The detector '" + id + "' refers to an unknown lsa '" + lsaid + "'.");
         }
         if (period != -1) {
-            WRITE_WARNING("Ignoring argument 'period' for E2Detector '" + id + "' since argument 'tl' was given.");
+            WRITE_WARNINGF(TL("Ignoring argument 'period' for E2Detector '%' since argument 'tl' was given."), id);
             period = -1;
         }
     }
@@ -1240,17 +1269,9 @@ NLHandler::beginE3Detector(const SUMOSAXAttributes& attrs) {
     const std::string vTypes = attrs.getOpt<std::string>(SUMO_ATTR_VTYPES, id.c_str(), ok, "");
     const std::string nextEdges = attrs.getOpt<std::string>(SUMO_ATTR_NEXT_EDGES, id.c_str(), ok, "");
     const bool openEntry = attrs.getOpt<bool>(SUMO_ATTR_OPEN_ENTRY, id.c_str(), ok, false);
+    const bool expectArrival = attrs.getOpt<bool>(SUMO_ATTR_EXPECT_ARRIVAL, id.c_str(), ok, false);
     const std::string detectPersonsString = attrs.getOpt<std::string>(SUMO_ATTR_DETECT_PERSONS, id.c_str(), ok, "");
-    int detectPersons = 0;
-    for (std::string mode : StringTokenizer(detectPersonsString).getVector()) {
-        if (SUMOXMLDefinitions::PersonModeValues.hasString(mode)) {
-            detectPersons |= (int)SUMOXMLDefinitions::PersonModeValues.get(mode);
-        } else {
-            WRITE_ERROR("Invalid person mode '" + mode + "' in E3 detector definition '" + id + "'");
-            myCurrentIsBroken = true;
-            return;
-        }
-    }
+    const int detectPersons = parseDetectPersons(detectPersonsString, id, ok);
     if (!ok) {
         myCurrentIsBroken = true;
         return;
@@ -1258,7 +1279,7 @@ NLHandler::beginE3Detector(const SUMOSAXAttributes& attrs) {
     try {
         Parameterised* det = myDetectorBuilder.beginE3Detector(id,
                              FileHelpers::checkForRelativity(file, getFileName()),
-                             period, haltingSpeedThreshold, haltingTimeThreshold, name, vTypes, nextEdges, detectPersons, openEntry);
+                             period, haltingSpeedThreshold, haltingTimeThreshold, name, vTypes, nextEdges, detectPersons, openEntry, expectArrival);
         myLastParameterised.push_back(det);
     } catch (InvalidArgument& e) {
         myCurrentIsBroken = true;
@@ -1316,7 +1337,13 @@ NLHandler::addEdgeLaneMeanData(const SUMOSAXAttributes& attrs, int objecttype) {
     const SUMOTime end = attrs.getOptSUMOTimeReporting(SUMO_ATTR_END, id.c_str(), ok, string2time(OptionsCont::getOptions().getString("end")));
     std::vector<std::string> edgeIDs = attrs.getOpt<std::vector<std::string> >(SUMO_ATTR_EDGES, id.c_str(), ok);
     const std::string edgesFile = attrs.getOpt<std::string>(SUMO_ATTR_EDGESFILE, id.c_str(), ok, "");
-    const bool aggregate = attrs.getOpt<bool>(SUMO_ATTR_AGGREGATE, id.c_str(), ok, false);
+    const std::string aggregateStr = attrs.getOpt<std::string>(SUMO_ATTR_AGGREGATE, id.c_str(), ok, "false");
+    AggregateType aggregate = AggregateType::NO;
+    if (aggregateStr == "taz") {
+        aggregate = AggregateType::TAZ;
+    } else if (StringUtils::toBool(aggregateStr)) {
+        aggregate = AggregateType::YES;
+    }
     if (!ok) {
         return;
     }
@@ -1325,14 +1352,14 @@ NLHandler::addEdgeLaneMeanData(const SUMOSAXAttributes& attrs, int objecttype) {
         if (SUMOXMLDefinitions::PersonModeValues.hasString(mode)) {
             detectPersons |= (int)SUMOXMLDefinitions::PersonModeValues.get(mode);
         } else {
-            WRITE_ERROR("Invalid person mode '" + mode + "' in edgeData definition '" + id + "'");
+            WRITE_ERRORF(TL("Invalid person mode '%' in edgeData definition '%'"), mode, id);
             return;
         }
     }
     if (edgesFile != "") {
         std::ifstream strm(edgesFile.c_str());
         if (!strm.good()) {
-            throw ProcessError("Could not load names of edges for edgeData defintion '" + id + "' from '" + edgesFile + "'.");
+            throw ProcessError("Could not load names of edges for edgeData definition '" + id + "' from '" + edgesFile + "'.");
         }
         while (strm.good()) {
             std::string name;
@@ -1349,17 +1376,19 @@ NLHandler::addEdgeLaneMeanData(const SUMOSAXAttributes& attrs, int objecttype) {
     for (const std::string& edgeID : edgeIDs) {
         MSEdge* edge = MSEdge::dictionary(edgeID);
         if (edge == nullptr) {
-            WRITE_ERROR("Unknown edge '" + edgeID + "' in edgeData definition '" + id + "'");
+            WRITE_ERRORF(TL("Unknown edge '%' in edgeData definition '%'"), edgeID, id);
             return;
         }
         edges.push_back(edge);
     }
+    bool useLanes = objecttype == SUMO_TAG_MEANDATA_LANE;
+    if (useLanes && MSGlobals::gUseMesoSim && !OptionsCont::getOptions().getBool("meso-lane-queue")) {
+        WRITE_WARNINGF(TL("LaneData '%' requested for mesoscopic simulation but --meso-lane-queue is not active. Falling back to edgeData."), id);
+        useLanes = false;
+    }
     try {
         myDetectorBuilder.createEdgeLaneMeanData(id, period, begin, end,
-                type, objecttype == SUMO_TAG_MEANDATA_LANE,
-                // equivalent to TplConvert::_2bool used in SUMOSAXAttributes::getBool
-                excludeEmpty[0] != 't' && excludeEmpty[0] != 'T' && excludeEmpty[0] != '1' && excludeEmpty[0] != 'x',
-                excludeEmpty == "defaults", withInternal, trackVehicles, detectPersons,
+                type, useLanes, excludeEmpty, withInternal, trackVehicles, detectPersons,
                 maxTravelTime, minSamples, haltingSpeedThreshold, vtypes, writeAttributes, edges, aggregate,
                 FileHelpers::checkForRelativity(file, getFileName()));
     } catch (InvalidArgument& e) {
@@ -1384,7 +1413,7 @@ NLHandler::addConnection(const SUMOSAXAttributes& attrs) {
         return;
     }
 
-    MSLink* link = nullptr;
+    myCurrentLink = nullptr;
     try {
         const int fromLaneIdx = attrs.get<int>(SUMO_ATTR_FROM_LANE, nullptr, ok);
         const int toLaneIdx = attrs.get<int>(SUMO_ATTR_TO_LANE, nullptr, ok);
@@ -1398,18 +1427,18 @@ NLHandler::addConnection(const SUMOSAXAttributes& attrs) {
 
         MSEdge* from = MSEdge::dictionaryHint(fromID, myPreviousEdgeIdx);
         if (from == nullptr) {
-            WRITE_ERROR("Unknown from-edge '" + fromID + "' in connection.");
+            WRITE_ERRORF(TL("Unknown from-edge '%' in connection."), fromID);
             return;
         }
         myPreviousEdgeIdx = from->getNumericalID();
         MSEdge* to = MSEdge::dictionary(toID);
         if (to == nullptr) {
-            WRITE_ERROR("Unknown to-edge '" + toID + "' in connection.");
+            WRITE_ERRORF(TL("Unknown to-edge '%' in connection."), toID);
             return;
         }
         if (fromLaneIdx < 0 || fromLaneIdx >= (int)from->getLanes().size() ||
                 toLaneIdx < 0 || toLaneIdx >= (int)to->getLanes().size()) {
-            WRITE_ERROR("Invalid lane index in connection from '" + from->getID() + "' to '" + to->getID() + "'.");
+            WRITE_ERRORF(TL("Invalid lane index in connection from '%' to '%'."), from->getID(), to->getID());
             return;
         }
         MSLane* fromLane = from->getLanes()[fromLaneIdx];
@@ -1445,31 +1474,69 @@ NLHandler::addConnection(const SUMOSAXAttributes& attrs) {
                 return;
             }
             length = via->getLength();
-        } else if (toLane->getEdge().isCrossing()) {
+        } else if (toLane->isCrossing()) {
             length = toLane->getLength();
         } else {
             length = fromLane->getShape()[-1].distanceTo(toLane->getShape()[0]);
         }
-        link = new MSLink(fromLane, toLane, via, dir, state, length, foeVisibilityDistance, keepClear, logic, tlLinkIdx, indirect);
+        myCurrentLink = new MSLink(fromLane, toLane, via, dir, state, length, foeVisibilityDistance, keepClear, logic, tlLinkIdx, indirect);
         if (via != nullptr) {
-            via->addIncomingLane(fromLane, link);
+            via->addIncomingLane(fromLane, myCurrentLink);
         } else {
-            toLane->addIncomingLane(fromLane, link);
+            toLane->addIncomingLane(fromLane, myCurrentLink);
         }
-        toLane->addApproachingLane(fromLane, myNetworkVersion < 0.25);
+        toLane->addApproachingLane(fromLane, myNetworkVersion < MMVersion(0, 25));
 
         // if a traffic light is responsible for it, inform the traffic light
         // check whether this link is controlled by a traffic light
         // we can not reuse logic here because it might be an inactive one
         if (tlID != "") {
-            myJunctionControlBuilder.getTLLogic(tlID).addLink(link, fromLane, tlLinkIdx);
+            myJunctionControlBuilder.getTLLogic(tlID).addLink(myCurrentLink, fromLane, tlLinkIdx);
         }
         // add the link
-        fromLane->addLink(link);
+        fromLane->addLink(myCurrentLink);
 
     } catch (InvalidArgument& e) {
         WRITE_ERROR(e.what());
     }
+}
+
+
+void
+NLHandler::addConflict(const SUMOSAXAttributes& attrs) {
+    if (myCurrentLink == nullptr) {
+        throw InvalidArgument(toString(SUMO_TAG_CONFLICT) + " must occur within a " + toString(SUMO_TAG_CONNECTION) + " element");
+    }
+    if (!MSGlobals::gUsingInternalLanes) {
+        return;
+    }
+    bool ok = true;
+    const std::string fromID = attrs.get<std::string>(SUMO_ATTR_FROM, nullptr, ok);
+    const std::string toID = attrs.get<std::string>(SUMO_ATTR_TO, nullptr, ok);
+    const int fromLaneIdx = attrs.get<int>(SUMO_ATTR_FROM_LANE, nullptr, ok);
+    const int toLaneIdx = attrs.get<int>(SUMO_ATTR_TO_LANE, nullptr, ok);
+    double startPos = attrs.get<double>(SUMO_ATTR_STARTPOS, nullptr, ok);
+    double endPos = attrs.get<double>(SUMO_ATTR_ENDPOS, nullptr, ok);
+    MSEdge* from = MSEdge::dictionary(fromID);
+    if (from == nullptr) {
+        WRITE_ERRORF(TL("Unknown from-edge '%' in conflict."), fromID);
+        return;
+    }
+    MSEdge* to = MSEdge::dictionary(toID);
+    if (to == nullptr) {
+        WRITE_ERRORF(TL("Unknown to-edge '%' in conflict."), toID);
+        return;
+    }
+    if (fromLaneIdx < 0 || fromLaneIdx >= (int)from->getLanes().size() ||
+            toLaneIdx < 0 || toLaneIdx >= (int)to->getLanes().size()) {
+        WRITE_ERRORF(TL("Invalid lane index in conflict with '%' to '%'."), from->getID(), to->getID());
+        return;
+    }
+    MSLane* fromLane = from->getLanes()[fromLaneIdx];
+    MSLane* toLane = to->getLanes()[toLaneIdx];
+    assert(fromLane);
+    assert(toLane);
+    myCurrentLink->addCustomConflict(fromLane, toLane, startPos, endPos);
 }
 
 
@@ -1489,7 +1556,7 @@ NLHandler::parseLinkState(const std::string& state) {
         return SUMOXMLDefinitions::LinkStates.get(state);
     } else {
         if (state == "t") { // legacy networks
-            // WRITE_WARNING("Obsolete link state 't'. Use 'o' instead");
+            // WRITE_WARNING(TL("Obsolete link state 't'. Use 'o' instead"));
             return LINKSTATE_TL_OFF_BLINKING;
         } else {
             throw InvalidArgument("Unrecognised link state '" + state + "'.");
@@ -1502,7 +1569,7 @@ NLHandler::parseLinkState(const std::string& state) {
 void
 NLHandler::setLocation(const SUMOSAXAttributes& attrs) {
     if (myNetIsLoaded) {
-        //WRITE_WARNING("POIs and Polygons should be loaded using option --po-files")
+        //WRITE_WARNING(TL("POIs and Polygons should be loaded using option --po-files"))
         return;
     }
     bool ok = true;
@@ -1514,7 +1581,7 @@ NLHandler::setLocation(const SUMOSAXAttributes& attrs) {
         Position networkOffset = s[0];
         GeoConvHelper::init(proj, networkOffset, origBoundary, convBoundary);
         if (OptionsCont::getOptions().getBool("fcd-output.geo") && !GeoConvHelper::getFinal().usingGeoProjection()) {
-            WRITE_WARNING("no valid geo projection loaded from network. fcd-output.geo will not work");
+            WRITE_WARNING(TL("no valid geo projection loaded from network. fcd-output.geo will not work"));
         }
     }
 }
@@ -1534,34 +1601,34 @@ NLHandler::addDistrict(const SUMOSAXAttributes& attrs) {
         const std::string sinkID = myCurrentDistrictID + "-sink";
         const std::string sourceID = myCurrentDistrictID + "-source";
 
-        MSEdge* sink = myEdgeControlBuilder.buildEdge(sinkID, SumoXMLEdgeFunc::CONNECTOR, "", "", -1, 0);
-        if (!MSEdge::dictionary(sinkID, sink)) {
-            delete sink;
+        MSEdge* sink = MSEdge::dictionary(sinkID);
+        if (sink == nullptr) {
+            sink = myEdgeControlBuilder.buildEdge(sinkID, SumoXMLEdgeFunc::CONNECTOR, "", "", "", -1, 0);
+            MSEdge::dictionary(sinkID, sink);
+            sink->initialize(new std::vector<MSLane*>());
+        } else {
             if (OptionsCont::getOptions().getBool("junction-taz")
                     && myNet.getJunctionControl().get(myCurrentDistrictID) != nullptr) {
                 // overwrite junction taz
-                sink = MSEdge::dictionary(sinkID);
                 sink->resetTAZ(myNet.getJunctionControl().get(myCurrentDistrictID));
-                WRITE_WARNINGF("Replacing junction-taz '%' with loaded TAZ.", myCurrentDistrictID);
+                WRITE_WARNINGF(TL("Replacing junction-taz '%' with loaded TAZ."), myCurrentDistrictID);
             } else {
                 throw InvalidArgument("Another edge with the id '" + sinkID + "' exists.");
             }
-        } else {
-            sink->initialize(new std::vector<MSLane*>());
         }
-        MSEdge* source = myEdgeControlBuilder.buildEdge(sourceID, SumoXMLEdgeFunc::CONNECTOR, "", "", -1, 0);
-        if (!MSEdge::dictionary(sourceID, source)) {
-            delete source;
+        MSEdge* source = MSEdge::dictionary(sourceID);
+        if (source == nullptr) {
+            source = myEdgeControlBuilder.buildEdge(sourceID, SumoXMLEdgeFunc::CONNECTOR, "", "", "", -1, 0);
+            MSEdge::dictionary(sourceID, source);
+            source->initialize(new std::vector<MSLane*>());
+        } else {
             if (OptionsCont::getOptions().getBool("junction-taz")
                     && myNet.getJunctionControl().get(myCurrentDistrictID) != nullptr) {
                 // overwrite junction taz
-                source = MSEdge::dictionary(sourceID);
                 source->resetTAZ(myNet.getJunctionControl().get(myCurrentDistrictID));
             } else {
                 throw InvalidArgument("Another edge with the id '" + sourceID + "' exists.");
             }
-        } else {
-            source->initialize(new std::vector<MSLane*>());
         }
         sink->setOtherTazConnector(source);
         source->setOtherTazConnector(sink);
@@ -1575,6 +1642,8 @@ NLHandler::addDistrict(const SUMOSAXAttributes& attrs) {
             source->addSuccessor(edge);
             edge->addSuccessor(sink);
         }
+        source->setParameter("taz", myCurrentDistrictID);
+        sink->setParameter("taz", myCurrentDistrictID);
         RGBColor color = attrs.getOpt<RGBColor>(SUMO_ATTR_COLOR, myCurrentDistrictID.c_str(), ok, RGBColor::parseColor("1.0,.33,.33"));
         const std::string name = attrs.getOpt<std::string>(SUMO_ATTR_NAME, myCurrentDistrictID.c_str(), ok, "");
         source->setParameter("tazColor", toString(color));
@@ -1584,8 +1653,8 @@ NLHandler::addDistrict(const SUMOSAXAttributes& attrs) {
             PositionVector shape = attrs.get<PositionVector>(SUMO_ATTR_SHAPE, myCurrentDistrictID.c_str(), ok);
             const bool fill = attrs.getOpt<bool>(SUMO_ATTR_FILL, myCurrentDistrictID.c_str(), ok, false);
             if (shape.size() != 0) {
-                if (!myNet.getShapeContainer().addPolygon(myCurrentDistrictID, "taz", color, 0, 0, "", false, shape, false, fill, 1.0, false, name)) {
-                    WRITE_WARNING("Skipping visualization of taz '" + myCurrentDistrictID + "', polygon already exists.");
+                if (!myNet.getShapeContainer().addPolygon(myCurrentDistrictID, "taz", color, 0, 0, "", shape, false, fill, 1.0, false, name)) {
+                    WRITE_WARNINGF(TL("Skipping visualization of taz '%', polygon already exists."), myCurrentDistrictID);
                 } else {
                     myLastParameterised.push_back(myNet.getShapeContainer().getPolygons().get(myCurrentDistrictID));
                     myCurrentIsBroken = false;
@@ -1616,7 +1685,7 @@ NLHandler::addDistrictEdge(const SUMOSAXAttributes& attrs, bool isSource) {
             succ->addSuccessor(MSEdge::dictionary(myCurrentDistrictID + "-sink"));
         }
     } else {
-        WRITE_ERROR("At district '" + myCurrentDistrictID + "': succeeding edge '" + id + "' does not exist.");
+        WRITE_ERRORF(TL("At district '%': succeeding edge '%' does not exist."), myCurrentDistrictID, id);
     }
 }
 
@@ -1629,7 +1698,7 @@ NLHandler::addRoundabout(const SUMOSAXAttributes& attrs) {
         for (const std::string& eID : edgeIDs) {
             MSEdge* edge = MSEdge::dictionary(eID);
             if (edge == nullptr) {
-                WRITE_ERROR("Unknown edge '" + eID + "' in roundabout");
+                WRITE_ERRORF(TL("Unknown edge '%' in roundabout"), eID);
             } else {
                 edge->markAsRoundabout();
             }
@@ -1639,26 +1708,20 @@ NLHandler::addRoundabout(const SUMOSAXAttributes& attrs) {
 
 
 void
-NLHandler::addMesoEdgeType(const SUMOSAXAttributes& attrs) {
+NLHandler::addDeadlock(const SUMOSAXAttributes& attrs) {
     bool ok = true;
-    MESegment::MesoEdgeType edgeType = myNet.getMesoType(""); // init defaults
-    edgeType.tauff = attrs.getOptSUMOTimeReporting(SUMO_ATTR_MESO_TAUFF, myCurrentTypeID.c_str(), ok, edgeType.tauff);
-    edgeType.taufj = attrs.getOptSUMOTimeReporting(SUMO_ATTR_MESO_TAUFJ, myCurrentTypeID.c_str(), ok, edgeType.taufj);
-    edgeType.taujf = attrs.getOptSUMOTimeReporting(SUMO_ATTR_MESO_TAUJF, myCurrentTypeID.c_str(), ok, edgeType.taujf);
-    edgeType.taujj = attrs.getOptSUMOTimeReporting(SUMO_ATTR_MESO_TAUJJ, myCurrentTypeID.c_str(), ok, edgeType.taujj);
-    edgeType.jamThreshold = attrs.getOpt<double>(SUMO_ATTR_JAM_DIST_THRESHOLD, myCurrentTypeID.c_str(), ok, edgeType.jamThreshold);
-    edgeType.junctionControl = attrs.getOpt<bool>(SUMO_ATTR_MESO_JUNCTION_CONTROL, myCurrentTypeID.c_str(), ok, edgeType.junctionControl);
-    edgeType.tlsPenalty = attrs.getOpt<double>(SUMO_ATTR_MESO_TLS_PENALTY, myCurrentTypeID.c_str(), ok, edgeType.tlsPenalty);
-    edgeType.tlsFlowPenalty = attrs.getOpt<double>(SUMO_ATTR_MESO_TLS_FLOW_PENALTY, myCurrentTypeID.c_str(), ok, edgeType.tlsFlowPenalty);
-    edgeType.minorPenalty = attrs.getOptSUMOTimeReporting(SUMO_ATTR_MESO_MINOR_PENALTY, myCurrentTypeID.c_str(), ok, edgeType.minorPenalty);
-    edgeType.overtaking = attrs.getOpt<bool>(SUMO_ATTR_MESO_OVERTAKING, myCurrentTypeID.c_str(), ok, edgeType.overtaking);
-
-    if (ok) {
-        myNet.addMesoType(myCurrentTypeID, edgeType);
+    std::vector<std::string> signalIDs = attrs.get<std::vector<std::string>>(SUMO_ATTR_SIGNALS, nullptr, ok);
+    std::vector<const MSRailSignal*> signals;
+    for (const std::string& id : signalIDs) {
+        const MSTrafficLightLogic* tll = myJunctionControlBuilder.getTLLogicControlToUse().getActive(id);
+        const MSRailSignal* rs = dynamic_cast<const MSRailSignal*>(tll);
+        if (rs != nullptr) {
+            signals.push_back(rs);
+        } else {
+            throw InvalidArgument("Rail signal '" + toString(id) + "' in " + toString(SUMO_TAG_DEADLOCK) + " is not known");
+        }
     }
-    if (myNetIsLoaded) {
-        myHaveSeenMesoEdgeType = true;
-    }
+    MSRailSignalControl::getInstance().addDeadlockCheck(signals);
 }
 
 // ----------------------------------
@@ -1690,7 +1753,7 @@ Position
 NLShapeHandler::getLanePos(const std::string& poiID, const std::string& laneID, double lanePos, bool friendlyPos, double lanePosLat) {
     MSLane* lane = MSLane::dictionary(laneID);
     if (lane == nullptr) {
-        WRITE_ERROR("Lane '" + laneID + "' to place poi '" + poiID + "' on is not known.");
+        WRITE_ERRORF(TL("Lane '%' to place poi '%' on is not known."), laneID, poiID);
         return Position::INVALID;
     }
     if (lanePos < 0) {
@@ -1703,13 +1766,13 @@ NLShapeHandler::getLanePos(const std::string& poiID, const std::string& laneID, 
         lanePos = lane->getLength();
     }
     if (lanePos < 0 || lanePos > lane->getLength()) {
-        WRITE_WARNING("lane position " + toString(lanePos) + " for poi '" + poiID + "' is not valid.");
+        WRITE_WARNINGF(TL("lane position % for poi '%' is not valid."), toString(lanePos), poiID);
     }
     return lane->geometryPositionAtOffset(lanePos, -lanePosLat);
 }
 
 
-void
+Parameterised*
 NLHandler::addPredecessorConstraint(int element, const SUMOSAXAttributes& attrs, MSRailSignal* rs) {
     if (rs == nullptr) {
         throw InvalidArgument("Rail signal '" + toString((SumoXMLTag)element) + "' constraint must occur within a railSignalConstraints element");
@@ -1743,15 +1806,38 @@ NLHandler::addPredecessorConstraint(int element, const SUMOSAXAttributes& attrs,
         case SUMO_TAG_INSERTION_ORDER:
             type = MSRailSignalConstraint::ConstraintType::INSERTION_ORDER;
             break;
+        case SUMO_TAG_BIDI_PREDECESSOR:
+            type = MSRailSignalConstraint::ConstraintType::BIDI_PREDECESSOR;
+            break;
         default:
             throw InvalidArgument("Unsupported rail signal constraint '" + toString((SumoXMLTag)element) + "'");
     }
+    Parameterised* result = nullptr;
     if (ok) {
         for (const std::string& foe : foes) {
             MSRailSignalConstraint* c = new MSRailSignalConstraint_Predecessor(type, signal, foe, limit, active);
             rs->addConstraint(tripId, c);
+            // XXX if there are multiple foes, only one constraint will receive the parameters
+            result = c;
         }
     }
+    return result;
+}
+
+
+int
+NLHandler::parseDetectPersons(const std::string& detectPersonsString, const std::string& id, bool& ok) {
+    int detectPersons = 0;
+    for (std::string mode : StringTokenizer(detectPersonsString).getVector()) {
+        if (SUMOXMLDefinitions::PersonModeValues.hasString(mode)) {
+            detectPersons |= (int)SUMOXMLDefinitions::PersonModeValues.get(mode);
+        } else {
+            WRITE_ERRORF(TL("Invalid person mode '%' in E1 detector definition '%'"), mode, id);
+            ok = false;
+            return 0;
+        }
+    }
+    return detectPersons;
 }
 
 

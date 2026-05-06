@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2008-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -32,18 +32,18 @@ cmd = [
     '-r', 'input_routes.rou.xml',
     '--no-step-log', ]
 
-traci.start(cmd)
+traci.start(cmd + sys.argv[1:])
 traci.simulationStep()  # insert vehicles
 vehs = ['stratLeft', 'stratRight']
 for vehID in vehs:
     traci.vehicle.setLaneChangeMode(vehID, 0)
 
 for i in range(8):
+    print()
     t = traci.simulation.getTime()
     for vehID in vehs:
         for dir in [-1, 1]:
             s, sTraci = traci.vehicle.getLaneChangeStatePretty(vehID, dir)
             print("%s v=%s d=%s s=%s sTraci=%s" % (t, vehID, dir, s, sTraci))
     traci.simulationStep()
-    print()
 traci.close()

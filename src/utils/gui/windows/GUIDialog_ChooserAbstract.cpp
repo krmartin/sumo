@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 #include <fxkeys.h>
+#include <utils/common/MsgHandler.h>
 #include <utils/gui/windows/GUIAppEnum.h>
 #include <utils/gui/windows/GUIGlChildWindow.h>
 #include <utils/gui/windows/GUIMainWindow.h>
@@ -46,7 +47,7 @@ FXDEFMAP(GUIDialog_ChooserAbstract) GUIDialog_ChooserAbstractMap[] = {
     FXMAPFUNC(SEL_COMMAND,  MID_CANCEL,                 GUIDialog_ChooserAbstract::onCmdClose),
     FXMAPFUNC(SEL_CHANGED,  MID_CHOOSER_TEXT,           GUIDialog_ChooserAbstract::onChgText),
     FXMAPFUNC(SEL_COMMAND,  MID_CHOOSER_TEXT,           GUIDialog_ChooserAbstract::onCmdText),
-    FXMAPFUNC(SEL_KEYPRESS, MID_CHOOSER_LIST,           GUIDialog_ChooserAbstract::onListKeyPress),
+    FXMAPFUNC(SEL_KEYPRESS, 0,                          GUIDialog_ChooserAbstract::onKeyPress),
     FXMAPFUNC(SEL_CHANGED,  MID_CHOOSER_LIST,           GUIDialog_ChooserAbstract::onChgList),
     FXMAPFUNC(SEL_DESELECTED, MID_CHOOSER_LIST,         GUIDialog_ChooserAbstract::onChgListSel),
     FXMAPFUNC(SEL_COMMAND,  MID_CHOOSER_FILTER,         GUIDialog_ChooserAbstract::onCmdFilter),
@@ -64,9 +65,14 @@ FXIMPLEMENT(GUIDialog_ChooserAbstract, FXMainWindow, GUIDialog_ChooserAbstractMa
 // ===========================================================================
 // method definitions
 // ===========================================================================
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4355) // mask warning about "this" in initializers
+#endif
 GUIDialog_ChooserAbstract::GUIDialog_ChooserAbstract(GUIGlChildWindow* windowsParent, int messageId,
         FXIcon* icon, const FXString& title, const std::vector<GUIGlID>& ids, GUIGlObjectStorage& /*glStorage*/) :
     FXMainWindow(windowsParent->getApp(), title, icon, nullptr, GUIDesignChooserDialog),
+    GUIPersistentWindowPos(this, "LOCATOR", true, 20, 40, 300, 350),
     myWindowsParent(windowsParent),
     myMessageId(messageId),
     myLocateByName(false),
@@ -79,42 +85,44 @@ GUIDialog_ChooserAbstract::GUIDialog_ChooserAbstract(GUIGlChildWindow* windowsPa
     myList = new FXList(layoutList, this, MID_CHOOSER_LIST, GUIDesignChooserListSingle);
     // build the buttons
     FXVerticalFrame* layoutRight = new FXVerticalFrame(hbox, GUIDesignChooserLayoutRight);
-    myCenterButton = new FXButton(layoutRight, "Center\t\t", GUIIconSubSys::getIcon(GUIIcon::RECENTERVIEW), this, MID_CHOOSER_CENTER, GUIDesignChooserButtons);
-    myTrackButton = new FXButton(layoutRight, "Track\t\t", GUIIconSubSys::getIcon(GUIIcon::RECENTERVIEW), this, MID_CHOOSER_TRACK, GUIDesignChooserButtons);
+    myCenterButton = GUIDesigns::buildFXButton(layoutRight, TL("Center"), "", "", GUIIconSubSys::getIcon(GUIIcon::RECENTERVIEW), this, MID_CHOOSER_CENTER, GUIDesignChooserButtons);
+    myTrackButton = GUIDesigns::buildFXButton(layoutRight, TL("Track"), "", "", GUIIconSubSys::getIcon(GUIIcon::RECENTERVIEW), this, MID_CHOOSER_TRACK, GUIDesignChooserButtons);
     // only enable Track Button if we're locating vehicles
-    if (title.text() != std::string("Vehicle Chooser")) {
+    if (title.text() != std::string(TL("Vehicle Chooser"))) {
         myTrackButton->disable();
         myTrackButton->hide();
     }
     new FXHorizontalSeparator(layoutRight, GUIDesignHorizontalSeparator);
-    new FXButton(layoutRight, "&Hide Unselected\t\t", GUIIconSubSys::getIcon(GUIIcon::FLAG), this, MID_CHOOSER_FILTER, GUIDesignChooserButtons);
-    new FXButton(layoutRight, "By &Name\tLocate item by name\t", nullptr, this, MID_CHOOSEN_NAME, GUIDesignChooserButtons);
-    new FXButton(layoutRight, "&Select/deselect\t\tSelect/deselect current object", GUIIconSubSys::getIcon(GUIIcon::FLAG), this, MID_CHOOSEN_INVERT, GUIDesignChooserButtons);
-    new FXButton(layoutRight, "&Filter substring\t\t", nullptr, this, MID_CHOOSER_FILTER_SUBSTR, GUIDesignChooserButtons);
-    new FXButton(layoutRight, "Select &all\t\tSelect all items in list", GUIIconSubSys::getIcon(GUIIcon::FLAG), this, MID_CHOOSEN_SELECT, GUIDesignChooserButtons);
-    new FXButton(layoutRight, "&Deselect all\t\tDeselect all items in list", GUIIconSubSys::getIcon(GUIIcon::FLAG), this, MID_CHOOSEN_CLEAR, GUIDesignChooserButtons);
-    new FXButton(layoutRight, "&Update\t\tReload all ids", GUIIconSubSys::getIcon(GUIIcon::RELOAD), this, MID_UPDATE, GUIDesignChooserButtons);
+    GUIDesigns::buildFXButton(layoutRight, TL("&Hide Unselected"), "", "", GUIIconSubSys::getIcon(GUIIcon::FLAG), this, MID_CHOOSER_FILTER, GUIDesignChooserButtons);
+    GUIDesigns::buildFXButton(layoutRight, TL("By &Name"), TL("Locate item by name"), "", nullptr, this, MID_CHOOSEN_NAME, GUIDesignChooserButtons);
+    GUIDesigns::buildFXButton(layoutRight, TL("&Select/deselect"), "", TL("Select/deselect current object"), GUIIconSubSys::getIcon(GUIIcon::FLAG), this, MID_CHOOSEN_INVERT, GUIDesignChooserButtons);
+    GUIDesigns::buildFXButton(layoutRight, TL("&Filter substring"), "", "", nullptr, this, MID_CHOOSER_FILTER_SUBSTR, GUIDesignChooserButtons);
+    GUIDesigns::buildFXButton(layoutRight, TL("Select &all"), "", TL("Select all items in list"), GUIIconSubSys::getIcon(GUIIcon::FLAG), this, MID_CHOOSEN_SELECT, GUIDesignChooserButtons);
+    GUIDesigns::buildFXButton(layoutRight, TL("&Deselect all"), "", TL("Deselect all items in list"), GUIIconSubSys::getIcon(GUIIcon::FLAG), this, MID_CHOOSEN_CLEAR, GUIDesignChooserButtons);
+    GUIDesigns::buildFXButton(layoutRight, TL("&Update"), "", TL("Reload all ids"), GUIIconSubSys::getIcon(GUIIcon::RELOAD), this, MID_UPDATE, GUIDesignChooserButtons);
     new FXHorizontalSeparator(layoutRight, GUIDesignHorizontalSeparator);
-    new FXButton(layoutRight, "&Close\t\t", GUIIconSubSys::getIcon(GUIIcon::NO), this, MID_CANCEL, GUIDesignChooserButtons);
+    GUIDesigns::buildFXButton(layoutRight, TL("&Close"), "", "", GUIIconSubSys::getIcon(GUIIcon::NO), this, MID_CANCEL, GUIDesignChooserButtons);
     myCountLabel = new FXLabel(layoutRight, "placeholder", nullptr, LAYOUT_BOTTOM | LAYOUT_FILL_X | JUSTIFY_LEFT);
-    myCaseSensitive = new FXCheckButton(layoutRight, "case-sensitive search");
+    myCaseSensitive = new FXCheckButton(layoutRight, TL("case-sensitive search"));
     myCaseSensitive->setCheck(getApp()->reg().readIntEntry("LOCATOR", "caseSensitive", 0) == 1);
-    myInstantCenter = new FXCheckButton(layoutRight, "auto-center");
+    myInstantCenter = new FXCheckButton(layoutRight, TL("auto-center"));
     myInstantCenter->setCheck(getApp()->reg().readIntEntry("LOCATOR", "autoCenter", 0) == 1);
     refreshList(ids);
     // add child in windowsParent
-    myWindowsParent->getParent()->addChild(this);
+    myWindowsParent->getGUIMainWindowParent()->addChild(this);
+    loadWindowPos();
     // create and show dialog
     create();
     show();
-
-    getApp()->reg().writeIntEntry("TL_TRACKER", "x", getX());
 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 
 GUIDialog_ChooserAbstract::~GUIDialog_ChooserAbstract() {
     // remove child from windowsParent
-    myWindowsParent->getParent()->removeChild(this);
+    myWindowsParent->getGUIMainWindowParent()->removeChild(this);
     getApp()->reg().writeIntEntry("LOCATOR", "autoCenter", myInstantCenter->getCheck());
     getApp()->reg().writeIntEntry("LOCATOR", "caseSensitive", myCaseSensitive->getCheck());
 }
@@ -151,7 +159,7 @@ GUIDialog_ChooserAbstract::onCmdTrack(FXObject*, FXSelector, void*) {
         myWindowsParent->setView(*static_cast<GUIGlID*>(myList->getItemData(selected)));
         GUIGlID id = *static_cast<GUIGlID*>(myList->getItemData(selected));
         GUIGlObject* o = GUIGlObjectStorage::gIDStorage.getObjectBlocking(id);
-        if (o->getType() == GLO_VEHICLE) {
+        if (o != nullptr && o->getType() == GLO_VEHICLE) {
             myWindowsParent->getView()->startTrack(o->getGlID());
         }
         GUIGlObjectStorage::gIDStorage.unblockObject(id);
@@ -239,7 +247,7 @@ GUIDialog_ChooserAbstract::onCmdText(FXObject*, FXSelector, void*) {
 
 
 long
-GUIDialog_ChooserAbstract::onListKeyPress(FXObject*, FXSelector, void* ptr) {
+GUIDialog_ChooserAbstract::onKeyPress(FXObject* o, FXSelector sel, void* ptr) {
     FXEvent* event = (FXEvent*)ptr;
     if (event->code == KEY_Return) {
         onCmdText(nullptr, 0, nullptr);
@@ -250,9 +258,11 @@ GUIDialog_ChooserAbstract::onListKeyPress(FXObject*, FXSelector, void* ptr) {
     } else if (event->code == KEY_Left || (event->code == KEY_Up && myList->getCurrentItem() == 0)) {
         myTextEntry->setFocus();
         return 1;
+    } else if (event->code == KEY_Escape) {
+        close(true);
+        return 1;
     }
-    // let other elements handle the keypress
-    return 0;
+    return FXMainWindow::onKeyPress(o, sel, ptr);
 }
 
 
@@ -292,7 +302,7 @@ GUIDialog_ChooserAbstract::onCmdFilterSubstr(FXObject*, FXSelector, void*) {
         }
     }
     refreshList(selectedGlIDs);
-    // filter ACs in NETEDIT
+    // filter ACs in netedit
     filterACs(selectedGlIDs);
     myHaveFilteredSubstring = true;
     onChgText(nullptr, 0, nullptr);
@@ -325,7 +335,7 @@ GUIDialog_ChooserAbstract::refreshList(const std::vector<GUIGlID>& ids) {
         GUIGlObjectStorage::gIDStorage.unblockObject(i);
     }
     myList->update();
-    myCountLabel->setText((toString(ids.size()) + " objects").c_str());
+    myCountLabel->setText(TLF("% objects", toString(ids.size())).c_str());
 }
 
 
@@ -427,7 +437,7 @@ GUIDialog_ChooserAbstract::deselect(int listIndex) {
 
 void
 GUIDialog_ChooserAbstract::filterACs(const std::vector<GUIGlID>& /*GLIDs*/) {
-    // overrided in GNEDialogACChooser
+    // overrided in GNEACChooserDialog
 }
 
 /****************************************************************************/

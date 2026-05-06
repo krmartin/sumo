@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -64,9 +64,6 @@ public:
     /**@brief check start and end position of a stop
      * @brief return */
     static StopPos checkStopPos(double& startPos, double& endPos, const double laneLength, const double minLength, const bool friendlyPos);
-
-    /// @brief check if start and end position of a stop is valid
-    static bool isStopPosValid(const double startPos, const double endPos, const double laneLength, const double minLength, const bool friendlyPos);
 
     /// @brief returns the first departure time that was ever read
     SUMOTime getFirstDepart() const;
@@ -164,8 +161,14 @@ protected:
     /// @name add element functions
     //@{
 
+    /// @brief Processing of a person or container
+    virtual void addTransportable(const SUMOSAXAttributes& attrs, const bool isPerson) {
+        UNUSED_PARAMETER(attrs);
+        UNUSED_PARAMETER(isPerson);
+    }
+
     /// @brief Processing of a stop
-    virtual void addStop(const SUMOSAXAttributes& attrs) = 0;
+    virtual Parameterised* addStop(const SUMOSAXAttributes& attrs) = 0;
 
     /// @brief add a routing request for a walking or intermodal person
     virtual void addPersonTrip(const SUMOSAXAttributes& attrs) = 0;
@@ -173,14 +176,8 @@ protected:
     /// @brief add a fully specified walk
     virtual void addWalk(const SUMOSAXAttributes& attrs) = 0;
 
-    /// @brief Processing of a person
-    virtual void addPerson(const SUMOSAXAttributes& attrs) = 0;
-
     /// @brief Processing of a ride
     virtual void addRide(const SUMOSAXAttributes& attrs) = 0;
-
-    /// @brief Processing of a container
-    virtual void addContainer(const SUMOSAXAttributes& attrs) = 0;
 
     /// @brief Processing of a transport
     virtual void addTransport(const SUMOSAXAttributes& attrs) = 0;
@@ -209,6 +206,9 @@ protected:
     /// @brief Parameter of the current vehicle, trip, person, container or flow
     SUMOVehicleParameter* myVehicleParameter;
 
+    /// @brief The stack of currently parsed parameterised objects
+    std::vector<Parameterised*> myParamStack;
+
     /// @brief The insertion time of the vehicle read last
     SUMOTime myLastDepart;
 
@@ -228,16 +228,10 @@ protected:
     double myCurrentCosts;
 
     /// @brief List of the stops on the parsed route
-    std::vector<SUMOVehicleParameter::Stop> myActiveRouteStops;
+    StopParVector myActiveRouteStops;
 
     /// @brief The currently parsed vehicle type
     SUMOVTypeParameter* myCurrentVType;
-
-    /// @brief Parameterised used for saving loaded generic parameters that aren't saved in Vehicles or Vehicle Types
-    Parameterised myLoadedParameterised;
-
-    /// @brief generates numerical ids
-    IDSupplier myIdSupplier;
 
     /// @brief The default value for flow begins
     SUMOTime myBeginDefault;
@@ -251,8 +245,14 @@ protected:
     /// @brief where stop edges can be inserted into the current route (-1 means no insertion)
     int myInsertStopEdgesAt;
 
-    /// @brief hierachy of elements being parsed
+    /// @brief hierarchy of elements being parsed
     std::vector<int> myElementStack;
+
+    /// @brief whether references to internal routes are allowed in this context
+    bool myAllowInternalRoutes;
+
+    /// @brief IDs of skipped vehicles to suppress errors for the triggered transportables within
+    std::set<std::string> mySkippedVehicles;
 
 private:
     /// @brief Invalidated copy constructor

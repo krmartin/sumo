@@ -10,7 +10,8 @@ using the end of the last standing vehicle.
 
 The simulation is forced to generate this output using the option **--queue-output** {{DT_FILE}}. {{DT_FILE}} is
 the name of the file the output will be written to. Any other file with
-this name will be overwritten, the destination folder must exist.
+this name will be overwritten, the destination folder must exist. Using the option **--qeue-output.period** {{DT_TIME}}, the times 
+the queue lengths will be written can be restricted to the given period. Then, the other time steps will be skipped.
 
 ## Generated Output
 
@@ -49,3 +50,11 @@ The generated XML file looks like this:
 This output option should offer some information about the queues in
 front of the junctions, which can be used in cases of routing or V2X
 communications.
+
+## Visualization example
+
+### Queuing times over time
+
+<img src="../../images/queue_out.png" width="500px"/>
+
+Generated with [plotXMLAttributes.py](../../Tools/Visualization.md#queuing_times_over_time).

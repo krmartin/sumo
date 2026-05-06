@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2017-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2017-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -27,8 +27,10 @@
 #include <microsim/MSVehicle.h>
 #include <microsim/MSInsertionControl.h>
 #include <libsumo/Helper.h>
+#include <libsumo/StorageHelper.h>
 #include <libsumo/TraCIDefs.h>
 #include <libsumo/TraCIConstants.h>
+#include <libsumo/Lane.h>
 #include <utils/emissions/HelpersHarmonoise.h>
 #include "Edge.h"
 
@@ -46,6 +48,7 @@ ContextSubscriptionResults Edge::myContextSubscriptionResults;
 // ===========================================================================
 std::vector<std::string>
 Edge::getIDList() {
+    MSNet::getInstance(); // just to check that we actually have a network
     std::vector<std::string> ids;
     MSEdge::insertIDs(ids);
     return ids;
@@ -281,6 +284,29 @@ Edge::getPendingVehicles(const std::string& edgeID) {
     return vehIDs;
 }
 
+
+double
+Edge::getAngle(const std::string& edgeID, double relativePosition) {
+    const std::vector<MSLane*>& lanes = getEdge(edgeID)->getLanes();
+    return lanes.empty() ? libsumo::INVALID_DOUBLE_VALUE : Lane::getAngle(lanes.front()->getID(), relativePosition);
+}
+
+std::string
+Edge::getFromJunction(const std::string& edgeID) {
+    return getEdge(edgeID)->getFromJunction()->getID();
+}
+
+std::string
+Edge::getToJunction(const std::string& edgeID) {
+    return getEdge(edgeID)->getToJunction()->getID();
+}
+
+std::string
+Edge::getBidiEdge(const std::string& edgeID) {
+    const MSEdge* bidi = getEdge(edgeID)->getBidiEdge();
+    return bidi == nullptr ? "" : bidi->getID();
+}
+
 std::string
 Edge::getParameter(const std::string& edgeID, const std::string& param) {
     return getEdge(edgeID)->getParameter(param, "");
@@ -291,26 +317,36 @@ LIBSUMO_GET_PARAMETER_WITH_KEY_IMPLEMENTATION(Edge)
 
 
 void
-Edge::setAllowedVehicleClasses(const std::string& edgeID, std::vector<std::string> classes) {
-    SVCPermissions permissions = parseVehicleClasses(classes);
-    setAllowedSVCPermissions(edgeID, permissions);
+Edge::setAllowed(const std::string& edgeID, std::string allowedClasses) {
+    setAllowedSVCPermissions(edgeID, parseVehicleClasses(allowedClasses));
 }
 
 
 void
-Edge::setDisallowedVehicleClasses(const std::string& edgeID, std::vector<std::string> classes) {
-    SVCPermissions permissions = invertPermissions(parseVehicleClasses(classes));
-    setAllowedSVCPermissions(edgeID, permissions);
+Edge::setAllowed(const std::string& edgeID, std::vector<std::string> allowedClasses) {
+    setAllowedSVCPermissions(edgeID, parseVehicleClasses(allowedClasses));
 }
 
 
 void
-Edge::setAllowedSVCPermissions(const std::string& edgeID, int permissions) {
+Edge::setDisallowed(const std::string& edgeID, std::string disallowedClasses) {
+    setAllowedSVCPermissions(edgeID, invertPermissions(parseVehicleClasses(disallowedClasses)));
+}
+
+
+void
+Edge::setDisallowed(const std::string& edgeID, std::vector<std::string> disallowedClasses) {
+    setAllowedSVCPermissions(edgeID, invertPermissions(parseVehicleClasses(disallowedClasses)));
+}
+
+
+void
+Edge::setAllowedSVCPermissions(const std::string& edgeID, long long int permissions) {
     MSEdge* e = getEdge(edgeID);
     for (MSLane* lane : e->getLanes()) {
         lane->setPermissions(permissions, MSLane::CHANGE_PERMISSIONS_PERMANENT);
     }
-    e->rebuildAllowedLanes();
+    e->rebuildAllowedLanes(false, true);
 }
 
 
@@ -328,15 +364,13 @@ Edge::setEffort(const std::string& edgeID, double effort, double beginSeconds, d
 
 void
 Edge::setMaxSpeed(const std::string& edgeID, double speed) {
-    for (MSLane* lane : getEdge(edgeID)->getLanes()) {
-        lane->setMaxSpeed(speed);
-    }
+    getEdge(edgeID)->setMaxSpeed(speed);
 }
 
 void
-Edge::setFriction(const std::string& edgeID, double value) {
+Edge::setFriction(const std::string& edgeID, double friction) {
     for (MSLane* lane : getEdge(edgeID)->getLanes()) {
-        lane->setFrictionCoefficient(value);
+        lane->setFrictionCoefficient(friction);
     }
 }
 
@@ -352,10 +386,8 @@ LIBSUMO_SUBSCRIPTION_IMPLEMENTATION(Edge, EDGE)
 void
 Edge::storeShape(const std::string& edgeID, PositionVector& shape) {
     const MSEdge* const e = getEdge(edgeID);
-    const std::vector<MSLane*>& lanes = e->getLanes();
-    shape = lanes.front()->getShape();
-    if (lanes.size() > 1) {
-        copy(lanes.back()->getShape().begin(), lanes.back()->getShape().end(), back_inserter(shape));
+    for (const MSLane* lane : e->getLanes()) {
+        copy(lane->getShape().begin(), lane->getShape().end(), back_inserter(shape));
     }
 }
 
@@ -373,6 +405,10 @@ Edge::handleVariable(const std::string& objID, const int variable, VariableWrapp
             return wrapper->wrapStringList(objID, variable, getIDList());
         case ID_COUNT:
             return wrapper->wrapInt(objID, variable, getIDCount());
+        case VAR_EDGE_TRAVELTIME:
+            return wrapper->wrapDouble(objID, variable, getAdaptedTraveltime(objID, StoHelp::readTypedDouble(*paramData)));
+        case VAR_EDGE_EFFORT:
+            return wrapper->wrapDouble(objID, variable, getEffort(objID, StoHelp::readTypedDouble(*paramData)));
         case VAR_CURRENT_TRAVELTIME:
             return wrapper->wrapDouble(objID, variable, getTraveltime(objID));
         case VAR_WAITING_TIME:
@@ -415,12 +451,18 @@ Edge::handleVariable(const std::string& objID, const int variable, VariableWrapp
             return wrapper->wrapString(objID, variable, getStreetName(objID));
         case VAR_PENDING_VEHICLES:
             return wrapper->wrapStringList(objID, variable, getPendingVehicles(objID));
-        case libsumo::VAR_PARAMETER:
-            paramData->readUnsignedByte();
-            return wrapper->wrapString(objID, variable, getParameter(objID, paramData->readString()));
-        case libsumo::VAR_PARAMETER_WITH_KEY:
-            paramData->readUnsignedByte();
-            return wrapper->wrapStringPair(objID, variable, getParameterWithKey(objID, paramData->readString()));
+        case VAR_ANGLE:
+            return wrapper->wrapDouble(objID, variable, getAngle(objID, StoHelp::readTypedDouble(*paramData)));
+        case FROM_JUNCTION:
+            return wrapper->wrapString(objID, variable, getFromJunction(objID));
+        case TO_JUNCTION:
+            return wrapper->wrapString(objID, variable, getToJunction(objID));
+        case VAR_BIDI:
+            return wrapper->wrapString(objID, variable, getBidiEdge(objID));
+        case VAR_PARAMETER:
+            return wrapper->wrapString(objID, variable, getParameter(objID, StoHelp::readTypedString(*paramData)));
+        case VAR_PARAMETER_WITH_KEY:
+            return wrapper->wrapStringPair(objID, variable, getParameterWithKey(objID, StoHelp::readTypedString(*paramData)));
         default:
             return false;
     }

@@ -1,27 +1,33 @@
 set(utils_common_STAT_SRCS
    Command.h
+   FileBucket.cpp
+   FileBucket.h
    FileHelpers.cpp
    FileHelpers.h
-   IDSupplier.h
    IDSupplier.cpp
-   MsgHandler.h
+   IDSupplier.h
+   LinearApproxHelpers.cpp
+   LinearApproxHelpers.h
+   MapMatcher.h
    MsgHandler.cpp
+   MsgHandler.h
    MsgRetrievingFunction.h
    Named.h
    NamedObjectCont.h
    NamedRTree.h
    Parameterised.cpp
    Parameterised.h
-   PolySolver.h
    PolySolver.cpp
-   RandHelper.h
+   PolySolver.h
    RandHelper.cpp
+   RandHelper.h
    RGBColor.cpp
    RGBColor.h
    ScopedLocker.h
+   SequentialStringBijection.h
    StaticCommand.h
-   StdDefs.h
    StdDefs.cpp
+   StdDefs.h
    StringBijection.h
    StringTokenizer.cpp
    StringTokenizer.h
@@ -33,9 +39,10 @@ set(utils_common_STAT_SRCS
    SUMOVehicleClass.h
    SystemFrame.cpp
    SystemFrame.h
-   SysUtils.h
    SysUtils.cpp
+   SysUtils.h
    ToString.h
+   UtilExceptions.cpp
    UtilExceptions.h
    ValueRetriever.h
    ValueSource.h

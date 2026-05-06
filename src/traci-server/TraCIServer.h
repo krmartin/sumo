@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -92,7 +92,15 @@ public:
     /// @brief process all commands until the next SUMO simulation step.
     ///        It is guaranteed that t->getTargetTime() >= myStep after call
     ///        (except the case that a load or close command is received)s
-    void processCommandsUntilSimStep(SUMOTime step);
+    int processCommands(const SUMOTime step, const bool afterMove = false);
+
+    /** @brief Processes a get value command
+     *
+     * @param[in] commandID The id of the command to process
+     * @param[in] inputStorage The storage to read the command parameters from
+     * @param[out] outputStorage The storage to write the result to
+     */
+    bool processGet(const int commandID, tcpip::Storage& inputStorage, tcpip::Storage& outputStorage);
 
     /// @brief clean up subscriptions
     void cleanup();
@@ -154,103 +162,6 @@ public:
 
     void writeResponseWithLength(tcpip::Storage& outputStorage, tcpip::Storage& tempMsg);
 
-    void writePositionVector(tcpip::Storage& outputStorage, const libsumo::TraCIPositionVector& shape);
-
-
-    /// @name Helpers for reading and checking values
-    /// @{
-
-    /** @brief Reads the value type and an int, verifying the type
-     *
-     * @param[in, changed] inputStorage The storage to read from
-     * @param[out] into Holder of the read value
-     * @return Whether an integer value was given (by data type)
-     */
-    bool readTypeCheckingInt(tcpip::Storage& inputStorage, int& into);
-
-
-    /** @brief Reads the value type and a double, verifying the type
-     *
-     * @param[in, changed] inputStorage The storage to read from
-     * @param[out] into Holder of the read value
-     * @return Whether a double value was given (by data type)
-     */
-    bool readTypeCheckingDouble(tcpip::Storage& inputStorage, double& into);
-
-
-    /** @brief Reads the value type and a string, verifying the type
-     *
-     * @param[in, changed] inputStorage The storage to read from
-     * @param[out] into Holder of the read value
-     * @return Whether a string value was given (by data type)
-     */
-    bool readTypeCheckingString(tcpip::Storage& inputStorage, std::string& into);
-
-
-    /** @brief Reads the value type and a string list, verifying the type
-     *
-     * @param[in, changed] inputStorage The storage to read from
-     * @param[out] into Holder of the read value
-     * @return Whether a double value was given (by data type)
-     */
-    bool readTypeCheckingStringList(tcpip::Storage& inputStorage, std::vector<std::string>& into);
-
-
-    /** @brief Reads the value type and a double list, verifying the type
-     *
-     * @param[in, changed] inputStorage The storage to read from
-     * @param[out] into Holder of the read value
-     * @return Whether a double value was given (by data type)
-     */
-    bool readTypeCheckingDoubleList(tcpip::Storage& inputStorage, std::vector<double>& into);
-
-
-    /** @brief Reads the value type and a color, verifying the type
-     *
-     * @param[in, changed] inputStorage The storage to read from
-     * @param[out] into Holder of the read value
-     * @return Whether a color was given (by data type)
-     */
-    bool readTypeCheckingColor(tcpip::Storage& inputStorage, libsumo::TraCIColor& into);
-
-
-    /** @brief Reads the value type and a 2D position, verifying the type
-     *
-     * @param[in, changed] inputStorage The storage to read from
-     * @param[out] into Holder of the read value
-     * @return Whether a 2D position was given (by data type)
-     */
-    bool readTypeCheckingPosition2D(tcpip::Storage& inputStorage, libsumo::TraCIPosition& into);
-
-
-    /** @brief Reads the value type and a byte, verifying the type
-     *
-     * @param[in, changed] inputStorage The storage to read from
-     * @param[out] into Holder of the read value
-     * @return Whether a byte was given (by data type)
-     */
-    bool readTypeCheckingByte(tcpip::Storage& inputStorage, int& into);
-
-
-    /** @brief Reads the value type and an unsigned byte, verifying the type
-     *
-     * @param[in, changed] inputStorage The storage to read from
-     * @param[out] into Holder of the read value
-     * @return Whether an unsigned byte was given (by data type)
-     */
-    bool readTypeCheckingUnsignedByte(tcpip::Storage& inputStorage, int& into);
-
-
-    /** @brief Reads the value type and a polygon, verifying the type
-     *
-     * @param[in, changed] inputStorage The storage to read from
-     * @param[out] into Holder of the read value
-     * @return Whether an unsigned byte was given (by data type)
-     */
-    bool readTypeCheckingPolygon(tcpip::Storage& inputStorage, PositionVector& into);
-    /// @}
-
-
     /// @brief updates myTargetTime and resets vehicle state changes after loading a simulation state
     /// @note  Used in MSStateHandler to update the server's time after loading a state
     void stateLoaded(SUMOTime targetTime);
@@ -262,6 +173,7 @@ public:
     /// @name VariableWrapper interface
     /// @{
     void initWrapper(const int domainID, const int variable, const std::string& objID);
+    bool wrapConnectionVector(const std::string& objID, const int variable, const std::vector<libsumo::TraCIConnection>& value);
     bool wrapDouble(const std::string& objID, const int variable, const double value);
     bool wrapInt(const std::string& objID, const int variable, const int value);
     bool wrapString(const std::string& objID, const int variable, const std::string& value);
@@ -271,7 +183,19 @@ public:
     bool wrapPositionVector(const std::string& objID, const int variable, const libsumo::TraCIPositionVector& value);
     bool wrapColor(const std::string& objID, const int variable, const libsumo::TraCIColor& value);
     bool wrapStringDoublePair(const std::string& objID, const int variable, const std::pair<std::string, double>& value);
+    bool wrapStringDoublePairList(const std::string& objID, const int variable, const std::vector<std::pair<std::string, double> >& value);
     bool wrapStringPair(const std::string& objID, const int variable, const std::pair<std::string, std::string>& value);
+    bool wrapIntPair(const std::string& objID, const int variable, const std::pair<int, int>& value);
+    bool wrapStage(const std::string& objID, const int variable, const libsumo::TraCIStage& value);
+    bool wrapReservationVector(const std::string& objID, const int variable, const std::vector<libsumo::TraCIReservation>& value);
+    bool wrapLogicVector(const std::string& objID, const int variable, const std::vector<libsumo::TraCILogic>& value);
+    bool wrapLinkVectorVector(const std::string& objID, const int variable, const std::vector<std::vector<libsumo::TraCILink> >& value);
+    bool wrapSignalConstraintVector(const std::string& objID, const int variable, const std::vector<libsumo::TraCISignalConstraint>& value);
+    bool wrapJunctionFoeVector(const std::string& objID, const int variable, const std::vector<libsumo::TraCIJunctionFoe>& value);
+    bool wrapNextStopDataVector(const std::string& objID, const int variable, const std::vector<libsumo::TraCINextStopData>& value);
+    bool wrapVehicleDataVector(const std::string& objID, const int variable, const std::vector<libsumo::TraCIVehicleData>& value);
+    bool wrapBestLanesDataVector(const std::string& objID, const int variable, const std::vector<libsumo::TraCIBestLanesData>& value);
+    bool wrapNextTLSDataVector(const std::string& objID, const int variable, const std::vector<libsumo::TraCINextTLSData>& value);
     tcpip::Storage& getWrapperStorage();
     /// @}
 
@@ -297,8 +221,10 @@ private:
         ~SocketInfo() {
             delete socket;
         }
-        /// @brief Target time: next point of action for the client
+        /// @brief next point of action for the client
         SUMOTime targetTime;
+        /// @brief whether a "half step" has been done, executing only the move
+        bool executeMove = false;
         /// @brief Socket object for this client
         tcpip::Socket* socket;
         /// @brief container for vehicle state changes since last step taken by this client
@@ -456,5 +382,3 @@ private:
     TraCIServer& operator=(const TraCIServer& s) = delete;
 
 };
-
-

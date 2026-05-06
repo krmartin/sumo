@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -27,20 +27,21 @@
 #include <exception>
 #include <utils/common/UtilExceptions.h>
 
-
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @typedef IntVector
+
+/**@typedef IntVector
  * @brief Definition of a vector of ints
  */
 typedef std::vector<int> IntVector;
-/**
- * @typedef StringVector
+
+/**@typedef StringVector
  * @brief Definition of a vector of strings
  */
 typedef std::vector<std::string> StringVector;
+
+#define CLONEABLE(Type) virtual Type* clone() const { return new Type(*this); }
 
 /* -------------------------------------------------------------------------
  * Option
@@ -63,7 +64,7 @@ typedef std::vector<std::string> StringVector;
  *  construction of derived, value and type holding, classes is allowed.
  *
  *  At the begin (after being constructed) an Option either has a default value or not.
- *   In dependance to this, myHaveTheDefaultValue is set. Also, myAmSet is set to
+ *   In dependence to this, myHaveTheDefaultValue is set. Also, myAmSet is set to
  *   true if a default value was supported. myAmWritable is set to true,
  *   indicating that a new value may be set.
  *
@@ -71,8 +72,9 @@ typedef std::vector<std::string> StringVector;
  *  stores a man-readable type name for this option.
  */
 class Option {
+
 public:
-    /** destructor */
+    /// @brief destructor
     virtual ~Option();
 
     /** @brief returns the information whether this options holds a valid value
@@ -164,9 +166,29 @@ public:
      *
      * @return The stored value encoded into a string-
      */
-    const std::string& getValueString() const {
-        return myValueString;
-    }
+    const std::string& getValueString() const;
+
+    /** @brief Returns the information whether the option holds the default value
+    *
+    * @return true if the option was not set from command line / configuration, false otherwise
+    */
+    virtual bool isDefault() const;
+
+    /** @brief Returns the information whether the option is a int option
+    *
+    * Returns false. Only Option_Integer overrides this method returning true.
+    *
+    * @return true if the Option is an Option_Integer, false otherwise
+    */
+    virtual bool isInteger() const;
+
+    /** @brief Returns the information whether the option is a float option
+    *
+    * Returns false. Only Option_Float overrides this method returning true.
+    *
+    * @return true if the Option is an Option_Float, false otherwise
+    */
+    virtual bool isFloat() const;
 
     /** @brief Returns the information whether the option is a bool option
      *
@@ -176,12 +198,6 @@ public:
      */
     virtual bool isBool() const;
 
-    /** @brief Returns the information whether the option holds the default value
-     *
-     * @return true if the option was not set from command line / configuration, false otherwise
-     */
-    virtual bool isDefault() const;
-
     /** @brief Returns the information whether this option is a file name
      *
      * Returns false. Only Option_FileName overrides this method returning true.
@@ -189,6 +205,62 @@ public:
      * @return true if the Option is an Option_FileName, false otherwise
      */
     virtual bool isFileName() const;
+
+    /** @brief Returns the information whether this option is a network file
+     *
+     * Returns false. Only Option_Network overrides this method returning true.
+     *
+     * @return true if the Option is an Option_Network, false otherwise
+     */
+    virtual bool isNetwork() const;
+
+    /** @brief Returns the information whether this option is an additional file
+     *
+     * Returns false. Only Option_Additional overrides this method returning true.
+     *
+     * @return true if the Option is an Option_Additional, false otherwise
+     */
+    virtual bool isAdditional() const;
+
+    /** @brief Returns the information whether this option is a route file
+     *
+     * Returns false. Only Option_Route overrides this method returning true.
+     *
+     * @return true if the Option is an Option_Route, false otherwise
+     */
+    virtual bool isRoute() const;
+
+    /** @brief Returns the information whether this option is a data file
+     *
+     * Returns false. Only Option_Data overrides this method returning true.
+     *
+     * @return true if the Option is an Option_Data, false otherwise
+     */
+    virtual bool isData() const;
+
+    /** @brief Returns the information whether this option is a sumo config file
+     *
+     * Returns false. Only Option_SumoConfig overrides this method returning true.
+     *
+     * @return true if the Option is an Option_SumoConfig, false otherwise
+     */
+    virtual bool isSumoConfig() const;
+
+    /** @brief Returns the information whether this option is an edge
+     *
+     * Returns false. Only Option_Edge overrides this method returning true.
+     *
+     * @return true if the Option is an Option_Edge, false otherwise
+     */
+    virtual bool isEdge() const;
+
+    /** @brief Returns the information whether this option is a vector of edges
+     *
+     * Returns false. Only Option_EdgeVector overrides this method returning true.
+     *
+     * @return true if the Option is an Option_EdgeVector, false otherwise
+     */
+    virtual bool isEdgeVector() const;
 
     /** @brief Returns the information whether the option may be set a further time
      *
@@ -229,6 +301,36 @@ public:
      */
     void setDescription(const std::string& desc);
 
+    /// @brief check if option is required
+    bool isRequired() const;
+
+    /// @brief mark option as required
+    void setRequired();
+
+    /// @brief check if option is positional
+    bool isPositional() const;
+
+    /// @brief mark option as positional
+    void setPositional();
+
+    /// @brief check if this option is editable
+    bool isEditable() const;
+
+    /// @brief set editable
+    void setEditable(const bool value);
+
+    /// @brief retrieve list separator
+    const std::string& getListSeparator() const;
+
+    /// @brief set list separator
+    void setListSeparator(const std::string& listSep);
+
+    /// @brief Returns the subtopic to which this option belongs
+    const std::string& getSubTopic() const;
+
+    /// @brief Sets the subtopic to which this option belongs
+    void setSubtopic(const std::string& subtopic);
+
     /** @brief Returns the mml-type name of this option
      *
      * The type name stored in myTypeName is returned.
@@ -236,6 +338,12 @@ public:
      * @return The man-readable type name
      */
     virtual const std::string& getTypeName() const;
+
+    /** @brief Returns a copy of this option
+     *
+     * @return The option copy
+     */
+    virtual Option* clone() const = 0;
 
 protected:
     /** @brief Marks the information as set
@@ -246,7 +354,6 @@ protected:
      */
     bool markSet(const std::string& orig);
 
-protected:
     /** @brief Constructor
      *
      * This constructor should be used by derived classes.
@@ -256,7 +363,6 @@ protected:
      */
     Option(bool set = false);
 
-protected:
     /// @brief A type name for this option (has presets, but may be overwritten)
     std::string myTypeName;
 
@@ -264,29 +370,40 @@ protected:
     std::string myValueString;
 
 private:
-    /** @brief information whether the value is set */
+    /// @brief information whether the value is set
     bool myAmSet;
 
-    /** @brief information whether the value is the default value (is then set) */
-    bool myHaveTheDefaultValue;
+    /// @brief information whether the value is the default value (is then set)
+    bool myHaveTheDefaultValue = true;
 
-    /** @brief information whether the value may be changed */
-    bool myAmWritable;
+    /// @brief information whether the value may be changed
+    bool myAmWritable = true;
 
     /// @brief The description what this option does
     std::string myDescription;
 
+    /// @brief this option is required (needed for python tools)
+    bool myRequired = false;
+
+    /// @brief this option is positional (needed for python tools)
+    bool myPositional = false;
+
+    /// @brief this option can be edited using option dialog
+    bool myEditable = true;
+
+    /// @brief the list separator for this option (needed for python tools)
+    std::string myListSeparator = "";
+
+    /// @brief The subtopic to which this option belongs
+    std::string mySubTopic;
 };
 
+// -------------------------------------------------------------------------
+// Option_Integer
+// -------------------------------------------------------------------------
 
-/* -------------------------------------------------------------------------
- * Option_Integer
- * ----------------------------------------------------------------------- */
-/**
- * @class Option_Integer
- * @brief An integer-option
- */
 class Option_Integer : public Option {
+
 public:
     /** @brief Constructor for an option with a default value
      *
@@ -319,16 +436,27 @@ public:
      */
     bool set(const std::string& v, const std::string& orig, const bool append);
 
+    /** @brief Returns the information whether the option is a int option
+    *
+    * Returns false. Only Option_Integer overrides this method returning true.
+    *
+    * @return true if the Option is an Option_Integer, false otherwise
+    */
+    bool isInteger() const;
+
+    CLONEABLE(Option_Integer)
+
 private:
-    /** the value, valid only when the base-classes "myAmSet"-member is true */
+    /// @brief the value, valid only when the base-classes "myAmSet"-member is true
     int myValue;
 };
 
+// -------------------------------------------------------------------------
+// Option_String
+// -------------------------------------------------------------------------
 
-/* -------------------------------------------------------------------------
- * Option_String
- * ----------------------------------------------------------------------- */
 class Option_String : public Option {
+
 public:
     /** @brief Constructor for an option with no default value
      *
@@ -363,17 +491,19 @@ public:
      */
     bool set(const std::string& v, const std::string& orig, const bool append);
 
-protected:
-    /** the value, valid only when the base-classes "myAmSet"-member is true */
-    std::string myValue;
+    CLONEABLE(Option_String)
 
+protected:
+    /// @brief the value, valid only when the base-classes "myAmSet"-member is true
+    std::string myValue;
 };
 
+// -------------------------------------------------------------------------
+// Option_Float
+// -------------------------------------------------------------------------
 
-/* -------------------------------------------------------------------------
- * Option_Float
- * ----------------------------------------------------------------------- */
 class Option_Float : public Option {
+
 public:
     /** @brief Constructor for an option with a default value
      *
@@ -406,16 +536,27 @@ public:
      */
     bool set(const std::string& v, const std::string& orig, const bool append);
 
+    /** @brief Returns the information whether the option is a float option
+    *
+    * Returns false. Only Option_Float overrides this method returning true.
+    *
+    * @return true if the Option is an Option_Float, false otherwise
+    */
+    bool isFloat() const;
+
+    CLONEABLE(Option_Float)
+
 private:
-    /** the value, valid only when the base-classes "myAmSet"-member is true */
+    /// @brief the value, valid only when the base-classes "myAmSet"-member is true
     double myValue;
 };
 
+// -------------------------------------------------------------------------
+// Option_Bool
+// -------------------------------------------------------------------------
 
-/* -------------------------------------------------------------------------
- * Option_Bool
- * ----------------------------------------------------------------------- */
 class Option_Bool : public Option {
+
 public:
     /** @brief Constructor for an option with a default value
      *
@@ -431,7 +572,7 @@ public:
      */
     bool getBool() const;
 
-    /** sets the given value (converts it to bool) */
+    /// @brief sets the given value (converts it to bool)
     bool set(const std::string& v, const std::string& orig, const bool append);
 
     /** @brief Returns true, the information whether the option is a bool option
@@ -443,17 +584,19 @@ public:
      */
     bool isBool() const;
 
+    CLONEABLE(Option_Bool)
+
 protected:
-    /** the value, valid only when the base-classes "myAmSet"-member is true */
+    /// @brief the value, valid only when the base-classes "myAmSet"-member is true
     bool myValue;
 };
 
+// -------------------------------------------------------------------------
+// Option_BoolExtended
+// -------------------------------------------------------------------------
 
-
-/* -------------------------------------------------------------------------
- * Option_BoolExtended
- * ----------------------------------------------------------------------- */
 class Option_BoolExtended : public Option_Bool {
+
 public:
     /** @brief Constructor for an option that can be used without an argument
      * like Option_BoolExtended but which also handles value strings
@@ -464,18 +607,20 @@ public:
      */
     Option_BoolExtended(bool value);
 
-    /** sets the given value (converts it to bool) */
+    /// @brief sets the given value (converts it to bool)
     bool set(const std::string& v, const std::string& orig, const bool append);
+
+    CLONEABLE(Option_BoolExtended)
 };
 
+// -------------------------------------------------------------------------
+// Option_IntVector
+// -------------------------------------------------------------------------
 
-/* -------------------------------------------------------------------------
- * Option_IntVector
- * ----------------------------------------------------------------------- */
 class Option_IntVector : public Option {
+
 public:
-    /** @brief Constructor for an option with no default value
-     */
+    /// @brief Constructor for an option with no default value
     Option_IntVector();
 
     /** @brief Constructor for an option with a default value
@@ -507,19 +652,21 @@ public:
      */
     bool set(const std::string& v, const std::string& orig, const bool append);
 
+    CLONEABLE(Option_IntVector)
+
 private:
-    /** the value, valid only when the base-classes "myAmSet"-member is true */
+    /// @brief the value, valid only when the base-classes "myAmSet"-member is true
     IntVector myValue;
 };
 
+// -------------------------------------------------------------------------
+// Option_StringVector
+// -------------------------------------------------------------------------
 
-/* -------------------------------------------------------------------------
- * Option_StringVector
- * ----------------------------------------------------------------------- */
 class Option_StringVector : public Option {
+
 public:
-    /** @brief Constructor for an option with no default value
-     */
+    /// @brief Constructor for an option with no default value
     Option_StringVector();
 
     /** @brief Constructor for an option with a default value
@@ -552,19 +699,21 @@ public:
      */
     bool set(const std::string& v, const std::string& orig, const bool append);
 
+    CLONEABLE(Option_StringVector)
+
 private:
-    /** the value, valid only when the base-classes "myAmSet"-member is true */
+    /// @brief the value, valid only when the base-classes "myAmSet"-member is true
     StringVector myValue;
 };
 
+// -------------------------------------------------------------------------
+// Option_FileName
+// -------------------------------------------------------------------------
 
-/* -------------------------------------------------------------------------
- * Option_FileName
- * ----------------------------------------------------------------------- */
 class Option_FileName : public Option_StringVector {
+
 public:
-    /** @brief Constructor for an option with no default value
-     */
+    /// @brief Constructor for an option with no default value
     Option_FileName();
 
     /** @brief Constructor for an option with a default value
@@ -590,4 +739,174 @@ public:
      * not in line with code style of the Options sub-system.
      */
     std::string getString() const;
+
+    CLONEABLE(Option_FileName)
+};
+
+// -------------------------------------------------------------------------
+// Option_Network
+// -------------------------------------------------------------------------
+
+class Option_Network : public Option_String {
+
+public:
+    /** @brief Constructor for an option with a default value
+     *
+     * @param[in] value This option's default value
+     */
+    Option_Network(const std::string& value);
+
+    /** @brief Returns true, the information whether this option is a file name
+     *
+     * Returns true.
+     *
+     * @return true
+     */
+    bool isNetwork() const;
+
+    CLONEABLE(Option_Network)
+};
+
+// -------------------------------------------------------------------------
+// Option_Additional
+// -------------------------------------------------------------------------
+
+class Option_Additional : public Option_String {
+
+public:
+    /** @brief Constructor for an option with a default value
+     *
+     * @param[in] value This option's default value
+     */
+    Option_Additional(const std::string& value);
+
+    /** @brief Returns true, the information whether this option is a file name
+     *
+     * Returns true.
+     *
+     * @return true
+     */
+    bool isAdditional() const;
+
+    CLONEABLE(Option_Additional)
+};
+
+// -------------------------------------------------------------------------
+// Option_Route
+// -------------------------------------------------------------------------
+
+class Option_Route : public Option_String {
+
+public:
+    /** @brief Constructor for an option with a default value
+     *
+     * @param[in] value This option's default value
+     */
+    Option_Route(const std::string& value);
+
+    /** @brief Returns true, the information whether this option is a file name
+     *
+     * Returns true.
+     *
+     * @return true
+     */
+    bool isRoute() const;
+
+    CLONEABLE(Option_Route)
+};
+
+// -------------------------------------------------------------------------
+// Option_Data
+// -------------------------------------------------------------------------
+
+class Option_Data : public Option_String {
+
+public:
+    /** @brief Constructor for an option with a default value
+     *
+     * @param[in] value This option's default value
+     */
+    Option_Data(const std::string& value);
+
+    /** @brief Returns true, the information whether this option is a data file
+     *
+     * Returns true.
+     *
+     * @return true
+     */
+    bool isData() const;
+
+    CLONEABLE(Option_Data)
+};
+
+// -------------------------------------------------------------------------
+// Option_SumoConfig
+// -------------------------------------------------------------------------
+
+class Option_SumoConfig : public Option_String {
+
+public:
+    /** @brief Constructor for an option with a default value
+     *
+     * @param[in] value This option's default value
+     */
+    Option_SumoConfig(const std::string& value);
+
+    /** @brief Returns true, the information whether this option is a sumo config name
+     *
+     * Returns true.
+     *
+     * @return true
+     */
+    bool isSumoConfig() const;
+
+    CLONEABLE(Option_SumoConfig)
+};
+
+// -------------------------------------------------------------------------
+// Option_Edge
+// -------------------------------------------------------------------------
+
+class Option_Edge : public Option_String {
+
+public:
+    /** @brief Constructor for an option with a default value
+     *
+     * @param[in] value This option's default value
+     */
+    Option_Edge(const std::string& value);
+
+    /** @brief Returns true, the information whether this option is a list of edges
+     *
+     * Returns true.
+     *
+     * @return true
+     */
+    bool isEdge() const;
+
+    CLONEABLE(Option_Edge)
+};
+
+// -------------------------------------------------------------------------
+// Option_EdgeVector
+// -------------------------------------------------------------------------
+
+class Option_EdgeVector : public Option_String {
+
+public:
+    /** @brief Constructor for an option with a default value
+     *
+     * @param[in] value This option's default value
+     */
+    Option_EdgeVector(const std::string& value);
+
+    /** @brief Returns true, the information whether this option is a list of edges
+     *
+     * Returns true.
+     *
+     * @return true
+     */
+    bool isEdgeVector() const;
+
+    CLONEABLE(Option_EdgeVector)
 };

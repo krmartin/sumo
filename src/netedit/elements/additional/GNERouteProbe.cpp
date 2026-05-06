@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,45 +17,40 @@
 ///
 //
 /****************************************************************************/
-#include <config.h>
 
-#include <utils/gui/div/GLHelper.h>
-#include <netedit/GNEViewNet.h>
-#include <netedit/GNEUndoList.h>
-#include <netedit/GNENet.h>
 #include <netedit/changes/GNEChange_Attribute.h>
-#include <utils/gui/globjects/GLIncludes.h>
-#include <utils/gui/div/GUIGlobalPostDrawing.h>
+#include <netedit/GNENet.h>
+#include <utils/gui/div/GLHelper.h>
+#include <utils/gui/images/GUITextureSubSys.h>
 
 #include "GNERouteProbe.h"
-
 
 // ===========================================================================
 // member method definitions
 // ===========================================================================
 
 GNERouteProbe::GNERouteProbe(GNENet* net) :
-    GNEAdditional("", net, GLO_ROUTEPROBE, SUMO_TAG_ROUTEPROBE, 
-    GUIIconSubSys::getIcon(GUIIcon::ROUTEPROBE), "", {}, {}, {}, {}, {}, {}),
-    myPeriod(SUMOTime_MAX_PERIOD),
-    myBegin(0) {
-    // reset default values
-    resetDefaultValues();
-    // update centering boundary without updating grid
-    updateCenteringBoundary(false);
+    GNEAdditional(net, SUMO_TAG_ROUTEPROBE) {
 }
 
 
-GNERouteProbe::GNERouteProbe(const std::string& id, GNENet* net, GNEEdge* edge, const SUMOTime period, const std::string& name,
-                             const std::string& filename, SUMOTime begin, const Parameterised::Map& parameters) :
-    GNEAdditional(id, net, GLO_ROUTEPROBE, SUMO_TAG_ROUTEPROBE, 
-    GUIIconSubSys::getIcon(GUIIcon::ROUTEPROBE), name, {}, {edge}, {}, {}, {}, {}),
+GNERouteProbe::GNERouteProbe(const std::string& id, GNENet* net, FileBucket* fileBucket, GNEEdge* edge, const SUMOTime period, const std::string& name,
+                             const std::string& outputFilename, SUMOTime begin, const std::vector<std::string>& vehicleTypes,
+                             const Parameterised::Map& parameters) :
+    GNEAdditional(id, net, SUMO_TAG_ROUTEPROBE, fileBucket, name),
     Parameterised(parameters),
     myPeriod(period),
-    myFilename(filename),
-    myBegin(begin) {
+    myOutputFilename(outputFilename),
+    myBegin(begin),
+    myVehicleTypes(vehicleTypes) {
+    // set parents
+    setParent<GNEEdge*>(edge);
     // update centering boundary without updating grid
     updateCenteringBoundary(false);
+    // set default output filename if not set
+    if (myOutputFilename.empty()) {
+        myOutputFilename = getID() + ".xml";
+    }
 }
 
 
@@ -63,26 +58,63 @@ GNERouteProbe::~GNERouteProbe() {
 }
 
 
+GNEMoveElement*
+GNERouteProbe::getMoveElement() const {
+    return nullptr;
+}
+
+
+Parameterised*
+GNERouteProbe::getParameters() {
+    return this;
+}
+
+
+const Parameterised*
+GNERouteProbe::getParameters() const {
+    return this;
+}
+
+
 void
 GNERouteProbe::writeAdditional(OutputDevice& device) const {
     // open tag
     device.openTag(SUMO_TAG_ROUTEPROBE);
-    // write parameters
-    device.writeAttr(SUMO_ATTR_ID, getID());
+    // write common additional attributes
+    writeAdditionalAttributes(device);
+    // write specific attributes
     device.writeAttr(SUMO_ATTR_BEGIN, time2string(myBegin));
     if (getAttribute(SUMO_ATTR_PERIOD).size() > 0) {
         device.writeAttr(SUMO_ATTR_PERIOD, time2string(myPeriod));
     }
     device.writeAttr(SUMO_ATTR_EDGE, getParentEdges().front()->getID());
-    if (!myAdditionalName.empty()) {
-        device.writeAttr(SUMO_ATTR_NAME, myAdditionalName);
+    if (!myOutputFilename.empty()) {
+        device.writeAttr(SUMO_ATTR_FILE, myOutputFilename);
     }
-    if (!myFilename.empty()) {
-        device.writeAttr(SUMO_ATTR_FILE, myFilename);
+    if (!myVehicleTypes.empty()) {
+        device.writeAttr(SUMO_ATTR_VTYPES, myVehicleTypes);
     }
     // write parameters (Always after children to avoid problems with additionals.xsd)
     writeParams(device);
     device.closeTag();
+}
+
+
+bool
+GNERouteProbe::isAdditionalValid() const {
+    return true;
+}
+
+
+std::string
+GNERouteProbe::getAdditionalProblem() const {
+    return "";
+}
+
+
+void
+GNERouteProbe::fixAdditionalProblem() {
+    // nothing to fix
 }
 
 
@@ -101,11 +133,7 @@ GNERouteProbe::getPositionInView() const {
 
 void
 GNERouteProbe::updateCenteringBoundary(const bool /*pdateGrid*/) {
-    myAdditionalBoundary.reset();
-    // add center
-    myAdditionalBoundary.add(getPositionInView());
-    // grow
-    myAdditionalBoundary.grow(10);
+    // nothing to do
 }
 
 
@@ -115,10 +143,9 @@ GNERouteProbe::splitEdgeGeometry(const double /*splitPosition*/, const GNENetwor
 }
 
 
-GNEMoveOperation*
-GNERouteProbe::getMoveOperation() {
-    // routeprobes cannot be moved
-    return nullptr;
+bool
+GNERouteProbe::checkDrawMoveContour() const {
+    return false;
 }
 
 
@@ -130,10 +157,10 @@ GNERouteProbe::getParentName() const {
 
 void
 GNERouteProbe::drawGL(const GUIVisualizationSettings& s) const {
-    // Obtain exaggeration of the draw
-    const double routeProbeExaggeration = getExaggeration(s);
     // first check if additional has to be drawn
-    if (s.drawAdditionals(routeProbeExaggeration) && myNet->getViewNet()->getDataViewOptions().showAdditionals()) {
+    if (myNet->getViewNet()->getDataViewOptions().showAdditionals()) {
+        // Obtain exaggeration of the draw
+        const double routeProbeExaggeration = getExaggeration(s);
         // declare colors
         RGBColor routeProbeColor, centralLineColor;
         // set colors
@@ -144,74 +171,61 @@ GNERouteProbe::drawGL(const GUIVisualizationSettings& s) const {
             routeProbeColor = s.additionalSettings.routeProbeColor;
             centralLineColor = RGBColor::WHITE;
         }
-        // draw parent and child lines
-        drawParentChildLines(s, s.additionalSettings.connectionColor);
-        // Start drawing adding an gl identificator
-        GLHelper::pushName(getGlID());
-        // Add layer matrix matrix
-        GLHelper::pushMatrix();
-        // translate to front
-        myNet->getViewNet()->drawTranslateFrontAttributeCarrier(this, GLO_ROUTEPROBE);
-        // set base color
-        GLHelper::setColor(routeProbeColor);
-        // Draw the area using shape, shapeRotations, shapeLengths and value of exaggeration
-        GUIGeometry::drawGeometry(s, myNet->getViewNet()->getPositionInformation(), myAdditionalGeometry, 0.3 * routeProbeExaggeration);
-        // move to front
-        glTranslated(0, 0, .1);
-        // set central color
-        GLHelper::setColor(centralLineColor);
-        // Draw the area using shape, shapeRotations, shapeLengths and value of exaggeration
-        GUIGeometry::drawGeometry(s, myNet->getViewNet()->getPositionInformation(), myAdditionalGeometry, 0.05 * routeProbeExaggeration);
-        // move to icon position and front
-        glTranslated(myAdditionalGeometry.getShape().front().x(), myAdditionalGeometry.getShape().front().y(), .1);
-        // rotate over lane
-        GUIGeometry::rotateOverLane(myAdditionalGeometry.getShapeRotations().front() * -1);
-        // Draw icon depending of Route Probe is selected and if isn't being drawn for selecting
-        if (!s.drawForRectangleSelection && s.drawDetail(s.detailSettings.laneTextures, routeProbeExaggeration)) {
-            // set color
-            glColor3d(1, 1, 1);
-            // rotate texture
-            glRotated(90, 0, 0, 1);
-            // draw texture
-            if (drawUsingSelectColor()) {
-                GUITexturesHelper::drawTexturedBox(GUITextureSubSys::getTexture(GUITexture::ROUTEPROBE_SELECTED), s.additionalSettings.routeProbeSize * routeProbeExaggeration);
-            } else {
-                GUITexturesHelper::drawTexturedBox(GUITextureSubSys::getTexture(GUITexture::ROUTEPROBE), s.additionalSettings.routeProbeSize * routeProbeExaggeration);
-            }
-        } else {
-            // set route probe color
+        // get detail level
+        const auto d = s.getDetailLevel(routeProbeExaggeration);
+        // draw geometry only if we'rent in drawForObjectUnderCursor mode
+        if (s.checkDrawAdditional(d, isAttributeCarrierSelected())) {
+            // draw parent and child lines
+            drawParentChildLines(s, s.additionalSettings.connectionColor);
+            // Add layer matrix matrix
+            GLHelper::pushMatrix();
+            // translate to front
+            drawInLayer(GLO_ROUTEPROBE);
+            // set base color
             GLHelper::setColor(routeProbeColor);
-            // just drawn a box
-            GLHelper::drawBoxLine(Position(0, 0), 0, 2 * s.additionalSettings.routeProbeSize, s.additionalSettings.routeProbeSize * routeProbeExaggeration);
+            // Draw the area using shape, shapeRotations, shapeLengths and value of exaggeration
+            GUIGeometry::drawGeometry(d, myAdditionalGeometry, 0.3 * routeProbeExaggeration);
+            // move to front
+            glTranslated(0, 0, .1);
+            // set central color
+            GLHelper::setColor(centralLineColor);
+            // Draw the area using shape, shapeRotations, shapeLengths and value of exaggeration
+            GUIGeometry::drawGeometry(d, myAdditionalGeometry, 0.05 * routeProbeExaggeration);
+            // move to icon position and front
+            glTranslated(myAdditionalGeometry.getShape().front().x(), myAdditionalGeometry.getShape().front().y(), .1);
+            // rotate over lane
+            GUIGeometry::rotateOverLane(myAdditionalGeometry.getShapeRotations().front() * -1);
+            // Draw icon depending of level of detail
+            if (d <= GUIVisualizationSettings::Detail::AdditionalDetails) {
+                // set color
+                glColor3d(1, 1, 1);
+                // rotate texture
+                glRotated(90, 0, 0, 1);
+                // draw texture
+                if (drawUsingSelectColor()) {
+                    GUITexturesHelper::drawTexturedBox(GUITextureSubSys::getTexture(GUITexture::ROUTEPROBE_SELECTED), s.additionalSettings.routeProbeSize * routeProbeExaggeration);
+                } else {
+                    GUITexturesHelper::drawTexturedBox(GUITextureSubSys::getTexture(GUITexture::ROUTEPROBE), s.additionalSettings.routeProbeSize * routeProbeExaggeration);
+                }
+            } else {
+                // set route probe color
+                GLHelper::setColor(routeProbeColor);
+                // just drawn a box
+                GLHelper::drawBoxLine(Position(0, 0), 0, 2 * s.additionalSettings.routeProbeSize, s.additionalSettings.routeProbeSize * routeProbeExaggeration);
+            }
+            // pop layer matrix
+            GLHelper::popMatrix();
+            // draw additional name
+            drawAdditionalName(s);
+            // draw dotted contour
+            myAdditionalContour.drawDottedContours(s, d, this, s.dottedContourSettings.segmentWidth, true);
+            mySymbolBaseContour.drawDottedContours(s, d, this, s.dottedContourSettings.segmentWidthSmall, true);
         }
-        // pop layer matrix
-        GLHelper::popMatrix();
-        // Pop name
-        GLHelper::popName();
-        // draw additional name
-        drawAdditionalName(s);
-        // check if mouse is over element
-        mouseWithinGeometry(myAdditionalGeometry.getShape(), 0.5);
-        // inspect contour
-        if (myNet->getViewNet()->isAttributeCarrierInspected(this)) {
-            GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::INSPECT, myAdditionalGeometry.getShape(), 0.5,
-                    routeProbeExaggeration, true, true);
-        }
-        // front contour
-        if (myNet->getViewNet()->getFrontAttributeCarrier() == this) {
-            GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::FRONT, myAdditionalGeometry.getShape(), 0.5,
-                    routeProbeExaggeration, true, true);
-        }
-        // delete contour
-        if (myNet->getViewNet()->drawDeleteContour(this, this)) {
-            GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::REMOVE, myAdditionalGeometry.getShape(), 0.5,
-                    routeProbeExaggeration, true, true);
-        }
-        // delete contour
-        if (myNet->getViewNet()->drawSelectContour(this, this)) {
-            GUIDottedGeometry::drawDottedContourShape(s, GUIDottedGeometry::DottedContourType::SELECT, myAdditionalGeometry.getShape(), 0.5,
-                    routeProbeExaggeration, true, true);
-        }
+        // calculate contour and draw dotted geometry
+        myAdditionalContour.calculateContourRectangleShape(s, d, this, myAdditionalGeometry.getShape().front(), s.additionalSettings.routeProbeSize,
+                s.additionalSettings.routeProbeSize, getType(), 0, 0, (myAdditionalGeometry.getShapeRotations().front() * -1), routeProbeExaggeration, getParentEdges().front());
+        mySymbolBaseContour.calculateContourExtrudedShape(s, d, this, myAdditionalGeometry.getShape(), getType(), 0.3, routeProbeExaggeration,
+                true, true, 0, nullptr, getParentEdges().front());
     }
 }
 
@@ -226,7 +240,7 @@ GNERouteProbe::getAttribute(SumoXMLAttr key) const {
         case SUMO_ATTR_NAME:
             return myAdditionalName;
         case SUMO_ATTR_FILE:
-            return myFilename;
+            return myOutputFilename;
         case SUMO_ATTR_PERIOD:
         case SUMO_ATTR_FREQUENCY:
             if (myPeriod == SUMOTime_MAX_PERIOD) {
@@ -236,12 +250,10 @@ GNERouteProbe::getAttribute(SumoXMLAttr key) const {
             }
         case SUMO_ATTR_BEGIN:
             return time2string(myBegin);
-        case GNE_ATTR_SELECTED:
-            return toString(isAttributeCarrierSelected());
-        case GNE_ATTR_PARAMETERS:
-            return getParametersStr();
+        case SUMO_ATTR_VTYPES:
+            return toString(myVehicleTypes);
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return getCommonAttribute(key);
     }
 }
 
@@ -252,14 +264,20 @@ GNERouteProbe::getAttributeDouble(SumoXMLAttr key) const {
         case SUMO_ATTR_BEGIN:
             return STEPS2TIME(myBegin);
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have a double attribute of type '" + toString(key) + "'");
+            return getCommonAttributeDouble(key);
     }
 }
 
 
-const Parameterised::Map&
-GNERouteProbe::getACParametersMap() const {
-    return getParametersMap();
+Position
+GNERouteProbe::getAttributePosition(SumoXMLAttr key) const {
+    return getCommonAttributePosition(key);
+}
+
+
+PositionVector
+GNERouteProbe::getAttributePositionVector(SumoXMLAttr key) const {
+    return getCommonAttributePositionVector(key);
 }
 
 
@@ -276,12 +294,12 @@ GNERouteProbe::setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoLi
         case SUMO_ATTR_PERIOD:
         case SUMO_ATTR_FREQUENCY:
         case SUMO_ATTR_BEGIN:
-        case GNE_ATTR_SELECTED:
-        case GNE_ATTR_PARAMETERS:
-            undoList->changeAttribute(new GNEChange_Attribute(this, key, value));
+        case SUMO_ATTR_VTYPES:
+            GNEChange_Attribute::changeAttribute(this, key, value, undoList);
             break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setCommonAttribute(key, value, undoList);
+            break;
     }
 }
 
@@ -324,13 +342,15 @@ GNERouteProbe::isValid(SumoXMLAttr key, const std::string& value) {
                 return (canParse<double>(value) && (parse<double>(value) >= 0));
             }
         case SUMO_ATTR_BEGIN:
-            return canParse<SUMOTime>(value);
-        case GNE_ATTR_SELECTED:
-            return canParse<bool>(value);
-        case GNE_ATTR_PARAMETERS:
-            return areParametersValid(value);
+            return canParse<SUMOTime>(value) && (parse<SUMOTime>(value) >= 0);
+        case SUMO_ATTR_VTYPES:
+            if (value.empty()) {
+                return true;
+            } else {
+                return SUMOXMLDefinitions::isValidListOfTypeID(value);
+            }
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return isCommonAttributeValid(key, value);
     }
 }
 
@@ -340,7 +360,7 @@ GNERouteProbe::setAttribute(SumoXMLAttr key, const std::string& value) {
     switch (key) {
         case SUMO_ATTR_ID:
             // update microsimID
-            setMicrosimID(value);
+            setAdditionalID(value);
             break;
         case SUMO_ATTR_EDGE:
             replaceAdditionalParentEdges(value);
@@ -349,7 +369,7 @@ GNERouteProbe::setAttribute(SumoXMLAttr key, const std::string& value) {
             myAdditionalName = value;
             break;
         case SUMO_ATTR_FILE:
-            myFilename = value;
+            myOutputFilename = value;
             break;
         case SUMO_ATTR_PERIOD:
         case SUMO_ATTR_FREQUENCY:
@@ -362,32 +382,13 @@ GNERouteProbe::setAttribute(SumoXMLAttr key, const std::string& value) {
         case SUMO_ATTR_BEGIN:
             myBegin = parse<SUMOTime>(value);
             break;
-        case GNE_ATTR_SELECTED:
-            if (parse<bool>(value)) {
-                selectAttributeCarrier();
-            } else {
-                unselectAttributeCarrier();
-            }
-            break;
-        case GNE_ATTR_PARAMETERS:
-            setParametersStr(value);
+        case SUMO_ATTR_VTYPES:
+            myVehicleTypes = parse<std::vector<std::string> >(value);
             break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setCommonAttribute(key, value);
+            break;
     }
 }
-
-
-void
-GNERouteProbe::setMoveShape(const GNEMoveResult& /*moveResult*/) {
-    // nothing to do
-}
-
-
-void
-GNERouteProbe::commitMoveShape(const GNEMoveResult& /*moveResult*/, GNEUndoList* /*undoList*/) {
-    // nothing to do
-}
-
 
 /****************************************************************************/

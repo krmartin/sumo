@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -84,21 +84,30 @@ public:
      */
     virtual Position getPosition(const double offset = 0) const = 0;
 
+    /** @brief Return current position taking into account secondary shape
+     * @param[in] offset optional offset in longitudinal direction
+     * @return The current position (in cartesian coordinates)
+     */
+    virtual Position getVisualPosition(bool s2, const double offset = 0) const = 0;
+
     /** @brief Returns the vehicle's direction in radians
      * @return The vehicle's current angle
      */
     virtual double getAngle() const = 0;
+
+    /** @brief Returns the vehicle's direction in radians taking into account
+     * secondary shape
+     * @return The vehicle's current angle
+     */
+    virtual double getVisualAngle(bool s2) const = 0;
 
     /// @brief return the current angle in navigational degrees
     double getNaviDegree() const {
         return GeomHelper::naviDegree(getAngle());
     }
 
-    /// @brief gets the color value according to the current scheme index
-    virtual double getColorValue(const GUIVisualizationSettings& s, int activeScheme) const = 0;
-
     /// @brief draws the given guiShape with distinct carriages/modules
-    virtual void drawAction_drawCarriageClass(const GUIVisualizationSettings& s, bool asImage) const = 0;
+    virtual void drawAction_drawCarriageClass(const GUIVisualizationSettings& s, double scaledLength, bool asImage) const = 0;
 
     /** @brief Returns the time since the last lane change in seconds
      * @see MSVehicle::myLastLaneChangeOffset
@@ -109,30 +118,13 @@ public:
     /** @brief Draws the route
      * @param[in] r The route to draw
      */
-    virtual void drawRouteHelper(const GUIVisualizationSettings& s, const MSRoute& r, bool future, bool noLoop, const RGBColor& col) const = 0;
+    virtual void drawRouteHelper(const GUIVisualizationSettings& s, ConstMSRoutePtr r, bool future, bool noLoop, const RGBColor& col) const = 0;
 
     /// @brief retrieve information about the current stop state
     virtual std::string getStopInfo() const = 0;
 
     /// @brief adds the blocking foes to the current selection
     virtual void selectBlockingFoes() const = 0;
-
-    /** @brief Returns an own parameter window
-     *
-     * @param[in] app The application needed to build the parameter window
-     * @param[in] parent The parent window needed to build the parameter window
-     * @return The built parameter window
-     * @see GUIGlObject::getParameterWindow
-     */
-    virtual GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent) = 0;
-
-    /** @brief Returns an own type parameter window
-     *
-     * @param[in] app The application needed to build the parameter window
-     * @param[in] parent The parent window needed to build the parameter window
-     * @return The built parameter window
-     */
-    virtual GUIParameterTableWindow* getTypeParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent) = 0;
 
     virtual void drawAction_drawVehicleBlinker(double /*length*/) const {}
     virtual void drawAction_drawVehicleBrakeLight(double length, bool onlyOne = false) const {
@@ -145,10 +137,6 @@ public:
     virtual void drawBestLanes() const {};
     virtual void drawAction_drawVehicleBlueLight() const {}
 
-
-
-
-
     /// @name inherited from GUIGlObject
     //@{
 
@@ -159,23 +147,23 @@ public:
      * @return The built popup-menu
      * @see GUIGlObject::getPopUpMenu
      */
-    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent);
+    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /// @brief notify object about popup menu removal
-    void removedPopupMenu();
+    void removedPopupMenu() override;
 
     /// @brief return exaggeration associated with this GLObject
-    double getExaggeration(const GUIVisualizationSettings& s) const;
+    double getExaggeration(const GUIVisualizationSettings& s) const override;
 
     /** @brief Returns the boundary to which the view shall be centered in order to show the object
      *
      * @return The boundary the object is within
      * @see GUIGlObject::getCenteringBoundary
      */
-    virtual Boundary getCenteringBoundary() const;
+    virtual Boundary getCenteringBoundary() const override;
 
     /// @brief Returns the value for generic parameter 'name' or ''
-    const std::string getOptionalName() const;
+    const std::string getOptionalName() const override;
 
     /** @brief Draws the object on the specified position with the specified angle
      * @param[in] s The settings for the current view (may influence drawing)
@@ -189,17 +177,15 @@ public:
      * @param[in] s The settings for the current view (may influence drawing)
      * @see GUIGlObject::drawGL
      */
-    void drawGL(const GUIVisualizationSettings& s) const;
+    void drawGL(const GUIVisualizationSettings& s) const override;
 
 
     /** @brief Draws additionally triggered visualisations
      * @param[in] parent The view
      * @param[in] s The settings for the current view (may influence drawing)
      */
-    virtual void drawGLAdditional(GUISUMOAbstractView* const parent, const GUIVisualizationSettings& s) const;
+    virtual void drawGLAdditional(GUISUMOAbstractView* const parent, const GUIVisualizationSettings& s) const override;
     //@}
-
-
 
     /// @name Additional visualisations
     /// @{
@@ -211,7 +197,6 @@ public:
      */
     bool hasActiveAddVisualisation(GUISUMOAbstractView* const parent, int which) const;
 
-
     /** @brief Adds the named visualisation feature to the given view
      * @param[in] parent The view for which the feature shall be enabled
      * @param[in] which The visualisation feature to enable
@@ -219,13 +204,12 @@ public:
      */
     void addActiveAddVisualisation(GUISUMOAbstractView* const parent, int which);
 
-
     /** @brief Adds the named visualisation feature to the given view
      * @param[in] parent The view for which the feature shall be enabled
      * @param[in] which The visualisation feature to enable
      * @see GUISUMOAbstractView::removeAdditionalGLVisualisation
      */
-    void removeActiveAddVisualisation(GUISUMOAbstractView* const parent, int which);
+    void removeActiveAddVisualisation(GUISUMOAbstractView* const parent, int which) override;
     /// @}
 
     /// @brief return the number of passengers
@@ -245,13 +229,14 @@ public:
      */
     class GUIBaseVehiclePopupMenu : public GUIGLObjectPopupMenu {
         FXDECLARE(GUIBaseVehiclePopupMenu)
+
     public:
         /** @brief Constructor
          * @param[in] app The main window for instantiation of other windows
          * @param[in] parent The parent view for changing it
          * @param[in] o The object of interest
          */
-        GUIBaseVehiclePopupMenu(GUIMainWindow& app, GUISUMOAbstractView& parent, GUIGlObject& o);
+        GUIBaseVehiclePopupMenu(GUIMainWindow& app, GUISUMOAbstractView& parent, GUIGlObject* o);
 
         /// @brief Destructor
         ~GUIBaseVehiclePopupMenu();
@@ -295,7 +280,6 @@ public:
 
     protected:
         FOX_CONSTRUCTOR(GUIBaseVehiclePopupMenu)
-
     };
 
 
@@ -306,19 +290,21 @@ public:
      */
     enum VisualisationFeatures {
         /// @brief show vehicle's best lanes
-        VO_SHOW_BEST_LANES = 1,
+        VO_SHOW_BEST_LANES = 1 << 0,
         /// @brief show vehicle's current route
-        VO_SHOW_ROUTE = 2,
+        VO_SHOW_ROUTE = 1 << 1,
         /// @brief show all vehicle's routes
-        VO_SHOW_ALL_ROUTES = 4,
+        VO_SHOW_ALL_ROUTES = 1 << 2,
         /// @brief LFLinkItems
-        VO_SHOW_LFLINKITEMS = 8,
+        VO_SHOW_LFLINKITEMS = 1 << 3,
         /// @brief draw vehicle outside the road network
-        VO_DRAW_OUTSIDE_NETWORK = 16,
+        VO_DRAW_OUTSIDE_NETWORK = 1 << 4,
         /// @brief show vehicle's current continued from the current position
-        VO_SHOW_FUTURE_ROUTE = 32,
+        VO_SHOW_FUTURE_ROUTE = 1 << 5,
         /// @brief show vehicle's routes without loops
-        VO_SHOW_ROUTE_NOLOOP = 64
+        VO_SHOW_ROUTE_NOLOOP = 1 << 6,
+        /// @brief track the vehicle (only needed for cleaning up)
+        VO_TRACK = 1 << 7
     };
 
     /// @brief Enabled visualisations, per view
@@ -334,7 +320,9 @@ public:
 
     void drawStopLabels(const GUIVisualizationSettings& s, bool noLoop, const RGBColor& col) const;
 
-    void drawParkingInfo(const GUIVisualizationSettings& s, const RGBColor& col) const;
+    void drawParkingInfo(const GUIVisualizationSettings& s) const;
+
+    void drawChargingInfo(const GUIVisualizationSettings& s) const;
     /// @}
 
     const MSBaseVehicle& getVehicle() {
@@ -343,6 +331,10 @@ public:
 
     /// @brief gets the size multiplier value according to the current scheme index
     double getScaleValue(const GUIVisualizationSettings& s, int activeScheme) const;
+
+    double getScaleVisual() const override {
+        return myVehicle.getVehicleType().getParameter().scaleVisual;
+    }
 
     /// @brief sets the color according to the current scheme index and some vehicle function
     static bool setFunctionalColor(int activeScheme, const MSBaseVehicle* veh, RGBColor& col);
@@ -367,7 +359,10 @@ protected:
     bool drawAction_drawVehicleAsPolyWithCarriagges(const GUIVisualizationSettings& s, double scaledLength, bool asImage = false) const;
 
     /// @brief add seats to mySeatPositions and update requiredSeats
-    void computeSeats(const Position& front, const Position& back, double seatOffset, int maxSeats, double exaggeration, int& requiredSeats, Seats& into) const;
+    void computeSeats(const Position& front, const Position& back, double seatOffset, int maxSeats, double exaggeration, int& requiredSeats, Seats& into, double extraOffset = 0) const;
+
+    /// @brief whether to reverse trains in their reversed state
+    bool drawReversed(const GUIVisualizationSettings& s) const;
 
 
 protected:

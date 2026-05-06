@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -31,34 +31,80 @@
  * @brief An enumeration of icons used by the gui applications
  */
 enum class GUIIcon {
-    /// @name general Interface icons
+
+    /// @name SUMO Logos
     /// @{
     SUMO,
     SUMO_MINI,
     SUMO_LOGO,
+    /// @}
+
+    /// @name other SUMO programs
+    /// @{
+    NETEDIT,
+    NETEDIT_MINI,
+    NETGENERATE,
+    /// @}
+
+    /// @name netgenerate networks
+    /// @{
+    NETGENERATE_GRID,
+    NETGENERATE_SPIDER,
+    NETGENERATE_RANDOMGRID,
+    NETGENERATE_RANDOM,
+    /// @}
+
+    /// @name general Interface icons
+    /// @{
     EMPTY,
-    OPEN_CONFIG,
-    OPEN_NET,
-    OPEN_SHAPES,
-    OPEN_ADDITIONALS,
-    OPEN_TLSPROGRAMS,
-    OPEN_SUMOCONFIG,
     NEW_NET,
     RELOAD,
-    SAVE,
     CLOSE,
     HELP,
     HALL_OF_FAME,
     CLEARMESSAGEWINDOW,
+    GITHUB,
+    /// @}
+
+    /// @name netedit view icons
+    /// @{
+    VIEWDEFAULT,
+    VIEWJUPEDSIM,
+    /// @}
+
+    /// @brief open icons
+    /// @{
+    OPEN,
+    OPEN_SUMOCONFIG,
+    OPEN_NETEDITCONFIG,
+    OPEN_NET,
+    OPEN_SHAPES,
+    OPEN_ADDITIONALS,
+    OPEN_MEANDATAS,
+    OPEN_TLSPROGRAMS,
+    OPEN_BMPDIALOG,
+    /// @{
+
+    /// @brief save icons
+    /// @{
+    SAVE,
+    SAVE_DATABASE,
+    SAVE_SUMOCONFIG,
+    SAVE_NETEDITCONFIG,
+    SAVE_MULTIPLE,
+    SAVE_NETWORKELEMENTS,
+    SAVE_ADDITIONALELEMENTS,
+    SAVE_JUPEDSIMELEMENTS,
+    SAVE_DEMANDELEMENTS,
+    SAVE_DATAELEMENTS,
+    SAVE_MEANDATAELEMENTS,
     /// @}
 
     /// @brief basic operations
     /// @{
-
     CUT,
     COPY,
     PASTE,
-
     /// @}
 
 
@@ -110,9 +156,18 @@ enum class GUIIcon {
     LOCATEPOLY,
     /// @}
 
-    /// @name locate objects icons
+    /// @name tools
     /// @{
-    TOOL_NETDIFF,
+    TOOL_PYTHON,
+    TOOL_EMISSIONS,
+    TOOL_CITYBRAIN,
+    TOOL_GTFS,
+    TOOL_VISSIM,
+    TOOL_VISUM,
+    TOOL_IMPORT,
+    TOOL_OUTPUT,
+    TOOL_TURNDEFS,
+    TOOL_XML,
     /// @}
 
     /// @name green and yellow objects icons
@@ -130,7 +185,6 @@ enum class GUIIcon {
     /// @name options icons
     /// @{
     COLORWHEEL,
-    SAVEDB,
     REMOVEDB,
     SHOWTOOLTIPS_VIEW,
     SHOWTOOLTIPS_MENU,
@@ -162,7 +216,7 @@ enum class GUIIcon {
     FLAG_MINUS,
     /// @}
 
-    /// @name windows icosn
+    /// @name windows icons
     /// @{
     WINDOWS_CASCADE,
     WINDOWS_TILE_VERT,
@@ -187,7 +241,6 @@ enum class GUIIcon {
     SKELETONIZE,
     RARIFY,
     CREATE_GRAPH,
-    OPEN_BMP_DIALOG,
     EYEDROP,
     PAINTBRUSH1X,
     PAINTBRUSH2X,
@@ -209,13 +262,11 @@ enum class GUIIcon {
     TRACKER,
     /// @}
 
-    /// @name NETEDIT icons
+    /// @name Netedit icons
     /// @{
     UNDO,
     REDO,
     UNDOLIST,
-    NETEDIT,
-    NETEDIT_MINI,
     LOCK,
     UNLOCK,
     LOCK_SELECTED,
@@ -230,9 +281,12 @@ enum class GUIIcon {
     COLLAPSE,
     UNCOLLAPSE,
     EXTEND,
+    CURRENT,
+    SEARCH,
+    ALLOW,
     /// @}
 
-    /// @name NETEDIT common mode specific icons
+    /// @name Netedit common mode specific icons
     /// @{
     COMMONMODE_CHECKBOX_TOGGLEGRID,
     COMMONMODE_CHECKBOX_TOGGLEDRAWJUNCTIONSHAPE,
@@ -240,12 +294,12 @@ enum class GUIIcon {
     COMMONMODE_CHECKBOX_SHOWDEMANDELEMENTS,
     /// @}
 
-    /// @name NETEDIT network mode specific icons
+    /// @name Netedit network mode specific icons
     /// @{
     NETWORKMODE_CHECKBOX_SELECTEDGES,
     NETWORKMODE_CHECKBOX_SHOWCONNECTIONS,
     NETWORKMODE_CHECKBOX_AUTOSELECTJUNCTIONS,
-    NETWORKMODE_CHECKBOX_ASKFORMERGE,
+    NETWORKMODE_CHECKBOX_MERGEAUTOMATICALLY,
     NETWORKMODE_CHECKBOX_BUBBLES,
     NETWORKMODE_CHECKBOX_ELEVATION,
     NETWORKMODE_CHECKBOX_CHAIN,
@@ -256,7 +310,7 @@ enum class GUIIcon {
     NETWORKMODE_CHECKBOX_APPLYTOALLPHASES,
     /// @}
 
-    /// @name NETEDIT demand mode specific icons
+    /// @name Netedit demand mode specific icons
     /// @{
     DEMANDMODE_CHECKBOX_HIDESHAPES,
     DEMANDMODE_CHECKBOX_SHOWTRIPS,
@@ -268,7 +322,7 @@ enum class GUIIcon {
     DEMANDMODE_CHECKBOX_SHOWOVERLAPPEDROUTES,
     /// @}
 
-    /// @name NETEDIT data mode specific icons
+    /// @name Netedit data mode specific icons
     /// @{
     DATAMODE_CHECKBOX_SHOWADDITIONALS,
     DATAMODE_CHECKBOX_SHOWSHAPES,
@@ -294,15 +348,6 @@ enum class GUIIcon {
     LANEGREENVERGE,
     /// @}
 
-    /// @name netedit save elements
-    /// @{
-    SAVEALLELEMENTS,
-    SAVENETWORKELEMENTS,
-    SAVEADDITIONALELEMENTS,
-    SAVEDEMANDELEMENTS,
-    SAVEDATAELEMENTS,
-    /// @}
-
     /// @name netedit supermode icons
     /// @{
     SUPERMODENETWORK,
@@ -310,7 +355,7 @@ enum class GUIIcon {
     SUPERMODEDATA,
     /// @}
 
-    /// @name NETEDIT Network modes icons
+    /// @name Netedit Network modes icons
     /// @{
     MODEADDITIONAL,
     MODECONNECTION,
@@ -325,13 +370,16 @@ enum class GUIIcon {
     MODESHAPE,
     MODEPROHIBITION,
     MODEWIRE,
+    MODEDECAL,
     /// @}
 
-    /// @name NETEDIT Demand modes icons
+    /// @name Netedit Demand modes icons
     /// @{
     MODEROUTE,
+    MODEROUTEDISTRIBUTION,
     MODEVEHICLE,
     MODETYPE,
+    MODETYPEDISTRIBUTION,
     MODESTOP,
     MODEPERSON,
     MODEPERSONPLAN,
@@ -339,14 +387,15 @@ enum class GUIIcon {
     MODECONTAINERPLAN,
     /// @}
 
-    /// @name NETEDIT Edge modes icons
+    /// @name Netedit Edge modes icons
     /// @{
     MODEEDGEDATA,
     MODEEDGERELDATA,
     MODETAZRELDATA,
+    MODEMEANDATA,
     /// @}
 
-    /// @name NETEDIT processing icons
+    /// @name Netedit processing icons
     /// @{
     COMPUTEJUNCTIONS,
     CLEANJUNCTIONS,
@@ -407,12 +456,28 @@ enum class GUIIcon {
     OVERHEADWIRE_CLAMP,
     /// @}
 
-    /// @name poly elements icons
+    /// @name shape elements icons
     /// @{
     POLY,
     POI,
     POILANE,
     POIGEO,
+    /// @}
+
+    /// @name poi icons
+    /// @{
+    POIICON_PIN,
+    POIICON_NATURE,
+    POIICON_HOTEL,
+    POIICON_FUEL,
+    POIICON_CHARGING_STATION,
+    /// @}
+
+    /// @name juPedSim elements
+    /// @{
+    JPS,
+    JPS_WALKABLEAREA,
+    JPS_OBSTACLE,
     /// @}
 
     /// @name TAZ elements icons
@@ -422,50 +487,91 @@ enum class GUIIcon {
     /// @}
 
 
-    /// @name NETEDIT Demand elements icons
+    /// @name Netedit Demand elements icons
     /// @{
     ROUTE,
+    ROUTEREF,
+    ROUTEDISTRIBUTION,
     VTYPE,
+    VTYPEREF,
+    VTYPE_DEFAULT,
+    VTYPE_BIKE,
+    VTYPE_TAXI,
+    VTYPE_RAIL,
+    VTYPE_PEDESTRIAN,
+    VTYPE_CONTAINER,
     VTYPEDISTRIBUTION,
     VEHICLE,
     TRIP,
     TRIP_JUNCTIONS,
+    TRIP_TAZS,
     FLOW,
     FLOW_JUNCTIONS,
+    FLOW_TAZS,
     ROUTEFLOW,
     STOPELEMENT,
     WAYPOINT,
     PERSON,
     PERSONFLOW,
-    PERSONTRIP_FROMTO,
+    PERSONTRIP_EDGE,
     PERSONTRIP_BUSSTOP,
-    PERSONTRIP_JUNCTIONS,
+    PERSONTRIP_TRAINSTOP,
+    PERSONTRIP_CONTAINERSTOP,
+    PERSONTRIP_CHARGINGSTATION,
+    PERSONTRIP_PARKINGAREA,
+    PERSONTRIP_JUNCTION,
+    PERSONTRIP_TAZ,
     WALK_EDGES,
-    WALK_FROMTO,
+    WALK_EDGE,
     WALK_BUSSTOP,
+    WALK_TRAINSTOP,
+    WALK_CONTAINERSTOP,
+    WALK_CHARGINGSTATION,
+    WALK_PARKINGAREA,
     WALK_ROUTE,
-    WALK_JUNCTIONS,
-    RIDE_FROMTO,
+    WALK_JUNCTION,
+    WALK_TAZ,
+    RIDE_EDGE,
     RIDE_BUSSTOP,
+    RIDE_TRAINSTOP,
+    RIDE_CONTAINERSTOP,
+    RIDE_CHARGINGSTATION,
+    RIDE_PARKINGAREA,
+    RIDE_JUNCTION,
+    RIDE_TAZ,
     CONTAINER,
     CONTAINERFLOW,
-    TRANSPORT_FROMTO,
+    TRANSPORT_EDGE,
+    TRANSPORT_BUSSTOP,
+    TRANSPORT_TRAINSTOP,
     TRANSPORT_CONTAINERSTOP,
+    TRANSPORT_CHARGINGSTATION,
+    TRANSPORT_PARKINGAREA,
+    TRANSPORT_JUNCTION,
+    TRANSPORT_TAZ,
     TRANSHIP_EDGES,
-    TRANSHIP_FROMTO,
+    TRANSHIP_EDGE,
+    TRANSHIP_BUSSTOP,
+    TRANSHIP_TRAINSTOP,
     TRANSHIP_CONTAINERSTOP,
+    TRANSHIP_CHARGINGSTATION,
+    TRANSHIP_PARKINGAREA,
+    TRANSHIP_JUNCTION,
+    TRANSHIP_TAZ,
     /// @}
 
-    /// @name NETEDIT data elements icons
+    /// @name Netedit data elements icons
     /// @{
     DATASET,
     DATAINTERVAL,
     EDGEDATA,
     EDGERELDATA,
     TAZRELDATA,
+    MEANDATAEDGE,
+    MEANDATALANE,
     /// @}
 
-    /// @name NETEDIT icons used in GNETLSTable
+    /// @name Netedit icons used in GNETLSTable
     /// @{
     TLSPHASEDEFAULT,
     TLSPHASECOPY,
@@ -502,6 +608,13 @@ enum class GUIIcon {
     VCLASS_PEDESTRIAN,
     VCLASS_EVEHICLE,
     VCLASS_SHIP,
+    VCLASS_CONTAINER,
+    VCLASS_CABLE_CAR,
+    VCLASS_SUBWAY,
+    VCLASS_AIRCRAFT,
+    VCLASS_WHEELCHAIR,
+    VCLASS_SCOOTER,
+    VCLASS_DRONE,
     VCLASS_CUSTOM1,
     VCLASS_CUSTOM2,
     /// @}
@@ -533,6 +646,13 @@ enum class GUIIcon {
     VCLASS_SMALL_PEDESTRIAN,
     VCLASS_SMALL_EVEHICLE,
     VCLASS_SMALL_SHIP,
+    VCLASS_SMALL_CONTAINER,
+    VCLASS_SMALL_CABLE_CAR,
+    VCLASS_SMALL_SUBWAY,
+    VCLASS_SMALL_AIRCRAFT,
+    VCLASS_SMALL_WHEELCHAIR,
+    VCLASS_SMALL_SCOOTER,
+    VCLASS_SMALL_DRONE,
     VCLASS_SMALL_CUSTOM1,
     VCLASS_SMALL_CUSTOM2,
     /// @}
@@ -569,6 +689,7 @@ enum class GUIIcon {
     VSHAPE_RICKSHAW,
     VSHAPE_SCOOTER,
     VSHAPE_UNKNOWN,
+    VSHAPE_AIRCRAFT,
     /// @}
 
     /// @name icons for status
@@ -582,6 +703,19 @@ enum class GUIIcon {
     WARNING,
     DANGER,
     SUM,
+    BACK,
+    /// @}
+
+    /// @name icons for dialogs
+    /// @{
+    INFORMATION_LARGE,
+    INFORMATION_SMALL,
+    QUESTION_LARGE,
+    QUESTION_SMALL,
+    ERROR_LARGE,
+    ERROR_SMALL,
+    WARNING_LARGE,
+    WARNING_SMALL,
     /// @}
 
     /// @name icons for grid
@@ -593,7 +727,45 @@ enum class GUIIcon {
     /// @}
 
     /// @brief icons for geo tools
+    /// @{
     GEOHACK,
-    GOOGLESAT,
-    OSM
+    GOOGLEMAPS,
+    OSM,
+    /// @}
+
+    /// @brief icons for file dialogs
+    /// @{
+    FILEDIALOG_BOOK_CLR,
+    FILEDIALOG_BOOK_SET,
+    FILEDIALOG_DIRUP_ICON,
+    FILEDIALOG_FILE_COPY,
+    FILEDIALOG_FILE_DELETE,
+    FILEDIALOG_FILE_HIDDEN,
+    FILEDIALOG_FILE_LINK,
+    FILEDIALOG_FILE_MOVE,
+    FILEDIALOG_FILE_SHOWN,
+    FILEDIALOG_FOLDER_BIG,
+    FILEDIALOG_FOLDER_NEW,
+    FILEDIALOG_GOTO_HOME,
+    FILEDIALOG_GOTO_WORK,
+    FILEDIALOG_SHOW_BIGICONS,
+    FILEDIALOG_SHOW_DETAILS,
+    FILEDIALOG_SHOW_SMALLICONS,
+    /// @}
+
+    /// @brief icons for languages
+    /// @{
+    LANGUAGE_EN,
+    LANGUAGE_DE,
+    LANGUAGE_ES,
+    LANGUAGE_PT,
+    LANGUAGE_FR,
+    LANGUAGE_IT,
+    LANGUAGE_HU,
+    LANGUAGE_TR,
+    LANGUAGE_ZH,
+    LANGUAGE_ZHT,
+    LANGUAGE_JA,
+    LANGUAGE_KO
+    /// @}
 };

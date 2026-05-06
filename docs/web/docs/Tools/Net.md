@@ -7,7 +7,7 @@ title: Net
 This script compares two *.net.xml* files. The call
 
 ```
-python tools/net/netdiff.py A.net.xml B.net.xml diff
+python tools/net/netdiff.py A.net.xml B.net.xml diff
 ```
 
 will produce 4 [plain-XML network](../Networks/PlainXML.md) files:
@@ -23,7 +23,7 @@ between the two networks ***A*** and ***B***. Furthermore, these files can be us
 maintain change-sets for making repeatable modifications:
 
 ```
-netconvert --sumo-net-file A.net.xml -n diff.nod.xml -e diff.edg.xml -x diff.con.xml -i diff.tll.xml -o B.net.xml
+netconvert --sumo-net-file A.net.xml -n diff.nod.xml -e diff.edg.xml -x diff.con.xml -i diff.tll.xml -o B.net.xml
 ```
 
 The above call can be used to recreate network ***B*** based on ***A*** and the
@@ -83,11 +83,11 @@ given network. The following connections are added:
 - vehicles can stay inside of the roundabout on every lane.
 - vehicles can leave a roundabout even if they are driving on an inner
   lane if there are enough outgoing lanes.
-  
+
 Usage:
 
 ```
-python tools/net/createRoundaboutConnections.py <net-file>
+python tools/net/createRoundaboutConnections.py <net-file>
 ```
 
 This creates the output file ```roundabout-connection.con.xml```, where the input network is ***<net-file\>***.
@@ -104,7 +104,7 @@ Additionally, you may run this script to discover which edges are
 reachable from a particular edge.
 
 ```
-python tools/net/netcheck.py <net-file> --source <edge_id> --selection-output selection.txt
+python tools/net/netcheck.py <net-file> --source <edge_id> --selection-output selection.txt
 ```
 
 This will create a file called ```selection.txt``` which can be loaded in
@@ -139,8 +139,8 @@ edges or nodes given in the input file. The results are written into
 <XMLEDGES\>.mod.xml or <XMLNODES\>.mod.xml, respectively.
 
 ```
-python tools/net/xmledges_applyOffset.py <XMLEDGES-FILE> <X-OFFSET> <Y-OFFSET>
-python tools/net/xmlnodes_applyOffset.py <XMLNODES-FILE> <X-OFFSET> <Y-OFFSET>
+python tools/net/xmledges_applyOffset.py <XMLEDGES-FILE> <X-OFFSET> <Y-OFFSET>
+python tools/net/xmlnodes_applyOffset.py <XMLNODES-FILE> <X-OFFSET> <Y-OFFSET>
 ```
 
 - <XMLEDGES-FILE\>/<XMLNODES-FILE\>: The edges/nodes file whose content shall be
@@ -161,7 +161,7 @@ Reads the given connections file <CONNECTIONS-FILE\> and replaces old edge
 names by the new ones. The result is written to <CONNECTIONS-FILE\>.mod.xml
 
 ```
-python tools/net/xmlconnections_mapEdges.py <CONNECTIONS-FILE>
+python tools/net/xmlconnections_mapEdges.py <CONNECTIONS-FILE>
 ```
 
 - <OLD_EDGE_ID\>: Id of an edge as used within <CONNECTIONS-FILE\>
@@ -173,23 +173,121 @@ python tools/net/xmlconnections_mapEdges.py <CONNECTIONS-FILE>
 converts '.net.xml' road geometries to [KML](https://en.wikipedia.org/wiki/Keyhole_Markup_Language) format.
 
 ```
-python tools/net/net2kml.py -n <net-file> -o output.kml
+python tools/net/net2kml.py -n <net-file> -o output.kml
 ```
 
 By default, normal edge geometries will be exported. This can be changed with options
 
 - **--lanes**: write lane geometries
 - **--internal**: write junction-internal edges or lanes
+- **--junctions**: export junction geometries
+- **--boundary**: write edge/lane boundaries instead of center-lines
+- **--traffic-lights** write coordinates for the [colored signals](../sumo-gui.md#right_of_way)
 
 # net2geojson.py
 
 converts '.net.xml' road geometries to [GeoJSON](https://en.wikipedia.org/wiki/GeoJSON) format.
 
 ```
-python tools/net/net2geojson.py -n <net-file> -o output.geojson
+python tools/net/net2geojson.py -n <net-file> -o output.geojson
 ```
 
 By default, normal edge geometries will be exported. This can be changed with options
 
 - **--lanes**: write lane geometries
 - **--internal**: write junction-internal edges or lanes
+
+It is also possible to enrich the generated geojson with edge-related data (i.e. traffic counts or speeds) by loading an edgedata file with option **--edgedata-file**.
+
+# split_at_stops.py
+
+Generates an .edg.xml patch file with `split` definitions to ensure that each public transport stop of the given type (default `<trainStop>`) is on a separate edge from every other stop. The tool also generates an updated `.net.xml` and stop file. Furthermore, it can adapt a route-file so it matches the updated network.
+
+Example call:
+```
+python tools/net/split_at_stops.py <stopfile> -n <net-file> -r <route-file> -o <output-net-file> --stop-output <output-stop-file> --route-output <output-route-file> --stop-type busStop
+```
+
+!!! note
+    A similar functionality is achieved by [stationDistricts.py --split-output FILE](District.md#stationdistrictspy) which splits edges at the midpoint between stops.
+
+# abstractRail.py
+
+Converts a geodetical rail network into an abstract (schematic) rail network.
+If the network is segmented (with [stationDistricts.py](District.md#stationdistrictspy)), the resulting network will be
+a hybrid of multiple schematic pieces being oriented in a roughly geodetical manner
+
+Example call:
+```
+python tools/net/abstractRail.py -n input_net.net.xml --stop-file input_additional.add.xml --region-file stations.taz.xml --output-prefix abstract
+```
+
+It is also possible to automatically segment the network:
+```
+python tools/net/abstractRail.py -n input_net.net.xml --stop-file input_additional.add.xml --split --output-prefix abstract
+```
+
+## Further options
+
+- **--filter-regions**: Only convert the given list of regions and delete everything else
+- **--keep-all**: When filtering regions, keep all other regions at their old geometry. This may be used to build region-specific patch files than can the combined to patch larger parts of the network**
+- **--horizontal**: The abstract network is aligned on the horizontal
+- **--track-offset**: Define the offset between parallel tracks in m (default 20)
+- **--skip-building**: Only create patch files but do not assemble the new network
+- **--skip**: creates a region file (taz) from the stop-file, optionally splits network edges to ensure that each edge belongs to a single station
+
+!!! caution
+    If the network is large and not segmented or if the individual station segments are large, the conversion process can take a long time. The option **--skip-large INT** can be used to selective skip large regions (measured by the number of optimization constraints, reported via **--verbose** output).
+
+!!! caution
+    If option **--spit** is used, the original network may be split (with the new filename *OLDNAME.split.net.xml*) and the generated abstract network will have the same edges as the split net. The input stop-file will also be adapted for the split net (with the new filename *OLDNAME.split.add.xml*) but any traffic demand (route files) have to be adapted for the split network. This can be accomplished by calling **duarouter -n net.split.net.xml.gz -a stops.split.add.xml -r old.rou.xml -o new.rou.xml --repair --ignore-errors --skip-new-routes --ptline-routing**
+
+# remap_additionals.py
+
+Remap infrastructure from one network to another if the networks have similar geometry. The following differences between networks are acceptable:
+
+- changed edge ids
+- changed lane number and permissions
+- changed splits and joins of edges
+- small variations in geometry
+
+In case of changed lanes, permissions are taken into account to select a suitable replacement lane.
+
+Example call:
+```
+python tools/net/remap_additionals.py --orig-net input_net.net.xml --target-net input_net2.net.xml -a input_additional.add.xml -o out.add.xml
+```
+
+# remap_renamed.py
+
+Remap infrastructure, vehicles, routes or a selection file from one network to another if the new network has an `origId` param on every lane that reflects the edge id of the original network. A supported use case is converting the origial network with option **--numerical-ids** and then transforming other scenario file so that it can be used with the new network.
+
+Example calls:
+```
+python tools/net/remap_additionals.py -n input_net2.net.xml -r input_routes.rou.xml -o out.rou.xml
+python tools/net/remap_additionals.py -n input_net2.net.xml -a input_additionals.add.xml -o out.add.xml
+python tools/net/remap_additionals.py -n input_net2.net.xml -s input_selection.txt -o selection.txt
+```
+
+# remap_network.py
+
+Compute correspondence between two networks with somewhat similar geometry (but different splits, joins, ids etc). The output is a csv-file with an 1-to-n mapping of original edge to zero or more target edges. 
+For each target edge, the common length in m as well as the fraction of the target edge being covered by the original edge are listed. Output on the quality of the mapping is written to **--success-output**.
+
+Example call:
+```
+python tools/net/remap_network.py --orig-net net.net.xml --target-net net2.net.xml -o out.csv --success-output success.txt
+```
+
+# generateStationEdges.py
+
+Generate pedestrian edges for every public transport stop to serve as access
+edge in otherwise pure railway networks. If a single edge is generated for all stops with the same name (option **--join**), persons starting on such an edge can automatically pick the stop (plattform) that best suits their journey.
+
+Example call:
+```
+python tools/net/generateStationEdges.py --net-file net.net.xml --stop-file stops.add.xml -o net2 --join --build
+```
+
+This tool generates *.edg.xml* and *.nod.xml* patch files for adding pedestrian edges at stations. These can be applied to the input network by calling netconvert again. The netconvert call happens automatically when option **--build** is set.
+If option **--join** is set, a single pedestrian edge will be generated for all busStops/trainStops with the same `name` attribute.

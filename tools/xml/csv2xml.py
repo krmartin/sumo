@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2013-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2013-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -25,36 +25,35 @@ import os
 import sys
 import csv
 import contextlib
-import io
 
 from collections import OrderedDict
-from optparse import OptionParser
 
-import xsd
-import xml2csv
+if 'SUMO_HOME' in os.environ:
+    sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
+import sumolib  # noqa
+from sumolib.xml import xsd  # noqa
 
 
 def get_options():
-    optParser = OptionParser(
-        usage=os.path.basename(sys.argv[0]) + " [<options>] <input_file_or_port>")
-    optParser.add_option("-q", "--quotechar", default="",
-                         help="the quoting character for fields")
-    optParser.add_option("-d", "--delimiter", default=";",
-                         help="the field separator of the input file")
-    optParser.add_option("-t", "--type",
-                         help="convert the given csv-file into the specified format")
-    optParser.add_option("-x", "--xsd", help="xsd schema to use")
-    optParser.add_option("-p", "--skip-root", action="store_true",
-                         default=False, help="the root element is not contained")
-    optParser.add_option("-o", "--output", help="name for generic output file")
-    options, args = optParser.parse_args()
-    if len(args) != 1:
-        optParser.print_help()
-        sys.exit()
-    if not options.xsd and not options.type:
-        print("either a schema or a type needs to be specified", file=sys.stderr)
-        sys.exit()
-    options.source = args[0]
+    optParser = sumolib.options.ArgumentParser(description="Convert a CSV file to a XML file.")
+    optParser.add_argument("source", category="input", type=optParser.data_file,
+                           help="the input CSV file")
+    optParser.add_argument("-o", "--output", category="output", required=True, type=optParser.file,
+                           help="name for generic output file")
+    optParser.add_argument("-q", "--quotechar", default="",
+                           help="the quoting character for fields")
+    optParser.add_argument("-d", "--delimiter", default=";",
+                           help="the field separator of the input file")
+    optParser.add_argument("-p", "--skip-root", action="store_true", default=False,
+                           help="the root element is not contained")
+    group = optParser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-t", "--type",
+                       help="convert the given csv-file into the specified format")
+    group.add_argument("-x", "--xsd",
+                       help="xsd schema to use")
+    group.add_argument("--flat", action="store_true", default=False,
+                       help="use csv header as flat structure instead of a schema")
+    options = optParser.parse_args()
     if not options.output:
         options.output = os.path.splitext(options.source)[0] + ".xml"
     return options
@@ -77,12 +76,9 @@ def row2vehicle_and_route(row, tag):
 
 
 def write_xml(toptag, tag, options, printer=row2xml):
-    with io.open(options.output, 'w', encoding="utf8") as outputf:
+    with sumolib.openz(options.output, 'w') as outputf:
         outputf.write(u'<%s>\n' % toptag)
-        if options.source.isdigit():
-            inputf = xml2csv.getSocketStream(int(options.source))
-        else:
-            inputf = io.open(options.source, encoding="utf8")
+        inputf = sumolib.openz(options.source, trySocket=True)
         reader = csv.DictReader(inputf, delimiter=options.delimiter)
         for row in reader:
             orderedRow = OrderedDict([(key, row[key]) for key in reader.fieldnames])
@@ -141,11 +137,8 @@ def checkChanges(out, old, new, currEle, tagStack, depth):
 def writeHierarchicalXml(struct, options):
     if not struct.root.attributes:
         options.skip_root = True
-    with contextlib.closing(xml2csv.getOutStream(options.output)) as outputf:
-        if options.source.isdigit():
-            inputf = xml2csv.getSocketStream(int(options.source))
-        else:
-            inputf = io.open(options.source, encoding="utf8")
+    with contextlib.closing(sumolib.openz(options.output, "w", trySocket=True)) as outputf:
+        inputf = sumolib.openz(options.source, trySocket=True)
         lastRow = OrderedDict()
         tagStack = [struct.root.name]
         if options.skip_root:
@@ -179,6 +172,21 @@ def writeHierarchicalXml(struct, options):
         inputf.close()
 
 
+def writeFlatXml(options):
+    with contextlib.closing(sumolib.openz(options.output, "w", trySocket=True)) as outputf:
+        inputf = sumolib.openz(options.source, trySocket=True)
+        outputf.write('<data>\n')
+        fields = None
+        for raw in csv.reader(inputf, delimiter=options.delimiter):
+            if not fields:
+                fields = raw
+            else:
+                outputf.write('    <record %s/>\n' % (
+                    ' '.join(['%s="%s"' % av for av in zip(fields, raw)])))
+        outputf.write('</data>\n')
+        inputf.close()
+
+
 def main():
     options = get_options()
     if options.type in ["nodes", "node", "nod"]:
@@ -191,6 +199,8 @@ def main():
         write_xml('routes', 'vehicle', options, row2vehicle_and_route)
     elif options.type in ["flows", "flow"]:
         write_xml('routes', 'flow', options, row2vehicle_and_route)
+    elif options.flat:
+        writeFlatXml(options)
     elif options.xsd:
         writeHierarchicalXml(xsd.XsdStructure(options.xsd), options)
 

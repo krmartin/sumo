@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -19,16 +19,21 @@
 /****************************************************************************/
 #pragma once
 #include <config.h>
+
+#include <netedit/elements/moving/GNEMoveElementLaneDouble.h>
+
 #include "GNEDetector.h"
 
+// ===========================================================================
+// class declaration
+// ===========================================================================
+
+class GNEMoveElementLaneDouble;
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @class GNELaneAreaDetector
- * class for detector of type E2
- */
+
 class GNELaneAreaDetector : public GNEDetector {
 
 public:
@@ -37,161 +42,215 @@ public:
 
     /**@brief Constructor for Single-Lane E2 detectors
      * @param[in] id The storage of gl-ids to get the one for this lane representation from
-     * @param[in] lane Lane of this StoppingPlace belongs
      * @param[in] net pointer to GNENet of this additional element belongs
+     * @param[in] fileBucket file in which this element is stored
+     * @param[in] lane Lane of this StoppingPlace belongs
      * @param[in] pos position of the detector on the lane
      * @param[in] length The length of the detector in meters.
      * @param[in] freq the aggregation period the values the detector collects shall be summed up.
      * @param[in] trafficLight The traffic light that triggers aggregation when switching.
      * @param[in] filename The path to the output file.
      * @param[in] vehicleTypes space separated list of vehicle type ids to consider
+     * @param[in] nextEdges list of edge ids that must all be part of the future route of the vehicle to qualify for detection
+     * @param[in] detectPersons detect persons instead of vehicles (pedestrians or passengers)
      * @param[in] name E2 detector name
      * @param[in] timeThreshold The time-based threshold that describes how much time has to pass until a vehicle is recognized as halting
      * @param[in] speedThreshold The speed-based threshold that describes how slow a vehicle has to be to be recognized as halting
      * @param[in] speedThreshold The minimum distance to the next standing vehicle in order to make this vehicle count as a participant to the jam
      * @param[in] friendlyPos enable or disable friendly positions
+     * @param[in] show detector in sumo-gui
      * @param[in] parameters generic parameters
      */
-    GNELaneAreaDetector(const std::string& id, GNELane* lane, GNENet* net, double pos, double length, const SUMOTime freq, const std::string& trafficLight,
-                  const std::string& filename, const std::vector<std::string>& vehicleTypes, const std::string& name, SUMOTime timeThreshold, double speedThreshold,
-                  double jamThreshold, bool friendlyPos, const Parameterised::Map& parameters);
+    GNELaneAreaDetector(const std::string& id, GNENet* net, FileBucket* fileBucket, GNELane* lane, const double pos, const double length,
+                        const SUMOTime freq, const std::string& trafficLight, const std::string& outputFilename, const std::vector<std::string>& vehicleTypes,
+                        const std::vector<std::string>& nextEdges, const std::string& detectPersons, const std::string& name,
+                        const SUMOTime timeThreshold, const double speedThreshold, const double jamThreshold, const bool friendlyPos,
+                        const bool show, const Parameterised::Map& parameters);
 
     /**@brief Constructor for Multi-Lane detectors
      * @param[in] id The storage of gl-ids to get the one for this lane representation from
-     * @param[in] lanes vector of lanes Lane of this StoppingPlace belongs
      * @param[in] net pointer to GNENet of this additional element belongs
+     * @param[in] fileBucket file in which this element is stored
+     * @param[in] lanes vector of lanes Lane of this StoppingPlace belongs
      * @param[in] pos position of the detector on the first lane
      * @param[in] endPos position of the detector on the last lane
      * @param[in] freq the aggregation period the values the detector collects shall be summed up.
      * @param[in] trafficLight The traffic light that triggers aggregation when switching.
      * @param[in] filename The path to the output file.
      * @param[in] vehicleTypes space separated list of vehicle type ids to consider
+     * @param[in] nextEdges list of edge ids that must all be part of the future route of the vehicle to qualify for detection
+     * @param[in] detectPersons detect persons instead of vehicles (pedestrians or passengers)
      * @param[in] name E2 detector name
      * @param[in] timeThreshold The time-based threshold that describes how much time has to pass until a vehicle is recognized as halting
      * @param[in] speedThreshold The speed-based threshold that describes how slow a vehicle has to be to be recognized as halting
      * @param[in] speedThreshold The minimum distance to the next standing vehicle in order to make this vehicle count as a participant to the jam
      * @param[in] friendlyPos enable or disable friendly positions
+     * @param[in] show detector in sumo-gui
      * @param[in] parameters generic parameters
      */
-    GNELaneAreaDetector(const std::string& id, std::vector<GNELane*> lanes, GNENet* net, double pos, double endPos, const SUMOTime freq, const std::string& trafficLight,
-                  const std::string& filename, const std::vector<std::string>& vehicleTypes, const std::string& name, SUMOTime timeThreshold, double speedThreshold, double jamThreshold,
-                  bool friendlyPos, const Parameterised::Map& parameters);
+    GNELaneAreaDetector(const std::string& id, GNENet* net, FileBucket* fileBucket, std::vector<GNELane*> lanes, const double pos, const double endPos,
+                        const SUMOTime freq, const std::string& trafficLight, const std::string& outputFilename, const std::vector<std::string>& vehicleTypes,
+                        const std::vector<std::string>& nextEdges, const std::string& detectPersons, const std::string& name,
+                        const SUMOTime timeThreshold, const double speedThreshold, const double jamThreshold, const bool friendlyPos,
+                        const bool show, const Parameterised::Map& parameters);
 
     /// @brief Destructor
     ~GNELaneAreaDetector();
 
+    /// @brief methods to retrieve the elements linked to this GNEAdditional
+    /// @{
+
+    /// @brief get GNEMoveElement associated with this GNEAdditional
+    GNEMoveElement* getMoveElement() const override;
+
+    /// @brief get parameters associated with this GNEAdditional
+    Parameterised* getParameters() override;
+
+    /// @}
+
     /// @name members and functions relative to write additionals into XML
     /// @{
+
     /**@brief write additional element into a xml file
      * @param[in] device device in which write parameters of additional element
      */
-    void writeAdditional(OutputDevice& device) const;
+    void writeAdditional(OutputDevice& device) const override;
 
-    /// @brief check if current additional is valid to be writed into XML
-    bool isAdditionalValid() const;
+    /// @brief check if current additional is valid to be written into XML
+    bool isAdditionalValid() const override;
 
     /// @brief return a string with the current additional problem
-    std::string getAdditionalProblem() const;
+    std::string getAdditionalProblem() const override;
 
     /// @brief fix additional problem
-    void fixAdditionalProblem();
+    void fixAdditionalProblem() override;
+
     /// @}
 
     /// @brief update pre-computed geometry information
-    void updateGeometry();
+    void updateGeometry() override;
 
     /// @name inherited from GUIGlObject
     /// @{
+
     /**@brief Draws the object
      * @param[in] s The settings for the current view (may influence drawing)
      * @see GUIGlObject::drawGL
      */
-    void drawGL(const GUIVisualizationSettings& s) const;
+    void drawGL(const GUIVisualizationSettings& s) const override;
+
     /// @}
 
-    /// @name inherited from GNEPathManager::PathElement
+    /// @name inherited from GNEPathElement
     /// @{
 
     /// @brief compute pathElement
-    void computePathElement();
+    void computePathElement() override;
 
-    /**@brief Draws partial object (lane)
+    /**@brief Draws partial object over lane
      * @param[in] s The settings for the current view (may influence drawing)
-     * @param[in] lane GNELane in which draw partial
-     * @param[in] segment segment geometry
+     * @param[in] segment lane segment
+     * @param[in] offsetFront front offset
      */
-    void drawPartialGL(const GUIVisualizationSettings& s, const GNELane* lane, const GNEPathManager::Segment* segment, const double offsetFront) const;
+    void drawLanePartialGL(const GUIVisualizationSettings& s, const GNESegment* segment, const double offsetFront) const override;
 
-    /**@brief Draws partial object (junction)
+    /**@brief Draws partial object over junction
      * @param[in] s The settings for the current view (may influence drawing)
-     * @param[in] fromLane from GNELane
-     * @param[in] toLane to GNELane
-     * @param[in] drawGeometry flag to enable/disable draw geometry (lines, boxLines, etc.)
+     * @param[in] segment junction segment
+     * @param[in] offsetFront front offset
      */
-    void drawPartialGL(const GUIVisualizationSettings& s, const GNELane* fromLane, const GNELane* toLane, const GNEPathManager::Segment* segment, const double offsetFront) const;
+    void drawJunctionPartialGL(const GUIVisualizationSettings& s, const GNESegment* segment, const double offsetFront) const override;
 
     /// @}
 
     /// @name inherited from GNEAttributeCarrier
     /// @{
+
     /* @brief method for getting the Attribute of an XML key
      * @param[in] key The attribute key
      * @return string with the value associated to key
      */
-    std::string getAttribute(SumoXMLAttr key) const;
+    std::string getAttribute(SumoXMLAttr key) const override;
 
-    /* @brief method for getting the Attribute of an XML key in double format (to avoid unnecessary parse<double>(...) for certain attributes)
+    /* @brief method for getting the Attribute of an XML key in double format
      * @param[in] key The attribute key
      * @return double with the value associated to key
      */
-    double getAttributeDouble(SumoXMLAttr key) const;
+    double getAttributeDouble(SumoXMLAttr key) const override;
+
+    /* @brief method for getting the Attribute of an XML key in position format
+     * @param[in] key The attribute key
+     * @return position with the value associated to key
+     */
+    Position getAttributePosition(SumoXMLAttr key) const override;
+
+    /* @brief method for getting the Attribute of an XML key in positionVector format
+     * @param[in] key The attribute key
+     * @return positionVector with the value associated to key
+     */
+    PositionVector getAttributePositionVector(SumoXMLAttr key) const override;
 
     /* @brief method for setting the attribute and letting the object perform additional changes
      * @param[in] key The attribute key
      * @param[in] value The new value
      * @param[in] undoList The undoList on which to register changes
      */
-    void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList);
+    void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList) override;
 
     /* @brief method for checking if the key and their correspond attribute are valids
      * @param[in] key The attribute key
      * @param[in] value The value associated to key key
      * @return true if the value is valid, false in other case
      */
-    bool isValid(SumoXMLAttr key, const std::string& value);
+    bool isValid(SumoXMLAttr key, const std::string& value) override;
+
     /// @}
 
 protected:
-    /// @brief end position over lane (only for Multilane E2 detectors)
-    double myEndPositionOverLane;
+    /// @brief The start position over lane
+    double myStartPosOverLane = 0;
+
+    /// @brief The end position over lane
+    double myEndPosPosOverLane = 0;
+
+    /// @brief Flag for friendly position
+    bool myFriendlyPosition = false;
 
     /// @brief The time-based threshold that describes how much time has to pass until a vehicle is recognized as halting
-    SUMOTime myTimeThreshold;
+    SUMOTime myTimeThreshold = 0;
 
     /// @brief The speed-based threshold that describes how slow a vehicle has to be to be recognized as halting
-    double mySpeedThreshold;
+    double mySpeedThreshold = 0;
 
     /// @brief The minimum distance to the next standing vehicle in order to make this vehicle count as a participant to the jam
-    double myJamThreshold;
+    double myJamThreshold = 0;
 
     /// @brief Traffic light vinculated with this E2 Detector
     std::string myTrafficLight;
 
+    /// @brief show or hidde detector in sumo-gui
+    bool myShow = true;
+
+    /// @brief move element lane double
+    GNEMoveElementLaneDouble* myMoveElementLaneDouble = nullptr;
+
 private:
+    /// @brief draw E2 detector
+    void drawE2(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                const double exaggeration, const bool drawGeometryPoints) const;
+
+    /// @brief draw E2 partial lane
+    void drawE2PartialLane(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                           const GNESegment* segment, const double offsetFront,
+                           const GUIGeometry& geometry, const double exaggeration, const bool movingGeometryPoints) const;
+
+    /// @brief draw E2 partial junction
+    void drawE2PartialJunction(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                               const bool onlyContour, const double offsetFront, const GUIGeometry& geometry,
+                               const double exaggeration) const;
+
     /// @brief set attribute after validation
-    void setAttribute(SumoXMLAttr key, const std::string& value);
-
-    /// @brief set move shape
-    void setMoveShape(const GNEMoveResult& moveResult);
-
-    /// @brief commit move shape
-    void commitMoveShape(const GNEMoveResult& moveResult, GNEUndoList* undoList);
-
-    /// @brief get start position over lane that is applicable to the shape
-    double getStartGeometryPositionOverLane() const;
-
-    /// @brief get end position over lane that is applicable to the shape
-    double getEndGeometryPositionOverLane() const;
+    void setAttribute(SumoXMLAttr key, const std::string& value) override;
 
     /// @brief Invalidated copy constructor.
     GNELaneAreaDetector(const GNELaneAreaDetector&) = delete;

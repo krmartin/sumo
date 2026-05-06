@@ -34,21 +34,28 @@ Add the files to the [{{SUMO}}/src/microsim/lcmodels/CMakeLists.txt]({{Source}}s
 
 ## Loading into simulation
 
+### Updating the XSD schema files so they permit the new model name
+
+All permitted models must be defined in [{{SUMO}}/data/xsd/routeTypes.xsd]({{Source}}data/xsd/routeTypes.xsd) in the list of permitted values for the `laneChangeModel` attribute.
+
+### Registering the model name as possible value
+
 We now add the XML-elements which allow us to define and parse the
 model's parameter. Extend the list of known elements
 "SUMOXMLDefinitions::tags" located in [{{SUMO}}/src/utils/xml/SUMOXMLDefinitions.cpp]({{Source}}src/utils/xml/SUMOXMLDefinitions.cpp).
 In `SUMOXMLDefinitions::laneChangeModelValues` add new values i.e. `{ "LCXYZ", LaneChangeModel::LCXYZ }` (but not as the last element in the array)
 and add the corresponding element to `enum class LaneChangeModel`.
 
-
+### Extending the list of loadable models
 Lane-changing models are instantiated in `MSAbstractLaneChangeModel::build`
 located in
 [{{SUMO}}/src/microsim/lcmodels/MSAbstractLaneChangeModel.cpp]({{Source}}src/microsim/lcmodels/MSAbstractLaneChangeModel.cpp). You'll find a switch, here
 where you have to put the call to your model's constructor into.
 
+### Adding custom model parameters
 
-You may note that all the paramters for the model are loaded within the
-constructur rather than being passed as arguments.
+You may note that all the parameters for the model are loaded within the
+constructor rather than being passed as arguments.
 
 However, you need to register any novel parameters in
 `SUMOVehicleParserHelper::parseLCParams`
@@ -57,18 +64,16 @@ located in
 
 
 For further interaction, you also have to adapt the "id" of the model in
-the new model's .h class:
+the new model's constructor call to the base class constructor:
 
 ```
-virtual int getModelID() const {
- return LaneChangeModel::LCXYZ;
-}
+MSAbstractLaneChangeModel(v, LaneChangeModel::LCXYZ),
 ```
 
 ## Using Custom Parameters via TraCI
 
 A LaneChangeModel can override the functions getParameter and setParameter
-inherited from MSAbstractLaneChangeModel. 
+inherited from MSAbstractLaneChangeModel.
 Any calls to 'traci.vehicle.setParameter' and 'traci.vehicle.getParameter' where
 the key starts with "laneChangeModel." will then be forwarded to these methods (without the prefix).
 The call
@@ -84,5 +89,5 @@ XML elements or attributes you either need to adapt the XML schema files
 in {{SUMO}}/data/xsd or add the option
 
 ```
---xml-validation never
+--xml-validation never
 ```

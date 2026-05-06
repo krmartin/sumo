@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2005-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2005-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -34,6 +34,7 @@
 // class declarations
 // ===========================================================================
 class PolygonDynamics;
+class ShapeListener;
 class SUMOTrafficObject;
 template <class T, class S>
 class ParametrisedWrappingCommand;
@@ -66,7 +67,6 @@ public:
      * @param[in] layer The layer of the polygon
      * @param[in] angle The rotation of the polygon
      * @param[in] imgFile The raster image of the polygon
-     * @param[in] relativePath set image file as relative path
      * @param[in] shape The shape of the polygon
      * @param[in] geo specify if shape was loaded as GEO coordinate
      * @param[in] fill Whether the polygon shall be filled
@@ -76,7 +76,7 @@ public:
     virtual bool addPolygon(const std::string& id, const std::string& type,
                             const RGBColor& color, double layer,
                             double angle, const std::string& imgFile,
-                            bool relativePath, const PositionVector& shape, bool geo,
+                            const PositionVector& shape, bool geo,
                             bool fill, double lineWidth, bool ignorePruning = false,
                             const std::string& name = Shape::DEFAULT_NAME);
 
@@ -111,17 +111,17 @@ public:
      * @param[in] posOverLane The position over Lane
      * @param[in] friendlyPos enable or disable friendly position over lane
      * @param[in] posLat The position lateral over Lane
+     * @param[in] icon The icon of the POI
      * @param[in] layer The layer of the POI
      * @param[in] angle The rotation of the POI
      * @param[in] imgFile The raster image of the POI
-     * @param[in] relativePath set image file as relative path
      * @param[in] width The width of the POI image
      * @param[in] height The height of the POI image
      * @return whether the poi could be added
      */
     virtual bool addPOI(const std::string& id, const std::string& type, const RGBColor& color, const Position& pos, bool geo,
-                        const std::string& lane, double posOverLane, bool friendlyPos, double posLat, double layer, double angle,
-                        const std::string& imgFile, bool relativePath, double width, double height, bool ignorePruning = false);
+                        const std::string& lane, double posOverLane, bool friendlyPos, double posLat, const std::string& icon, double layer,
+                        double angle, const std::string& imgFile, double width, double height, bool ignorePruning = false);
 
     /** @brief Removes a polygon from the container
      * @param[in] id The id of the polygon
@@ -176,6 +176,10 @@ public:
     /** @brief Remove all dynamics before quick-loading state */
     void clearState();
 
+    void addShapeListener(ShapeListener* listener) {
+        myListeners.push_back(listener);
+    }
+
 protected:
     /// @brief add polygon
     virtual bool add(SUMOPolygon* poly, bool ignorePruning = false);
@@ -222,5 +226,26 @@ protected:
 private:
     /// @brief Command pointers for scheduled polygon update. Maps PolyID->Command
     std::map<const std::string, ParametrisedWrappingCommand<ShapeContainer, PolygonDynamics*>*> myPolygonUpdateCommands;
+    std::vector<ShapeListener*> myListeners;
 
+};
+
+
+/**
+ * @class ShapeListener
+ * @brief Interface for objects which want to be notified about shape updates
+ */
+class ShapeListener {
+public:
+    virtual ~ShapeListener() {};
+    virtual void polygonChanged(const SUMOPolygon* const poly, const bool added, const bool removed) {
+        UNUSED_PARAMETER(poly);
+        UNUSED_PARAMETER(added);
+        UNUSED_PARAMETER(removed);
+    }
+    virtual void poiChanged(const PointOfInterest* const poi, const bool added, const bool removed) {
+        UNUSED_PARAMETER(poi);
+        UNUSED_PARAMETER(added);
+        UNUSED_PARAMETER(removed);
+    }
 };

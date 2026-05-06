@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2017-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2017-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -109,6 +109,7 @@ Simulation::setOrder(int order) {
 
 void
 Simulation::load(const std::vector<std::string>& args) {
+    std::unique_lock<std::mutex> lock{ libtraci::Connection::getActive().getMutex() };
     tcpip::Storage content;
     content.writeUnsignedByte(libsumo::TYPE_STRINGLIST);
     content.writeStringList(args);
@@ -129,6 +130,13 @@ Simulation::step(const double time) {
 
 
 void
+Simulation::executeMove() {
+    std::unique_lock<std::mutex> lock{ libtraci::Connection::getActive().getMutex() };
+    Connection::getActive().doCommand(libsumo::CMD_EXECUTEMOVE);
+}
+
+
+void
 Simulation::close(const std::string& /* reason */) {
     Connection::getActive().close();
 }
@@ -136,7 +144,8 @@ Simulation::close(const std::string& /* reason */) {
 
 std::pair<int, std::string>
 Simulation::getVersion() {
-    tcpip::Storage& inMsg = Connection::getActive().doCommand(libsumo::CMD_GETVERSION, -1, "");
+    std::unique_lock<std::mutex> lock{ libtraci::Connection::getActive().getMutex() };
+    tcpip::Storage& inMsg = Connection::getActive().doCommand(libsumo::CMD_GETVERSION);
     inMsg.readUnsignedByte(); // msg length
     inMsg.readUnsignedByte(); // libsumo::CMD_GETVERSION again, see #7284
     const int traciVersion = inMsg.readInt(); // to fix evaluation order
@@ -345,9 +354,14 @@ Simulation::getPendingVehicles() {
     return Dom::getStringVector(libsumo::VAR_PENDING_VEHICLES, "");
 }
 
+
 std::vector<libsumo::TraCICollision>
 Simulation::getCollisions() {
+    std::unique_lock<std::mutex> lock{ libtraci::Connection::getActive().getMutex() };
+    tcpip::Storage& ret = Dom::get(libsumo::VAR_COLLISIONS, "");
     std::vector<libsumo::TraCICollision> result;
+    ret.readInt();
+    StoHelp::readCollisionVector(ret, result);
     return result;
 }
 
@@ -414,6 +428,7 @@ Simulation::convertRoad(double x, double y, bool isGeo, const std::string& vClas
     content.writeUnsignedByte(libsumo::TYPE_UBYTE);
     content.writeUnsignedByte(libsumo::POSITION_ROADMAP);
     StoHelp::writeTypedString(content, vClass);
+    std::unique_lock<std::mutex> lock{ libtraci::Connection::getActive().getMutex() };
     tcpip::Storage& ret = Dom::get(libsumo::POSITION_CONVERSION, "", &content, libsumo::POSITION_ROADMAP);
     libsumo::TraCIRoadPosition result;
     result.edgeID = ret.readString();
@@ -469,14 +484,17 @@ Simulation::getDistanceRoad(const std::string& edgeID1, double pos1, const std::
 
 
 libsumo::TraCIStage
-Simulation::findRoute(const std::string& fromEdge, const std::string& toEdge, const std::string& vType, const double depart, const int routingMode) {
+Simulation::findRoute(const std::string& fromEdge, const std::string& toEdge, const std::string& vType,
+                      double depart, int routingMode, double departPos, double arrivalPos) {
     tcpip::Storage content;
-    StoHelp::writeCompound(content, 5);
+    StoHelp::writeCompound(content, 7);
     StoHelp::writeTypedString(content, fromEdge);
     StoHelp::writeTypedString(content, toEdge);
     StoHelp::writeTypedString(content, vType);
     StoHelp::writeTypedDouble(content, depart);
     StoHelp::writeTypedInt(content, routingMode);
+    StoHelp::writeTypedDouble(content, departPos);
+    StoHelp::writeTypedDouble(content, arrivalPos);
     return Dom::getTraCIStage(libsumo::FIND_ROUTE, "", &content);
 }
 
@@ -501,6 +519,7 @@ Simulation::findIntermodalRoute(const std::string& fromEdge, const std::string& 
     StoHelp::writeTypedString(content, pType);
     StoHelp::writeTypedString(content, vType);
     StoHelp::writeTypedString(content, destStop);
+    std::unique_lock<std::mutex> lock{ libtraci::Connection::getActive().getMutex() };
     tcpip::Storage& result = Dom::get(libsumo::FIND_INTERMODAL_ROUTE, "", &content);
     int numStages = result.readInt();
     std::vector<libsumo::TraCIStage> ret;
@@ -556,8 +575,8 @@ Simulation::writeMessage(const std::string& msg) {
 
 
 void
-Simulation::subscribe(const std::vector<int>& varIDs, double begin, double end, const libsumo::TraCIResults& params) {
-    libtraci::Connection::getActive().subscribe(libsumo::CMD_SUBSCRIBE_SIM_VARIABLE, "", begin, end, -1, -1, varIDs, params);
+Simulation::subscribe(const std::vector<int>& varIDs, double begin, double end, const libsumo::TraCIResults& parameters) {
+    libtraci::Connection::getActive().subscribe(libsumo::CMD_SUBSCRIBE_SIM_VARIABLE, "", begin, end, -1, -1, varIDs, parameters);
 }
 
 

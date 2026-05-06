@@ -1,7 +1,7 @@
-if (JPS_FOUND)
+if (HAVE_JUPEDSIM)
     set(microsim_transportables_JPS_SRCS
-        MSPModel_Remote.cpp
-        MSPModel_Remote.h
+        MSPModel_JuPedSim.cpp
+        MSPModel_JuPedSim.h
         )
 endif ()
 set(microsim_transportables_STAT_SRCS
@@ -9,22 +9,26 @@ set(microsim_transportables_STAT_SRCS
         MSPerson.h
         MSPModel.cpp
         MSPModel.h
-        MSPModel_Striping.cpp
-        MSPModel_Striping.h
+        MSPModel_Interacting.cpp
+        MSPModel_Interacting.h
         MSPModel_NonInteracting.cpp
         MSPModel_NonInteracting.h
+        MSPModel_Striping.cpp
+        MSPModel_Striping.h
         MSStage.cpp
         MSStage.h
-        MSStageTrip.cpp
-        MSStageTrip.h
-        MSStageWaiting.cpp
-        MSStageWaiting.h
         MSStageMoving.cpp
         MSStageMoving.h
         MSStageDriving.cpp
         MSStageDriving.h
         MSStageTranship.cpp
         MSStageTranship.h
+        MSStageTrip.cpp
+        MSStageTrip.h
+        MSStageWaiting.cpp
+        MSStageWaiting.h
+        MSStageWalking.cpp
+        MSStageWalking.h
         MSTransportable.cpp
         MSTransportable.h
         MSTransportableControl.cpp
@@ -33,7 +37,7 @@ set(microsim_transportables_STAT_SRCS
         )
 
 add_library(microsim_transportables STATIC ${microsim_transportables_STAT_SRCS} ${remote_model})
+target_link_libraries(microsim_transportables
+    PUBLIC $<$<BOOL:${HAVE_JUPEDSIM}>:jupedsim::jupedsim>
+)
 set_property(TARGET microsim_transportables PROPERTY PROJECT_LABEL "z_microsim_transportables")
-if (JPS_FOUND)
-    target_link_libraries(microsim_transportables jps)
-endif ()

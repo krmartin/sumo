@@ -6,19 +6,21 @@
 # (none yet)
 
 # Declare files that will always have LF line endings on checkout.
-*.h    text eol=lf filter=keywords
-*.cpp  text eol=lf filter=keywords
-*.py   text eol=lf filter=keywords
-*.pyw  text eol=lf filter=keywords
-*.pl   text eol=lf filter=keywords
-*.java text eol=lf filter=keywords
-*.cs   text eol=lf filter=keywords
+*.h    text eol=lf
+*.cpp  text eol=lf
+*.py   text eol=lf
+*.pyw  text eol=lf
+*.pl   text eol=lf
+*.java text eol=lf
+*.cs   text eol=lf
+*.sh   text eol=lf
 
 *.xml  text eol=lf
 *.prog text eol=lf
 *.csv  text eol=lf
 *.txt  text eol=lf
 *.tcl  text eol=lf
+*.po  text eol=lf
 
 *.complex     text eol=lf
 *.dfrouter    text eol=lf
@@ -53,6 +55,7 @@ visum.net     text eol=lf
 png.complex binary
 png.sumo binary
 png2.sumo binary
+errorScreenshot.netedit binary
 *.ico binary
 *.png binary
 *.jpg binary
@@ -65,4 +68,6 @@ png2.sumo binary
 /.github export-ignore
 /.gitignore export-ignore
 /.gitmodules export-ignore
+/.jenkins export-ignore
+/.pre-commit-config.yaml export-ignore
 /.travis.yml export-ignore

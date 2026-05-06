@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -16,6 +16,7 @@
 /// @author  Daniel Krajzewicz
 /// @author  Jakob Erdmann
 /// @author  Laura Bieker
+/// @author  Mirko Barthauer
 /// @date    Fri, 24. Apr 2009
 ///
 // The dialog to change the view (gui) settings.
@@ -43,7 +44,7 @@
 GUISettingsHandler::GUISettingsHandler(const std::string& content, bool isFile, bool netedit) :
     SUMOSAXHandler(content),
     mySettings("TEMPORARY_NAME", netedit),
-    myDelay(-1), myLookFrom(-1, -1, -1), myLookAt(-1, -1, -1),
+    myDelay(-1), myLookFrom(-1, -1, -1), myLookAt(-1, -1, -1), myZCoordSet(true),
     myRotation(0),
     myZoom(-1),
     myCurrentColorer(SUMO_TAG_NOTHING),
@@ -73,7 +74,7 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
                 myBreakpoints.push_back(attrs.getSUMOTimeReporting(SUMO_ATTR_TIME, nullptr, ok));
             } else {
                 myBreakpoints.push_back(attrs.getSUMOTimeReporting(SUMO_ATTR_VALUE, nullptr, ok));
-                WRITE_WARNING("The 'value' attribute is deprecated for breakpoints. Please use 'time'.");
+                WRITE_WARNING(TL("The 'value' attribute is deprecated for breakpoints. Please use 'time'."));
             }
             break;
         case SUMO_TAG_VIEWSETTINGS:
@@ -83,7 +84,10 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
         case SUMO_TAG_VIEWSETTINGS_3D:
             mySettings.show3DTLSLinkMarkers = StringUtils::toBool(attrs.getStringSecure("show3DTLSLinkMarkers", toString(mySettings.show3DTLSLinkMarkers)));
             mySettings.show3DTLSDomes = StringUtils::toBool(attrs.getStringSecure("show3DTLSDomes", toString(mySettings.show3DTLSDomes)));
+            mySettings.show3DHeadUpDisplay = StringUtils::toBool(attrs.getStringSecure("show3DHeadUpDisplay", toString(mySettings.show3DHeadUpDisplay)));
             mySettings.generate3DTLSModels = StringUtils::toBool(attrs.getStringSecure("generate3DTLSModels", toString(mySettings.generate3DTLSModels)));
+            mySettings.ambient3DLight = parseColor(attrs, "ambient3DLight", mySettings.ambient3DLight);
+            mySettings.diffuse3DLight = parseColor(attrs, "diffuse3DLight", mySettings.diffuse3DLight);
             break;
         case SUMO_TAG_DELAY:
             myDelay = attrs.getOpt<double>(SUMO_ATTR_VALUE, nullptr, ok, myDelay);
@@ -92,11 +96,12 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
             const double x = attrs.getOpt<double>(SUMO_ATTR_X, nullptr, ok, myLookFrom.x());
             const double y = attrs.getOpt<double>(SUMO_ATTR_Y, nullptr, ok, myLookFrom.y());
             const double z = attrs.getOpt<double>(SUMO_ATTR_Z, nullptr, ok, myLookFrom.z());
+            attrs.get<double>(SUMO_ATTR_Z, nullptr, myZCoordSet, false);
             myLookFrom.set(x, y, z);
             myZoom = attrs.getOpt<double>(SUMO_ATTR_ZOOM, nullptr, ok, myZoom);
-            const double cx = attrs.getOpt<double>(SUMO_ATTR_CENTER_X, nullptr, ok, myLookAt.x());
-            const double cy = attrs.getOpt<double>(SUMO_ATTR_CENTER_Y, nullptr, ok, myLookAt.y());
-            const double cz = attrs.getOpt<double>(SUMO_ATTR_CENTER_Z, nullptr, ok, myLookAt.z());
+            const double cx = attrs.getOpt<double>(SUMO_ATTR_CENTER_X, nullptr, ok, myLookFrom.x());
+            const double cy = attrs.getOpt<double>(SUMO_ATTR_CENTER_Y, nullptr, ok, myLookFrom.y());
+            const double cz = attrs.getOpt<double>(SUMO_ATTR_CENTER_Z, nullptr, ok, 0.);
             myLookAt.set(cx, cy, cz);
             myRotation = attrs.getOpt<double>(SUMO_ATTR_ANGLE, nullptr, ok, myRotation);
             break;
@@ -119,9 +124,10 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
         case SUMO_TAG_VIEWSETTINGS_OPENGL:
             mySettings.dither = StringUtils::toBool(attrs.getStringSecure("dither", toString(mySettings.dither)));
             mySettings.fps = StringUtils::toBool(attrs.getStringSecure("fps", toString(mySettings.fps)));
+            mySettings.trueZ = StringUtils::toBool(attrs.getStringSecure("trueZ", toString(mySettings.trueZ)));
             mySettings.drawBoundaries = StringUtils::toBool(attrs.getStringSecure("drawBoundaries", toString(mySettings.drawBoundaries)));
             mySettings.forceDrawForRectangleSelection = StringUtils::toBool(attrs.getStringSecure("forceDrawRectangleSelection", toString(mySettings.forceDrawForRectangleSelection)));
-            mySettings.forceDrawForPositionSelection = StringUtils::toBool(attrs.getStringSecure("forceDrawPositionSelection", toString(mySettings.forceDrawForPositionSelection)));
+            mySettings.disableDottedContours = StringUtils::toBool(attrs.getStringSecure("disableDottedContours", toString(mySettings.disableDottedContours)));
             mySettings.geometryIndices = parseTextSettings("geometryIndices", attrs, mySettings.geometryIndices);
             break;
         case SUMO_TAG_VIEWSETTINGS_BACKGROUND:
@@ -139,25 +145,26 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
             mySettings.realisticLinkRules = StringUtils::toBool(attrs.getStringSecure("realisticLinkRules", toString(mySettings.realisticLinkRules)));
             mySettings.showLinkRules = StringUtils::toBool(attrs.getStringSecure("showLinkRules", toString(mySettings.showLinkRules)));
             mySettings.showRails = StringUtils::toBool(attrs.getStringSecure("showRails", toString(mySettings.showRails)));
+            mySettings.secondaryShape = StringUtils::toBool(attrs.getStringSecure("secondaryShape", toString(mySettings.secondaryShape)));
             mySettings.edgeName = parseTextSettings("edgeName", attrs, mySettings.edgeName);
             mySettings.internalEdgeName = parseTextSettings("internalEdgeName", attrs, mySettings.internalEdgeName);
             mySettings.cwaEdgeName = parseTextSettings("cwaEdgeName", attrs, mySettings.cwaEdgeName);
             mySettings.streetName = parseTextSettings("streetName", attrs, mySettings.streetName);
             mySettings.edgeValue = parseTextSettings("edgeValue", attrs, mySettings.edgeValue);
+            mySettings.edgeScaleValue = parseTextSettings("edgeScaleValue", attrs, mySettings.edgeScaleValue);
             mySettings.hideConnectors = StringUtils::toBool(attrs.getStringSecure("hideConnectors", toString(mySettings.hideConnectors)));
             mySettings.laneWidthExaggeration = StringUtils::toDouble(attrs.getStringSecure("widthExaggeration", toString(mySettings.laneWidthExaggeration)));
-            mySettings.laneMinSize = StringUtils::toDouble(attrs.getStringSecure("minSize", toString(mySettings.laneWidthExaggeration)));
+            mySettings.laneMinSize = StringUtils::toDouble(attrs.getStringSecure("minSize", toString(mySettings.laneMinSize)));
             mySettings.showLaneDirection = StringUtils::toBool(attrs.getStringSecure("showDirection", toString(mySettings.showLaneDirection)));
             mySettings.showSublanes = StringUtils::toBool(attrs.getStringSecure("showSublanes", toString(mySettings.showSublanes)));
             mySettings.spreadSuperposed = StringUtils::toBool(attrs.getStringSecure("spreadSuperposed", toString(mySettings.spreadSuperposed)));
+            mySettings.disableHideByZoom = StringUtils::toBool(attrs.getStringSecure("disableHideByZoom", toString(mySettings.disableHideByZoom)));
             mySettings.edgeParam = attrs.getStringSecure("edgeParam", mySettings.edgeParam);
             mySettings.laneParam = attrs.getStringSecure("laneParam", mySettings.laneParam);
-            mySettings.vehicleParam = attrs.getStringSecure("vehicleParam", mySettings.vehicleParam);
-            mySettings.vehicleScaleParam = attrs.getStringSecure("vehicleScaleParam", mySettings.vehicleScaleParam);
-            mySettings.vehicleTextParam = attrs.getStringSecure("vehicleTextParam", mySettings.vehicleTextParam);
             mySettings.edgeData = attrs.getStringSecure("edgeData", mySettings.edgeData);
-            mySettings.edgeValueHideCheck = StringUtils::toBool(attrs.getStringSecure("edgeValueHideCheck", toString(mySettings.edgeValueHideCheck)));
-            mySettings.edgeValueHideThreshold = StringUtils::toDouble(attrs.getStringSecure("edgeValueHideThreshold", toString(mySettings.edgeValueHideThreshold)));
+            mySettings.edgeDataID = attrs.getStringSecure("edgeDataID", mySettings.edgeDataID);
+            mySettings.edgeDataScaling = attrs.getStringSecure("edgeDataScaling", mySettings.edgeDataScaling);
+            mySettings.edgeValueRainBow = parseRainbowSettings("edgeValue", attrs, mySettings.edgeValueRainBow);
             myCurrentColorer = element;
             mySettings.edgeColorer.setActive(laneEdgeMode);
             mySettings.edgeScaler.setActive(laneEdgeScaleMode);
@@ -196,29 +203,43 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
             if (myCurrentColorer == SUMO_TAG_VIEWSETTINGS_POLYS) {
                 myCurrentScheme = mySettings.polyColorer.getSchemeByName(name);
             }
+            if (myCurrentColorer == SUMO_TAG_VIEWSETTINGS_DATA) {
+                myCurrentScheme = mySettings.dataColorer.getSchemeByName(name);
+            }
             if (myCurrentScheme && !myCurrentScheme->isFixed()) {
                 myCurrentScheme->setInterpolated(attrs.getOpt<bool>(SUMO_ATTR_INTERPOLATED, nullptr, ok, false));
                 myCurrentScheme->clear();
             }
         }
         break;
-        case SUMO_TAG_SCALINGSCHEME:
+        case SUMO_TAG_SCALINGSCHEME: {
             myCurrentScheme = nullptr;
             myCurrentScaleScheme = nullptr;
+            const std::string name = attrs.getStringSecure(SUMO_ATTR_NAME, "");
             if (myCurrentColorer == SUMO_TAG_VIEWSETTINGS_EDGES) {
-                myCurrentScaleScheme = mySettings.laneScaler.getSchemeByName(attrs.getStringSecure(SUMO_ATTR_NAME, ""));
+                if (StringUtils::startsWith(name, "meso:")) {
+                    // see edgeScaler.save() in GUIVisualizationSettings::save
+                    myCurrentScaleScheme = mySettings.edgeScaler.getSchemeByName(name.substr(5));
+                } else {
+                    myCurrentScaleScheme = mySettings.laneScaler.getSchemeByName(name);
+                }
                 if (myCurrentScaleScheme == nullptr) {
-                    myCurrentScaleScheme = mySettings.edgeScaler.getSchemeByName(attrs.getStringSecure(SUMO_ATTR_NAME, ""));
+                    // legacy: meso schemes without prefix
+                    myCurrentScaleScheme = mySettings.edgeScaler.getSchemeByName(name);
                 }
             }
             if (myCurrentColorer == SUMO_TAG_VIEWSETTINGS_VEHICLES) {
-                myCurrentScaleScheme = mySettings.vehicleScaler.getSchemeByName(attrs.getStringSecure(SUMO_ATTR_NAME, ""));
+                myCurrentScaleScheme = mySettings.vehicleScaler.getSchemeByName(name);
+            }
+            if (myCurrentColorer == SUMO_TAG_VIEWSETTINGS_DATA) {
+                myCurrentScaleScheme = mySettings.dataScaler.getSchemeByName(name);
             }
             if (myCurrentScaleScheme && !myCurrentScaleScheme->isFixed()) {
                 myCurrentScaleScheme->setInterpolated(attrs.getOpt<bool>(SUMO_ATTR_INTERPOLATED, nullptr, ok, false));
                 myCurrentScaleScheme->clear();
             }
-            break;
+        }
+        break;
         case SUMO_TAG_ENTRY:
             if (myCurrentScheme != nullptr) {
                 RGBColor color = attrs.get<RGBColor>(SUMO_ATTR_COLOR, nullptr, ok);
@@ -250,12 +271,18 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
             mySettings.showBTRange = StringUtils::toBool(attrs.getStringSecure("showBTRange", toString(mySettings.showBTRange)));
             mySettings.showRouteIndex = StringUtils::toBool(attrs.getStringSecure("showRouteIndex", toString(mySettings.showRouteIndex)));
             mySettings.scaleLength = StringUtils::toBool(attrs.getStringSecure("scaleLength", toString(mySettings.scaleLength)));
+            mySettings.drawReversed = StringUtils::toBool(attrs.getStringSecure("drawReversed", toString(mySettings.drawReversed)));
             mySettings.showParkingInfo = StringUtils::toBool(attrs.getStringSecure("showParkingInfo", toString(mySettings.showParkingInfo)));
+            mySettings.showChargingInfo = StringUtils::toBool(attrs.getStringSecure("showChargingInfo", toString(mySettings.showChargingInfo)));
             mySettings.vehicleSize = parseSizeSettings("vehicle", attrs, mySettings.vehicleSize);
             mySettings.vehicleName = parseTextSettings("vehicleName", attrs, mySettings.vehicleName);
             mySettings.vehicleValue = parseTextSettings("vehicleValue", attrs, mySettings.vehicleValue);
             mySettings.vehicleScaleValue = parseTextSettings("vehicleScaleValue", attrs, mySettings.vehicleScaleValue);
             mySettings.vehicleText = parseTextSettings("vehicleText", attrs, mySettings.vehicleText);
+            mySettings.vehicleParam = attrs.getStringSecure("vehicleParam", mySettings.vehicleParam);
+            mySettings.vehicleScaleParam = attrs.getStringSecure("vehicleScaleParam", mySettings.vehicleScaleParam);
+            mySettings.vehicleTextParam = attrs.getStringSecure("vehicleTextParam", mySettings.vehicleTextParam);
+            mySettings.vehicleValueRainBow = parseRainbowSettings("vehicleValueRainbow", attrs, mySettings.vehicleValueRainBow);
             myCurrentColorer = element;
             break;
         case SUMO_TAG_VIEWSETTINGS_PERSONS:
@@ -264,6 +291,8 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
             mySettings.personSize = parseSizeSettings("person", attrs, mySettings.personSize);
             mySettings.personName = parseTextSettings("personName", attrs, mySettings.personName);
             mySettings.personValue = parseTextSettings("personValue", attrs, mySettings.personValue);
+            mySettings.showPedestrianNetwork = StringUtils::toBool(attrs.getStringSecure("showPedestrianNetwork", toString(mySettings.showPedestrianNetwork)));
+            mySettings.pedestrianNetworkColor = RGBColor::parseColorReporting(attrs.getStringSecure("pedestrianNetworkColor", toString(mySettings.pedestrianNetworkColor)), "pedestrianNetworkColor", nullptr, true, ok);
             myCurrentColorer = element;
             break;
         case SUMO_TAG_VIEWSETTINGS_CONTAINERS:
@@ -287,6 +316,7 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
             mySettings.drawCrossingsAndWalkingareas = StringUtils::toBool(attrs.getStringSecure(
                         "drawCrossingsAndWalkingareas", toString(mySettings.drawCrossingsAndWalkingareas)));
             mySettings.junctionSize = parseSizeSettings("junction", attrs, mySettings.junctionSize);
+            mySettings.junctionValueRainBow = parseRainbowSettings("junctionValue", attrs, mySettings.junctionValueRainBow);
             myCurrentColorer = element;
             break;
         case SUMO_TAG_VIEWSETTINGS_ADDITIONALS:
@@ -347,6 +377,8 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
             mySettings.poiType = parseTextSettings("poiType", attrs, mySettings.poiType);
             mySettings.poiText = parseTextSettings("poiText", attrs, mySettings.poiText);
             mySettings.poiColorer.setActive(StringUtils::toInt(attrs.getStringSecure("personMode", "0")));
+            mySettings.poiUseCustomLayer = StringUtils::toBool(attrs.getStringSecure("poiUseCustomLayer", toString(mySettings.poiUseCustomLayer)));
+            mySettings.poiCustomLayer = StringUtils::toDouble(attrs.getStringSecure("poiCustomLayer", toString(mySettings.poiCustomLayer)));
             myCurrentColorer = element;
             break;
         case SUMO_TAG_VIEWSETTINGS_POLYS:
@@ -354,6 +386,19 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
             mySettings.polyName = parseTextSettings("polyName", attrs, mySettings.polyName);
             mySettings.polyType = parseTextSettings("polyType", attrs, mySettings.polyType);
             mySettings.polyColorer.setActive(StringUtils::toInt(attrs.getStringSecure("personMode", "0")));
+            mySettings.polyUseCustomLayer = StringUtils::toBool(attrs.getStringSecure("polyUseCustomLayer", toString(mySettings.polyUseCustomLayer)));
+            mySettings.polyCustomLayer = StringUtils::toDouble(attrs.getStringSecure("polyCustomLayer", toString(mySettings.polyCustomLayer)));
+            myCurrentColorer = element;
+            break;
+        case SUMO_TAG_VIEWSETTINGS_DATA:
+            mySettings.dataColorer.setActive(StringUtils::toInt(attrs.getStringSecure("dataMode", "0")));
+            mySettings.dataScaler.setActive(StringUtils::toInt(attrs.getStringSecure("dataScaleMode", "0")));
+            mySettings.dataValueRainBow = parseRainbowSettings("dataValueRainbow", attrs, mySettings.dataValueRainBow);
+            mySettings.dataValue = parseTextSettings("dataValue", attrs, mySettings.dataValue);
+            mySettings.tazRelWidthExaggeration = StringUtils::toDouble(attrs.getStringSecure("tazRelExaggeration", toString(mySettings.tazRelWidthExaggeration)));
+            mySettings.edgeRelWidthExaggeration = StringUtils::toDouble(attrs.getStringSecure("edgeRelExaggeration", toString(mySettings.edgeRelWidthExaggeration)));
+            mySettings.relDataAttr = attrs.getStringSecure("relDataAttr", mySettings.relDataAttr);
+            mySettings.relDataScaleAttr = attrs.getStringSecure("relDataScaleAttr", mySettings.relDataScaleAttr);
             myCurrentColorer = element;
             break;
         case SUMO_TAG_VIEWSETTINGS_LEGEND:
@@ -367,7 +412,7 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
                 d.filename = StringUtils::substituteEnvironment(attrs.get<std::string>(SUMO_ATTR_FILE, nullptr, ok));
             } else {
                 d.filename = attrs.getStringSecure("filename", d.filename);
-                WRITE_WARNING("The 'filename' attribute is deprecated for decals. Please use 'file'.");
+                WRITE_WARNING(TL("The 'filename' attribute is deprecated for decals. Please use 'file'."));
             }
             if (d.filename != "" && !FileHelpers::isAbsolute(d.filename)) {
                 d.filename = FileHelpers::getConfigurationRelative(getFileName(), d.filename);
@@ -377,7 +422,7 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
             d.centerZ = attrs.getOpt<double>(SUMO_ATTR_CENTER_Z, nullptr, ok, d.centerZ);
             d.width = attrs.getOpt<double>(SUMO_ATTR_WIDTH, nullptr, ok, d.width);
             d.height = attrs.getOpt<double>(SUMO_ATTR_HEIGHT, nullptr, ok, d.height);
-            d.altitude = StringUtils::toDouble(attrs.getStringSecure("altitude", toString(d.height)));
+            d.altitude = StringUtils::toDouble(attrs.getStringSecure("altitude", "0"));
             d.rot = StringUtils::toDouble(attrs.getStringSecure("rotation", toString(d.rot)));
             d.tilt = StringUtils::toDouble(attrs.getStringSecure("tilt", toString(d.tilt)));
             d.roll = StringUtils::toDouble(attrs.getStringSecure("roll", toString(d.roll)));
@@ -385,6 +430,10 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
             d.screenRelative = StringUtils::toBool(attrs.getStringSecure("screenRelative", toString(d.screenRelative)));
             d.initialised = false;
             myDecals.push_back(d);
+        }
+        break;
+        case SUMO_TAG_VIEWSETTINGS_TRACKER: {
+            myTrackers.push_back(attrs.get<std::string>(SUMO_ATTR_TLID, nullptr, ok));
         }
         break;
         case SUMO_TAG_VIEWSETTINGS_LIGHT: {
@@ -395,7 +444,7 @@ GUISettingsHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) 
             d.centerZ = attrs.getOpt<double>(SUMO_ATTR_CENTER_Z, nullptr, ok, d.centerZ);
             d.width = attrs.getOpt<double>(SUMO_ATTR_WIDTH, nullptr, ok, d.width);
             d.height = attrs.getOpt<double>(SUMO_ATTR_HEIGHT, nullptr, ok, d.height);
-            d.altitude = StringUtils::toDouble(attrs.getStringSecure("altitude", toString(d.height)));
+            d.altitude = StringUtils::toDouble(attrs.getStringSecure("altitude", "0"));
             d.rot = StringUtils::toDouble(attrs.getStringSecure("rotation", toString(d.rot)));
             d.tilt = StringUtils::toDouble(attrs.getStringSecure("tilt", toString(d.tilt)));
             d.roll = StringUtils::toDouble(attrs.getStringSecure("roll", toString(d.roll)));
@@ -465,12 +514,26 @@ GUISettingsHandler::parseSizeSettings(
                StringUtils::toBool(attrs.getStringSecure(prefix + "_constantSizeSelected", toString(defaults.constantSizeSelected))));
 }
 
+GUIVisualizationRainbowSettings
+GUISettingsHandler::parseRainbowSettings(
+    const std::string& prefix, const SUMOSAXAttributes& attrs,
+    GUIVisualizationRainbowSettings defaults) {
+    return GUIVisualizationRainbowSettings(
+               StringUtils::toBool(attrs.getStringSecure(prefix + "HideCheck", toString(defaults.hideMin))),
+               StringUtils::toDouble(attrs.getStringSecure(prefix + "HideThreshold", toString(defaults.minThreshold))),
+               StringUtils::toBool(attrs.getStringSecure(prefix + "HideCheck2", toString(defaults.hideMax))),
+               StringUtils::toDouble(attrs.getStringSecure(prefix + "HideThreshold2", toString(defaults.maxThreshold))),
+               StringUtils::toBool(attrs.getStringSecure(prefix + "SetNeutral", toString(defaults.hideMax))),
+               StringUtils::toDouble(attrs.getStringSecure(prefix + "NeutralThreshold", toString(defaults.neutralThreshold))),
+               StringUtils::toBool(attrs.getStringSecure(prefix + "FixRange", toString(defaults.fixRange))),
+               StringUtils::toInt(attrs.getStringSecure(prefix + "RainbowScheme", toString(defaults.rainbowScheme))));
+}
 
 const std::vector<std::string>&
 GUISettingsHandler::addSettings(GUISUMOAbstractView* view) const {
     if (view) {
         for (std::string name : myLoadedSettingNames) {
-            FXint index = view->getColoringSchemesCombo()->appendItem(name.c_str());
+            FXint index = view->getColoringSchemesCombo()->appendIconItem(name.c_str());
             view->getColoringSchemesCombo()->setCurrentItem(index);
             view->setColorScheme(name);
         }
@@ -484,8 +547,14 @@ GUISettingsHandler::applyViewport(GUISUMOAbstractView* view) const {
     if (myLookFrom.z() > 0 || myZoom > 0) {
         // z value stores zoom so we must convert first
         double z = (view->is3DView()) ? myLookFrom.z() : view->getChanger().zoom2ZPos(myZoom);
+        if (view->is3DView() && !myZCoordSet) { // set view angle to ground to at least 45 degrees if no Z coordinate is given
+            z = myLookFrom.distanceTo2D(myLookAt) * sin(PI * 0.25);
+        }
         Position lookFrom(myLookFrom.x(), myLookFrom.y(), z);
         view->setViewportFromToRot(lookFrom, myLookAt, myRotation);
+        if (view->is3DView() && !myZCoordSet) {
+            view->recenterView();
+        }
     }
 }
 
@@ -524,6 +593,10 @@ std::vector<SUMOTime>
 GUISettingsHandler::loadBreakpoints(const std::string& file) {
     std::vector<SUMOTime> result;
     std::ifstream strm(file.c_str());
+    if (!strm.good()) {
+        WRITE_ERRORF(TL("Could not open '%'."), file);
+        return result;
+    }
     while (strm.good()) {
         std::string val;
         strm >> val;
@@ -534,10 +607,10 @@ GUISettingsHandler::loadBreakpoints(const std::string& file) {
             SUMOTime value = string2time(val);
             result.push_back(value);
         } catch (NumberFormatException& e) {
-            WRITE_ERROR(" A breakpoint-value must be an int. " + toString(e.what()));
+            WRITE_ERRORF(TL("A breakpoint value must be a time description (%)."), toString(e.what()));
         } catch (EmptyData&) {
         } catch (ProcessError&) {
-            WRITE_ERROR(" Could not decode breakpoint '" + val + "'");
+            WRITE_ERRORF(TL("Could not decode breakpoint '%'."), val);
         }
     }
     return result;

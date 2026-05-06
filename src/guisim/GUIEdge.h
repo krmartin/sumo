@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -38,6 +38,7 @@ class MESegment;
 class MSBaseVehicle;
 class GUILane;
 
+
 // ===========================================================================
 // class definitions
 // ===========================================================================
@@ -56,7 +57,8 @@ public:
      */
     GUIEdge(const std::string& id, int numericalID,
             const SumoXMLEdgeFunc function,
-            const std::string& streetName, const std::string& edgeType, int priority,
+            const std::string& streetName, const std::string& edgeType,
+            const std::string& routingType, int priority,
             double distance);
 
 
@@ -120,9 +122,6 @@ public:
      */
     GUIParameterTableWindow* getTypeParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
-    /// @brief return exaggeration associated with this GLObject
-    double getExaggeration(const GUIVisualizationSettings& s) const override;
-
     /** @brief Returns the boundary to which the view shall be centered in order to show the object
      *
      * @return The boundary the object is within
@@ -140,6 +139,8 @@ public:
     void drawGL(const GUIVisualizationSettings& s) const override;
     //@}
 
+    double getClickPriority() const override;
+
     void addTransportable(MSTransportable* t) const override {
         FXMutexLock locker(myLock);
         MSEdge::addTransportable(t);
@@ -156,7 +157,7 @@ public:
     /** @brief Returns this edge's persons set; locks it for microsimulation
      *  @brief Avoids the creation of new vector as in getSortedPersons
      *
-     * @return 
+     * @return
      * Please note that it is necessary to release the person container
      *  afterwards using "releasePersons".
      * @return This edge's persons.
@@ -192,7 +193,7 @@ public:
     double getColorValue(const GUIVisualizationSettings& s, int activeScheme) const override;
 
     /// @brief gets the scaling value according to the current scheme index
-    double getScaleValue(int activeScheme) const;
+    double getScaleValue(const GUIVisualizationSettings& s, int activeScheme) const;
 
     /// @brief returns the segment closest to the given position
     MESegment* getSegmentAtPosition(const Position& pos);
@@ -239,6 +240,11 @@ public:
 
     /// @brief get number of vehicles waiting for departure on this edge
     double getPendingEmits() const;
+
+protected:
+
+    /// @brief return any selected lane or the last lane if none are selected
+    GUILane* anySelectedLane() const;
 
 private:
     /// @brief invalidated copy constructor

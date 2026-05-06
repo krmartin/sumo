@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -62,6 +62,7 @@ public:
      * @param[in] idStorage The gl-id storage for giving this object an gl-id
      * @param[in] id The id of the parking area
      * @param[in] lines Names of the parking lines that halt on this parking area
+     * @param[in] badges Names which grant access to this parking area
      * @param[in] lane The lane the parking area is placed on
      * @param[in] begPos Begin position of the parking area on the lane
      * @param[in] endPos End position of the parking area on the lane
@@ -71,11 +72,12 @@ public:
      * @param[in] angle Default angle of the lot rectangle relative to lane direction (if = 0 is computed ... TODO)
      */
     GUIParkingArea(const std::string& id,
-                   const std::vector<std::string>& lines, MSLane& lane,
+                   const std::vector<std::string>& lines, const std::vector<std::string>& badges, MSLane& lane,
                    double frompos, double topos, unsigned int capacity,
                    double width, double length, double angle, const std::string& name,
                    bool onRoad,
-                   const std::string& departPos);
+                   const std::string& departPos,
+                   bool lefthand, bool reservable);
 
 
     /// @brief Destructor
@@ -93,8 +95,7 @@ public:
      * @return The built popup-menu
      * @see GUIGlObject::getPopUpMenu
      */
-    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app,
-                                       GUISUMOAbstractView& parent);
+    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /** @brief Returns an own parameter window
      *
@@ -105,37 +106,41 @@ public:
      * @return The built parameter window (always 0 in this case)
      * @see GUIGlObject::getParameterWindow
      */
-    GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app,
-            GUISUMOAbstractView& parent);
+    GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /// @brief return exaggeration associated with this GLObject
-    double getExaggeration(const GUIVisualizationSettings& s) const;
+    double getExaggeration(const GUIVisualizationSettings& s) const override;
 
     /** @brief Returns the boundary to which the view shall be centered in order to show the object
      *
      * @return The boundary the object is within
      * @see GUIGlObject::getCenteringBoundary
      */
-    Boundary getCenteringBoundary() const;
+    Boundary getCenteringBoundary() const override;
 
     /// @brief Returns the stopping place name
-    const std::string getOptionalName() const;
+    const std::string getOptionalName() const override;
 
     /// @brief extend boundary
     void addLotEntry(double x, double y, double z,
                      double width, double length,
-                     double angle, double slope);
+                     double angle, double slope) override;
 
     /** @brief Draws the object
      * @param[in] s The settings for the current view (may influence drawing)
      * @see GUIGlObject::drawGL
      */
-    void drawGL(const GUIVisualizationSettings& s) const;
+    void drawGL(const GUIVisualizationSettings& s) const override;
     //@}
 
     const Position& getSignPos() const {
         return mySignPos;
     }
+
+
+    /// @brief return list of remote reservation ids
+    int getNumReservations() const;
+    const std::string getReservationString() const;
 
 private:
     /// @brief The rotations of the shape parts

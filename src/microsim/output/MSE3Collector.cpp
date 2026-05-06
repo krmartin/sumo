@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -33,6 +33,8 @@
 #include <microsim/MSVehicle.h>
 #include <microsim/transportables/MSTransportable.h>
 #include <microsim/transportables/MSPModel.h>
+#include <utils/common/StringUtils.h>
+#include <utils/iodevices/OutputDevice.h>
 #include "MSE3Collector.h"
 
 //#define DEBUG_E3_NOTIFY_MOVE
@@ -65,7 +67,7 @@ MSE3Collector::MSE3EntryReminder::notifyEnter(SUMOTrafficObject& veh, Notificati
 #ifdef DEBUG_E3_NOTIFY_ENTER
     if (DEBUG_COND(myCollector) && DEBUG_COND_VEH(veh)) {
         std::cout << SIMTIME
-                  << " MSE3EntryReminder::notifyEnter() (" << getDescription() << "on lane '" << myLane->getID() << "')"
+                  << " MSE3EntryReminder::notifyEnter() (" << getDescription() << " on lane '" << myLane->getID() << "')"
                   << " vehicle '" << veh.getID() << "'"
                   << " enteredLane=" << enteredLane->getID()
                   << " reason=" << reason
@@ -101,7 +103,7 @@ MSE3Collector::MSE3EntryReminder::notifyMove(SUMOTrafficObject& veh, double oldP
 #ifdef DEBUG_E3_NOTIFY_MOVE
     if (DEBUG_COND(myCollector) && DEBUG_COND_VEH(veh)) {
         std::cout << SIMTIME
-                  << " MSE3EntryReminder::notifyMove() (" << getDescription() << "on lane '" << myLane->getID() << "')"
+                  << " MSE3EntryReminder::notifyMove() (" << getDescription() << " on lane '" << myLane->getID() << "')"
                   << " vehicle '" << veh.getID() << "'"
                   << " entered. oldPos=" << oldPos << " newPos=" << newPos << " newSpeed=" << newSpeed
                   << " myPosition=" << myPosition
@@ -118,11 +120,17 @@ MSE3Collector::MSE3EntryReminder::notifyMove(SUMOTrafficObject& veh, double oldP
             // was behind the detector already in the last step
 #ifdef DEBUG_E3_NOTIFY_MOVE
             if (DEBUG_COND(myCollector) && DEBUG_COND_VEH(veh)) {
-                std::cout << "    already behind\n";
+                std::cout << "    already behind, isPerson=" << veh.isPerson() << "\n";
             }
 #endif
             return false;
         } else {
+            if (veh.isVehicle() && &veh.getLane()->getEdge() == &myLane->getEdge() && veh.getLane() != myLane) {
+#ifdef DEBUG_E3_NOTIFY_ENTER
+                std::cout << veh.getID() << " is on the wrong lane\n";
+#endif
+                return true;
+            }
             // entered in this step
             const double oldSpeed = veh.getPreviousSpeed();
             const double entryTime = STEPS2TIME(MSNet::getInstance()->getCurrentTimeStep());
@@ -146,7 +154,7 @@ MSE3Collector::MSE3EntryReminder::notifyLeave(SUMOTrafficObject& veh, double, MS
 #ifdef DEBUG_E3_NOTIFY_LEAVE
     if (DEBUG_COND(myCollector) && DEBUG_COND_VEH(veh)) {
         std::cout << SIMTIME
-                  << " MSE3EntryReminder::notifyLeave() (" << getDescription() << "on lane '" << myLane->getID() << "')"
+                  << " MSE3EntryReminder::notifyLeave() (" << getDescription() << " on lane '" << myLane->getID() << "')"
                   << " vehicle '" << veh.getID() << "'"
                   << " reason=" << reason
                   << "\n";
@@ -157,7 +165,9 @@ MSE3Collector::MSE3EntryReminder::notifyLeave(SUMOTrafficObject& veh, double, MS
         ScopedLocker<> lock(myCollector.myContainerMutex, MSGlobals::gNumSimThreads > 1);
 #endif
         if (myCollector.myEnteredContainer.erase(&veh) > 0) {
-            WRITE_WARNING("Vehicle '" + veh.getID() + "' arrived inside " + toString(SUMO_TAG_E3DETECTOR) + " '" + myCollector.getID() + "'.");
+            if (!myCollector.myExpectArrival) {
+                WRITE_WARNINGF("Vehicle '%' arrived inside % '%', time=%.", veh.getID(), toString(SUMO_TAG_E3DETECTOR), myCollector.getID(), time2string(SIMSTEP));
+            }
         }
         return false;
     }
@@ -179,7 +189,7 @@ MSE3Collector::MSE3LeaveReminder::notifyEnter(SUMOTrafficObject& veh, Notificati
 #ifdef DEBUG_E3_NOTIFY_ENTER
     if (DEBUG_COND(myCollector) && DEBUG_COND_VEH(veh)) {
         std::cout << SIMTIME
-                  << " MSE3LeaveReminder::notifyEnter() (" << getDescription() << "on lane '" << myLane->getID() << "')"
+                  << " MSE3LeaveReminder::notifyEnter() (" << getDescription() << " on lane '" << myLane->getID() << "')"
                   << " vehicle '" << veh.getID() << "'"
                   << " enteredLane=" << enteredLane->getID()
                   << " reason=" << reason
@@ -262,7 +272,7 @@ MSE3Collector::MSE3LeaveReminder::notifyLeave(SUMOTrafficObject&  veh, double /*
 #ifdef DEBUG_E3_NOTIFY_LEAVE
     if (DEBUG_COND(myCollector) && DEBUG_COND_VEH(veh)) {
         std::cout << SIMTIME
-                  << " MSE3LeaveReminder::notifyLeave() (" << getDescription() << "on lane '" << myLane->getID() << "')"
+                  << " MSE3LeaveReminder::notifyLeave() (" << getDescription() << " on lane '" << myLane->getID() << "')"
                   << " vehicle '" << veh.getID() << "'"
                   << " reason=" << reason
                   << "\n";
@@ -281,13 +291,15 @@ MSE3Collector::MSE3LeaveReminder::notifyLeave(SUMOTrafficObject&  veh, double /*
     ScopedLocker<> lock(myCollector.myContainerMutex, MSGlobals::gNumSimThreads > 1);
 #endif
     if (reason == MSMoveReminder::NOTIFICATION_TELEPORT) {
-        WRITE_WARNING("Vehicle '" + veh.getID() + "' teleported from " + toString(SUMO_TAG_E3DETECTOR) + " '" + myCollector.getID() + "'.");
+        WRITE_WARNINGF("Vehicle '%' teleported from % '%'.", veh.getID(), toString(SUMO_TAG_E3DETECTOR), myCollector.getID());
         myCollector.myEnteredContainer.erase(&veh);
         return false;
     }
     if (reason >= MSMoveReminder::NOTIFICATION_ARRIVED) {
         if (myCollector.myEnteredContainer.erase(&veh) > 0) {
-            WRITE_WARNING("Vehicle '" + veh.getID() + "' arrived inside " + toString(SUMO_TAG_E3DETECTOR) + " '" + myCollector.getID() + "'.");
+            if (!myCollector.myExpectArrival) {
+                WRITE_WARNINGF("Vehicle '%' arrived inside % '%', time=%.", veh.getID(), toString(SUMO_TAG_E3DETECTOR), myCollector.getID(), time2string(SIMSTEP));
+            }
         }
         return false;
     }
@@ -305,7 +317,7 @@ MSE3Collector::MSE3Collector(const std::string& id,
                              const std::string name, const std::string& vTypes,
                              const std::string& nextEdges,
                              int detectPersons,
-                             bool openEntry) :
+                             bool openEntry, bool expectArrival) :
     MSDetectorFileOutput(id, vTypes, nextEdges, detectPersons),
     myName(name),
     myEntries(entries),
@@ -313,7 +325,7 @@ MSE3Collector::MSE3Collector(const std::string& id,
     myHaltingTimeThreshold(haltingTimeThreshold), myHaltingSpeedThreshold(haltingSpeedThreshold),
     myCurrentMeanSpeed(0), myCurrentHaltingsNumber(0),
     myLastMeanTravelTime(0), myLastMeanHaltsPerVehicle(0), myLastMeanTimeLoss(0), myLastVehicleSum(0),
-    myLastResetTime(-1), myOpenEntry(openEntry) {
+    myLastResetTime(-1), myOpenEntry(openEntry), myExpectArrival(expectArrival) {
     // Set MoveReminders to entries and exits
     for (CrossSectionVectorConstIt crossSec1 = entries.begin(); crossSec1 != entries.end(); ++crossSec1) {
         myEntryReminders.push_back(new MSE3EntryReminder(*crossSec1, *this));
@@ -361,7 +373,7 @@ MSE3Collector::enter(const SUMOTrafficObject& veh, const double entryTimestep, c
         return;
     }
     if (myEnteredContainer.find(&veh) != myEnteredContainer.end()) {
-        WRITE_WARNING("Vehicle '" + veh.getID() + "' reentered " + toString(SUMO_TAG_E3DETECTOR) + " '" + getID() + "'.");
+        WRITE_WARNINGF("Vehicle '%' reentered % '%', time=%.", veh.getID(), toString(SUMO_TAG_E3DETECTOR), getID(), time2string(SIMSTEP));
         return;
     }
 #ifdef DEBUG_E3_NOTIFY_ENTER
@@ -407,7 +419,7 @@ MSE3Collector::leaveFront(const SUMOTrafficObject& veh, const double leaveTimest
     }
     if (myEnteredContainer.find(&veh) == myEnteredContainer.end()) {
         if (!myOpenEntry && veh.isVehicle()) {
-            WRITE_WARNING("Vehicle '" + veh.getID() + "' left " + toString(SUMO_TAG_E3DETECTOR) + " '" + getID() + "' without entering it.");
+            WRITE_WARNINGF("Vehicle '%' left % '%' without entering it, time=%.", veh.getID(), toString(SUMO_TAG_E3DETECTOR), getID(), time2string(SIMSTEP));
         }
     } else {
         myEnteredContainer[&veh].frontLeaveTime = leaveTimestep;
@@ -435,9 +447,12 @@ MSE3Collector::leave(const SUMOTrafficObject& veh, const double leaveTimestep, c
     }
     if (myEnteredContainer.find(&veh) == myEnteredContainer.end()) {
         if (!myOpenEntry && veh.isVehicle()) {
-            WRITE_WARNING("Vehicle '" + veh.getID() + "' left " + toString(SUMO_TAG_E3DETECTOR) + " '" + getID() + "' without entering it.");
+            WRITE_WARNINGF("Vehicle '%' left % '%' without entering it, time=%.", veh.getID(), toString(SUMO_TAG_E3DETECTOR), getID(), time2string(SIMSTEP));
         }
     } else {
+#ifdef DEBUG_E3_NOTIFY_LEAVE
+        std::cout << veh.getID() << " leaves\n";
+#endif
         E3Values values = myEnteredContainer[&veh];
         values.backLeaveTime = leaveTimestep;
         const double speedFraction = veh.getSpeed() * (TS - fractionTimeOnDet);
@@ -463,7 +478,8 @@ MSE3Collector::leave(const SUMOTrafficObject& veh, const double leaveTimestep, c
 void
 MSE3Collector::writeXMLOutput(OutputDevice& dev,
                               SUMOTime startTime, SUMOTime stopTime) {
-    dev << "   <interval begin=\"" << time2string(startTime) << "\" end=\"" << time2string(stopTime) << "\" " << "id=\"" << myID << "\" ";
+    dev.openTag(SUMO_TAG_INTERVAL).writeTime(SUMO_ATTR_BEGIN, startTime).writeTime(SUMO_ATTR_END, stopTime);
+    dev.writeAttr(SUMO_ATTR_ID, myID);
     // collect values about vehicles that have left the area
     myLastVehicleSum = (int) myLeftContainer.size();
     myLastMeanTravelTime = 0;
@@ -530,21 +546,21 @@ MSE3Collector::writeXMLOutput(OutputDevice& dev,
     meanTimeLossWithin = vehicleSumWithin != 0 ? meanTimeLossWithin / (double) vehicleSumWithin : -1;
 
     // write values
-    dev << "meanTravelTime=\"" << myLastMeanTravelTime
-        << "\" meanOverlapTravelTime=\"" << meanOverlapTravelTime
-        << "\" meanSpeed=\"" << meanSpeed
-        << "\" meanHaltsPerVehicle=\"" << myLastMeanHaltsPerVehicle
-        << "\" meanTimeLoss=\"" << myLastMeanTimeLoss
-        << "\" vehicleSum=\"" << myLastVehicleSum
-        << "\" meanSpeedWithin=\"" << meanSpeedWithin
-        << "\" meanHaltsPerVehicleWithin=\"" << meanHaltsPerVehicleWithin
-        << "\" meanDurationWithin=\"" << meanDurationWithin
-        << "\" vehicleSumWithin=\"" << vehicleSumWithin
-        << "\" meanIntervalSpeedWithin=\"" << meanIntervalSpeedWithin
-        << "\" meanIntervalHaltsPerVehicleWithin=\"" << meanIntervalHaltsPerVehicleWithin
-        << "\" meanIntervalDurationWithin=\"" << meanIntervalDurationWithin
-        << "\" meanTimeLossWithin=\"" << meanTimeLossWithin
-        << "\"/>\n";
+    dev.writeAttr("meanTravelTime", myLastMeanTravelTime)
+    .writeAttr("meanOverlapTravelTime", meanOverlapTravelTime)
+    .writeAttr("meanSpeed", meanSpeed)
+    .writeAttr("meanHaltsPerVehicle", myLastMeanHaltsPerVehicle)
+    .writeAttr("meanTimeLoss", myLastMeanTimeLoss)
+    .writeAttr("vehicleSum", myLastVehicleSum)
+    .writeAttr("meanSpeedWithin", meanSpeedWithin)
+    .writeAttr("meanHaltsPerVehicleWithin", meanHaltsPerVehicleWithin)
+    .writeAttr("meanDurationWithin", meanDurationWithin)
+    .writeAttr("vehicleSumWithin", vehicleSumWithin)
+    .writeAttr("meanIntervalSpeedWithin", meanIntervalSpeedWithin)
+    .writeAttr("meanIntervalHaltsPerVehicleWithin", meanIntervalHaltsPerVehicleWithin)
+    .writeAttr("meanIntervalDurationWithin", meanIntervalDurationWithin)
+    .writeAttr("meanTimeLossWithin", meanTimeLossWithin)
+    .closeTag();
 }
 
 
@@ -678,6 +694,7 @@ MSE3Collector::getCurrentVehicleIDs() const {
 void
 MSE3Collector::clearState(SUMOTime /* step */) {
     myEnteredContainer.clear();
+    myLeftContainer.clear();
 }
 
 /****************************************************************************/

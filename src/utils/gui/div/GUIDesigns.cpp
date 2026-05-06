@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -39,11 +39,32 @@ GUIDesigns::buildFXMenuTitle(FXComposite* p, const std::string& text, FXIcon* ic
 
 
 FXMenuCommand*
-GUIDesigns::buildFXMenuCommand(FXComposite* p, const std::string& text, FXIcon* icon, FXObject* tgt, FXSelector sel) {
+GUIDesigns::buildFXMenuCommand(FXComposite* p, const std::string& text, FXIcon* icon, FXObject* tgt, FXSelector sel, const bool disable) {
     // build menu command
     FXMenuCommand* menuCommand = new FXMenuCommand(p, text.c_str(), icon, tgt, sel, LAYOUT_FIX_HEIGHT);
     // set width and height (to avoid problems between Windows und Linux)
     menuCommand->setHeight(GUIDesignHeight);
+    // check if disable after creation (used in certain parts of netedit)
+    if (disable) {
+        menuCommand->disable();
+    }
+    // return menuCommand
+    return menuCommand;
+}
+
+
+FXMenuCommand*
+GUIDesigns::buildFXMenuCommand(FXComposite* p, const std::string& text, const std::string& help, FXIcon* icon, FXObject* tgt, FXSelector sel, const bool disable) {
+    // build menu command
+    FXMenuCommand* menuCommand = new FXMenuCommand(p, text.c_str(), icon, tgt, sel, LAYOUT_FIX_HEIGHT);
+    // set help
+    menuCommand->setHelpText(help.c_str());
+    // set width and height (to avoid problems between Windows und Linux)
+    menuCommand->setHeight(GUIDesignHeight);
+    // check if disable after creation (used in certain parts of netedit)
+    if (disable) {
+        menuCommand->disable();
+    }
     // return menuCommand
     return menuCommand;
 }
@@ -63,7 +84,7 @@ GUIDesigns::buildFXMenuCommandShortcut(FXComposite* p, const std::string& text, 
 FXMenuCheck*
 GUIDesigns::buildFXMenuCheckbox(FXComposite* p, const std::string& text, const std::string& info, FXObject* tgt, FXSelector sel) {
     // build menu checkbox
-    FXMenuCheck* menuCheck = new FXMenuCheck(p, (text + "\t\t" + info).c_str(), tgt, sel, LAYOUT_FIX_HEIGHT);
+    FXMenuCheck* menuCheck = new FXMenuCheck(p, (text + std::string("\t\t") + info).c_str(), tgt, sel, LAYOUT_FIX_HEIGHT);
     // set height (to avoid problems between Windows und Linux)
     menuCheck->setHeight(GUIDesignHeight);
     // return menuCommand
@@ -90,4 +111,44 @@ GUIDesigns::buildFXMenuCommandRecentFile(FXComposite* p, const std::string& text
     menuCommand->setHeight(GUIDesignHeight);
     // return menuCommand
     return menuCommand;
+}
+
+
+FXLabel*
+GUIDesigns::buildFXLabel(FXComposite* p, const std::string& text, const std::string& tip, const std::string& help, FXIcon* ic,
+                         FXuint opts, FXint x, FXint y, FXint w, FXint h, FXint pl, FXint pr, FXint pt, FXint pb) {
+    FXLabel* label = new FXLabel(p, text.c_str(), ic, opts, x, y, w, h, pl, pr, pt, pb);
+    label->setTipText(tip.c_str());
+    label->setHelpText(help.c_str());
+    return label;
+}
+
+
+FXButton*
+GUIDesigns::buildFXButton(FXComposite* p, const std::string& text, const std::string& tip, const std::string& help, FXIcon* ic, FXObject* tgt,
+                          FXSelector sel, FXuint opts, FXint x, FXint y, FXint w, FXint h, FXint pl, FXint pr, FXint pt, FXint pb) {
+    FXButton* button = new FXButton(p, text.c_str(), ic, tgt, sel, opts, x, y, w, h, pl, pr, pt, pb);
+    button->setTipText(tip.c_str());
+    button->setHelpText(help.c_str());
+    return button;
+}
+
+
+FXCheckButton*
+GUIDesigns::buildFXCheckButton(FXComposite* p, const std::string& text, const std::string& tip, const std::string& help, FXObject* tgt,
+                               FXSelector sel, FXuint opts, FXint x, FXint y, FXint w, FXint h, FXint pl, FXint pr, FXint pt, FXint pb) {
+    FXCheckButton* checkButton = new FXCheckButton(p, text.c_str(), tgt, sel, opts, x, y, w, h, pl, pr, pt, pb);
+    checkButton->setTipText(tip.c_str());
+    checkButton->setHelpText(help.c_str());
+    return checkButton;
+}
+
+
+FXRadioButton*
+GUIDesigns::buildFXRadioButton(FXComposite* p, const std::string& text, const std::string& tip, const std::string& help, FXObject* tgt,
+                               FXSelector sel, FXuint opts, FXint x, FXint y, FXint w, FXint h, FXint pl, FXint pr, FXint pt, FXint pb) {
+    FXRadioButton* radioButton = new FXRadioButton(p, text.c_str(), tgt, sel, opts, x, y, w, h, pl, pr, pt, pb);
+    radioButton->setTipText(tip.c_str());
+    radioButton->setHelpText(help.c_str());
+    return radioButton;
 }

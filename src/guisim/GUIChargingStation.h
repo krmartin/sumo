@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,6 +17,7 @@
 /// @author  Michael Behrisch
 /// @author  Tamas Kurczveil
 /// @author  Pablo Alvarez Lopez
+/// @author  Mirko Barthauer
 /// @date    20-12-13
 ///
 // A lane area vehicles can halt at (gui-version)
@@ -67,14 +68,36 @@ public:
      * @param[in] lane The lane the charging station is placed on
      * @param[in] frompos Begin position of the charging station on the lane
      * @param[in] topos End position of the charging station on the lane
-     * @param[in] chargingPower energy charged in every timeStep
+     * @param[in] chargingPower max energy charged in every timeStep by one vehicle
+     * @param[in] totalPower max energy charged in every timeStep across all charging vehicles
      * @param[in] efficiency efficiency of the charge
      * @param[in] chargeInTransit enable or disable charge in transit
      * @param[in] chargeDelay delay in the charge
+     * @param[in] chargeType charge type (normal, electric or fuel)
+     * @param[in] waitingTime waiting time until start charging
      */
     GUIChargingStation(const std::string& id, MSLane& lane, double frompos, double topos,
-                       const std::string& name,
-                       double chargingPower, double efficiency, bool chargeInTransit, SUMOTime chargeDelay);
+                       const std::string& name, double chargingPower, double totalPower, double efficiency,
+                       bool chargeInTransit, SUMOTime chargeDelay, const std::string& chargeType,
+                       SUMOTime waitingTime);
+
+    /** @brief Constructor
+     * @param[in] id The id of the Charging Station
+     * @param[in] parkingArea The parking area the charging station is placed on
+     * @param[in] frompos Begin position of the charging station on the lane
+     * @param[in] topos End position of the charging station on the lane
+     * @param[in] chargingPower max energy charged in every timeStep by one vehicle
+     * @param[in] totalPower max energy charged in every timeStep across all charging vehicles
+     * @param[in] efficiency efficiency of the charge
+     * @param[in] chargeInTransit enable or disable charge in transit
+     * @param[in] chargeDelay delay in the charge
+     * @param[in] chargeType charge type (normal, electric or fuel)
+     * @param[in] waitingTime waiting time until start charging
+     */
+    GUIChargingStation(const std::string& id, MSParkingArea* parkingArea,
+                       const std::string& name, double chargingPower, double totalPower, double efficiency,
+                       bool chargeInTransit, SUMOTime chargeDelay, const std::string& chargeType,
+                       SUMOTime waitingTime);
 
     /// @brief Destructor
     ~GUIChargingStation();
@@ -89,7 +112,7 @@ public:
      * @return The built popup-menu
      * @see GUIGlObject::getPopUpMenu
      */
-    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent);
+    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /** @brief Returns an own parameter window
      *
@@ -100,27 +123,35 @@ public:
      * @return The built parameter window (always 0 in this case)
      * @see GUIGlObject::getParameterWindow
      */
-    GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent);
+    GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /// @brief return exaggeration associated with this GLObject
-    double getExaggeration(const GUIVisualizationSettings& s) const;
+    double getExaggeration(const GUIVisualizationSettings& s) const override;
 
     /** @brief Returns the boundary to which the view shall be centered in order to show the object
      *
      * @return The boundary the object is within
      * @see GUIGlObject::getCenteringBoundary
      */
-    Boundary getCenteringBoundary() const;
+    Boundary getCenteringBoundary() const override;
 
     /// @brief Returns the stopping place name
-    const std::string getOptionalName() const;
+    const std::string getOptionalName() const override;
 
     /** @brief Draws the object
      * @param[in] s The settings for the current view (may influence drawing)
      * @see GUIGlObject::drawGL
      */
-    void drawGL(const GUIVisualizationSettings& s) const;
+    void drawGL(const GUIVisualizationSettings& s) const override;
     //@}
+
+    const Position& getSignPos() const {
+        return myFGSignPos;
+    }
+
+private:
+    /// @brief Returns the stopping place name
+    void initAppearance(MSLane& lane, double frompos, double topos);
 
 private:
     /// @brief The rotations of the shape parts
@@ -138,5 +169,3 @@ private:
     /// @brief The rotation of the sign
     double myFGSignRot;
 };
-
-

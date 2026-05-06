@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -42,15 +42,19 @@
 // ===========================================================================
 // method definitions
 // ===========================================================================
-OptionsLoader::OptionsLoader(const bool rootOnly)
-    : myRootOnly(rootOnly), myError(false), myOptions(OptionsCont::getOptions()), myItem() {}
+
+OptionsLoader::OptionsLoader(OptionsCont& customOptions, const bool rootOnly) :
+    myRootOnly(rootOnly),
+    myOptions(customOptions),
+    myItem() {
+}
 
 
 OptionsLoader::~OptionsLoader() {}
 
 
-void OptionsLoader::startElement(const XMLCh* const name,
-                                 XERCES_CPP_NAMESPACE::AttributeList& attributes) {
+void OptionsLoader::startElement(const XMLCh* const name, XERCES_CPP_NAMESPACE::AttributeList& attributes) {
+    myFoundValue = false;
     myItem = StringUtils::transcode(name);
     if (!myRootOnly) {
         for (int i = 0; i < (int)attributes.getLength(); i++) {
@@ -58,20 +62,29 @@ void OptionsLoader::startElement(const XMLCh* const name,
             const std::string& value = StringUtils::transcode(attributes.getValue(i));
             if (key == "value" || key == "v") {
                 setValue(myItem, value);
+                myFoundValue = true;
+            } else if (key != "xmlns:xsi"
+                       && key != "xsi:noNamespaceSchemaLocation"
+                       && key != "synonymes"
+                       && key != "deprecated"
+                       && key != "type"
+                       && key != "help"
+                       // parsing a network file as single argument
+                       && (key != "version" && myItem != "net")) {
+                WRITE_WARNINGF(TL("Ignoring attribute '%' for option '%'"), key, myItem);
             }
-            // could give a hint here about unsupported attributes in configuration files
         }
         myValue = "";
     }
 }
 
 
-void OptionsLoader::setValue(const std::string& key,
-                             const std::string& value) {
+void OptionsLoader::setValue(const std::string& key, const std::string& value) {
     if (value.length() > 0) {
+        // try to add value in option container
         try {
-            if (!setSecure(key, value)) {
-                WRITE_ERROR("Could not set option '" + key + "' (probably defined twice).");
+            if (!setSecure(myOptions, key, value)) {
+                WRITE_ERRORF(TL("Could not set option '%' (probably defined twice)."), key);
                 myError = true;
             }
         } catch (ProcessError& e) {
@@ -82,17 +95,15 @@ void OptionsLoader::setValue(const std::string& key,
 }
 
 
-void OptionsLoader::characters(const XMLCh* const chars,
-                               const XERCES3_SIZE_t length) {
+void OptionsLoader::characters(const XMLCh* const chars, const XERCES3_SIZE_t length) {
     myValue = myValue + StringUtils::transcode(chars, (int) length);
 }
 
 
 bool
-OptionsLoader::setSecure(const std::string& name,
-                         const std::string& value) const {
-    if (myOptions.isWriteable(name)) {
-        myOptions.set(name, value);
+OptionsLoader::setSecure(OptionsCont& options, const std::string& name, const std::string& value) const {
+    if (options.isWriteable(name)) {
+        options.set(name, value);
         return true;
     }
     return false;
@@ -102,6 +113,9 @@ OptionsLoader::setSecure(const std::string& name,
 void
 OptionsLoader::endElement(const XMLCh* const /*name*/) {
     if (myItem.length() == 0 || myValue.length() == 0) {
+        if (!myFoundValue) {
+            WRITE_ERRORF(TL("Could not set option '%' because attribute 'value' is missing."), myItem);
+        }
         return;
     }
     if (myValue.find_first_not_of("\n\t \a") == std::string::npos) {
@@ -125,24 +139,20 @@ OptionsLoader::warning(const XERCES_CPP_NAMESPACE::SAXParseException& exception)
 
 void
 OptionsLoader::error(const XERCES_CPP_NAMESPACE::SAXParseException& exception) {
-    WRITE_ERROR(
-        StringUtils::transcode(exception.getMessage()));
-    WRITE_ERROR(
-        " (At line/column "
-        + toString(exception.getLineNumber() + 1) + '/'
-        + toString(exception.getColumnNumber()) + ").");
+    WRITE_ERROR(StringUtils::transcode(exception.getMessage()));
+    WRITE_ERROR(" (At line/column "
+                + toString(exception.getLineNumber() + 1) + '/'
+                + toString(exception.getColumnNumber()) + ").");
     myError = true;
 }
 
 
 void
 OptionsLoader::fatalError(const XERCES_CPP_NAMESPACE::SAXParseException& exception) {
-    WRITE_ERROR(
-        StringUtils::transcode(exception.getMessage()));
-    WRITE_ERROR(
-        " (At line/column "
-        + toString(exception.getLineNumber() + 1) + '/'
-        + toString(exception.getColumnNumber()) + ").");
+    WRITE_ERROR(StringUtils::transcode(exception.getMessage()));
+    WRITE_ERROR(" (At line/column "
+                + toString(exception.getLineNumber() + 1) + '/'
+                + toString(exception.getColumnNumber()) + ").");
     myError = true;
 }
 
@@ -151,6 +161,5 @@ bool
 OptionsLoader::errorOccurred() const {
     return myError;
 }
-
 
 /****************************************************************************/

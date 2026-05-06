@@ -25,7 +25,7 @@ onto the edges of a network. For details, see
 
 You may use a XML schema definition file for setting up a od2trips
 configuration:
-[od2tripsConfiguration.xsd](http://sumo.dlr.de/xsd/od2tripsConfiguration.xsd).
+[od2tripsConfiguration.xsd](https://sumo.dlr.de/xsd/od2tripsConfiguration.xsd).
 
 ### Configuration
 
@@ -58,16 +58,22 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 | Option | Description |
 |--------|-------------|
 | **--write-license** {{DT_BOOL}} | Include license info into every output file; *default:* **false** |
+| **--write-metadata** {{DT_BOOL}} | Write parsable metadata (configuration etc.) instead of comments; *default:* **false** |
 | **--output-prefix** {{DT_STR}} | Prefix which is applied to all output files. The special string 'TIME' is replaced by the current time. |
+| **--output-suffix** {{DT_STR}} | Suffix which is applied to all output files. The special string 'TIME' is replaced by the current time. |
 | **--precision** {{DT_INT}} | Defines the number of digits after the comma for floating point output; *default:* **2** |
 | **--precision.geo** {{DT_INT}} | Defines the number of digits after the comma for lon,lat output; *default:* **6** |
+| **--output.compression** {{DT_STR}} | Defines the standard compression algorithm (currently only for parquet output) |
+| **--output.format** {{DT_STR}} | Defines the standard output format if not derivable from the file name ('xml', 'csv', 'parquet'); *default:* **xml** |
+| **--output.column-header** {{DT_STR}} | How to derive column headers from attribute names ('none', 'tag', 'auto', 'plain'); *default:* **tag** |
+| **--output.column-separator** {{DT_STR}} | Separator in CSV output; *default:* **;** |
 | **-H** {{DT_BOOL}}<br> **--human-readable-time** {{DT_BOOL}} | Write time values as hour:minute:second or day:hour:minute:second rather than seconds; *default:* **false** |
 | **-o** {{DT_FILE}}<br> **--output-file** {{DT_FILE}} | Writes trip definitions into FILE |
 | **--flow-output** {{DT_FILE}} | Writes flow definitions into FILE |
 | **--flow-output.probability** {{DT_BOOL}} | Writes probabilistic flow instead of evenly spaced flow; *default:* **false** |
 | **--pedestrians** {{DT_BOOL}} | Writes pedestrians instead of vehicles; *default:* **false** |
 | **--persontrips** {{DT_BOOL}} | Writes persontrips instead of vehicles; *default:* **false** |
-| **--persontrips.modes** {{DT_STR[]}} | Add modes attribute to personTrips |
+| **--persontrips.modes** {{DT_STR_LIST}} | Add modes attribute to personTrips |
 | **--ignore-vehicle-type** {{DT_BOOL}} | Does not save vtype information; *default:* **false** |
 | **--junctions** {{DT_BOOL}} | Writes trips between junctions; *default:* **false** |
 
@@ -87,7 +93,7 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 | **--different-source-sink** {{DT_BOOL}} | Always choose source and sink edge which are not identical; *default:* **false** |
 | **--vtype** {{DT_STR}} | Defines the name of the vehicle type to use |
 | **--prefix** {{DT_STR}} | Defines the prefix for vehicle names |
-| **--timeline** {{DT_STR[]}} | Uses STR[] as a timeline definition |
+| **--timeline** {{DT_STR_LIST}} | Uses STR[] as a timeline definition |
 | **--timeline.day-in-hours** {{DT_BOOL}} | Uses STR as a 24h-timeline definition; *default:* **false** |
 | **--no-step-log** {{DT_BOOL}} | Disable console output of current time step; *default:* **false** |
 
@@ -121,6 +127,9 @@ Options](Basics/Using_the_Command_Line_Applications.md#reporting_options).
 | **-l** {{DT_FILE}}<br> **--log** {{DT_FILE}} | Writes all messages to FILE (implies verbose) |
 | **--message-log** {{DT_FILE}} | Writes all non-error messages to FILE (implies verbose) |
 | **--error-log** {{DT_FILE}} | Writes all warnings and errors to FILE |
+| **--log.timestamps** {{DT_BOOL}} | Writes timestamps in front of all messages; *default:* **false** |
+| **--log.processid** {{DT_BOOL}} | Writes process ID in front of all messages; *default:* **false** |
+| **--language** {{DT_STR}} | Language to use in messages; *default:* **C** |
 | **--ignore-errors** {{DT_BOOL}} | Continue on broken input; *default:* **false** |
 
 ### Random Number

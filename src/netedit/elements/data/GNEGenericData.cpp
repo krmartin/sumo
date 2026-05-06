@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -15,46 +15,41 @@
 /// @author  Pablo Alvarez Lopez
 /// @date    Jan 2020
 ///
-// A abstract class for data sets
+// A abstract class for generic datas
 /****************************************************************************/
-#include <config.h>
 
 #include <netedit/GNENet.h>
-#include <netedit/GNEViewNet.h>
+#include <netedit/GNETagPropertiesDatabase.h>
 #include <netedit/GNEViewParent.h>
-#include <netedit/elements/data/GNEGenericData.h>
 #include <netedit/frames/common/GNESelectorFrame.h>
 #include <netedit/frames/data/GNEEdgeDataFrame.h>
 #include <utils/gui/div/GLHelper.h>
-#include <utils/gui/div/GUIParameterTableWindow.h>
-#include <utils/gui/globjects/GLIncludes.h>
-#include <utils/gui/globjects/GUIGLObjectPopupMenu.h>
 #include <utils/gui/div/GUIDesigns.h>
+#include <utils/gui/div/GUIParameterTableWindow.h>
+#include <utils/gui/globjects/GUIGLObjectPopupMenu.h>
 
-#include "GNEGenericData.h"
 #include "GNEDataInterval.h"
-
+#include "GNEGenericData.h"
 
 // ===========================================================================
 // member method definitions
 // ===========================================================================
 
-// ---------------------------------------------------------------------------
-// GNEGenericData - methods
-// ---------------------------------------------------------------------------
+GNEGenericData::GNEGenericData(SumoXMLTag tag, GNENet* net) :
+    GNEAttributeCarrier(tag, net),
+    GUIGlObject(net->getTagPropertiesDatabase()->getTagProperty(tag, true)->getGLType(), "",
+                GUIIconSubSys::getIcon(net->getTagPropertiesDatabase()->getTagProperty(tag, true)->getGUIIcon())),
+    GNEPathElement(GNEPathElement::Options::DATA_ELEMENT),
+    myDataIntervalParent(nullptr) {
+}
 
-GNEGenericData::GNEGenericData(const SumoXMLTag tag, FXIcon *icon, const GUIGlObjectType type, GNEDataInterval* dataIntervalParent,
-                               const Parameterised::Map& parameters,
-                               const std::vector<GNEJunction*>& junctionParents,
-                               const std::vector<GNEEdge*>& edgeParents,
-                               const std::vector<GNELane*>& laneParents,
-                               const std::vector<GNEAdditional*>& additionalParents,
-                               const std::vector<GNEDemandElement*>& demandElementParents,
-                               const std::vector<GNEGenericData*>& genericDataParents) :
-    GUIGlObject(type, dataIntervalParent->getID(), icon),
+
+GNEGenericData::GNEGenericData(const SumoXMLTag tag, GNEDataInterval* dataIntervalParent, const Parameterised::Map& parameters) :
+    GNEAttributeCarrier(tag, dataIntervalParent->getNet(), dataIntervalParent->getFileBucket()),
+    GUIGlObject(dataIntervalParent->getNet()->getTagPropertiesDatabase()->getTagProperty(tag, true)->getGLType(), dataIntervalParent->getID(),
+                GUIIconSubSys::getIcon(dataIntervalParent->getNet()->getTagPropertiesDatabase()->getTagProperty(tag, true)->getGUIIcon())),
+    GNEPathElement(GNEPathElement::Options::DATA_ELEMENT),
     Parameterised(parameters),
-    GNEHierarchicalElement(dataIntervalParent->getNet(), tag, junctionParents, edgeParents, laneParents, additionalParents, demandElementParents, genericDataParents),
-    GNEPathManager::PathElement(this, GNEPathManager::PathElement::Options::DATA_ELEMENT),
     myDataIntervalParent(dataIntervalParent) {
 }
 
@@ -62,9 +57,49 @@ GNEGenericData::GNEGenericData(const SumoXMLTag tag, FXIcon *icon, const GUIGlOb
 GNEGenericData::~GNEGenericData() {}
 
 
+GNEHierarchicalElement*
+GNEGenericData::getHierarchicalElement() {
+    return this;
+}
+
+
+GNEMoveElement*
+GNEGenericData::getMoveElement() const {
+    return nullptr;
+}
+
+
+Parameterised*
+GNEGenericData::getParameters() {
+    return this;
+}
+
+
+const Parameterised*
+GNEGenericData::getParameters() const {
+    return this;
+}
+
+
 GUIGlObject*
 GNEGenericData::getGUIGlObject() {
     return this;
+}
+
+
+const GUIGlObject*
+GNEGenericData::getGUIGlObject() const {
+    return this;
+}
+
+
+FileBucket*
+GNEGenericData::getFileBucket() const {
+    if (isTemplate()) {
+        return nullptr;
+    } else {
+        return myDataIntervalParent->getFileBucket();
+    }
 }
 
 
@@ -76,9 +111,9 @@ GNEGenericData::getDataIntervalParent() const {
 
 void
 GNEGenericData::drawAttribute(const PositionVector& shape) const {
-    if ((myTagProperty.getTag() == SUMO_TAG_MEANDATA_EDGE) && (shape.length() > 0)) {
+    if ((myTagProperty->getTag() == GNE_TAG_EDGEREL_SINGLE) && (shape.length() > 0)) {
         // obtain pointer to edge data frame (only for code legibly)
-        const GNEEdgeDataFrame* edgeDataFrame = myDataIntervalParent->getNet()->getViewNet()->getViewParent()->getEdgeDataFrame();
+        const GNEEdgeDataFrame* edgeDataFrame = myDataIntervalParent->getNet()->getViewParent()->getEdgeDataFrame();
         // check if we have to filter generic data
         if (edgeDataFrame->shown()) {
             // check attribute
@@ -96,6 +131,72 @@ GNEGenericData::drawAttribute(const PositionVector& shape) const {
             }
         }
     }
+}
+
+
+bool
+GNEGenericData::checkDrawFromContour() const {
+    return false;
+}
+
+
+bool
+GNEGenericData::checkDrawToContour() const {
+    return false;
+}
+
+
+bool
+GNEGenericData::checkDrawRelatedContour() const {
+    // check opened popup
+    if (myNet->getViewNet()->getPopup()) {
+        return myNet->getViewNet()->getPopup()->getGLObject() == this;
+    }
+    return false;
+}
+
+
+bool
+GNEGenericData::checkDrawOverContour() const {
+    return false;
+}
+
+
+bool
+GNEGenericData::checkDrawDeleteContour() const {
+    // get edit modes
+    const auto& editModes = myNet->getViewNet()->getEditModes();
+    // check if we're in delete mode
+    if (editModes.isCurrentSupermodeData() && (editModes.dataEditMode == DataEditMode::DATA_DELETE)) {
+        return myNet->getViewNet()->checkOverLockedElement(this, mySelected);
+    } else {
+        return false;
+    }
+}
+
+
+bool
+GNEGenericData::checkDrawDeleteContourSmall() const {
+    return false;
+}
+
+
+bool
+GNEGenericData::checkDrawSelectContour() const {
+    // get edit modes
+    const auto& editModes = myNet->getViewNet()->getEditModes();
+    // check if we're in select mode
+    if (editModes.isCurrentSupermodeData() && (editModes.dataEditMode == DataEditMode::DATA_SELECT)) {
+        return myNet->getViewNet()->checkOverLockedElement(this, mySelected);
+    } else {
+        return false;
+    }
+}
+
+
+bool
+GNEGenericData::checkDrawMoveContour() const {
+    return false;
 }
 
 
@@ -119,25 +220,16 @@ GNEGenericData::fixGenericDataProblem() {
 
 GUIGLObjectPopupMenu*
 GNEGenericData::getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) {
-    GUIGLObjectPopupMenu* ret = new GUIGLObjectPopupMenu(app, parent, *this);
-    // build header
-    buildPopupHeader(ret, app);
-    // build menu command for center button and copy cursor position to clipboard
-    buildCenterPopupEntry(ret);
-    buildPositionCopyEntry(ret, app);
-    // buld menu commands for names
-    GUIDesigns::buildFXMenuCommand(ret, "Copy " + getTagStr() + " name to clipboard", nullptr, ret, MID_COPY_NAME);
-    GUIDesigns::buildFXMenuCommand(ret, "Copy " + getTagStr() + " typed name to clipboard", nullptr, ret, MID_COPY_TYPED_NAME);
-    new FXMenuSeparator(ret);
-    // build selection and show parameters menu
-    myDataIntervalParent->getNet()->getViewNet()->buildSelectionACPopupEntry(ret, this);
-    buildShowParamsPopupEntry(ret);
+    // create popup
+    GUIGLObjectPopupMenu* ret = new GUIGLObjectPopupMenu(app, parent, this);
+    // build common options
+    buildPopUpMenuCommonOptions(ret, app, myNet->getViewNet(), myTagProperty->getTag(), mySelected);
     // show option to open additional dialog
-    if (myTagProperty.hasDialog()) {
-        GUIDesigns::buildFXMenuCommand(ret, ("Open " + getTagStr() + " Dialog").c_str(), getACIcon(), &parent, MID_OPEN_ADDITIONAL_DIALOG);
+    if (myTagProperty->hasDialog()) {
+        GUIDesigns::buildFXMenuCommand(ret, (TLF("Open % Dialog", getTagStr())).c_str(), getACIcon(), &parent, MID_OPEN_ADDITIONAL_DIALOG);
         new FXMenuSeparator(ret);
     } else {
-        GUIDesigns::buildFXMenuCommand(ret, ("Cursor position in view: " + toString(getPositionInView().x()) + "," + toString(getPositionInView().y())).c_str(), nullptr, nullptr, 0);
+        GUIDesigns::buildFXMenuCommand(ret, (TL("Cursor position in view: ") + toString(getPositionInView().x()) + "," + toString(getPositionInView().y())).c_str(), nullptr, nullptr, 0);
     }
     return ret;
 }
@@ -148,12 +240,12 @@ GNEGenericData::getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& /* p
     // Create table
     GUIParameterTableWindow* ret = new GUIParameterTableWindow(app, *this);
     // Iterate over attributes
-    for (const auto& tagProperty : myTagProperty) {
+    for (const auto& tagProperty : myTagProperty->getAttributeProperties()) {
         // Add attribute and set it dynamic if aren't unique
-        if (tagProperty.isUnique()) {
-            ret->mkItem(tagProperty.getAttrStr().c_str(), false, getAttribute(tagProperty.getAttr()));
+        if (tagProperty->isUnique()) {
+            ret->mkItem(tagProperty->getAttrStr().c_str(), false, getAttribute(tagProperty->getAttr()));
         } else {
-            ret->mkItem(tagProperty.getAttrStr().c_str(), true, getAttribute(tagProperty.getAttr()));
+            ret->mkItem(tagProperty->getAttrStr().c_str(), true, getAttribute(tagProperty->getAttr()));
         }
     }
     // close building
@@ -162,13 +254,13 @@ GNEGenericData::getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& /* p
 }
 
 
-void 
-GNEGenericData::deleteGLObject(){
-    myNet->deleteGenericData(this, myNet->getViewNet()->getUndoList());
+void
+GNEGenericData::deleteGLObject() {
+    myNet->deleteGenericData(this, myNet->getUndoList());
 }
 
 
-void 
+void
 GNEGenericData::selectGLObject() {
     if (isAttributeCarrierSelected()) {
         unselectAttributeCarrier();
@@ -176,7 +268,7 @@ GNEGenericData::selectGLObject() {
         selectAttributeCarrier();
     }
     // update information label
-    myNet->getViewNet()->getViewParent()->getSelectorFrame()->getSelectionInformation()->updateInformationLabel();
+    myNet->getViewParent()->getSelectorFrame()->getSelectionInformation()->updateInformationLabel();
 }
 
 
@@ -186,33 +278,21 @@ GNEGenericData::updateGLObject() {
 }
 
 
-double
-GNEGenericData::getPathElementDepartValue() const {
-    return 0;
-}
-
-
 Position
-GNEGenericData::getPathElementDepartPos() const {
-    return Position();
+GNEGenericData::getAttributePosition(SumoXMLAttr key) const {
+    return getCommonAttributePosition(key);
 }
 
 
-double
-GNEGenericData::getPathElementArrivalValue() const {
-    return 0;
+PositionVector
+GNEGenericData::getAttributePositionVector(SumoXMLAttr key) const {
+    return getCommonAttributePositionVector(key);
 }
 
 
-Position
-GNEGenericData::getPathElementArrivalPos() const {
-    return Position();
-}
-
-
-const Parameterised::Map&
-GNEGenericData::getACParametersMap() const {
-    return getParametersMap();
+bool
+GNEGenericData::isPathElementSelected() const {
+    return mySelected;
 }
 
 // ---------------------------------------------------------------------------
@@ -241,7 +321,7 @@ GNEGenericData::isVisibleInspectDeleteSelect() const {
     // declare flag
     bool draw = true;
     // check filter by generic data type
-    if ((toolBar.getGenericDataType() != SUMO_TAG_NOTHING) && (toolBar.getGenericDataType() != myTagProperty.getTag())) {
+    if ((toolBar.getGenericDataType() != SUMO_TAG_NOTHING) && (toolBar.getGenericDataType() != myTagProperty->getTag())) {
         draw = false;
     }
     // check filter by data set
@@ -266,52 +346,47 @@ GNEGenericData::isVisibleInspectDeleteSelect() const {
 
 void
 GNEGenericData::replaceFirstParentEdge(const std::string& value) {
-    std::vector<GNEEdge*> parentEdges = getParentEdges();
-    parentEdges[0] = myNet->getAttributeCarriers()->retrieveEdge(value);
-    // replace parent edges
-    replaceParentElements(this, parentEdges);
+    auto newEdge = myNet->getAttributeCarriers()->retrieveEdge(value);
+    GNEHierarchicalElement::updateParent(this, 0, newEdge);
 }
 
 
 void
 GNEGenericData::replaceLastParentEdge(const std::string& value) {
-    std::vector<GNEEdge*> parentEdges = getParentEdges();
-    parentEdges[(int)parentEdges.size() - 1] = myNet->getAttributeCarriers()->retrieveEdge(value);
-    // replace parent edges
-    replaceParentElements(this, parentEdges);
+    auto newEdge = myNet->getAttributeCarriers()->retrieveEdge(value);
+    GNEHierarchicalElement::updateParent(this, (int)getParentEdges().size() - 1, newEdge);
 }
 
 
 void
 GNEGenericData::replaceParentTAZElement(const int index, const std::string& value) {
-    std::vector<GNEAdditional*> parentTAZElements = getParentAdditionals();
+    std::vector<GNEAdditional*> newTAZs = getParentAdditionals();
     auto TAZ = myNet->getAttributeCarriers()->retrieveAdditional(SUMO_TAG_TAZ, value);
     // continue depending of index and number of TAZs
     if (index == 0) {
-        if (parentTAZElements.size() == 2) {
-            if (parentTAZElements.at(1)->getID() == value) {
-                parentTAZElements = {TAZ};
+        if (newTAZs.size() == 2) {
+            if (newTAZs.at(1)->getID() == value) {
+                newTAZs = {TAZ};
             } else {
-                parentTAZElements[0] = TAZ;
+                newTAZs[0] = TAZ;
             }
-        } else if (parentTAZElements.at(0) != TAZ) {
-            parentTAZElements = {TAZ, parentTAZElements.at(0)};
+        } else if (newTAZs.at(0) != TAZ) {
+            newTAZs = {TAZ, newTAZs.at(0)};
         }
     } else if (index == 1) {
-        if (parentTAZElements.size() == 2) {
-            if (parentTAZElements.at(0)->getID() == value) {
-                parentTAZElements = {TAZ};
+        if (newTAZs.size() == 2) {
+            if (newTAZs.at(0)->getID() == value) {
+                newTAZs = {TAZ};
             } else {
-                parentTAZElements[1] = TAZ;
+                newTAZs[1] = TAZ;
             }
-        } else if (parentTAZElements.at(0) != TAZ) {
-            parentTAZElements = {parentTAZElements.at(0), TAZ};
+        } else if (newTAZs.at(0) != TAZ) {
+            newTAZs = {newTAZs.at(0), TAZ};
         }
     } else {
-        throw ProcessError("Invalid index");
+        throw ProcessError(TL("Invalid index"));
     }
-    // replace parent TAZElements
-    replaceParentElements(this, parentTAZElements);
+    GNEHierarchicalElement::updateParents(this, newTAZs);
 }
 
 

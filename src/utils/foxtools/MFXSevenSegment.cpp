@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2004-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2004-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -20,6 +20,8 @@
 //
 /****************************************************************************/
 #include <config.h>
+
+#include <utils/gui/div/GUIDesigns.h>
 
 #include "MFXSevenSegment.h"
 
@@ -51,13 +53,13 @@ FXIMPLEMENT(MFXSevenSegment, FXFrame, MFXSevenSegmentMap, ARRAYNUMBER(MFXSevenSe
 // ===========================================================================
 
 MFXSevenSegment::MFXSevenSegment(FXComposite* p, FXObject* tgt, FXSelector sel, FXuint opts, FXint pl, FXint pr, FXint pt, FXint pb) :
-    FXFrame(p, opts, 0, 0, 0, 0, pl, pr, pt, pb), 
-    myValue(' '), 
-    myLCDTextColor(FXRGB(0, 255, 0)), 
-    myBackGroundColor(FXRGB(0, 0, 0)), 
-    myHorizontalSegmentLength(8), 
-    myVerticalSegmentLength(8), 
-    mySegmentThickness(3), 
+    FXFrame(p, opts, 0, 0, 0, 0, pl, pr, pt, pb),
+    myValue(' '),
+    myLCDTextColor(FXRGB(0, 255, 0)),
+    myBackGroundColor(GUIDesignTextColorBlack),
+    myHorizontalSegmentLength(8),
+    myVerticalSegmentLength(8),
+    mySegmentThickness(3),
     myGroove(1) {
     setTarget(tgt);
     setSelector(sel);
@@ -599,7 +601,7 @@ MFXSevenSegment::drawFigure(FXDCWindow& dc, FXchar figure) {
 //    case 'z' :
 //    case 'Z' :
         default  :
-            fxerror("MFXSevenSegment doesnt support: %c\n", figure);
+            fxerror("MFXSevenSegment doesn't support: %c\n", figure);
     }
 }
 

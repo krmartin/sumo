@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -15,37 +15,41 @@
 /// @author  Pablo Alvarez Lopez
 /// @date    mar 2020
 ///
-// Functions from main window of NETEDIT
+// Functions from main window of netedit
 /****************************************************************************/
 #pragma once
 #include <config.h>
 
+#include <netedit/dialogs/file/GNEFileDialog.h>
+#include <netedit/GNETagProperties.h>
 #include <utils/common/SUMOTime.h>
-#include <utils/foxtools/MFXSynchQue.h>
-#include <utils/foxtools/MFXRecentNetworks.h>
-#include <utils/foxtools/MFXThreadEvent.h>
 #include <utils/foxtools/MFXInterThreadEventClient.h>
+#include <utils/foxtools/MFXRecentNetworks.h>
+#include <utils/foxtools/MFXSynchQue.h>
+#include <utils/foxtools/MFXThreadEvent.h>
 #include <utils/geom/Position.h>
 #include <utils/gui/div/GUIMessageWindow.h>
 #include <utils/gui/windows/GUIMainWindow.h>
+#include <utils/options/OptionsCont.h>
 #include <utils/shapes/ShapeHandler.h>
-#include <utils/handlers/ConfigHandler.h>
+#include <utils/tests/InternalTestStep.h>
 
 #include "GNEViewNetHelper.h"
-
 
 // ===========================================================================
 // class declarations
 // ===========================================================================
-class GNEApplicationWindow;
-class GNELoadThread;
-class GNEUndoList;
-class GNEUndoListDialog;
-class GNENet;
-class GNEViewNet;
-class GUIEvent;
-class MFXMenuCheckIcon;
 
+class GNEApplicationWindow;
+class FileBucket;
+class GNENet;
+class GNENetgenerateDialog;
+class GNEPythonTool;
+class GNEPythonToolDialog;
+class GNERunNetgenerateDialog;
+class GNERunPythonToolDialog;
+class GNEViewNet;
+class MFXMenuCheckIcon;
 
 // ===========================================================================
 // class definition
@@ -57,7 +61,7 @@ struct GNEApplicationWindowHelper {
     struct ToolbarsGrip {
 
         /// @brief constructor
-        ToolbarsGrip(GNEApplicationWindow* GNEApp);
+        ToolbarsGrip(GNEApplicationWindow* applicationWindow);
 
         /// @brief build menu toolbar grips
         void buildMenuToolbarsGrip();
@@ -69,44 +73,50 @@ struct GNEApplicationWindowHelper {
         void destroyParentToolbarsGrips();
 
         /// @brief The application menu bar (for file, edit, processing...)
-        FXMenuBar* menu;
+        FXMenuBar* menu = nullptr;
 
-        /// @brief The application menu bar for supermodes (network and demand)
-        FXMenuBar* superModes;
+        /// @brief The application menu bar for supermodes (network, demand and data)
+        FXMenuBar* superModes = nullptr;
 
-        /// @brief The application menu bar for save elements (NetworkElements, additionals and demand elements)
-        FXMenuBar* saveElements;
+        /// @brief The application menu bar for save elements
+        FXMenuBar* saveElements = nullptr;
+
+        /// @brief The application menu bar for time switch
+        FXMenuBar* timeSwitch = nullptr;
 
         /// @brief The application menu bar for navigation (zoom, coloring...)
-        FXMenuBar* navigation;
+        FXMenuBar* navigation = nullptr;
 
         /// @brief The application menu bar (for select, inspect...)
-        FXMenuBar* modes;
+        FXMenuBar* modes = nullptr;
 
         /// @brief The application menu bar for mode options (show connections, select edges...)
-        FXMenuBar* intervalBar;
+        FXMenuBar* intervalBar = nullptr;
 
     private:
         /// @brief pointer to current GNEApplicationWindow
-        GNEApplicationWindow* myGNEApp;
+        GNEApplicationWindow* myApplicationWindow;
 
         /// @brief menu bar drag (for file, edit, processing...)
-        FXToolBarShell* myToolBarShellMenu;
+        FXToolBarShell* myPythonToolBarShellMenu = nullptr;
 
-        /// @brief menu bar drag for modes (network and demand)
-        FXToolBarShell* myToolBarShellSuperModes;
+        /// @brief menu bar drag for super modes (network, demand and data)
+        FXToolBarShell* myPythonToolBarShellSuperModes = nullptr;
 
-        /// @brief menu bar drag for save elements (NetworkElements, additionals and demand elements)
-        FXToolBarShell* myToolBarShellSaveElements;
+        /// @brief menu bar drag for save elements
+        FXToolBarShell* myPythonToolBarShellSaveElements = nullptr;
+
+        /// @brief menu bar drag for time switch
+        FXToolBarShell* myPythonToolBarShellTimeFormat = nullptr;
 
         /// @brief menu bar drag for navigation (Zoom, coloring...)
-        FXToolBarShell* myToolBarShellNavigation;
+        FXToolBarShell* myPythonToolBarShellNavigation = nullptr;
 
         /// @brief menu bar drag for modes (select, inspect, delete...)
-        FXToolBarShell* myToolBarShellModes;
+        FXToolBarShell* myPythonToolBarShellModes = nullptr;
 
         /// @brief menu bar drag for interval bar
-        FXToolBarShell* myToolBarShellIntervalBar;
+        FXToolBarShell* myPythonToolBarShellIntervalBar = nullptr;
 
         /// @brief Invalidated copy constructor.
         ToolbarsGrip(const ToolbarsGrip&) = delete;
@@ -119,17 +129,23 @@ struct GNEApplicationWindowHelper {
     struct MenuBarFile {
 
         /// @brief constructor
-        MenuBarFile(GNEApplicationWindow* GNEApp);
+        MenuBarFile(GNEApplicationWindow* applicationWindow);
 
-        /// @brief build recent files
-        void buildRecentFiles(FXMenuPane* fileMenu);
+        /// @brief build recent network
+        void buildRecentNetworkFiles(FXMenuPane* fileMenu, FXMenuPane* fileMenuRecentNetworkFiles);
 
-        /// @brief List of recent nets and config files
-        MFXRecentNetworks myRecentNetsAndConfigs;
+        /// @brief build recent config
+        void buildRecentConfigFiles(FXMenuPane* fileMenu, FXMenuPane* fileMenuRecentConfigFiles);
+
+        /// @brief List of recent networks
+        MFXRecentNetworks myRecentNetworks;
+
+        /// @brief List of recent configs
+        MFXRecentNetworks myRecentConfigs;
 
     private:
         /// @brief pointer to current GNEApplicationWindow
-        GNEApplicationWindow* myGNEApp;
+        GNEApplicationWindow* myApplicationWindow;
 
         /// @brief Invalidated copy constructor.
         MenuBarFile(const MenuBarFile&) = delete;
@@ -142,79 +158,80 @@ struct GNEApplicationWindowHelper {
     struct FileMenuCommands {
 
         /// @brief constructor
-        FileMenuCommands(GNEApplicationWindow* GNEApp);
+        FileMenuCommands(GNEApplicationWindow* applicationWindow);
 
         /// @brief build menu commands
-        void buildFileMenuCommands(FXMenuPane* fileMenu, FXMenuPane* fileMenuSUMOConfig, FXMenuPane* fileMenuTLS, 
-                                   FXMenuPane* fileMenuEdgeTypes, FXMenuPane* fileMenuAdditionals,
-                                   FXMenuPane* fileMenuDemandElements, FXMenuPane* fileMenuDataElements);
+        void buildFileMenuCommands(FXMenuPane* fileMenu, FXMenuPane* fileMenuNEEDITConfig, FXMenuPane* fileMenuSumoConfig,
+                                   FXMenuPane* fileMenuTLS, FXMenuPane* fileMenuEdgeTypes, FXMenuPane* fileMenuAdditionals,
+                                   FXMenuPane* fileMenuDemandElements, FXMenuPane* fileMenuDataElements,
+                                   FXMenuPane* fileMenuMeanDataElements);
 
-        /// @brief FXMenuCascade for SUMOConfig
-        FXMenuCascade* SUMOConfigMenuCascade = nullptr;
-        
-        /// @brief FXMenuCascade for TLS
-        FXMenuCascade* TLSMenuCascade = nullptr;
+        /// @brief enable menu cascades
+        void enableMenuCascades();
 
-        /// @brief FXMenuCascade for edgeTypes
-        FXMenuCascade* edgeTypesMenuCascade = nullptr;
+        /// @brief disable menu cascades
+        void disableMenuCascades();
 
-        /// @brief FXMenuCascade for additional
-        FXMenuCascade* additionalMenuCascade = nullptr;
+        /// @brief set default view
+        void setDefaultView();
 
-        /// @brief FXMenuCascade for demand
-        FXMenuCascade* demandMenuCascade = nullptr;
+        /// @brief set JuPedSim view
+        void setJuPedSimView();
 
-        /// @brief FXMenuCascade for data
-        FXMenuCascade* dataMenuCascade = nullptr;
-
-        /// @brief FXMenuCommand for reload SUMOConfig
-        FXMenuCommand* reloadSUMOConfig = nullptr;
-
-        /// @brief FXMenuCommand for enable or disable save SUMOConfig
-        FXMenuCommand* saveSUMOConfig = nullptr;
-
-        /// @brief FXMenuCommand for reload TLS Programs
-        FXMenuCommand* reloadTLSPrograms = nullptr;
-
-        /// @brief FXMenuCommand for enable or disable save TLS Programs
-        FXMenuCommand* saveTLSPrograms = nullptr;
-
-        /// @brief FXMenuCommand for reload Edge Types
-        FXMenuCommand* reloadEdgeTypes = nullptr;
-
-        /// @brief FXMenuCommand for enable or disable save edgeTypes
-        FXMenuCommand* saveEdgeTypes = nullptr;
-
-        /// @brief FXMenuCommand for enable or disable save additionals
-        FXMenuCommand* saveAdditionals = nullptr;
-
-        /// @brief FXMenuCommand for enable or disable save additionals As
-        FXMenuCommand* saveAdditionalsAs = nullptr;
-
-        /// @brief FXMenuCommand for reload additionals
-        FXMenuCommand* reloadAdditionals = nullptr;
-
-        /// @brief FXMenuCommand for enable or disable save demand elements
-        FXMenuCommand* saveDemandElements = nullptr;
-
-        /// @brief FXMenuCommand for enable or disable save demand elements as
-        FXMenuCommand* saveDemandElementsAs = nullptr;
-
-        /// @brief FXMenuCommand for reload demand elements
-        FXMenuCommand* reloadDemandElements = nullptr;
-
-        /// @brief FXMenuCommand for enable or disable save data elements
-        FXMenuCommand* saveDataElements = nullptr;
-
-        /// @brief FXMenuCommand for enable or disable save data elements as
-        FXMenuCommand* saveDataElementsAs = nullptr;
-
-        /// @brief FXMenuCommand for reload data elements
-        FXMenuCommand* reloadDataElements = nullptr;
+        /// @brief checkBox for allow undo-redo loading
+        FXMenuCheck* menuCheckAllowUndoRedoLoading = nullptr;
 
     private:
-        /// @brief pointer to current GNEApplicationWindows
-        GNEApplicationWindow* myGNEApp;
+        /// @brief build netedit config section
+        void buildNeteditConfigSection(FXMenuPane* menuPane);
+
+        /// @brief build SUMO Config section
+        void buildSumoConfigSection(FXMenuPane* menuPane);
+
+        /// @brief build traffic light section
+        void buildTrafficLightSection(FXMenuPane* menuPane);
+
+        /// @brief build edge type section
+        void buildEdgeTypeSection(FXMenuPane* menuPane);
+
+        /// @brief build additional section
+        void buildAdditionalSection(FXMenuPane* menuPane);
+
+        /// @brief build demand section
+        void buildDemandSection(FXMenuPane* menuPane);
+
+        /// @brief build data section
+        void buildDataSection(FXMenuPane* menuPane);
+
+        /// @brief build meanData section
+        void buildMeanDataSection(FXMenuPane* menuPane);
+
+        /// @brief pointer to current GNEApplicationWindow
+        GNEApplicationWindow* myApplicationWindow = nullptr;
+
+        /// @brief FXMenuCascade for neteditConfig
+        FXMenuCascade* myNeteditConfigMenuCascade = nullptr;
+
+        /// @brief FXMenuCascade for SumoConfig
+        FXMenuCascade* mySumoConfigMenuCascade = nullptr;
+
+        /// @brief FXMenuCascade for TLS
+        FXMenuCascade* myTLSMenuCascade = nullptr;
+
+        /// @brief FXMenuCascade for edgeTypes
+        FXMenuCascade* myEdgeTypesMenuCascade = nullptr;
+
+        /// @brief FXMenuCascade for additional
+        FXMenuCascade* myAdditionalMenuCascade = nullptr;
+
+        /// @brief FXMenuCascade for demand
+        FXMenuCascade* myDemandMenuCascade = nullptr;
+
+        /// @brief FXMenuCascade for data
+        FXMenuCascade* myDataMenuCascade = nullptr;
+
+        /// @brief FXMenuCascade for mean data
+        FXMenuCascade* myMeanDataMenuCascade = nullptr;
 
         /// @brief Invalidated copy constructor.
         FileMenuCommands(const FileMenuCommands&) = delete;
@@ -236,13 +253,13 @@ struct GNEApplicationWindowHelper {
             void buildCommonMenuCommands(FXMenuPane* modesMenu);
 
             /// @brief menu command for delete mode
-            FXMenuCommand* deleteMode;
+            FXMenuCommand* deleteMode = nullptr;
 
             /// @brief menu command for inspect mode
-            FXMenuCommand* inspectMode;
+            FXMenuCommand* inspectMode = nullptr;
 
             /// @brief menu command for select mode
-            FXMenuCommand* selectMode;
+            FXMenuCommand* selectMode = nullptr;
 
         private:
             /// @brief reference to ModesMenuCommands
@@ -271,34 +288,37 @@ struct GNEApplicationWindowHelper {
             void hideNetworkMenuCommands();
 
             /// @brief menu command for create edge
-            FXMenuCommand* createEdgeMode;
+            FXMenuCommand* createEdgeMode = nullptr;
 
             /// @brief menu command for move mode (network)
-            FXMenuCommand* moveMode;
+            FXMenuCommand* moveMode = nullptr;
 
             /// @brief menu command for connect mode
-            FXMenuCommand* connectMode;
+            FXMenuCommand* connectMode = nullptr;
 
             /// @brief menu command for prohibition mode
-            FXMenuCommand* prohibitionMode;
+            FXMenuCommand* prohibitionMode = nullptr;
 
             /// @brief menu command for TLS Mode
-            FXMenuCommand* TLSMode;
+            FXMenuCommand* TLSMode = nullptr;
 
             /// @brief menu command for additional mode
-            FXMenuCommand* additionalMode;
+            FXMenuCommand* additionalMode = nullptr;
 
             /// @brief menu command for crossing mode
-            FXMenuCommand* crossingMode;
+            FXMenuCommand* crossingMode = nullptr;
 
             /// @brief menu command for TAZ mode
-            FXMenuCommand* TAZMode;
+            FXMenuCommand* TAZMode = nullptr;
 
             /// @brief menu command for shape mode
-            FXMenuCommand* shapeMode;
+            FXMenuCommand* shapeMode = nullptr;
 
             /// @brief menu command for wire mode
-            FXMenuCommand* wireMode;
+            FXMenuCommand* wireMode = nullptr;
+
+            /// @brief menu command for decal mode
+            FXMenuCommand* decalMode = nullptr;
 
         private:
             /// @brief reference to ModesMenuCommands
@@ -327,31 +347,37 @@ struct GNEApplicationWindowHelper {
             void hideDemandMenuCommands();
 
             /// @brief menu command for move mode (demand)
-            FXMenuCommand* moveMode;
+            FXMenuCommand* moveMode = nullptr;
 
             /// @brief menu command for route mode
-            FXMenuCommand* routeMode;
+            FXMenuCommand* routeMode = nullptr;
+
+            /// @brief menu command for route distribution mode
+            FXMenuCommand* routeDistributionMode = nullptr;
 
             /// @brief menu command for vehicle mode
-            FXMenuCommand* vehicleMode;
+            FXMenuCommand* vehicleMode = nullptr;
 
             /// @brief menu command for type mode
-            FXMenuCommand* typeMode;
+            FXMenuCommand* typeMode = nullptr;
+
+            /// @brief menu command for type distribution mode
+            FXMenuCommand* typeDistributionMode = nullptr;
 
             /// @brief menu command for stop mode
-            FXMenuCommand* stopMode;
+            FXMenuCommand* stopMode = nullptr;
 
             /// @brief menu command for person mode
-            FXMenuCommand* personMode;
+            FXMenuCommand* personMode = nullptr;
 
             /// @brief menu command for person plan mode
-            FXMenuCommand* personPlanMode;
+            FXMenuCommand* personPlanMode = nullptr;
 
             /// @brief menu command for container mode
-            FXMenuCommand* containerMode;
+            FXMenuCommand* containerMode = nullptr;
 
             /// @brief menu command for container plan mode
-            FXMenuCommand* containerPlanMode;
+            FXMenuCommand* containerPlanMode = nullptr;
 
         private:
             /// @brief reference to ModesMenuCommands
@@ -380,13 +406,16 @@ struct GNEApplicationWindowHelper {
             void hideDataMenuCommands();
 
             /// @brief menu command for edge mode
-            FXMenuCommand* edgeData;
+            FXMenuCommand* edgeData = nullptr;
 
             /// @brief menu command for edge rel mode
-            FXMenuCommand* edgeRelData;
+            FXMenuCommand* edgeRelData = nullptr;
 
             /// @brief menu command for TAZ rel mode
-            FXMenuCommand* TAZRelData;
+            FXMenuCommand* TAZRelData = nullptr;
+
+            /// @brief menu command for mean data
+            FXMenuCommand* meanData = nullptr;
 
         private:
             /// @brief reference to ModesMenuCommands
@@ -400,10 +429,16 @@ struct GNEApplicationWindowHelper {
         };
 
         /// @brief constructor
-        ModesMenuCommands(GNEApplicationWindow* GNEApp);
+        ModesMenuCommands(GNEApplicationWindow* applicationWindow);
 
         /// @brief build modes menu commands
         void buildModesMenuCommands(FXMenuPane* modesMenu);
+
+        /// @brief set default view
+        void setDefaultView(Supermode supermode);
+
+        /// @brief set JuPedSim view
+        void setJuPedSimView(Supermode supermode);
 
         /// @brief Common Menu Commands
         CommonMenuCommands commonMenuCommands;
@@ -418,8 +453,8 @@ struct GNEApplicationWindowHelper {
         DataMenuCommands dataMenuCommands;
 
     private:
-        /// @brief pointer to current GNEApplicationWindows
-        GNEApplicationWindow* myGNEApp;
+        /// @brief pointer to current GNEApplicationWindow
+        GNEApplicationWindow* myApplicationWindow;
 
         /// @brief Invalidated copy constructor.
         ModesMenuCommands(const ModesMenuCommands&) = delete;
@@ -435,7 +470,7 @@ struct GNEApplicationWindowHelper {
         struct NetworkViewOptions {
 
             /// @brief default constructor
-            NetworkViewOptions(GNEApplicationWindow* GNEApp);
+            NetworkViewOptions(GNEApplicationWindow* applicationWindow);
 
             /// @brief build menu checks
             void buildNetworkViewOptionsMenuChecks(FXMenuPane* editMenu);
@@ -447,59 +482,59 @@ struct GNEApplicationWindowHelper {
             void updateShortcuts();
 
             /// @brief menu check to show grid button
-            MFXMenuCheckIcon* menuCheckToggleGrid;
+            MFXMenuCheckIcon* menuCheckToggleGrid = nullptr;
 
             /// @brief menu check to toggle draw junction shape
-            MFXMenuCheckIcon* menuCheckToggleDrawJunctionShape;
+            MFXMenuCheckIcon* menuCheckToggleDrawJunctionShape = nullptr;
 
             /// @brief menu check to draw vehicles in begin position or spread in lane
-            MFXMenuCheckIcon* menuCheckDrawSpreadVehicles;
+            MFXMenuCheckIcon* menuCheckDrawSpreadVehicles = nullptr;
 
             /// @brief menu check to show Demand Elements
-            MFXMenuCheckIcon* menuCheckShowDemandElements;
+            MFXMenuCheckIcon* menuCheckShowDemandElements = nullptr;
 
             /// @brief menu check to select only edges
-            MFXMenuCheckIcon* menuCheckSelectEdges;
+            MFXMenuCheckIcon* menuCheckSelectEdges = nullptr;
 
             /// @brief menu check to show connections
-            MFXMenuCheckIcon* menuCheckShowConnections;
+            MFXMenuCheckIcon* menuCheckShowConnections = nullptr;
 
             /// @brief menu check to hide connections in connect mode
-            MFXMenuCheckIcon* menuCheckHideConnections;
+            MFXMenuCheckIcon* menuCheckHideConnections = nullptr;
 
             /// @brief menu check to show additional sub-elements
-            MFXMenuCheckIcon* menuCheckShowAdditionalSubElements;
+            MFXMenuCheckIcon* menuCheckShowAdditionalSubElements = nullptr;
 
             /// @brief menu check to show TAZ elements
-            MFXMenuCheckIcon* menuCheckShowTAZElements;
+            MFXMenuCheckIcon* menuCheckShowTAZElements = nullptr;
 
             /// @brief menu check to extend to edge nodes
-            MFXMenuCheckIcon* menuCheckExtendSelection;
+            MFXMenuCheckIcon* menuCheckExtendSelection = nullptr;
 
             /// @brief menu check to set change all phases
-            MFXMenuCheckIcon* menuCheckChangeAllPhases;
+            MFXMenuCheckIcon* menuCheckChangeAllPhases = nullptr;
 
             /// @brief menu check to we should warn about merging junctions
-            MFXMenuCheckIcon* menuCheckWarnAboutMerge;
+            MFXMenuCheckIcon* menuCheckMergeAutomatically = nullptr;
 
             /// @brief menu check to show connection as bubble in "Move" mode.
-            MFXMenuCheckIcon* menuCheckShowJunctionBubble;
+            MFXMenuCheckIcon* menuCheckShowJunctionBubble = nullptr;
 
             /// @brief menu check to apply movement to elevation
-            MFXMenuCheckIcon* menuCheckMoveElevation;
+            MFXMenuCheckIcon* menuCheckMoveElevation = nullptr;
 
             /// @brief menu check to the endpoint for a created edge should be set as the new source
-            MFXMenuCheckIcon* menuCheckChainEdges;
+            MFXMenuCheckIcon* menuCheckChainEdges = nullptr;
 
             /// @brief check checkable to create auto create opposite edge
-            MFXMenuCheckIcon* menuCheckAutoOppositeEdge;
+            MFXMenuCheckIcon* menuCheckAutoOppositeEdge = nullptr;
 
             /// @brief separator
-            FXMenuSeparator* separator;
+            FXMenuSeparator* separator = nullptr;
 
         private:
-            /// @brief pointer to current GNEApplicationWindows
-            GNEApplicationWindow* myGNEApp;
+            /// @brief pointer to current GNEApplicationWindow
+            GNEApplicationWindow* myApplicationWindow;
 
             /// @brief Invalidated copy constructor.
             NetworkViewOptions(const NetworkViewOptions&) = delete;
@@ -512,7 +547,7 @@ struct GNEApplicationWindowHelper {
         struct DemandViewOptions {
 
             /// @brief default constructor
-            DemandViewOptions(GNEApplicationWindow* GNEApp);
+            DemandViewOptions(GNEApplicationWindow* applicationWindow);
 
             /// @brief build menu checks
             void buildDemandViewOptionsMenuChecks(FXMenuPane* editMenu);
@@ -524,44 +559,44 @@ struct GNEApplicationWindowHelper {
             void updateShortcuts();
 
             /// @brief menu check to show grid button
-            MFXMenuCheckIcon* menuCheckToggleGrid;
+            MFXMenuCheckIcon* menuCheckToggleGrid = nullptr;
 
             /// @brief menu check to toggle draw junction shape
-            MFXMenuCheckIcon* menuCheckToggleDrawJunctionShape;
+            MFXMenuCheckIcon* menuCheckToggleDrawJunctionShape = nullptr;
 
             /// @brief menu check to draw vehicles in begin position or spread in lane
-            MFXMenuCheckIcon* menuCheckDrawSpreadVehicles;
+            MFXMenuCheckIcon* menuCheckDrawSpreadVehicles = nullptr;
 
             /// @brief menu check for hide shapes (Polygons and POIs)
-            MFXMenuCheckIcon* menuCheckHideShapes;
+            MFXMenuCheckIcon* menuCheckHideShapes = nullptr;
 
             /// @brief menu check for show all trips plans
-            MFXMenuCheckIcon* menuCheckShowAllTrips;
+            MFXMenuCheckIcon* menuCheckShowAllTrips = nullptr;
 
             /// @brief menu check for hide non inspected demand elements
-            MFXMenuCheckIcon* menuCheckHideNonInspectedDemandElements;
+            MFXMenuCheckIcon* menuCheckHideNonInspectedDemandElements = nullptr;
 
             /// @brief menu check for show overlapped routes
-            MFXMenuCheckIcon* menuCheckShowOverlappedRoutes;
+            MFXMenuCheckIcon* menuCheckShowOverlappedRoutes = nullptr;
 
             /// @brief menu check for show all person plans
-            MFXMenuCheckIcon* menuCheckShowAllPersonPlans;
+            MFXMenuCheckIcon* menuCheckShowAllPersonPlans = nullptr;
 
             /// @brief menu check for lock Person
-            MFXMenuCheckIcon* menuCheckLockPerson;
+            MFXMenuCheckIcon* menuCheckLockPerson = nullptr;
 
             /// @brief menu check for show all container plans
-            MFXMenuCheckIcon* menuCheckShowAllContainerPlans;
+            MFXMenuCheckIcon* menuCheckShowAllContainerPlans = nullptr;
 
             /// @brief menu check for lock Container
-            MFXMenuCheckIcon* menuCheckLockContainer;
+            MFXMenuCheckIcon* menuCheckLockContainer = nullptr;
 
             /// @brief separator
-            FXMenuSeparator* separator;
+            FXMenuSeparator* separator = nullptr;
 
         private:
-            /// @brief pointer to current GNEApplicationWindows
-            GNEApplicationWindow* myGNEApp;
+            /// @brief pointer to current GNEApplicationWindow
+            GNEApplicationWindow* myApplicationWindow;
 
             /// @brief Invalidated copy constructor.
             DemandViewOptions(const DemandViewOptions&) = delete;
@@ -574,7 +609,7 @@ struct GNEApplicationWindowHelper {
         struct DataViewOptions {
 
             /// @brief default constructor
-            DataViewOptions(GNEApplicationWindow* GNEApp);
+            DataViewOptions(GNEApplicationWindow* applicationWindow);
 
             /// @brief build menu checks
             void buildDataViewOptionsMenuChecks(FXMenuPane* editMenu);
@@ -586,35 +621,35 @@ struct GNEApplicationWindowHelper {
             void updateShortcuts();
 
             /// @brief menu check to toggle draw junction shape
-            MFXMenuCheckIcon* menuCheckToggleDrawJunctionShape;
+            MFXMenuCheckIcon* menuCheckToggleDrawJunctionShape = nullptr;
 
             /// @brief menu check to show Additionals
-            MFXMenuCheckIcon* menuCheckShowAdditionals;
+            MFXMenuCheckIcon* menuCheckShowAdditionals = nullptr;
 
             /// @brief menu check to show Shapes
-            MFXMenuCheckIcon* menuCheckShowShapes;
+            MFXMenuCheckIcon* menuCheckShowShapes = nullptr;
 
             /// @brief menu check to show Demand Elements
-            MFXMenuCheckIcon* menuCheckShowDemandElements;
+            MFXMenuCheckIcon* menuCheckShowDemandElements = nullptr;
 
             /// @brief menu check to toggle TAZRel drawing mode
-            MFXMenuCheckIcon* menuCheckToggleTAZRelDrawing;
+            MFXMenuCheckIcon* menuCheckToggleTAZRelDrawing = nullptr;
 
             /// @brief menu check to toggle TAZ draw fill
-            MFXMenuCheckIcon* menuCheckToggleTAZDrawFill;
+            MFXMenuCheckIcon* menuCheckToggleTAZDrawFill = nullptr;
 
             /// @brief menu check to toggle TAZRel only from
-            MFXMenuCheckIcon* menuCheckToggleTAZRelOnlyFrom;
+            MFXMenuCheckIcon* menuCheckToggleTAZRelOnlyFrom = nullptr;
 
             /// @brief menu check to toggle TAZRel only to
-            MFXMenuCheckIcon* menuCheckToggleTAZRelOnlyTo;
+            MFXMenuCheckIcon* menuCheckToggleTAZRelOnlyTo = nullptr;
 
             /// @brief separator
-            FXMenuSeparator* separator;
+            FXMenuSeparator* separator = nullptr;
 
         private:
-            /// @brief pointer to current GNEApplicationWindows
-            GNEApplicationWindow* myGNEApp;
+            /// @brief pointer to current GNEApplicationWindow
+            GNEApplicationWindow* myApplicationWindow;
 
             /// @brief Invalidated copy constructor.
             DataViewOptions(const DataViewOptions&) = delete;
@@ -624,7 +659,7 @@ struct GNEApplicationWindowHelper {
         };
 
         /// @brief constructor
-        EditMenuCommands(GNEApplicationWindow* GNEApp);
+        EditMenuCommands(GNEApplicationWindow* applicationWindow);
 
         /// @brief build undo-redo menu commands
         void buildUndoRedoMenuCommands(FXMenuPane* editMenu);
@@ -639,13 +674,16 @@ struct GNEApplicationWindowHelper {
         void buildOpenSUMOMenuCommands(FXMenuPane* editMenu);
 
         /// @brief FXMenuCommand for undo last change
-        FXMenuCommand* undoLastChange;
+        FXMenuCommand* undoLastChange = nullptr;
 
         /// @brief FXMenuCommand for redo last change
-        FXMenuCommand* redoLastChange;
+        FXMenuCommand* redoLastChange = nullptr;
 
         /// @brief FXMenuCommand for open undolist dialog
-        FXMenuCommand* openUndolistDialog;
+        FXMenuCommand* openUndolistDialog = nullptr;
+
+        /// @brief checkBox for allow undo-redo
+        FXMenuCheck* menuCheckAllowUndoRedo = nullptr;
 
         /// @brief network view options
         NetworkViewOptions networkViewOptions;
@@ -657,26 +695,26 @@ struct GNEApplicationWindowHelper {
         DataViewOptions dataViewOptions;
 
         /// @brief FXMenuCommand for edit view scheme
-        FXMenuCommand* editViewScheme;
+        FXMenuCommand* editViewScheme = nullptr;
 
         /// @brief FXMenuCommand for edit view port
-        FXMenuCommand* editViewPort;
+        FXMenuCommand* editViewPort = nullptr;
 
-        /// @brief FXMenuCommand for clear Front element
-        FXMenuCommand* clearFrontElement;
+        /// @brief FXMenuCommand for toggle front element
+        FXMenuCommand* toggleFrontElement = nullptr;
 
         /// @brief menu check for load additionals in SUMO GUI
-        FXMenuCheck* loadAdditionalsInSUMOGUI;
+        FXMenuCheck* loadAdditionalsInSUMOGUI = nullptr;
 
         /// @brief menu check for load demand in SUMO GUI
-        FXMenuCheck* loadDemandInSUMOGUI;
+        FXMenuCheck* loadDemandInSUMOGUI = nullptr;
 
         /// @brief FXMenuCommand for open in SUMO GUI
-        FXMenuCommand* openInSUMOGUI;
+        FXMenuCommand* openInSUMOGUI = nullptr;
 
     private:
-        /// @brief pointer to current GNEApplicationWindows
-        GNEApplicationWindow* myGNEApp;
+        /// @brief pointer to current GNEApplicationWindow
+        GNEApplicationWindow* myApplicationWindow;
 
         /// @brief Invalidated copy constructor.
         EditMenuCommands(const EditMenuCommands&) = delete;
@@ -689,7 +727,7 @@ struct GNEApplicationWindowHelper {
     struct LockMenuCommands {
 
         /// @brief constructor
-        LockMenuCommands(GNEApplicationWindow* GNEApp);
+        LockMenuCommands(GNEApplicationWindow* applicationWindow);
 
         /// @brief build menu commands
         void buildLockMenuCommands(FXMenuPane* editMenu);
@@ -727,7 +765,7 @@ struct GNEApplicationWindowHelper {
         /// @name Processing FXMenuCommands for Network mode
         /// @{
         /// @brief menu check to lock junction
-        MFXMenuCheckIcon* menuCheckLockJunction = nullptr;
+        MFXMenuCheckIcon* menuCheckLockJunctions = nullptr;
 
         /// @brief menu check to lock edges
         MFXMenuCheckIcon* menuCheckLockEdges = nullptr;
@@ -759,65 +797,71 @@ struct GNEApplicationWindowHelper {
         /// @brief menu check to lock POIs
         MFXMenuCheckIcon* menuCheckLockPOIs = nullptr;
 
+        /// @brief menu check to lock jps walkableareas
+        MFXMenuCheckIcon* menuCheckLockJpsWalkableAreas = nullptr;
+
+        /// @brief menu check to lock jps obstacles
+        MFXMenuCheckIcon* menuCheckLockJpsObstacles = nullptr;
+
         /// @}
 
         /// @name Processing FXMenuCommands for Demand mode
         /// @{
         /// @brief menu check to lock routes
-        MFXMenuCheckIcon* menuCheckLockRoutes;
+        MFXMenuCheckIcon* menuCheckLockRoutes = nullptr;
 
         /// @brief menu check to lock vehicles
-        MFXMenuCheckIcon* menuCheckLockVehicles;
+        MFXMenuCheckIcon* menuCheckLockVehicles = nullptr;
 
         /// @brief menu check to lock persons
-        MFXMenuCheckIcon* menuCheckLockPersons;
+        MFXMenuCheckIcon* menuCheckLockPersons = nullptr;
 
         /// @brief menu check to lock personTrips
-        MFXMenuCheckIcon* menuCheckLockPersonTrip;
+        MFXMenuCheckIcon* menuCheckLockPersonTrips = nullptr;
 
         /// @brief menu check to lock walks
-        MFXMenuCheckIcon* menuCheckLockWalk;
+        MFXMenuCheckIcon* menuCheckLockWalks = nullptr;
 
         /// @brief menu check to lock rides
-        MFXMenuCheckIcon* menuCheckLockRides;
+        MFXMenuCheckIcon* menuCheckLockRides = nullptr;
 
         /// @brief menu check to lock containers
-        MFXMenuCheckIcon* menuCheckLockContainers;
+        MFXMenuCheckIcon* menuCheckLockContainers = nullptr;
 
         /// @brief menu check to lock transports
-        MFXMenuCheckIcon* menuCheckLockTransports;
+        MFXMenuCheckIcon* menuCheckLockTransports = nullptr;
 
         /// @brief menu check to lock tranships
-        MFXMenuCheckIcon* menuCheckLockTranships;
+        MFXMenuCheckIcon* menuCheckLockTranships = nullptr;
 
         /// @brief menu check to lock stops
-        MFXMenuCheckIcon* menuCheckLockStops;
+        MFXMenuCheckIcon* menuCheckLockStops = nullptr;
 
         /// @}
 
         /// @name Processing FXMenuCommands for Data mode
         /// @{
         /// @brief menu check to lock edge datas
-        MFXMenuCheckIcon* menuCheckLockEdgeDatas;
+        MFXMenuCheckIcon* menuCheckLockEdgeDatas = nullptr;
 
         /// @brief menu check to lock edgeRelDatas
-        MFXMenuCheckIcon* menuCheckLockEdgeRelDatas;
+        MFXMenuCheckIcon* menuCheckLockEdgeRelDatas = nullptr;
 
         /// @brief menu check to lock edgeTAZRels
-        MFXMenuCheckIcon* menuCheckLockEdgeTAZRels;
+        MFXMenuCheckIcon* menuCheckLockEdgeTAZRels = nullptr;
 
         /// @}
 
-        /// @brief menu check for lock selected elemetns
-        MFXMenuCheckIcon* menuCheckLockSelectedElements;
+        /// @brief menu check for lock selected elements
+        MFXMenuCheckIcon* menuCheckLockSelectedElements = nullptr;
 
     protected:
         /// @brief Parse hot key from string
         FXHotKey parseHotKey(const FXwchar character);
 
     private:
-        /// @brief pointer to current GNEApplicationWindows
-        GNEApplicationWindow* myGNEApp;
+        /// @brief pointer to current GNEApplicationWindow
+        GNEApplicationWindow* myApplicationWindow;
 
         /// @brief Invalidated copy constructor.
         LockMenuCommands(const LockMenuCommands&) = delete;
@@ -830,10 +874,10 @@ struct GNEApplicationWindowHelper {
     struct ProcessingMenuCommands {
 
         /// @brief constructor
-        ProcessingMenuCommands(GNEApplicationWindow* GNEApp);
+        ProcessingMenuCommands(GNEApplicationWindow* applicationWindow);
 
         /// @brief build menu commands
-        void buildProcessingMenuCommands(FXMenuPane* editMenu);
+        void buildProcessingMenuCommands(FXMenuPane* processingMenu);
 
         /// @brief show network processing menu commands
         void showNetworkProcessingMenuCommands();
@@ -862,37 +906,41 @@ struct GNEApplicationWindowHelper {
         /// @name Processing FXMenuCommands for Network mode
         /// @{
         /// @brief FXMenuCommand for compute network
-        FXMenuCommand* computeNetwork;
+        FXMenuCommand* computeNetwork = nullptr;
 
         /// @brief FXMenuCommand for compute network with volatile options
-        FXMenuCommand* computeNetworkVolatile;
+        FXMenuCommand* computeNetworkVolatile = nullptr;
 
         /// @brief FXMenuCommand for clean junctions without edges
-        FXMenuCommand* cleanJunctions;
+        FXMenuCommand* cleanJunctions = nullptr;
 
         /// @brief FXMenuCommand for join selected junctions
-        FXMenuCommand* joinJunctions;
+        FXMenuCommand* joinJunctions = nullptr;
 
-        /// @brief FXMenuCommand for clear invalid crosings
-        FXMenuCommand* clearInvalidCrossings;
+        /// @brief FXMenuCommand for clear invalid crossings
+        FXMenuCommand* clearInvalidCrossings = nullptr;
+
+        /// @brief checkBox for recomputing when changing data mode
+        MFXMenuCheckIcon* menuCheckRecomputeDataMode = nullptr;
+
         /// @}
 
         /// @name Processing FXMenuCommands for Demand mode
         /// @{
         /// @brief FXMenuCommand for compute demand elements
-        FXMenuCommand* computeDemand;
+        FXMenuCommand* computeDemand = nullptr;
 
         /// @brief FXMenuCommand for clean routes without vehicles
-        FXMenuCommand* cleanRoutes;
+        FXMenuCommand* cleanRoutes = nullptr;
 
         /// @brief FXMenuCommand for join routes
-        FXMenuCommand* joinRoutes;
+        FXMenuCommand* joinRoutes = nullptr;
 
         /// @brief FXMenuCommand for adjust person plans
-        FXMenuCommand* adjustPersonPlans;
+        FXMenuCommand* adjustPersonPlans = nullptr;
 
         /// @brief FXMenuCommand for clear invalid demand elements
-        FXMenuCommand* clearInvalidDemandElements;
+        FXMenuCommand* clearInvalidDemandElements = nullptr;
         /// @}
 
         /// @name Processing FXMenuCommands for Data mode
@@ -901,14 +949,17 @@ struct GNEApplicationWindowHelper {
         /// @}
 
         /// @brief FXMenuCommand for open option menus
-        FXMenuCommand* optionMenus;
+        FXMenuCommand* optionMenus = nullptr;
 
     private:
-        /// @brief pointer to current GNEApplicationWindows
-        GNEApplicationWindow* myGNEApp;
+        /// @brief pointer to current GNEApplicationWindow
+        GNEApplicationWindow* myApplicationWindow;
 
         /// @brief separator for optionsMenu
-        FXMenuSeparator* mySeparator;
+        FXMenuSeparator* myOptionsSeparator = nullptr;
+
+        /// @brief separator for checkBox
+        FXMenuSeparator* mySeparatorCheckBox = nullptr;
 
         /// @brief Invalidated copy constructor.
         ProcessingMenuCommands(const ProcessingMenuCommands&) = delete;
@@ -921,14 +972,14 @@ struct GNEApplicationWindowHelper {
     struct LocateMenuCommands {
 
         /// @brief constructor
-        LocateMenuCommands(GNEApplicationWindow* GNEApp);
+        LocateMenuCommands(GNEApplicationWindow* applicationWindow);
 
         /// @brief build menu commands
         void buildLocateMenuCommands(FXMenuPane* locateMenu);
 
     private:
-        /// @brief pointer to current GNEApplicationWindows
-        GNEApplicationWindow* myGNEApp;
+        /// @brief pointer to current GNEApplicationWindow
+        GNEApplicationWindow* myApplicationWindow;
 
         /// @brief Invalidated copy constructor.
         LocateMenuCommands(const LocateMenuCommands&) = delete;
@@ -941,14 +992,32 @@ struct GNEApplicationWindowHelper {
     struct ToolsMenuCommands {
 
         /// @brief constructor
-        ToolsMenuCommands(GNEApplicationWindow* GNEApp);
+        ToolsMenuCommands(GNEApplicationWindow* applicationWindow);
 
-        /// @brief build menu commands
-        void buildToolsMenuCommands(FXMenuPane* locateMenu);
+        /// @brief destructor
+        ~ToolsMenuCommands();
+
+        /// @brief build tools (and menu commands)
+        void buildTools(FXMenuPane* toolsMenu, const std::map<std::string, FXMenuPane*>& menuPaneToolMaps);
+
+        /// @brief show tool
+        long showTool(FXObject* menuCommand);
+
+        /// @brief run tool dialog
+        long runToolDialog(FXObject* menuCommand) const;
+
+        /// @brief run postprocessing
+        long postProcessing(FXObject* menuCommand) const;
 
     private:
-        /// @brief pointer to current GNEApplicationWindows
-        GNEApplicationWindow* myGNEApp;
+        /// @brief map with python tools
+        std::vector<GNEPythonTool*> myPythonTools;
+
+        /// @brief python tool dialog
+        GNEPythonToolDialog* myPythonToolDialog = nullptr;
+
+        /// @brief pointer to current GNEApplicationWindow
+        GNEApplicationWindow* myApplicationWindow;
 
         /// @brief Invalidated copy constructor.
         ToolsMenuCommands(const ToolsMenuCommands&) = delete;
@@ -961,14 +1030,14 @@ struct GNEApplicationWindowHelper {
     struct WindowsMenuCommands {
 
         /// @brief constructor
-        WindowsMenuCommands(GNEApplicationWindow* GNEApp);
+        WindowsMenuCommands(GNEApplicationWindow* applicationWindow);
 
         /// @brief build menu commands
         void buildWindowsMenuCommands(FXMenuPane* windowsMenu, FXStatusBar* statusbar, GUIMessageWindow* messageWindow);
 
     private:
-        /// @brief pointer to current GNEApplicationWindows
-        GNEApplicationWindow* myGNEApp;
+        /// @brief pointer to current GNEApplicationWindow
+        GNEApplicationWindow* myApplicationWindow;
 
         /// @brief Invalidated copy constructor.
         WindowsMenuCommands(const WindowsMenuCommands&) = delete;
@@ -977,11 +1046,31 @@ struct GNEApplicationWindowHelper {
         WindowsMenuCommands& operator=(const WindowsMenuCommands&) = delete;
     };
 
+    /// @brief struct for help menu commands
+    struct HelpMenuCommands {
+
+        /// @brief constructor
+        HelpMenuCommands(GNEApplicationWindow* applicationWindow);
+
+        /// @brief build menu commands
+        void buildHelpMenuCommands(FXMenuPane* helpMenu);
+
+    private:
+        /// @brief pointer to current GNEApplicationWindow
+        GNEApplicationWindow* myApplicationWindow;
+
+        /// @brief Invalidated copy constructor.
+        HelpMenuCommands(const HelpMenuCommands&) = delete;
+
+        /// @brief Invalidated assignment operator.
+        HelpMenuCommands& operator=(const HelpMenuCommands&) = delete;
+    };
+
     /// @brief struct for supermode commands
     struct SupermodeCommands {
 
         /// @brief constructor
-        SupermodeCommands(GNEApplicationWindow* GNEApp);
+        SupermodeCommands(GNEApplicationWindow* applicationWindow);
 
         /// @brief build menu commands
         void buildSupermodeCommands(FXMenuPane* editMenu);
@@ -989,21 +1078,24 @@ struct GNEApplicationWindowHelper {
         /// @brief show all menu commands
         void showSupermodeCommands();
 
-        /// @brief hide all menu commands
-        void hideSupermodeCommands();
+        /// @brief set default view
+        void setDefaultView();
+
+        /// @brief set JuPedSim view
+        void setJuPedSimView();
 
         /// @brief FXMenuCommand for network supermode
-        FXMenuCommand* networkMode;
+        FXMenuCommand* networkMode = nullptr;
 
         /// @brief FXMenuCommand for demand supermode
-        FXMenuCommand* demandMode;
+        FXMenuCommand* demandMode = nullptr;
 
         /// @brief FXMenuCommand for data supermode
-        FXMenuCommand* dataMode;
+        FXMenuCommand* dataMode = nullptr;
 
     private:
-        /// @brief pointer to current GNEApplicationWindows
-        GNEApplicationWindow* myGNEApp;
+        /// @brief pointer to current GNEApplicationWindow
+        GNEApplicationWindow* myApplicationWindow;
 
         /// @brief Invalidated copy constructor.
         SupermodeCommands(const SupermodeCommands&) = delete;
@@ -1012,44 +1104,180 @@ struct GNEApplicationWindowHelper {
         SupermodeCommands& operator=(const SupermodeCommands&) = delete;
     };
 
-    /// @brief config handler
-    class GNEConfigHandler : public ConfigHandler {
+    /// @brief SUMO config handler
+    class GNESumoConfigHandler {
 
     public:
         /// @brief Constructor
-        GNEConfigHandler(GNEApplicationWindow* applicationWindow, const std::string& file);
+        GNESumoConfigHandler(GNEApplicationWindow* applicationWindow, const std::string& sumoConfigFile);
 
-        /// @brief Destructor
-        ~GNEConfigHandler();
-
-        /**@brief Load net file
-         * @param[in] configObj sumo base object used for build
-         * @param[in] file net file
-         */
-        void loadConfig(CommonXMLStructure::SumoBaseObject* configObj);
+        /// @brief load SUMO config
+        bool loadSumoConfig();
 
     private:
-        /// @brief application window
-        GNEApplicationWindow* myApplicationWindow = nullptr;
+        /// @brief pointer to current GNEApplicationWindow
+        GNEApplicationWindow* myApplicationWindow;
 
-        /// @brief file path
-        const std::string myFilepath;
+        /// @brief SUMO config file
+        const std::string mySumoConfigFile;
+
+        /// @brief Invalidated copy constructor.
+        GNESumoConfigHandler(const GNESumoConfigHandler&) = delete;
+
+        /// @brief Invalidated assignment operator.
+        GNESumoConfigHandler& operator=(const GNESumoConfigHandler&) = delete;
     };
 
-    /// @brief save SUMOConffig
-    static void saveSUMOConfig();
+    /// @brief netconvert config handler
+    class GNENetconvertConfigHandler {
+
+    public:
+        /// @brief Constructor
+        GNENetconvertConfigHandler(const std::string& file);
+
+        /// @brief load netconvert config
+        bool loadNetconvertConfig();
+
+    private:
+        /// @brief netconvert config file
+        const std::string myNetconvertConfigFile;
+
+        /// @brief Invalidated copy constructor.
+        GNENetconvertConfigHandler(const GNENetconvertConfigHandler&) = delete;
+
+        /// @brief Invalidated assignment operator.
+        GNENetconvertConfigHandler& operator=(const GNENetconvertConfigHandler&) = delete;
+    };
+
+    /// @brief netedit config handler
+    class GNENeteditConfigHandler {
+
+    public:
+        /// @brief Constructor
+        GNENeteditConfigHandler(GNEApplicationWindow* applicationWindow, const std::string& neteditConfigFile);
+
+        /// @brief load netedit config
+        bool loadNeteditConfig();
+
+    private:
+        /// @brief pointer to current GNEApplicationWindow
+        GNEApplicationWindow* myApplicationWindow;
+
+        /// @brief netedit config file
+        const std::string myNeteditConfigFile;
+
+        /// @brief Invalidated copy constructor.
+        GNENeteditConfigHandler(const GNENeteditConfigHandler&) = delete;
+
+        /// @brief Invalidated assignment operator.
+        GNENeteditConfigHandler& operator=(const GNENeteditConfigHandler&) = delete;
+    };
+
+    /// @brief modul for handling file buckets
+    class FileBucketHandler {
+
+    public:
+        /// @brief constructor
+        FileBucketHandler(GNEApplicationWindow* applicationWindow, OptionsCont& neteditOptions, OptionsCont& sumoOptions);
+
+        /// @brief destructor
+        ~FileBucketHandler();
+
+        /// @brief register AC
+        void registerAC(const GNEAttributeCarrier* AC);
+
+        /// @brief delete AC
+        void unregisterAC(const GNEAttributeCarrier* AC);
+
+        /// @brief update filename vinculated with this AC
+        FileBucket* updateAC(const GNEAttributeCarrier* AC, const std::string& filename);
+
+        /// @brief check if the given filename can be assigned to the given AC
+        bool checkFilename(const GNEAttributeCarrier* AC, const std::string& filename) const;
+
+        /// @brief get current config directory (if we defined a netedit, sumo or netconvert config)
+        std::string getConfigDirectory() const;
+
+        /// @brief get current config patter (if we defined a netedit, sumo or netconvert config)
+        std::string getConfigFilePrefix(const std::string& sufix) const;
+
+        /// @brief functions related with buckets
+        /// @{
+
+        /// @brief get default bucket
+        FileBucket* getDefaultBucket(const FileBucket::Type type) const;
+
+        /// @brief get bucket
+        FileBucket* getBucket(const FileBucket::Type type, const std::string& filename, const bool create);
+
+        /// @brief get vector with all fileBuckets related with the given file type
+        const std::vector<FileBucket*>& getFileBuckets(const FileBucket::Type type) const;
+
+        /// @}
+
+        /// @brief functions related with filenames
+        /// @{
+
+        /// @brief get default filename associated with the given tipe
+        std::string getDefaultFilename(const FileBucket::Type type) const;
+
+        /// @brief get default folder associated with the given tipe
+        std::string getDefaultFolder(const FileBucket::Type type) const;
+
+        /// brief set default additional file
+        void setDefaultFilenameFile(const FileBucket::Type type, const std::string& filename);
+
+        /// @brief check if at least we have an additional file defined
+        bool isFilenameDefined(const FileBucket::Type type) const;
+
+        /// brief set default files for all buckets
+        void resetDefaultFilenames();
+
+        /// @}
+
+        /// @brief update options
+        void updateOptions();
+
+    private:
+        /// @brief parse filenames
+        std::string parseFilenames(const std::vector<FileBucket::Type> types) const;
+
+        /// @brief removed empty buckets
+        void removeEmptyBuckets();
+
+        /// @brief get prefix of the given filename
+        std::string getPrefix(FileBucket::Type type, const std::vector<std::string> invalidExtensions) const;
+
+        /// @brief pointer to application window
+        GNEApplicationWindow* myApplicationWindow = nullptr;
+
+        /// @brief reference to netedit options
+        OptionsCont& myNeteditOptions;
+
+        /// @brief reference to sumo options
+        OptionsCont& mySumoOptions;
+
+        /// @brief map with the buckets
+        std::map<FileBucket::Type, std::vector<FileBucket*> > myBuckets;
+
+        /// @brief Invalidated copy constructor.
+        FileBucketHandler(const FileBucketHandler&) = delete;
+
+        /// @brief Invalidated assignment operator.
+        FileBucketHandler& operator=(const FileBucketHandler&) = delete;
+    };
 
     /// @brief toggle edit options Network menu commands (called in GNEApplicationWindow::onCmdToggleEditOptions)
     static bool toggleEditOptionsNetwork(GNEViewNet* viewNet, const MFXCheckableButton* menuCheck,
-                                         const int numericalKeyPressed, FXObject* obj, FXSelector sel);
+                                         FXObject* obj, FXSelector sel);
 
     /// @brief toggle edit options Demand menu commands (called in GNEApplicationWindow::onCmdToggleEditOptions)
     static bool toggleEditOptionsDemand(GNEViewNet* viewNet, const MFXCheckableButton* menuCheck,
-                                        const int numericalKeyPressed, FXObject* obj, FXSelector sel);
+                                        FXObject* obj, FXSelector sel);
 
     /// @brief toggle edit options Data menu commands (called in GNEApplicationWindow::onCmdToggleEditOptions)
     static bool toggleEditOptionsData(GNEViewNet* viewNet, const MFXCheckableButton* menuCheck,
-                                      const int numericalKeyPressed, FXObject* obj, FXSelector sel);
+                                      FXObject* obj, FXSelector sel);
 
     /// @brief check if a string ends with another string
     static bool stringEndsWith(const std::string& str, const std::string& suffix);

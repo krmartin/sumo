@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -42,7 +42,7 @@ class MSStageWaiting : public MSStage {
 public:
     /// constructor
     MSStageWaiting(const MSEdge* destination, MSStoppingPlace* toStop, SUMOTime duration, SUMOTime until,
-                   double pos, const std::string& actType, const bool initial);
+                   double pos, const std::string& actType, const bool initial, SUMOTime jumpDuration = -1);
 
     /// destructor
     virtual ~MSStageWaiting();
@@ -53,6 +53,17 @@ public:
     void abort(MSTransportable*);
 
     SUMOTime getUntil() const;
+
+    SUMOTime getPlannedDuration() const;
+
+    SUMOTime getJumpDuration() const {
+        return myJumpDuration;
+    }
+
+    SUMOTime getTravelTime() const {
+        // not a travelling stage
+        return 0;
+    }
 
     SUMOTime getDuration() const;
 
@@ -92,7 +103,7 @@ public:
      */
     void routeOutput(const bool isPerson, OutputDevice& os, const bool withRouteLength, const MSStage* const previous) const;
 
-    void saveState(std::ostringstream& out);
+    void saveState(std::ostringstream& out, MSTransportable* transportable);
 
     void loadState(MSTransportable* transportable, std::istringstream& state);
 
@@ -108,6 +119,9 @@ private:
 
     /// @brief The type of activity
     std::string myActType;
+
+    /// @brief the jump duration if this stop is followed by a jump
+    SUMOTime myJumpDuration;
 
     /// @brief stores the actual end time of the stop (combination of duration and until)
     SUMOTime myStopEndTime;

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2013-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2013-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -45,9 +45,9 @@ MSDevice_Friction::insertOptions(OptionsCont& oc) {
     oc.addOptionSubTopic("Friction Device");
     insertDefaultAssignmentOptions("friction", "Friction Device", oc);
     oc.doRegister("device.friction.stdDev", new Option_Float(.1)); //default .1
-    oc.addDescription("device.friction.stdDev", "Friction Device", "The measurement noise parameter which can be applied to the friction device");
+    oc.addDescription("device.friction.stdDev", "Friction Device", TL("The measurement noise parameter which can be applied to the friction device"));
     oc.doRegister("device.friction.offset", new Option_Float(0.)); //default no offset
-    oc.addDescription("device.friction.offset", "Friction Device", "The measurement offset parameter which can be applied to the friction device -> e.g. to force false measurements");
+    oc.addDescription("device.friction.offset", "Friction Device", TL("The measurement offset parameter which can be applied to the friction device -> e.g. to force false measurements"));
 }
 
 
@@ -57,8 +57,8 @@ MSDevice_Friction::buildVehicleDevices(SUMOVehicle& v, std::vector<MSVehicleDevi
     if (equippedByDefaultAssignmentOptions(oc, "friction", v, false)) {
         // build the device
         MSDevice_Friction* device = new MSDevice_Friction(v, "friction_" + v.getID(),
-                getFloatParam(v, oc, "friction.stdDev", .1, false), // stdDev noise deviation
-                getFloatParam(v, oc, "friction.offset", 0., false)); // static offset
+                v.getFloatParam("device.friction.stdDev"), // stdDev noise deviation
+                v.getFloatParam("device.friction.offset")); // static offset
         into.push_back(device);
     }
 }

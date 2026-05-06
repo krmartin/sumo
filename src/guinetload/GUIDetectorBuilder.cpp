@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -63,8 +63,9 @@ GUIDetectorBuilder::createInductLoop(const std::string& id,
 
 MSDetectorFileOutput*
 GUIDetectorBuilder::createInstantInductLoop(const std::string& id,
-        MSLane* lane, double pos, const std::string& od, const std::string name, const std::string& vTypes, const std::string& nextEdges) {
-    return new GUIInstantInductLoop(id, OutputDevice::getDevice(od), lane, pos, name, vTypes, nextEdges);
+        MSLane* lane, double pos, const std::string& od, const std::string name, const std::string& vTypes, const std::string& nextEdges,
+        int detectPersons) {
+    return new GUIInstantInductLoop(id, OutputDevice::getDevice(od), lane, pos, name, vTypes, nextEdges, detectPersons);
 }
 
 
@@ -96,8 +97,8 @@ GUIDetectorBuilder::createE3Detector(const std::string& id,
                                      SUMOTime haltingTimeThreshold,
                                      const std::string name, const std::string& vTypes,
                                      const std::string& nextEdges,
-                                     int detectPersons, bool openEntry) {
-    return new GUIE3Collector(id, entries, exits, haltingSpeedThreshold, haltingTimeThreshold, name, vTypes, nextEdges, detectPersons,  openEntry);
+                                     int detectPersons, bool openEntry, bool expectArrival) {
+    return new GUIE3Collector(id, entries, exits, haltingSpeedThreshold, haltingTimeThreshold, name, vTypes, nextEdges, detectPersons, openEntry, expectArrival);
 }
 
 

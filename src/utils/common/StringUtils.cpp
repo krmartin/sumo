@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -38,7 +38,10 @@
 #include <xercesc/util/TranscodingException.hpp>
 #include <utils/common/UtilExceptions.h>
 #include <utils/common/ToString.h>
+#include <utils/common/StringTokenizer.h>
 #include "StringUtils.h"
+
+#define KM_PER_MILE 1.609344
 
 
 // ===========================================================================
@@ -83,16 +86,26 @@ StringUtils::to_lower_case(const std::string& str) {
 
 
 std::string
+StringUtils::to_upper_case(const std::string& str) {
+    std::string s = str;
+    std::transform(s.begin(), s.end(), s.begin(), [](char c) {
+        return (char)::toupper(c);
+    });
+    return s;
+}
+
+
+std::string
 StringUtils::latin1_to_utf8(std::string str) {
     // inspired by http://stackoverflow.com/questions/4059775/convert-iso-8859-1-strings-to-utf-8-in-c-c
     std::string result;
-    for (int i = 0; i < (int)str.length(); i++) {
-        const unsigned char c = str[i];
-        if (c < 128) {
-            result += c;
+    for (const auto& c : str) {
+        const unsigned char uc = (unsigned char)c;
+        if (uc < 128) {
+            result += uc;
         } else {
-            result += (char)(0xc2 + (c > 0xbf));
-            result += (char)((c & 0x3f) + 0x80);
+            result += (char)(0xc2 + (uc > 0xbf));
+            result += (char)((uc & 0x3f) + 0x80);
         }
     }
     return result;
@@ -205,6 +218,34 @@ StringUtils::substituteEnvironment(const std::string& str, const std::chrono::ti
 }
 
 
+std::string
+StringUtils::isoTimeString(const std::chrono::time_point<std::chrono::system_clock>* const timeRef) {
+    const std::chrono::system_clock::time_point now = timeRef == nullptr ? std::chrono::system_clock::now() : *timeRef;
+    const auto now_seconds = std::chrono::time_point_cast<std::chrono::seconds>(now);
+    const std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+    const auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(now - now_seconds).count();
+    std::tm local_tm = *std::localtime(&now_c);
+
+    // Get the time zone offset
+    std::time_t utc_time = std::time(nullptr);
+    std::tm utc_tm = *std::gmtime(&utc_time);
+    const double offset = std::difftime(std::mktime(&local_tm), std::mktime(&utc_tm)) / 3600.0;
+    const int hours_offset = static_cast<int>(offset);
+    const int minutes_offset = static_cast<int>((offset - hours_offset) * 60);
+
+    // Format the time
+    std::ostringstream oss;
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &local_tm);
+    oss << buf << "."
+        << std::setw(6) << std::setfill('0') << std::abs(microseconds)
+        << (hours_offset >= 0 ? "+" : "-")
+        << std::setw(2) << std::setfill('0') << std::abs(hours_offset) << ":"
+        << std::setw(2) << std::setfill('0') << std::abs(minutes_offset);
+    return oss.str();
+}
+
+
 bool
 StringUtils::startsWith(const std::string& str, const std::string prefix) {
     return str.compare(0, prefix.length(), prefix) == 0;
@@ -240,6 +281,13 @@ StringUtils::escapeXML(const std::string& orig, const bool maskDoubleHyphen) {
         result = replace(result, std::string(1, invalid).c_str(), "");
     }
     return replace(result, "'", "&apos;");
+}
+
+
+std::string
+StringUtils::escapeShell(const std::string& orig) {
+    std::string result = replace(orig, "\"", "\\\"");
+    return result;
 }
 
 
@@ -321,6 +369,18 @@ StringUtils::toInt(const std::string& sData) {
 }
 
 
+bool
+StringUtils::isInt(const std::string& sData) {
+    // first check if can be converted to long int
+    if (isLong(sData)) {
+        const long long int result = toLong(sData);
+        // now check if the result is in the range of an int
+        return ((result <= std::numeric_limits<int>::max()) && (result >= std::numeric_limits<int>::min()));
+    }
+    return false;
+}
+
+
 int
 StringUtils::toIntSecure(const std::string& sData, int def) {
     if (sData.length() == 0) {
@@ -338,7 +398,7 @@ StringUtils::toLong(const std::string& sData) {
     }
     char* end;
     errno = 0;
-#ifdef WIN32
+#ifdef _MSC_VER
     long long int ret = _strtoi64(data, &end, 10);
 #else
     long long int ret = strtoll(data, &end, 10);
@@ -351,6 +411,33 @@ StringUtils::toLong(const std::string& sData) {
         throw NumberFormatException("(long long integer format) " + sData);
     }
     return ret;
+}
+
+
+bool
+StringUtils::isLong(const std::string& sData) {
+    const char* const data = sData.c_str();
+    if (data == 0 || data[0] == 0) {
+        return false;
+    }
+    char* end;
+    // reset errno before parsing, to keep errors
+    errno = 0;
+    // continue depending of current plattform
+#ifdef _MSC_VER
+    _strtoi64(data, &end, 10);
+#else
+    strtoll(data, &end, 10);
+#endif
+    // check out of range
+    if (errno == ERANGE) {
+        return false;
+    }
+    // check length of converted data
+    if ((int)(end - data) != (int)strlen(data)) {
+        return false;
+    }
+    return true;
 }
 
 
@@ -378,6 +465,37 @@ StringUtils::hexToInt(const std::string& sData) {
 }
 
 
+bool
+StringUtils::isHex(std::string sData) {
+    if (sData.length() == 0) {
+        return false;
+    }
+    // remove the first character (for HTML color codes)
+    if (sData[0] == '#') {
+        sData = sData.substr(1);
+    }
+    const char* sDataPtr = sData.c_str();
+    char* returnPtr;
+    // reset errno
+    errno = 0;
+    // call string to long (size 16) from standard library
+    strtol(sDataPtr, &returnPtr, 16);
+    // check out of range
+    if (errno == ERANGE) {
+        return false;
+    }
+    // check if there was an error converting sDataPtr to double,
+    if (sDataPtr == returnPtr) {
+        return false;
+    }
+    // compare size of start and end points
+    if (static_cast<size_t>(returnPtr - sDataPtr) != sData.size()) {
+        return false;
+    }
+    return true;
+}
+
+
 double
 StringUtils::toDouble(const std::string& sData) {
     if (sData.size() == 0) {
@@ -395,6 +513,33 @@ StringUtils::toDouble(const std::string& sData) {
         // invalid_argument or out_of_range
         throw NumberFormatException("(double) " + sData);
     }
+}
+
+
+bool
+StringUtils::isDouble(const std::string& sData) {
+    if (sData.size() == 0) {
+        return false;
+    }
+    const char* sDataPtr = sData.c_str();
+    char* returnPtr;
+    // reset errno
+    errno = 0;
+    // call string to double from standard library
+    strtod(sDataPtr, &returnPtr);
+    // check out of range
+    if (errno == ERANGE) {
+        return false;
+    }
+    // check if there was an error converting sDataPtr to double,
+    if (sDataPtr == returnPtr) {
+        return false;
+    }
+    // compare size of start and end points
+    if (static_cast<size_t>(returnPtr - sDataPtr) != sData.size()) {
+        return false;
+    }
+    return true;
 }
 
 
@@ -420,6 +565,113 @@ StringUtils::toBool(const std::string& sData) {
         return false;
     }
     throw BoolFormatException(s);
+}
+
+
+bool
+StringUtils::isBool(const std::string& sData) {
+    if (sData.length() == 0) {
+        return false;
+    }
+    const std::string s = to_lower_case(sData);
+    // check true values
+    if (s == "1" || s == "yes" || s == "true" || s == "on" || s == "x" || s == "t") {
+        return true;
+    }
+    // check false values
+    if (s == "0" || s == "no" || s == "false" || s == "off" || s == "-" || s == "f") {
+        return true;
+    }
+    // no valid true or false values
+    return false;
+}
+
+
+MMVersion
+StringUtils::toVersion(const std::string& sData) {
+    std::vector<std::string> parts = StringTokenizer(sData, ".").getVector();
+    return MMVersion(toInt(parts.front()), toDouble(parts.back()));
+}
+
+
+double
+StringUtils::parseDist(const std::string& sData) {
+    if (sData.size() == 0) {
+        throw EmptyData();
+    }
+    try {
+        size_t idx = 0;
+        const double result = std::stod(sData, &idx);
+        if (idx != sData.size()) {
+            const std::string unit = prune(sData.substr(idx));
+            if (unit == "m" || unit == "metre" || unit == "meter" || unit == "metres" || unit == "meters") {
+                return result;
+            }
+            if (unit == "km" || unit == "kilometre" || unit == "kilometer" || unit == "kilometres" || unit == "kilometers") {
+                return result * 1000.;
+            }
+            if (unit == "mi" || unit == "mile" || unit == "miles") {
+                return result * 1000. * KM_PER_MILE;
+            }
+            if (unit == "nmi") {
+                return result * 1852.;
+            }
+            if (unit == "ft" || unit == "foot" || unit == "feet") {
+                return result * 12. * 0.0254;
+            }
+            if (unit == "\"" || unit == "in" || unit == "inch" || unit == "inches") {
+                return result * 0.0254;
+            }
+            if (unit[0] == '\'') {
+                double inches = 12 * result;
+                if (unit.length() > 1) {
+                    inches += std::stod(unit.substr(1), &idx);
+                    if (unit.substr(idx) == "\"") {
+                        return inches * 0.0254;
+                    }
+                }
+            }
+            throw NumberFormatException("(distance format) " + sData);
+        } else {
+            return result;
+        }
+    } catch (...) {
+        // invalid_argument or out_of_range
+        throw NumberFormatException("(double) " + sData);
+    }
+}
+
+
+double
+StringUtils::parseSpeed(const std::string& sData, const bool defaultKmph) {
+    if (sData.size() == 0) {
+        throw EmptyData();
+    }
+    try {
+        size_t idx = 0;
+        const double result = std::stod(sData, &idx);
+        if (idx != sData.size()) {
+            const std::string unit = prune(sData.substr(idx));
+            if (unit == "km/h" || unit == "kph" || unit == "kmh" || unit == "kmph") {
+                return result / 3.6;
+            }
+            if (unit == "m/s") {
+                return result;
+            }
+            if (unit == "mph") {
+                return result * KM_PER_MILE / 3.6;
+            }
+            if (unit == "knots") {
+                return result * 1.852 / 3.6;
+            }
+            throw NumberFormatException("(speed format) " + sData);
+        } else {
+            return defaultKmph ? result / 3.6 : result;
+        }
+    } catch (...) {
+        // invalid_argument or out_of_range
+        throw NumberFormatException("(double) " + sData);
+    }
 }
 
 
@@ -499,9 +751,67 @@ StringUtils::trim(const std::string s, const std::string& t) {
     return trim_right(trim_left(s, t), t);
 }
 
+
+std::string
+StringUtils::wrapText(const std::string s, int width) {
+    std::vector<std::string> parts = StringTokenizer(s).getVector();
+    std::string result;
+    std::string line;
+    bool firstLine = true;
+    bool firstWord = true;
+    for (std::string p : parts) {
+        if ((int)(line.size() + p.size()) < width || firstWord) {
+            if (firstWord) {
+                firstWord = false;
+            } else {
+                line += " ";
+            }
+            line += p;
+        } else {
+            if (firstLine) {
+                firstLine = false;
+            } else {
+                result += "\n";
+            }
+            result += line;
+            line.clear();
+            line += p;
+        }
+    }
+    if (line.size() > 0) {
+        if (firstLine) {
+            firstLine = false;
+        } else {
+            result += "\n";
+        }
+        result += line;
+    }
+    return result;
+}
+
+
 void
 StringUtils::resetTranscoder() {
     myLCPTranscoder = nullptr;
+}
+
+
+std::string
+StringUtils::adjustDecimalValue(double value, int precision) {
+    // obtain value in string format with 20 decimals precision
+    auto valueStr = toString(value, precision);
+    // now clear all zeros
+    while (valueStr.size() > 1) {
+        if (valueStr.back() == '0') {
+            valueStr.pop_back();
+        } else if (valueStr.back() == '.') {
+            valueStr.pop_back();
+            return valueStr;
+        } else {
+            return valueStr;
+        }
+    }
+    return valueStr;
 }
 
 /****************************************************************************/

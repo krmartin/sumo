@@ -4,6 +4,9 @@ visibility
 # tests for determining the destination parkingArea from a list of alternatives when there is no prior knowledge of capacity, (iteratively until a space is found)
 parkingSearch
 
+# test reservation on rerouting
+reservation
+
 # tests for rerouting persons along with the vehicles
 riders
 
@@ -15,6 +18,9 @@ roadsideCapacity_short
 
 # test angled roadside parking (including vehicle positions)
 angled_roadside_parking
+
+# test angled roadside parking (including vehicle positions)
+angled_roadside_parking_trailer
 
 # test what happens if a queue forms and a vehicle wants to exit the parkingarea
 congestion
@@ -34,6 +40,9 @@ newDestination
 # afte rerouting use new parkingArea as the final destination. 
 # The vehicle route never passes the original parking edge
 newDestination2
+
+# the replaced parking area appears in the beginning and the end. Replacing the first stop should preserve the destination.
+keepDestination_looped
 
 # handle the case where the length of parking spaces is not given and cannot by deduced from roadside capacity because that is 0
 default_length
@@ -64,3 +73,6 @@ reroute_on_junction
 
 # test what happens if brakeGap prevents the vehicle from taken the first free space.
 brakeGap_beyond_firstSpace
+
+# 3 parkingareas on one edge
+3same_edge

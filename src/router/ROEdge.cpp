@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2002-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -18,6 +18,7 @@
 /// @author  Michael Behrisch
 /// @author  Melanie Knocke
 /// @author  Yun-Pang Floetteroed
+/// @author  Ruediger Ebendt
 /// @date    Sept 2002
 ///
 // A basic edge for routing applications
@@ -53,18 +54,21 @@ double ROEdge::myEdgePriorityRange(0);
 // ===========================================================================
 // method definitions
 // ===========================================================================
-ROEdge::ROEdge(const std::string& id, RONode* from, RONode* to, int index, const int priority) :
+ROEdge::ROEdge(const std::string& id, RONode* from, RONode* to, int index, const int priority, const std::string& type, const std::string& routingType) :
     Named(id),
     myFromJunction(from),
     myToJunction(to),
     myIndex(index),
     myPriority(priority),
+    myType(type),
+    myRoutingType(routingType),
     mySpeed(-1),
     myLength(0),
     myAmSink(false),
     myAmSource(false),
     myUsingTTTimeLine(false),
     myUsingETimeLine(false),
+    mySpeedRestrictions(nullptr),
     myCombinedPermissions(0),
     myOtherTazConnector(nullptr),
     myTimePenalty(0) {
@@ -83,10 +87,32 @@ ROEdge::ROEdge(const std::string& id, RONode* from, RONode* to, int index, const
 }
 
 
+ROEdge::ROEdge(const std::string& id, const RONode* from, const RONode* to, SVCPermissions p) :
+    Named(id),
+    myFromJunction(const_cast<RONode*>(from)),
+    myToJunction(const_cast<RONode*>(to)),
+    myIndex(-1),
+    myPriority(0),
+    myType(""),
+    mySpeed(std::numeric_limits<double>::max()),
+    myLength(0),
+    myAmSink(false),
+    myAmSource(false),
+    myUsingTTTimeLine(false),
+    myUsingETimeLine(false),
+    myCombinedPermissions(p),
+    myOtherTazConnector(nullptr),
+    myTimePenalty(0)
+{ }
+
+
 ROEdge::~ROEdge() {
-    for (std::vector<ROLane*>::iterator i = myLanes.begin(); i != myLanes.end(); ++i) {
-        delete (*i);
+    for (ROLane* const lane : myLanes) {
+        delete lane;
     }
+    delete myReversedRoutingEdge;
+    delete myFlippedRoutingEdge;
+    delete myRailwayRoutingEdge;
 }
 
 
@@ -152,7 +178,7 @@ double
 ROEdge::getEffort(const ROVehicle* const veh, double time) const {
     double ret = 0;
     if (!getStoredEffort(time, ret)) {
-        return myLength / MIN2(veh->getMaxSpeed(), mySpeed) + myTimePenalty;
+        return myLength / getMaxSpeed(veh);
     }
     return ret;
 }
@@ -199,12 +225,12 @@ ROEdge::getTravelTime(const ROVehicle* const veh, double time) const {
             return MAX2(getMinimumTravelTime(veh), lineTT);
         } else {
             if (!myHaveTTWarned) {
-                WRITE_WARNINGF("No interval matches passed time=% in edge '%'.\n Using edge's length / max speed.", time, myID);
+                WRITE_WARNINGF(TL("No interval matches passed time=% in edge '%'.\n Using edge's length / max speed."), time, myID);
                 myHaveTTWarned = true;
             }
         }
     }
-    const double speed = veh != nullptr ? MIN2(veh->getMaxSpeed(), veh->getType()->speedFactor.getParameter()[0] * mySpeed) : mySpeed;
+    const double speed = veh != nullptr ? getMaxSpeed(veh) : mySpeed;
     return myLength / speed + myTimePenalty;
 }
 
@@ -213,8 +239,7 @@ double
 ROEdge::getNoiseEffort(const ROEdge* const edge, const ROVehicle* const veh, double time) {
     double ret = 0;
     if (!edge->getStoredEffort(time, ret)) {
-        const double v = MIN2(veh->getMaxSpeed(), edge->mySpeed);
-        ret = HelpersHarmonoise::computeNoise(veh->getType()->emissionClass, v, 0);
+        ret = HelpersHarmonoise::computeNoise(veh->getType()->emissionClass, edge->getMaxSpeed(veh), 0);
     }
     return ret;
 }
@@ -225,7 +250,7 @@ ROEdge::getStoredEffort(double time, double& ret) const {
     if (myUsingETimeLine) {
         if (!myEfforts.describesTime(time)) {
             if (!myHaveEWarned) {
-                WRITE_WARNINGF("No interval matches passed time=% in edge '%'.\n Using edge's length / edge's speed.", time, myID);
+                WRITE_WARNINGF(TL("No interval matches passed time=% in edge '%'.\n Using edge's length / edge's speed."), time, myID);
                 myHaveEWarned = true;
             }
             return false;
@@ -290,7 +315,7 @@ void
 ROEdge::buildTimeLines(const std::string& measure, const bool boundariesOverride) {
     if (myUsingETimeLine) {
         double value = myLength / mySpeed;
-        const SUMOEmissionClass c = PollutantsInterface::getClassByName("unknown");
+        const SUMOEmissionClass c = PollutantsInterface::getClassByName("HBEFA4/default");
         if (measure == "CO") {
             value = PollutantsInterface::compute(c, PollutantsInterface::CO, mySpeed, 0, 0, nullptr) * value; // @todo: give correct slope
         }
@@ -397,7 +422,7 @@ ROEdge::getSuccessors(SUMOVehicleClass vClass) const {
 
 
 const ROConstEdgePairVector&
-ROEdge::getViaSuccessors(SUMOVehicleClass vClass) const {
+ROEdge::getViaSuccessors(SUMOVehicleClass vClass, bool /*ignoreTransientPermissions*/) const {
     if (vClass == SVC_IGNORING || !RONet::getInstance()->hasPermissions() || isTazConnector()) {
         return myFollowingViaEdges;
     }
@@ -433,7 +458,9 @@ ROEdge::getViaSuccessors(SUMOVehicleClass vClass) const {
 
 
 bool
-ROEdge::isConnectedTo(const ROEdge& e, const SUMOVehicleClass vClass) const {
+ROEdge::isConnectedTo(const ROEdge& e, const SUMOVehicleClass vClass, bool ignoreTransientPermissions) const {
+    // @todo needs to be used with #12501
+    UNUSED_PARAMETER(ignoreTransientPermissions);
     const ROEdgeVector& followers = getSuccessors(vClass);
     return std::find(followers.begin(), followers.end(), &e) != followers.end();
 }
@@ -448,7 +475,7 @@ ROEdge::initPriorityFactor(double priorityFactor) {
     }
     myEdgePriorityRange = maxEdgePriority - myMinEdgePriority;
     if (myEdgePriorityRange == 0) {
-        WRITE_WARNING("Option weights.priority-factor does not take effect because all edges have the same priority.");
+        WRITE_WARNING(TL("Option weights.priority-factor does not take effect because all edges have the same priority."));
         myPriorityFactor = 0;
         return false;
     }

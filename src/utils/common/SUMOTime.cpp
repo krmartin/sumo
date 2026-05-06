@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -15,6 +15,7 @@
 /// @author  Daniel Krajzewicz
 /// @author  Jakob Erdmann
 /// @author  Michael Behrisch
+/// @author  Mirko Barthauer
 /// @date    Fri, 29.04.2005
 ///
 // Variables, methods, and tools for internal time representation
@@ -50,7 +51,7 @@ string2time(const std::string& r) {
         }
         return TIME2STEPS(time);
     } else {
-        // try to parse jj:hh:mm:ss.s
+        // try to parse dd:hh:mm:ss.s
         std::vector<std::string> hrt = StringTokenizer(r, ":").getVector();
         if (hrt.size() == 3) {
             //std::cout << "parsed '" << r << "' as " << (3600 * string2time(hrt[0]) + 60 * string2time(hrt[1]) + string2time(hrt[2])) << "\n";
@@ -64,20 +65,47 @@ string2time(const std::string& r) {
 }
 
 
+bool
+isTime(const std::string& r) {
+    if (r.find(":") == std::string::npos) {
+        if (StringUtils::isDouble(r)) {
+            return (StringUtils::toDouble(r) <= STEPS2TIME(SUMOTime_MAX));
+        } else {
+            return false;
+        }
+    } else {
+        // try to parse dd:hh:mm:ss.s
+        const std::vector<std::string> hrt = StringTokenizer(r, ":").getVector();
+        if (hrt.size() == 3) {
+            return StringUtils::isInt(hrt[0]) && StringUtils::isInt(hrt[1]) && StringUtils::isInt(hrt[2]);
+        } else if (hrt.size() == 4) {
+            return StringUtils::isInt(hrt[0]) && StringUtils::isInt(hrt[1]) && StringUtils::isInt(hrt[2]) && StringUtils::isDouble(hrt[3]);
+        } else {
+            return false;
+        }
+    }
+}
+
+
 std::string
-time2string(SUMOTime t) {
+time2string(SUMOTime t, bool humanReadable) {
     std::ostringstream oss;
     if (t < 0) {
         oss << "-";
     }
     // needed for signed zero errors, see #5926
-    t = llabs(t);
-    const SUMOTime scale = (SUMOTime)pow(10, MAX2(0, 3 - gPrecision));
-    if (scale > 1 && t != SUMOTime_MAX) {
-        t = (t + scale / 2) / scale;
+    // llabs(SUMOTime_MIN) would create overflow and must be handleed separately
+    t = t == SUMOTime_MIN ? SUMOTime_MAX : (SUMOTime)llabs(t);
+    SUMOTime scale = (SUMOTime)pow(10, MAX2(0, 3 - gPrecision));
+    if (scale > 1) {
+        if (t != SUMOTime_MAX) {
+            t = (t + scale / 2) / scale;
+        } else {
+            scale = 1;
+        }
     }
     const SUMOTime second = TIME2STEPS(1) / scale;
-    if (gHumanReadableTime) {
+    if (humanReadable) {
         const SUMOTime minute = 60 * second;
         const SUMOTime hour = 60 * minute;
         const SUMOTime day = 24 * hour;
@@ -106,6 +134,13 @@ time2string(SUMOTime t) {
     return oss.str();
 }
 
+
+std::string
+time2string(SUMOTime t) {
+    return time2string(t, gHumanReadableTime);
+}
+
+
 std::string
 elapsedMs2string(long long int t) {
     if (gHumanReadableTime) {
@@ -120,12 +155,25 @@ elapsedMs2string(long long int t) {
     }
 }
 
-bool checkStepLengthMultiple(const SUMOTime t, const std::string& error, SUMOTime deltaT) {
-    if (t % deltaT != 0) {
-        WRITE_WARNING("The given time value " + time2string(t) + " is not a multiple of the step length " + time2string(deltaT) + error + ".")
+bool checkStepLengthMultiple(const SUMOTime t, const std::string& error, SUMOTime deltaT, SUMOTime begin) {
+    if (begin % deltaT == 0) {
+        if (t % deltaT != 0) {
+            WRITE_WARNING("The given time value " + time2string(t) + " is not a multiple of the step length " + time2string(deltaT) + error + ".")
+        }
+    } else {
+        if ((t - begin) % deltaT != 0) {
+            WRITE_WARNING("The given time value " + time2string(t) + " is not reached with step length " + time2string(deltaT)
+                          + " and begin time " + time2string(begin) + error + ".")
+        }
     }
     // next line used to fix build
     return false;
+}
+
+void checkTimeBounds(const double time) {
+    if (time > STEPS2TIME(SUMOTime_MAX)) {
+        throw TimeFormatException("Input time " + toString(time) + "s exceeds the time value range.");
+    }
 }
 
 

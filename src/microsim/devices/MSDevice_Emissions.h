@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -74,7 +74,6 @@ public:
      */
     static void buildVehicleDevices(SUMOVehicle& v, std::vector<MSVehicleDevice*>& into);
 
-
 public:
     /** @brief Constructor
      *
@@ -130,6 +129,17 @@ public:
      */
     void generateOutput(OutputDevice* tripinfoOut) const;
 
+    static SumoXMLAttrMask getWrittenAttributes() {
+        return myWrittenAttributes;
+    }
+
+    /// @brief initialize attribute mask (once)
+    static void initOnce();
+
+    /// @brief resets the attribute mask
+    static void cleanup();
+
+
 protected:
     /** @brief Internal notification about the vehicle moves, see MSMoveReminder::notifyMoveInternal()
      *
@@ -146,6 +156,11 @@ protected:
 private:
     /// @brief Internal storages for pollutant/fuel sum in mg or ml
     PollutantsInterface::Emissions myEmissions;
+
+    /// @brief bit mask for checking attributes to be written
+    static SumoXMLAttrMask myWrittenAttributes;
+    static SumoXMLAttrMask getDefaultMask();
+    static bool myAmInitialized;
 
 private:
     /// @brief Invalidated copy constructor.

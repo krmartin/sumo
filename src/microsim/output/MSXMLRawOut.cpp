@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -142,7 +142,7 @@ MSXMLRawOut::writeVehicle(OutputDevice& of, const MSBaseVehicle& veh) {
             if (MSGlobals::gSublane) {
                 const double posLat = microVeh.getLateralPositionOnLane();
                 of.writeAttr(SUMO_ATTR_POSITION_LAT, posLat);
-                of.writeAttr("speedLat", microVeh.getLaneChangeModel().getSpeedLat());
+                of.writeAttr(SUMO_ATTR_SPEED_LAT, microVeh.getLaneChangeModel().getSpeedLat());
             }
             const int personNumber = microVeh.getPersonNumber();
             if (personNumber > 0) {
@@ -172,7 +172,7 @@ MSXMLRawOut::writeTransportable(OutputDevice& of, const MSTransportable* p, Sumo
     of.writeAttr(SUMO_ATTR_ID, p->getID());
     of.writeAttr(SUMO_ATTR_POSITION, p->getEdgePos());
     of.writeAttr(SUMO_ATTR_ANGLE, GeomHelper::naviDegree(p->getAngle()));
-    of.writeAttr("stage", p->getCurrentStageDescription());
+    of.writeAttr(SUMO_ATTR_STAGE, p->getCurrentStageDescription());
     of.closeTag();
 }
 

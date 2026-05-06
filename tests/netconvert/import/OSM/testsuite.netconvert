@@ -4,13 +4,12 @@ railway
 # export public transport stops or lines
 public_transport
 maxspeed
+turn_lanes
 
-# Area around the ITS in Berlin, Adlershof (13.52494,52.42582,13.53625,52.43026)
-adlershof_dlr
-adlershof_dlr_discard-tls
-
-# Area around the ITS in Berlin, Adlershof (13.52494,52.42582,13.53625,52.43026)
-adlershof_orig_names
+# creating opposite-direction edge due to sidewalk information
+sidewalks
+parking
+adlershof
 
 # In this scenario, two nodes with the same coordinates start the shape of an edge. The scenario also tests traffic signals and isolated roads.
 duplicate_nodes
@@ -27,7 +26,7 @@ multimodal_edge
 # an edge with multiple mode definitions should be discarded if all individual modes are set to be discarded
 multimodal_edge_discard
 
-# when a list of lane numbers is given, use the minimum value 
+# when a list of lane numbers is given, use the minimum value
 # (larger values are probably short turning lanes)
 key_lanes_non_numerical
 way_with_with_insufficient_nodes
@@ -40,22 +39,13 @@ recoverable_errors
 # import elevation data
 elevation
 
-# add sidewalks to appropriate edges
-adlershof_dlr_sidewalks
-
-# add sidewalks from raw data (rather than from typemap heuristic)
-adlershof_dlr_sidewalks_option
-
 # check for working around a xerces transcoding bug
 xerces_bug_1947
 
-# import dedicated bicycle lanes 
+# import dedicated bicycle lanes
 bicycle_lanes
 bus_lanes
 intersection_with_crossings
-
-# Area around the ITS in Berlin, Adlershof (13.52494,52.42582,13.53625,52.43026)
-numerical_ids
 max_segment_length
 
 # see #3412
@@ -66,6 +56,9 @@ complex_intermodal_intersection
 
 # use osm types for determining FRC (functional road class)
 dlr_navteq
+
+# extended attributes like surface
+dlr_navteq_version
 
 # test import of geo-referenced lefthand network
 geo_from_osm
@@ -79,8 +72,11 @@ bypass2
 # a complex example where bypass edges should not be joined
 bypass3
 
-# creating opposite-direction edge due to sidewalk information
-sidewalks
+# importing all osm tags
+all-attributes
+
+# importing selected extra OSM tags
+extra-attributes
 
 # test option edges.join-tram-dist
 join_tram
@@ -96,8 +92,14 @@ ticket8155_orig
 vehicle_lanes
 motorway_ramp_prohibitChange
 
+# bike and bus and vehicle lane access
+vehicle_lanes2
+
 # change default to roadCenter
 spreadType
+
+# change default to roadCenter (but edges should have 'center'). see #17755
+spreadType2
 
 # additional bike access
 bike_access
@@ -108,12 +110,26 @@ oneway_bike
 # complex intermodal junction in Brunswick
 tostmannplatz
 
-# import turn-lane information
-turn-lanes
-
-# import turn-lane information merge_to_right
-turn-lanes2
-
 # import key junction=circular
 junction_circular
+
+# one incoming arm doesn't have a tls but the central junction should still be considered as controlled
+guess-signals.slack
+restrictionException_only
+
+# Copy of restrictionException_only
+restrictionException_no
+
+# example network from Zuerich
+oerlikon
+width_lane
+crossings
+
+# see #14786
+crossings_no_barrier
+
+# read highway=busway
+busway
 bugs
+
+join_separate

@@ -18,3 +18,9 @@ ticket11361
 
 # startup after stopping
 ticket11374
+
+# warn about incompatibility with actionSteps
+ticket15557
+
+# emergency braking after teleport
+ticket17317

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -50,21 +50,23 @@ ROMARouteHandler::~ROMARouteHandler() {
 
 void
 ROMARouteHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) {
-    if (element == SUMO_TAG_TRIP || element == SUMO_TAG_VEHICLE) {
-        myVehicleParameter = SUMOVehicleParserHelper::parseVehicleAttributes(element, attrs, true);
+    if (element == SUMO_TAG_TRIP || element == SUMO_TAG_VEHICLE || element == SUMO_TAG_FLOW) {
+        myVehicleParameter = (element == SUMO_TAG_FLOW
+                              ? SUMOVehicleParserHelper::parseFlowAttributes(SUMO_TAG_FLOW, attrs, true, true, 0, TIME2STEPS(3600))
+                              : SUMOVehicleParserHelper::parseVehicleAttributes(element, attrs, true));
         if (!myVehicleParameter->wasSet(VEHPARS_FROM_TAZ_SET) || myIgnoreTaz) {
             if (attrs.hasAttribute(SUMO_ATTR_FROM)) {
                 myVehicleParameter->fromTaz = attrs.getString(SUMO_ATTR_FROM);
-            } else if (attrs.hasAttribute(SUMO_ATTR_FROMJUNCTION)) {
-                myVehicleParameter->fromTaz = attrs.getString(SUMO_ATTR_FROMJUNCTION) + "-source";
+            } else if (attrs.hasAttribute(SUMO_ATTR_FROM_JUNCTION)) {
+                myVehicleParameter->fromTaz = attrs.getString(SUMO_ATTR_FROM_JUNCTION) + "-source";
             }
 
         }
         if (!myVehicleParameter->wasSet(VEHPARS_TO_TAZ_SET) || myIgnoreTaz) {
             if (attrs.hasAttribute(SUMO_ATTR_TO)) {
                 myVehicleParameter->toTaz = attrs.getString(SUMO_ATTR_TO);
-            } else if (attrs.hasAttribute(SUMO_ATTR_TOJUNCTION)) {
-                myVehicleParameter->toTaz = attrs.getString(SUMO_ATTR_TOJUNCTION) + "-sink";
+            } else if (attrs.hasAttribute(SUMO_ATTR_TO_JUNCTION)) {
+                myVehicleParameter->toTaz = attrs.getString(SUMO_ATTR_TO_JUNCTION) + "-sink";
             }
         }
     } else if (element == SUMO_TAG_PARAM && !myTazParamKeys.empty()) {
@@ -82,19 +84,39 @@ ROMARouteHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) {
 
 void
 ROMARouteHandler::myEndElement(int element) {
-    if (element == SUMO_TAG_TRIP || element == SUMO_TAG_VEHICLE) {
+    if (element == SUMO_TAG_TRIP || element == SUMO_TAG_VEHICLE || element == SUMO_TAG_FLOW) {
         if (myVehicleParameter->fromTaz == "" || myVehicleParameter->toTaz == "") {
-            WRITE_WARNING("No origin or no destination given, ignoring '" + myVehicleParameter->id + "'!");
+            WRITE_WARNINGF(TL("No origin or no destination given, ignoring '%'!"), myVehicleParameter->id);
         } else {
-            int quota = getScalingQuota(myScale, myNumLoaded);
+            int quota = 1;
+            SUMOTime departOffset = 0;
+            if (element == SUMO_TAG_FLOW) {
+                long long int flowSize = 1;
+                double flowDur = STEPS2TIME(myVehicleParameter->repetitionEnd - myVehicleParameter->depart);
+                if (myVehicleParameter->repetitionNumber != std::numeric_limits<long long int>::max()) {
+                    flowSize = myVehicleParameter->repetitionNumber;
+                } else if (myVehicleParameter->poissonRate > 0) {
+                    flowSize = (long long int)(flowDur * myVehicleParameter->poissonRate);
+                } else if (myVehicleParameter->repetitionProbability > 0) {
+                    flowSize = (long long int)(flowDur * myVehicleParameter->repetitionProbability);
+                }
+                quota = (int)((double)flowSize * myScale + 0.5);
+                myNumLoaded += flowSize;
+                departOffset = TIME2STEPS(flowDur) / quota;
+            } else {
+                quota = getScalingQuota(myScale, myNumLoaded);
+                myNumLoaded += 1;
+            }
+            SUMOTime depart = myVehicleParameter->depart;
             for (int i = 0; i < quota; i++) {
-                const std::string id = i == 0 ? myVehicleParameter->id : myVehicleParameter->id + "." + toString(i);
-                myMatrix.add(id, myVehicleParameter->depart,
-                             myVehicleParameter->fromTaz, myVehicleParameter->toTaz, myVehicleParameter->vtypeid,
+                SUMOVehicleParameter veh = *myVehicleParameter;
+                veh.id = i == 0 ? myVehicleParameter->id : myVehicleParameter->id + "." + toString(i);
+                veh.depart = depart;
+                myMatrix.add(veh,
                              !myVehicleParameter->wasSet(VEHPARS_FROM_TAZ_SET) || myIgnoreTaz,
                              !myVehicleParameter->wasSet(VEHPARS_TO_TAZ_SET) || myIgnoreTaz);
+                depart += departOffset;
             }
-            myNumLoaded += 1;
         }
         delete myVehicleParameter;
     }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2010-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2010-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -23,7 +23,6 @@ from __future__ import print_function
 from __future__ import absolute_import
 import os
 import sys
-import optparse
 from collections import defaultdict
 
 if 'SUMO_HOME' in os.environ:
@@ -34,24 +33,24 @@ from sumolib.geomhelper import naviDegree, minAngleDegreeDiff  # noqa
 
 
 def get_options(args=None):
-    parser = optparse.OptionParser()
-    parser.add_option("-n", "--net-file", dest="netfile",
-                      help="define the net file (mandatory)")
-    parser.add_option("-o", "--output-file", dest="outfile", default="rerouters.xml",
-                      help="define the output rerouter filename")
-    parser.add_option("-T", "--turn-defaults", dest="turnDefaults", default="30,50,20",
-                      help="Use STR[] as default turn probabilities [right,straight,left[,turn]]")
-    parser.add_option("-l", "--long-routes", action="store_true", dest="longRoutes", default=False,
-                      help="place rerouters further upstream (after the previous decision point) to increase " +
-                           "overlap of routes when rerouting and thereby improve anticipation of intersections")
-    parser.add_option("--vclass",
-                      help="only create routes which permit the given vehicle class")
-    parser.add_option("-b", "--begin",  default=0, help="begin time")
-    parser.add_option("-e", "--end",  default=3600, help="end time (default 3600)")
-    (options, args) = parser.parse_args(args=args)
-    if not options.netfile:
-        parser.print_help()
-        sys.exit(1)
+    ap = sumolib.options.ArgumentParser()
+    ap.add_option("-n", "--net-file", dest="netfile", required=True, category="input", type=ap.net_file,
+                  help="define the net file (mandatory)")
+    ap.add_option("-o", "--output-file", dest="outfile", default="rerouters.xml", category="output", type=ap.file,
+                  help="define the output rerouter filename")
+    ap.add_option("-T", "--turn-defaults", dest="turnDefaults", default="30,50,20",
+                  help="Use STR[] as default turn probabilities [right,straight,left[,turn]]")
+    ap.add_option("-l", "--long-routes", action="store_true", dest="longRoutes", default=False,
+                  help="place rerouters further upstream (after the previous decision point) to increase " +
+                       "overlap of routes when rerouting and thereby improve anticipation of intersections")
+    ap.add_option("--vclass", help="only create routes which permit the given vehicle class")
+    ap.add_option("-s", "--stop-file", dest="stopsFile", type=ap.file,
+                  help="Stop at any stopping places loaded from file")
+    ap.add_option("--stop.duration", dest="stopDuration", default=60, type=int,
+                  help="Set duration for added stops")
+    ap.add_option("-b", "--begin",  default=0, help="begin time")
+    ap.add_option("-e", "--end",  default=3600, help="end time (default 3600)")
+    options = ap.parse_args(args=args)
 
     options.turnDefaults = list(map(float, options.turnDefaults.split(',')))
     if len(options.turnDefaults) not in [3, 4]:
@@ -113,9 +112,28 @@ def getNumSiblings(edge):
     return len(siblings)
 
 
+def writeRoute(options, outf, routeID, edgeIDs, edgeStops):
+    close = '/>\n'
+    outf.write('    <route id="%s" edges="%s"' % (routeID, ' '.join(edgeIDs)))
+    if edgeStops:
+        stops = [edgeStops[e] for e in edgeIDs if e in edgeStops]
+        if stops:
+            outf.write('>\n')
+            for stop in stops:
+                outf.write('        <stop busStop="%s" duration="%s"/>\n' % (stop, options.stopDuration))
+            close = '    </route>\n'
+    outf.write(close)
+
+
 def main(options):
     net = sumolib.net.readNet(options.netfile)
     incomingRoutes = defaultdict(set)  # edge : set(route0, route1, ...)
+
+    edgeStops = {}
+    if options.stopsFile:
+        for stop in sumolib.output.parse(options.stopsFile, ['busStop', 'trainStop']):
+            edgeStops[sumolib._laneID2edgeID(stop.lane)] = stop.id
+
     if options.longRoutes:
         # build dictionary of routes leading from an intersection to each edge
         for junction in net.getNodes():
@@ -128,7 +146,7 @@ def main(options):
                         incomingRoutes[edges[-1]].add(edgeIDs)
 
     with open(options.outfile, 'w') as outf:
-        sumolib.xml.writeHeader(outf, root="additional")
+        sumolib.xml.writeHeader(outf, root="additional", options=options)
         for junction in net.getNodes():
             if len(junction.getOutgoing()) > 1:
                 routes = []
@@ -140,10 +158,10 @@ def main(options):
                     if options.longRoutes:
                         # overlapping routes: start behind an intersection and
                         # route across the next intersection to the entry of the
-                        # 2nd intersetion (more rerouters and overlapping routes)
+                        # 2nd intersection (more rerouters and overlapping routes)
                         if getNumAlternatives(edge, routes) > 1:
                             for incomingRoute in sorted(incomingRoutes[edge]):
-                                assert(incomingRoute[-1] == edge.getID())
+                                assert incomingRoute[-1] == edge.getID()
                                 firstEdgeID = incomingRoute[0]
                                 routeIDs = []
                                 for edges in routes:
@@ -151,7 +169,7 @@ def main(options):
                                         routeID = "%s_%s_%s" % (firstEdgeID, edge.getID(), edges[0].getID())
                                         prob = options.turnDefaults[getTurnIndex(edge, edges[0])]
                                         edgeIDs = list(incomingRoute) + [e.getID() for e in edges]
-                                        outf.write('    <route id="%s" edges="%s"/>\n' % (routeID, ' '.join(edgeIDs)))
+                                        writeRoute(options, outf, routeID, edgeIDs, edgeStops)
                                         routeIDs.append((routeID, prob))
 
                                 outf.write('    <rerouter id="rr_%s_%s" edges="%s">\n' %
@@ -172,7 +190,7 @@ def main(options):
                                 routeID = "%s_%s" % (edge.getID(), edges[0].getID())
                                 prob = options.turnDefaults[getTurnIndex(edge, edges[0])]
                                 edgeIDs = [e.getID() for e in [edge] + edges]
-                                outf.write('    <route id="%s" edges="%s"/>\n' % (routeID, ' '.join(edgeIDs)))
+                                writeRoute(options, outf, routeID, edgeIDs, edgeStops)
                                 routeIDs.append((routeID, prob))
                         if len(routeIDs) > 1:
                             outf.write('    <rerouter id="rr_%s" edges="%s">\n' % (edge.getID(), edge.getID()))

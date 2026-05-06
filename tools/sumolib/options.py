@@ -1,5 +1,5 @@
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2012-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -23,12 +23,14 @@ import sys
 import subprocess
 from collections import namedtuple
 import re
-from xml.sax import parse, parseString, handler, saxutils
-import optparse
+from xml.sax import parse, parseString, handler
 import argparse
 import io
 from argparse import RawDescriptionHelpFormatter  # noqa
 from copy import deepcopy
+from functools import wraps
+from .miscutils import openz, parseTime
+from .xml import xmlescape
 
 
 class ConfigurationReader(handler.ContentHandler):
@@ -43,37 +45,49 @@ class ConfigurationReader(handler.ContentHandler):
 
     def startElement(self, name, attrs):
         if len(attrs) == 0:
-            self._group = optparse.OptionGroup(self._opts, name)
+            self._group = self._opts.add_argument_group(name)
         if self._group != self._opts and self._groups and self._group.title not in self._groups:
             return
         if 'type' in attrs and name != "help":
             if self._options and name not in self._options:
                 return
+            if name in ['configuration-file', 'save-configuration', 'save-template']:
+                return
             help = attrs.get("help", "")
-            option = optparse.Option("--" + name, help=help)
+            action = None
+            default = None
+            oType = None
             if attrs["type"] == "BOOL":
-                option = optparse.Option("--" + name, action="store_true", default=False, help=help)
-            elif attrs["type"] in ["FLOAT", "TIME"]:
-                option.type = "float"
+                action = "store_true"
+                default = False
+            elif attrs["type"] == "TIME":
+                oType = ArgumentParser.time
                 if attrs["value"]:
-                    option.default = float(attrs["value"])
+                    default = float(attrs["value"])
+            elif attrs["type"] == "FLOAT":
+                oType = float
+                if attrs["value"]:
+                    default = float(attrs["value"])
             elif attrs["type"] == "INT":
-                option.type = "int"
+                oType = int
                 if attrs["value"]:
-                    option.default = int(attrs["value"])
+                    default = int(attrs["value"])
             else:
-                option.default = attrs["value"]
-            self._group.add_option(option)
+                default = attrs["value"]
+            if action is None:
+                self._group.add_argument("--" + name, help=help, default=default, type=oType)
+            else:
+                self._group.add_argument("--" + name, help=help, action=action, default=default)
 
     def endElement(self, name):
         if self._group != self._opts and name == self._group.title:
-            self._opts.add_option_group(self._group)
+            self._opts.add_argument_group(self._group)
             self._group = self._opts
 
 
-def pullOptions(executable, optParse, groups=None, configoptions=None):
+def pullOptions(executable, argParser, groups=None, configoptions=None):
     optoutput = subprocess.check_output([executable, "--save-template", "-"])
-    parseString(optoutput, ConfigurationReader(optParse, groups, configoptions))
+    parseString(optoutput, ConfigurationReader(argParser, groups, configoptions))
 
 
 def get_long_option_names(application):
@@ -93,6 +107,7 @@ def assign_prefixed_options(args, allowed_programs):
     remaining = []
     consumed = False
     for arg_index, arg in enumerate(args):
+        used = False
         if consumed:
             consumed = False
             continue
@@ -102,14 +117,18 @@ def assign_prefixed_options(args, allowed_programs):
                 program = arg[2:separator_index]
                 if program in allowed_programs:
                     try:
-                        if '--' in args[arg_index+1]:
-                            raise NotImplementedError()
-                        option = [arg[separator_index+1:], args[arg_index+1]]
-                    except(IndexError, NotImplementedError):
-                        raise NotImplementedError("Please amend prefixed argument %s with a value." % arg)
+                        if '=' in arg:
+                            option = arg[separator_index+1:].split('=')
+                        else:
+                            if '--' in args[arg_index+1]:
+                                raise ValueError()
+                            option = [arg[separator_index+1:], args[arg_index+1]]
+                            consumed = True
+                    except (IndexError, ValueError):
+                        raise ValueError("Please amend prefixed argument %s with a value." % arg)
+                    used = True
                     prefixed_options.setdefault(program, []).append(option)
-                    consumed = True
-        if not consumed:
+        if not used:
             remaining.append(arg)
     return prefixed_options, remaining
 
@@ -118,7 +137,7 @@ def get_prefixed_options(options):
     return options._prefixed_options
 
 
-Option = namedtuple("Option", ["name", "value", "type", "help"])
+Option = namedtuple("Option", ["name", "value", "type", "help", "category"])
 
 
 class OptionReader(handler.ContentHandler):
@@ -130,7 +149,7 @@ class OptionReader(handler.ContentHandler):
 
     def startElement(self, name, attrs):
         if 'value' in attrs:
-            self.opts.append(Option(name, attrs['value'], attrs.get('type'), attrs.get('help')))
+            self.opts.append(Option(name, attrs['value'], attrs.get('type'), attrs.get('help'), attrs.get('category')))
 
 
 def readOptions(filename):
@@ -139,46 +158,131 @@ def readOptions(filename):
     return optionReader.opts
 
 
-def xmlescape(value):
-    return saxutils.escape(str(value), {'"': '&quot;'})
-
-
 class ArgumentParser(argparse.ArgumentParser):
     """Drop-in replacement for argparse.ArgumentParser that adds support for
     sumo-style config files.
     Inspired by https://github.com/bw2/ConfigArgParse
     """
 
-    def __init__(self, allowed_programs=[], *args, **kwargs):
+    @staticmethod
+    def time(s):
+        return parseTime(s)
+
+    @staticmethod
+    def file(s):
+        return s
+
+    @staticmethod
+    def file_list(s):
+        return s
+
+    @staticmethod
+    def net_file(s):
+        return s
+
+    @staticmethod
+    def route_file(s):
+        return s
+
+    @staticmethod
+    def route_file_list(s):
+        return s
+
+    @staticmethod
+    def additional_file(s):
+        return s
+
+    @staticmethod
+    def additional_file_list(s):
+        return s
+
+    @staticmethod
+    def edgedata_file(s):
+        return s
+
+    @staticmethod
+    def edge(s):
+        return s
+
+    @staticmethod
+    def edge_list(s):
+        return s
+
+    @staticmethod
+    def data_file(s):
+        # arbitrary data file (i.e. for attributeStats.py and plotXMLAttributes.py)
+        return s
+
+    @staticmethod
+    def sumoconfig_file(s):
+        return s
+
+    @staticmethod
+    def sumoconfig_file_list(s):
+        return s
+
+    def __init__(self, *args, **kwargs):
+        self._allowed_programs = kwargs.pop("allowed_programs", [])
+        self._catch_all = None
         argparse.ArgumentParser.__init__(self, *args, **kwargs)
+        # add common argument for loading configuration
         self.add_argument('-c', '--configuration-file', help='read configuration from FILE', metavar="FILE")
+        # add common argument for save configuration
         self.add_argument('-C', '--save-configuration', help='save configuration to FILE and exit', metavar="FILE")
+        # add common argument for save template
         self.add_argument('--save-template', help='save configuration template to FILE and exit', metavar="FILE")
         self._fix_path_args = set()
-        self._allowed_programs = allowed_programs
 
     def add_argument(self, *args, **kwargs):
-        fix_path = kwargs.get("fix_path")
-        if "fix_path" in kwargs:
-            del kwargs["fix_path"]
+        # due argparse only accept certain values (action, choices, type, help...),
+        #  we need to extract extra parameters before call add_argument
+        fix_path = kwargs.pop("fix_path", False)
+        category = kwargs.pop("category", None)
+        catch_all = kwargs.pop("catch_all", False)
+        # get action
+        action = kwargs.get("action")
+        # parse argument
         a = argparse.ArgumentParser.add_argument(self, *args, **kwargs)
-        if fix_path is True:
+        # check if fix path
+        if fix_path:
             for s in a.option_strings:
                 if s.startswith("--"):
                     self._fix_path_args.add(s[2:])
+        # set category
+        a.category = category
+        # set if a is a boolean
+        a.boolean = ((action == "store_true") or (action == "store_false"))
+        # the value of a.required is lost during parsing
+        a.isRequired = a.required
+        a.isPositional = args[0][0] != "-"
+        if catch_all:
+            self._catch_all = a
 
     def add_option(self, *args, **kwargs):
         """alias for compatibility with OptionParser"""
         self.add_argument(*args, **kwargs)
 
-    def write_config_file(self, namespace, exit=True, toString=False):
+    def get_option(self, dest):
+        for action in self._actions:
+            if action.dest == dest:
+                return action
+        return None
+
+    def add_mutually_exclusive_group(self, required=False):
+        group = argparse.ArgumentParser.add_mutually_exclusive_group(self, required=required)
+        group.add_argument = handleCategoryWrapper(self, group.add_argument)
+        return group
+
+    def _write_config_file(self, namespace, toString=False):
         if namespace.save_configuration:
-            out_file = namespace.save_configuration
-            print_template = False
-        elif namespace.save_template:
-            out_file = namespace.save_template
-            print_template = True
-        elif toString:
+            with openz(namespace.save_configuration, "w") as out:
+                self.write_config_to_file(out, namespace, False)
+            sys.exit()
+        if namespace.save_template:
+            with openz(namespace.save_template, "w") as out:
+                self.write_config_to_file(out, namespace, True)
+            sys.exit()
+        if toString:
             out = io.StringIO()
             try:
                 self.write_config_to_file(out, namespace, False)
@@ -187,21 +291,22 @@ class ArgumentParser(argparse.ArgumentParser):
                 out = io.BytesIO()
                 self.write_config_to_file(out, namespace, False)
             return out.getvalue()
-        else:
-            return
-        with open(out_file, "w") as out:
-            self.write_config_to_file(out, namespace, print_template)
-        if exit:
-            sys.exit()
 
     def write_config_to_file(self, out, namespace, print_template):
-        out.write('<configuration>\n')
-        for k in sorted(vars(namespace).keys()):
+        out.write(u'<configuration>\n')
+        optionNames = vars(namespace).keys()
+        if sys.version_info.major < 3 or sys.version_info.minor < 6:
+            optionNames = sorted(optionNames)
+        for k in optionNames:
             v = vars(namespace)[k]
             if k not in ("save_configuration", "save_template", "configuration_file", "_parser", "_prefixed_options"):
                 key = k
-                default = ''
                 help = ''
+                typeStr = ''
+                category = ''
+                required = ''
+                positional = ''
+                listSep = ''
                 for a in self._actions:
                     if a.dest == k:
                         for s in a.option_strings:
@@ -209,38 +314,74 @@ class ArgumentParser(argparse.ArgumentParser):
                                 key = s[2:]
                                 break
                         if print_template:
+                            # default
                             if a.default is not None:
                                 v = a.default
+                            # help
                             if a.help is not None:
-                                help = ' help="%s"' % a.help
+                                help = ' help="%s"' % xmlescape(a.help)
+
+                            # note: missing time, filename, list of vehicles, edges and lanes
+                            # category
+                            category = ' category="%s"' % (a.category if a.category is not None else 'processing')
+                            if a.boolean:
+                                typeName = "bool"
+                            elif a.type is None:
+                                typeName = "string"
+                            else:
+                                typeName = a.type.__name__
+                                if typeName == 'parseTime':
+                                    typeName = 'time'
+                                knownTypes = ['bool', 'float', 'int', 'time', 'file',
+                                              'net_file', 'route_file', 'additional_file',
+                                              'additional_file_list',
+                                              'edgedata_file', 'data_file', 'file_list',
+                                              'route_file_list', 'sumoconfig_file',
+                                              'sumoconfig_file_list', 'edge', 'edge_list']
+                                if typeName not in knownTypes:
+                                    typeName = 'string'
+                                elif typeName.endswith("_list"):
+                                    typeName = typeName[:-5]
+                                    listSep = ' listSeparator=","'
+                            typeStr = ' type="%s"' % typeName
+                            if a.isRequired:
+                                required = ' required="true"'
+                            if a.isPositional:
+                                positional = ' positional="true"'
+                            if a.nargs:
+                                listSep = ' listSeparator=" "'
+
                         break
                 if print_template or v != a.default:
                     if isinstance(v, list):
                         v = " ".join(map(str, v))
-                    out.write('    <%s value="%s"%s%s/>\n' % (key, xmlescape(v), default, help))
-        out.write('</configuration>\n')
+                    out.write(u'    <%s value="%s"%s%s%s%s%s%s/>\n' % (
+                              key, xmlescape(v), typeStr, help, category,
+                              required, positional, listSep))
+        out.write(u'</configuration>\n')
 
     def parse_args(self, args=None, namespace=None):
-        if args is not None:
-            # gracefully handle non-string args passed from another script
-            args = map(str, args)
-        args_namespace, unknown_args = self.parse_known_args(args, namespace)
-        if unknown_args:
-            self.error('unrecognized arguments: %s' % ' '.join(unknown_args))
-        return args_namespace
+        return self.parse_known_args(args, namespace, True)[0]
 
-    def parse_known_args(self, args=None, namespace=None):
+    def parse_known_args(self, args=None, namespace=None, check_unknown=False):
         if args is None:
             args = sys.argv[1:]
         elif isinstance(args, str):
             args = args.split()
         else:
-            args = list(args)
+            # gracefully handle non-string args passed from another script
+            args = list(map(str, args))
         idx = -1
         if '-c' in args:
             idx = args.index('-c') + 1
         if '--configuration-file' in args:
             idx = args.index('--configuration-file') + 1
+        if '--save-template' in args:
+            for a in self._actions:
+                a.required = False
+            for g in self._mutually_exclusive_groups:
+                g.required = False
+
         # add each config item to the commandline unless it's there already
         config_args = []
         pos_args = []
@@ -270,7 +411,20 @@ class ArgumentParser(argparse.ArgumentParser):
                     if option.name in self._fix_path_args and not value.startswith("http"):
                         value = os.path.join(os.path.dirname(cfg_file), value)
                     if option.name in pos_map and option.name != 'remaining_args':
-                        pos_args[pos_map[option.name]] = value
+                        if ',' in value:
+                            value = value.split(',')
+                        else:
+                            value = value.split()
+                        for i, v in enumerate(value):
+                            pos_args[pos_map[option.name]] = v
+                            if i + 1 < len(value):
+                                # shift pos_map
+                                pos_args.append(None)
+                                curPos = pos_map[option.name]
+                                for o, pos in pos_map.items():
+                                    if pos >= curPos:
+                                        pos_map[o] += 1
+
                     elif not is_set:
                         if value == "True":
                             config_args += ["--" + option.name]
@@ -280,11 +434,9 @@ class ArgumentParser(argparse.ArgumentParser):
                                 config_args += value.split()
                             elif option.name in multi_value:
                                 config_args += ["--" + option.name] + value.split()
-                            elif value:
-                                # permit negative values in cfg files
-                                config_args += ["--" + option.name + "=" + value]
                             else:
-                                config_args += ["--" + option.name]
+                                # permit negative values and empty strings in cfg files
+                                config_args += ["--" + option.name + "=" + value]
         combined_args = args + config_args + [p for p in pos_args if p is not None]
         namespace, unknown_args = argparse.ArgumentParser.parse_known_args(
             self, args=combined_args, namespace=namespace)
@@ -312,11 +464,38 @@ class ArgumentParser(argparse.ArgumentParser):
                 option[0] = program + '-' + option[0]
             namespace_as_dict.update(dict(prefixed_options))
 
-        extended_namespace = argparse.Namespace(**namespace_as_dict)
+        if check_unknown and remaining_args:
+            if self._catch_all:
+                setattr(namespace, self._catch_all.dest,
+                        getattr(namespace, self._catch_all.dest) + remaining_args)
+            else:
+                self.error('unrecognized arguments: %s' % ' '.join(remaining_args))
 
-        self.write_config_file(extended_namespace)
-        namespace.config_as_string = self.write_config_file(extended_namespace, toString=True)
+        extended_namespace = argparse.Namespace(**namespace_as_dict)
+        self._write_config_file(extended_namespace)
+        namespace.config_as_string = self._write_config_file(extended_namespace, toString=True)
         return namespace, remaining_args
+
+
+def handleCategoryWrapper(parser, func):
+    @wraps(func)
+    def inner(*args, **kwargs):
+        # remove category from arguments and set in result
+        category = kwargs.pop("category", None)
+        fix_path = kwargs.pop("fix_path", True)
+        result = func(*args, **kwargs)
+        if fix_path:
+            for s in result.option_strings:
+                if s.startswith("--"):
+                    parser._fix_path_args.add(s[2:])
+        result.category = category
+        # set if is a boolean
+        action = kwargs.get("action")
+        result.boolean = ((action == "store_true") or (action == "store_false"))
+        result.isRequired = kwargs.get("required", False)
+        result.isPositional = args[0][0] != "-"
+        return result
+    return inner
 
 
 class SplitAction(argparse.Action):

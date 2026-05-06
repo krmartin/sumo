@@ -22,7 +22,7 @@ represent auxiliary devices such as air conditioning, and the battery.
 
 To utilise MMPEVEM, set `emissionClass="MMPEVEM"` in the `vType` definitions of
 the vehicles you are interested in and add the following parameter:
-```
+```xml
 <param key="has.battery.device" value="true"/>
 ```
 Equipping the `vType` with a battery device is necessary because it triggers the
@@ -42,7 +42,7 @@ consumption.
 ## Model Parameters
 
 MMPEVEM shares a lot of SUMO's
-[native electric vehicle parameters](Electric.md#defining-electric-vehicles) and
+[native electric vehicle parameters](Electric.md#defining_electric_vehicles) and
 introduces only a couple of new ones. You can find exemplary vehicle type
 definitions at `{SUMO_HOME}/data/emissions/MMPEVEM`[^1].
 
@@ -68,7 +68,7 @@ definitions at `{SUMO_HOME}/data/emissions/MMPEVEM`[^1].
 
 [^1]: For the sake of compatibility, the XMLs in
   `{SUMO_HOME}/data/emissions/MMPEVEM` contain all
-  [native electric vehicle parameters](Electric.md#defining-electric-vehicles).
+  [native electric vehicle parameters](Electric.md#defining_electric_vehicles).
 [^2]: All operating points result in a power loss of 0 W in the default map.
 
 
@@ -123,7 +123,7 @@ script require MATLAB® 2017 or newer.
 
 This is an example `vType` definition of a generic electric SUV and was taken
 from `{SUMO_HOME}/data/emissions/MMPEVEM/SUV.xml`.
-```
+```xml
 <vType id="SUV" vClass="passenger" emissionClass="MMPEVEM" actionStepLength="1.0">
   <param key="has.battery.device" value="true"/>
   <param key="vehicleMass" value="2100"/>
@@ -160,9 +160,13 @@ MMPEVEM is a backward-facing model, meaning that it expects a velocity,
 acceleration, slope, and time step size to calculate the energy demand. This
 also means that it has no way to stop the vehicle from running into invalid
 operating points. The latter can be caused by implausible accelerations (for
-instance due to teleportations), wrong vehicle parameters, etc. If the model
-finds itself in such a state, it returns `nan`. On a related note, MMPEVEM
-assumes that the driver perfectly operates the mechanical brakes such that
+instance due to teleportations), wrong vehicle parameters, etc. Another reason is the use of the "default" acceleration when driving at hight speed.
+This can be mitigated by providing an [`maxAccelProfile` or `desAccelProfile`](../Definition_of_Vehicles%2C_Vehicle_Types%2C_and_Routes.md#car-following_model_parameters)
+
+!!! caution
+    If the model finds itself in an invalid state, it returns `nan` as energy consumption
+    
+On a related note, MMPEVEM assumes that the driver perfectly operates the mechanical brakes such that
 torque and power are clipped to the motor's limits during recuperation.
 
 
@@ -172,4 +176,3 @@ torque and power are clipped to the motor's limits during recuperation.
 consumption in the SUMO traffic microsimulator," 2021 IEEE International
 Intelligent Transportation Systems Conference (ITSC), 2021, pp. 1650-1657, doi:
 10.1109/ITSC48978.2021.9564463](https://doi.org/10.1109/ITSC48978.2021.9564463)
-

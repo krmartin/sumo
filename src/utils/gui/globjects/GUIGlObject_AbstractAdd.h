@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -39,7 +39,7 @@ class GUIGlObject_AbstractAdd : public GUIGlObject {
 
 public:
     /// @brief constructor
-    GUIGlObject_AbstractAdd(GUIGlObjectType type, const std::string& id, FXIcon *icon);
+    GUIGlObject_AbstractAdd(GUIGlObjectType type, const std::string& id, FXIcon* icon);
 
     /// @brief destructor
     ~GUIGlObject_AbstractAdd();
@@ -63,6 +63,6 @@ protected:
     /// @brief Map from names of loaded additional objects to the objects themselves
     static std::map<std::string, GUIGlObject_AbstractAdd*> myObjects;
 
-    /// @brief The list of all addtional objects currently loaded
+    /// @brief The list of all additional objects currently loaded
     static std::vector<GUIGlObject_AbstractAdd*> myObjectList;
 };

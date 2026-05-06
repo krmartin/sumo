@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -25,7 +25,7 @@
 // ===========================================================================
 // static variables
 // ===========================================================================
-StringBijection<int>::Entry VehicleEngineHandler::engineTags[] = {
+SequentialStringBijection::Entry VehicleEngineHandler::engineTags[] = {
     { "vehicles",     VehicleEngineHandler::ENGINE_TAG_VEHICLES },
     { "vehicle",      VehicleEngineHandler::ENGINE_TAG_VEHICLE },
     { "gears",        VehicleEngineHandler::ENGINE_TAG_GEARS                  },
@@ -43,7 +43,7 @@ StringBijection<int>::Entry VehicleEngineHandler::engineTags[] = {
 };
 
 
-StringBijection<int>::Entry VehicleEngineHandler::engineAttrs[] = {
+SequentialStringBijection::Entry VehicleEngineHandler::engineAttrs[] = {
     { "id",           VehicleEngineHandler::ENGINE_ATTR_ID},
     { "n",            VehicleEngineHandler::ENGINE_ATTR_GEAR_N                 },
     { "ratio",        VehicleEngineHandler::ENGINE_ATTR_GEAR_RATIO             },
@@ -80,7 +80,7 @@ StringBijection<int>::Entry VehicleEngineHandler::engineAttrs[] = {
 // ===========================================================================
 VehicleEngineHandler::VehicleEngineHandler(const std::string& toLoad)
     : GenericSAXHandler(engineTags, ENGINE_TAG_NOTHING, engineAttrs, ENGINE_ATTR_NOTHING, "vehicles"),
-    skip(false), currentGear(1) {
+      skip(false), currentGear(1) {
     vehicleToLoad = toLoad;
 }
 
@@ -154,7 +154,7 @@ VehicleEngineHandler::myStartElement(int element, const SUMOSAXAttributes& attrs
                 engineParameters.maxRpm = attrs.getInt(ENGINE_ATTR_ENGINE_MAXRPM);
                 std::string mapType = attrs.getString(ENGINE_ATTR_ENGINE_TYPE);
                 if (mapType != "poly") {
-                    throw ProcessError("Invalid engine map type. Only \"poly\" is supported for now");
+                    throw ProcessError(TL("Invalid engine map type. Only \"poly\" is supported for now"));
                 }
             }
             break;
@@ -194,7 +194,7 @@ VehicleEngineHandler::myStartElement(int element, const SUMOSAXAttributes& attrs
         case ENGINE_TAG_GEARS:
             break;
         default:
-            WRITE_WARNING("Unknown tag '" + toString(element) + "' while parsing.");
+            WRITE_WARNINGF(TL("Unknown tag '%' while parsing."), toString(element));
     }
 }
 

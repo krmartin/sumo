@@ -1,5 +1,5 @@
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2013-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2013-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -57,14 +57,17 @@ def addToBoundingBox(coordList, bbox=None):
     return minX, minY, maxX, maxY
 
 
+def isLeft(point, line_start, line_end):
+    return ((line_end[0] - line_start[0]) * (point[1] - line_start[1])
+            < (point[0] - line_start[0]) * (line_end[1] - line_start[1]))
+
+
 def lineOffsetWithMinimumDistanceToPoint(point, line_start, line_end, perpendicular=False):
     """Return the offset from line (line_start, line_end) where the distance to
     point is minimal"""
-    p = point
-    p1 = line_start
-    p2 = line_end
-    d = distance(p1, p2)
-    u = ((p[0] - p1[0]) * (p2[0] - p1[0])) + ((p[1] - p1[1]) * (p2[1] - p1[1]))
+    d = distance(line_start, line_end)
+    u = ((point[0] - line_start[0]) * (line_end[0] - line_start[0])
+         + (point[1] - line_start[1]) * (line_end[1] - line_start[1]))
     if d == 0. or u < 0. or u > d * d:
         if perpendicular:
             return INVALID_DISTANCE
@@ -159,16 +162,34 @@ def positionAtOffset(p1, p2, offset):
     return (p1[0] + (p2[0] - p1[0]) * (offset / dist), p1[1] + (p2[1] - p1[1]) * (offset / dist))
 
 
-def positionAtShapeOffset(shape, offset):
-    seenLength = 0
+def indexAtShapeOffset(shape, offset):
+    """Returns the index of the shape segment which contains the offset and
+       the cumulated length of the shape up to the start point of the segment.
+       If the offset is less or equal to 0, it returns (0, 0.) If the offset is
+       larger than the shape length it returns (None, length of the shape)"""
+    seenLength = 0.
     curr = shape[0]
-    for next in shape[1:]:
-        nextLength = distance(curr, next)
+    for idx, p in enumerate(shape[1:]):
+        nextLength = distance(curr, p)
         if seenLength + nextLength > offset:
-            return positionAtOffset(curr, next, offset - seenLength)
+            return idx, seenLength
         seenLength += nextLength
-        curr = next
-    return shape[-1]
+        curr = p
+    return None, seenLength
+
+
+def positionAtShapeOffset(shape, offset):
+    idx, seen = indexAtShapeOffset(shape, offset)
+    if idx is None:
+        return shape[-1]
+    return positionAtOffset(shape[idx], shape[idx + 1], offset - seen)
+
+
+def rotationAtShapeOffset(shape, offset):
+    idx, _ = indexAtShapeOffset(shape, offset)
+    if idx is None:
+        return None
+    return math.atan2(shape[idx + 1][1] - shape[idx][1], shape[idx + 1][0] - shape[idx][0])
 
 
 def angle2D(p1, p2):
@@ -180,6 +201,10 @@ def angle2D(p1, p2):
     while dtheta < -math.pi:
         dtheta += 2.0 * math.pi
     return dtheta
+
+
+def angleTo2D(p1, p2):
+    return math.atan2(p2[1] - p1[1], p2[0] - p1[0])
 
 
 def naviDegree(rad):
@@ -204,6 +229,7 @@ def minAngleDegreeDiff(d1, d2):
 
 
 def isWithin(pos, shape):
+    """Returns whether the given pos coordinate is inside the polygon shape defined in anticlockwise order."""
     angle = 0.
     for i in range(0, len(shape) - 1):
         p1 = ((shape[i][0] - pos[0]), (shape[i][1] - pos[1]))
@@ -238,13 +264,26 @@ def dotProduct(a, b):
     return a[0] * b[0] + a[1] * b[1]
 
 
+def crossProduct2D(a, b):
+    return a[0] * b[1] - a[1] * b[0]
+
+
 def orthoIntersection(a, b):
     c = add(a, b)
     quot = dotProduct(c, a)
-    if quot != 0:
+    if abs(quot) > 0.001:
         return mul(mul(c, dotProduct(a, a)), 1 / quot)
     else:
         return None
+
+
+def rotateAround2D(p, rad, origin):
+    s = math.sin(rad)
+    c = math.cos(rad)
+    tmp = sub(p, origin)
+    tmp2 = [tmp[0] * c - tmp[1] * s,
+            tmp[0] * s + tmp[1] * c]
+    return add(tmp2, origin)
 
 
 def length(a):
@@ -265,6 +304,16 @@ def narrow(fromPos, pos, toPos, amount):
         return True
     x = dotProduct(a, a) * length(c) / dPac
     return x < amount
+
+
+def line2boundary(shape, width):
+    """expand center line by width/2 on both sides to obtain a (closed) boundary shape
+    (i.e. for an edge or lane)
+    """
+    left = move2side(shape, width / 2)
+    right = move2side(shape, -width / 2)
+
+    return left + list(reversed(right)) + [left[0]]
 
 
 def move2side(shape, amount):
@@ -296,7 +345,7 @@ def move2side(shape, amount):
                 a = sideOffset(fromPos, pos, -amount)
                 b = sideOffset(pos, toPos, -amount)
                 c = orthoIntersection(a, b)
-                if orthoIntersection is not None:
+                if c is not None:
                     pos2 = add(pos, c)
                 else:
                     extend = norm(sub(pos, fromPos))
@@ -327,19 +376,19 @@ def splitPolygonAtLengths2D(polygon, lengths):
     for offset in offsets:
         currSlice = [curr]
         while polygonIndex < len(polygon) - 1:
-            next = polygon[polygonIndex + 1]
-            if offset < seenLength + distance(curr, next):
-                splitPos = positionAtOffset(curr, next, offset - seenLength)
+            p = polygon[polygonIndex + 1]
+            if offset < seenLength + distance(curr, p):
+                splitPos = positionAtOffset(curr, p, offset - seenLength)
                 if not isclose(distance(currSlice[-1], splitPos), 0):
                     currSlice.append(splitPos)
                 seenLength += distance(curr, splitPos)
                 curr = splitPos
                 break
             else:
-                if not isclose(distance(currSlice[-1], next), 0):
-                    currSlice.append(next)
-                seenLength += distance(curr, next)
-                curr = next
+                if not isclose(distance(currSlice[-1], p), 0):
+                    currSlice.append(p)
+                seenLength += distance(curr, p)
+                curr = p
                 polygonIndex += 1
         ret.append(currSlice)
     if polygonIndex < len(polygon) - 1:
@@ -364,7 +413,7 @@ def intersectsAtLengths2D(polygon1, polygon2):
             p11 = polygon1[i]
             p12 = polygon1[i + 1]
             pIntersection = [0.0, 0.0]
-            if (intersectsLineSegment(p11, p12, p21, p22, 0.0, pIntersection, True)):
+            if intersectsLineSegment(p11, p12, p21, p22, 0.0, pIntersection, True):
                 for k in range(0, len(pIntersection), 2):
                     length = pos + distance(p11, (pIntersection[k], pIntersection[k + 1]))
                     # special case for closed polygons
@@ -394,7 +443,7 @@ def intersectsPolygon(polygon1, polygon2):
         for j in range(len(polygon2) - 1):
             p21 = polygon2[j]
             p22 = polygon2[j + 1]
-            if (intersectsLineSegment(p11, p12, p21, p22)):
+            if intersectsLineSegment(p11, p12, p21, p22):
                 return True
     return False
 
@@ -422,7 +471,7 @@ def intersectsLineSegment(p11, p12, p21, p22, withinDist=0.0, pIntersection=None
         a4 = 0.0
         a = -1e12
         isVertical = (p11[0] == p12[0])
-        if (not isVertical):
+        if not isVertical:
             # line1 and line2 are not vertical
             a1 = p11[0] if p11[0] < p12[0] else p12[0]
             a2 = p12[0] if p11[0] < p12[0] else p11[0]
@@ -434,12 +483,12 @@ def intersectsLineSegment(p11, p12, p21, p22, withinDist=0.0, pIntersection=None
             a2 = p12[1] if p11[1] < p12[1] else p11[1]
             a3 = p21[1] if p21[1] < p22[1] else p22[1]
             a4 = p22[1] if p21[1] < p22[1] else p21[1]
-        if (a1 <= a3 and a3 <= a2):
+        if a1 <= a3 and a3 <= a2:
             # one endpoint of line2 lies on line1
-            if (a4 <= a2):
+            if a4 <= a2:
                 # line2 is a subset of line1
                 a = (a3 + a4) / 2.0
-                if (storeEndPointsIfCoincident and pIntersection is not None):
+                if storeEndPointsIfCoincident and pIntersection is not None:
                     pIntersection[0] = p21[0]
                     pIntersection[1] = p21[1]
                     pIntersection.append(p22[0])
@@ -448,8 +497,8 @@ def intersectsLineSegment(p11, p12, p21, p22, withinDist=0.0, pIntersection=None
             else:
                 # the other endpoint of line2 lies beyond line1
                 a = (a3 + a2) / 2.0
-                if (storeEndPointsIfCoincident and pIntersection is not None):
-                    if (not isVertical):
+                if storeEndPointsIfCoincident and pIntersection is not None:
+                    if not isVertical:
                         pIntersection[0] = a3
                         pIntersection[1] = p21[1] if p21[0] < p22[0] else p22[1]
                         pIntersection.append(a2)
@@ -460,12 +509,12 @@ def intersectsLineSegment(p11, p12, p21, p22, withinDist=0.0, pIntersection=None
                         pIntersection.append(p12[0] if p11[1] < p12[1] else p11[0])
                         pIntersection.append(a2)
                     return True
-        if (a3 <= a1 and a1 <= a4):
+        if a3 <= a1 and a1 <= a4:
             # one endpoint of line1 lies on line2
-            if (a2 <= a4):
+            if a2 <= a4:
                 # line1 is a subset of line2
                 a = (a1 + a2) / 2.0
-                if (storeEndPointsIfCoincident and pIntersection is not None):
+                if storeEndPointsIfCoincident and pIntersection is not None:
                     pIntersection[0] = p11[0]
                     pIntersection[1] = p11[1]
                     pIntersection.append(p12[0])
@@ -474,8 +523,8 @@ def intersectsLineSegment(p11, p12, p21, p22, withinDist=0.0, pIntersection=None
             else:
                 # the other endpoint of line1 lies beyond line2
                 a = (a1 + a4) / 2.0
-                if (storeEndPointsIfCoincident and pIntersection is not None):
-                    if (not isVertical):
+                if storeEndPointsIfCoincident and pIntersection is not None:
+                    if not isVertical:
                         pIntersection[0] = a1
                         pIntersection[1] = p11[1] if p11[0] < p12[0] else p12[1]
                         pIntersection.append(a4)
@@ -486,9 +535,9 @@ def intersectsLineSegment(p11, p12, p21, p22, withinDist=0.0, pIntersection=None
                         pIntersection.append(p22[0] if p21[1] < p22[1] else p21[0])
                         pIntersection.append(a4)
                     return True
-        if (a != -1e12):
-            if (pIntersection is not None):
-                if (not isVertical):
+        if a != -1e12:
+            if pIntersection is not None:
+                if not isVertical:
                     # line1 and line2 are not vertical
                     mu = (a - p11[0]) / (p12[0] - p11[0])
                     x = a
@@ -497,7 +546,7 @@ def intersectsLineSegment(p11, p12, p21, p22, withinDist=0.0, pIntersection=None
                     # line1 and line2 are vertical
                     x = p11[0]
                     y = a
-                    if (p12[1] == p11[1]):
+                    if p12[1] == p11[1]:
                         mu = 0
                     else:
                         mu = (a - p11[1]) / (p12[1] - p11[1])
@@ -506,12 +555,12 @@ def intersectsLineSegment(p11, p12, p21, p22, withinDist=0.0, pIntersection=None
             return True
         return False
     # Are the lines parallel?
-    if (math.fabs(denominator) < eps):
+    if math.fabs(denominator) < eps:
         return False
     # Is the intersection along the segments?
     mua = numera / denominator
     # Reduce rounding errors for lines ending in the same point
-    if (math.fabs(p12[0] - p22[0]) < eps and math.fabs(p12[1] - p22[1]) < eps):
+    if math.fabs(p12[0] - p22[0]) < eps and math.fabs(p12[1] - p22[1]) < eps:
         mua = 1.0
     else:
         offseta = withinDist / distance(p11, p12)
@@ -519,10 +568,15 @@ def intersectsLineSegment(p11, p12, p21, p22, withinDist=0.0, pIntersection=None
         mub = numerb / denominator
         if (mua < -offseta or mua > 1 + offseta or mub < -offsetb or mub > 1 + offsetb):
             return False
-    if (pIntersection is not None):
+    if pIntersection is not None:
         x = p11[0] + mua * (p12[0] - p11[0])
         y = p11[1] + mua * (p12[1] - p11[1])
         mu = mua
         pIntersection[0] = x
         pIntersection[1] = y
     return True
+
+
+def debugPrint(polygon, polyID):
+    """print polygon in a way that can be processed with debug2poly.py"""
+    print("%s=%s" % (polyID, ' '.join(['%s,%s' % p for p in polygon])))

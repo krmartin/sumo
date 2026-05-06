@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2011-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2011-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -85,17 +85,35 @@ NBHeightMapper::ready() const {
 double
 NBHeightMapper::getZ(const Position& geo) const {
     if (!ready()) {
-        WRITE_WARNING("Cannot supply height since no height data was loaded");
+        WRITE_WARNING(TL("Cannot supply height since no height data was loaded"));
         return 0;
     }
     for (auto& item : myRasters) {
         const Boundary& boundary = item.boundary;
-        int16_t* raster = item.raster;
+        float* raster = item.raster;
         double result = -1e6;
-        if (boundary.around(geo)) {
+
+        double x = geo.x();
+        double y = geo.y();
+
+#ifdef HAVE_GDAL
+        // Transform geo coordinates to the coordinate system of this
+        // raster image for lookup in its raster, if applicable.
+        if (item.transform != nullptr) {
+            // Since the input coordinates are always WGS84 (they may be
+            // transformed to it in NBNetBuilder::transformCoordinate), and
+            // WGS84 uses latitude-longitude order (y-x), we have to swap the
+            // input coordinates here.
+            std::swap(x, y);
+
+            item.transform->Transform(1, &x, &y);
+        }
+#endif
+
+        if (boundary.around2D(x, y)) {
             const int xSize = item.xSize;
-            const double normX = (geo.x() - boundary.xmin()) / mySizeOfPixel.x();
-            const double normY = (geo.y() - boundary.ymax()) / mySizeOfPixel.y();
+            const double normX = (x - boundary.xmin()) / mySizeOfPixel.x();
+            const double normY = (y - boundary.ymax()) / mySizeOfPixel.y();
             PositionVector corners;
             corners.push_back(Position(floor(normX) + 0.5, floor(normY) + 0.5, raster[(int)normY * xSize + (int)normX]));
             if (normX - floor(normX) > 0.5) {
@@ -133,7 +151,7 @@ NBHeightMapper::getZ(const Position& geo) const {
             return triangle->getZ(geo);
         }
     }
-    WRITE_WARNINGF("Could not get height data for coordinate %", toString(geo));
+    WRITE_WARNINGF(TL("Could not get height data for coordinate %"), toString(geo));
     return 0;
 }
 
@@ -187,7 +205,7 @@ NBHeightMapper::loadShapeFile(const std::string& file) {
     GDALDataset* ds = (GDALDataset*)GDALOpenEx(file.c_str(), GDAL_OF_VECTOR | GA_ReadOnly, nullptr, nullptr, nullptr);
 #endif
     if (ds == nullptr) {
-        throw ProcessError("Could not open shape file '" + file + "'.");
+        throw ProcessError(TLF("Could not open shape file '%'.", file));
     }
 
     // begin file parsing
@@ -196,12 +214,16 @@ NBHeightMapper::loadShapeFile(const std::string& file) {
 
     // triangle coordinates are stored in WGS84 and later matched with network coordinates in WGS84
     // build coordinate transformation
+#if GDAL_VERSION_MAJOR < 3
     OGRSpatialReference* sr_src = layer->GetSpatialRef();
+#else
+    const OGRSpatialReference* sr_src = layer->GetSpatialRef();
+#endif
     OGRSpatialReference sr_dest;
     sr_dest.SetWellKnownGeogCS("WGS84");
     OGRCoordinateTransformation* toWGS84 = OGRCreateCoordinateTransformation(sr_src, &sr_dest);
     if (toWGS84 == nullptr) {
-        WRITE_WARNING("Could not create geocoordinates converter; check whether proj.4 is installed.");
+        WRITE_WARNING(TL("Could not create geocoordinates converter; check whether proj.4 is installed."));
     }
 
     int numFeatures = 0;
@@ -228,7 +250,7 @@ NBHeightMapper::loadShapeFile(const std::string& file) {
             addTriangle(corners);
             numFeatures++;
         } else {
-            WRITE_WARNINGF("Ignored heightmap feature type %", geom->getGeometryName());
+            WRITE_WARNINGF(TL("Ignored heightmap feature type %"), geom->getGeometryName());
         }
 
         /*
@@ -237,27 +259,27 @@ NBHeightMapper::loadShapeFile(const std::string& file) {
                 break;
             }
             case wkbPoint: {
-                WRITE_WARNING("got wkbPoint");
+                WRITE_WARNING(TL("got wkbPoint"));
                 break;
             }
             case wkbLineString: {
-                WRITE_WARNING("got wkbLineString");
+                WRITE_WARNING(TL("got wkbLineString"));
                 break;
             }
             case wkbMultiPoint: {
-                WRITE_WARNING("got wkbMultiPoint");
+                WRITE_WARNING(TL("got wkbMultiPoint"));
                 break;
             }
             case wkbMultiLineString: {
-                WRITE_WARNING("got wkbMultiLineString");
+                WRITE_WARNING(TL("got wkbMultiLineString"));
                 break;
             }
             case wkbMultiPolygon: {
-                WRITE_WARNING("got wkbMultiPolygon");
+                WRITE_WARNING(TL("got wkbMultiPolygon"));
                 break;
             }
             default:
-                WRITE_WARNING("Unsupported shape type occurred");
+                WRITE_WARNING(TL("Unsupported shape type occurred"));
             break;
         }
         */
@@ -273,7 +295,7 @@ NBHeightMapper::loadShapeFile(const std::string& file) {
     return numFeatures;
 #else
     UNUSED_PARAMETER(file);
-    WRITE_ERROR("Cannot load shape file since SUMO was compiled without GDAL support.");
+    WRITE_ERROR(TL("Cannot load shape file since SUMO was compiled without GDAL support."));
     return 0;
 #endif
 }
@@ -285,7 +307,7 @@ NBHeightMapper::loadTiff(const std::string& file) {
     GDALAllRegister();
     GDALDataset* poDataset = (GDALDataset*)GDALOpen(file.c_str(), GA_ReadOnly);
     if (poDataset == 0) {
-        WRITE_ERROR("Cannot load GeoTIFF file.");
+        WRITE_ERROR(TL("Cannot load GeoTIFF file."));
         return 0;
     }
     Boundary boundary;
@@ -300,23 +322,23 @@ NBHeightMapper::loadTiff(const std::string& file) {
         boundary.add(topLeft);
         boundary.add(topLeft.x() + horizontalSize, topLeft.y() + verticalSize);
     } else {
-        WRITE_ERROR("Could not parse geo information from " + file + ".");
+        WRITE_ERRORF(TL("Could not parse geo information from %."), file);
         return 0;
     }
     const int picSize = xSize * ySize;
-    int16_t* raster = (int16_t*)CPLMalloc(sizeof(int16_t) * picSize);
+    float* raster = (float*)CPLMalloc(sizeof(float) * picSize);
     bool ok = true;
     for (int i = 1; i <= poDataset->GetRasterCount(); i++) {
         GDALRasterBand* poBand = poDataset->GetRasterBand(i);
         if (poBand->GetColorInterpretation() != GCI_GrayIndex) {
-            WRITE_ERROR("Unknown color band in " + file + ".");
+            WRITE_ERRORF(TL("Unknown color band in %."), file);
             clearData();
             ok = false;
             break;
         }
         assert(xSize == poBand->GetXSize() && ySize == poBand->GetYSize());
-        if (poBand->RasterIO(GF_Read, 0, 0, xSize, ySize, raster, xSize, ySize, GDT_Int16, 0, 0) == CE_Failure) {
-            WRITE_ERROR("Failure in reading " + file + ".");
+        if (poBand->RasterIO(GF_Read, 0, 0, xSize, ySize, raster, xSize, ySize, GDT_Float32, 0, 0) == CE_Failure) {
+            WRITE_ERRORF(TL("Failure in reading %."), file);
             clearData();
             ok = false;
             break;
@@ -328,24 +350,29 @@ NBHeightMapper::loadTiff(const std::string& file) {
         min = MIN2(min, (double)raster[i]);
         max = MAX2(max, (double)raster[i]);
     }
+
+    // Make a copy, GDALClose will destroy the original
+#if GDAL_VERSION_MAJOR < 3
+    OGRSpatialReference spatialRef;
+    char* wkt = const_cast<char*>(poDataset->GetProjectionRef());
+    spatialRef.importFromWkt(&wkt);
+#else
+    OGRSpatialReference spatialRef(*poDataset->GetSpatialRef());
+#endif
     GDALClose(poDataset);
     if (ok) {
         WRITE_MESSAGE("Read geotiff heightmap with size " + toString(xSize) + "," + toString(ySize)
                       + " for geo boundary [" + toString(boundary)
                       + "] with elevation range [" + toString(min) + "," + toString(max) + "].");
-        RasterData rasterData;
-        rasterData.raster = raster;
-        rasterData.boundary = boundary;
-        rasterData.xSize = xSize;
-        rasterData.ySize = ySize;
-        myRasters.push_back(rasterData);
+        OGRSpatialReference wgs;
+        wgs.SetWellKnownGeogCS("WGS84");
+        myRasters.push_back(RasterData{raster, boundary, xSize, ySize, OGRCreateCoordinateTransformation(&wgs, &spatialRef)});
         return picSize;
-    } else {
-        return 0;
     }
+    return 0;
 #else
     UNUSED_PARAMETER(file);
-    WRITE_ERROR("Cannot load GeoTIFF file since SUMO was compiled without GDAL support.");
+    WRITE_ERROR(TL("Cannot load GeoTIFF file since SUMO was compiled without GDAL support."));
     return 0;
 #endif
 }
@@ -360,6 +387,9 @@ NBHeightMapper::clearData() {
 #ifdef HAVE_GDAL
     for (auto& item : myRasters) {
         CPLFree(item.raster);
+        if (item.transform != nullptr) {
+            delete item.transform;
+        }
     }
     myRasters.clear();
 #endif

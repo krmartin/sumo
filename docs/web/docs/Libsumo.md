@@ -5,7 +5,7 @@ title: Libsumo
 # Libsumo
 
 The main way to interact with a running simulation is
-[TraCI](TraCI.md) which gives the complete flexibility of doing
+[TraCI](TraCI/index.md) which gives the complete flexibility of doing
 cross-platform, cross-language, and networked interaction with
 [sumo](sumo.md) acting as a server. One major drawback is the
 communication overhead due to the protocol and the socket communication.
@@ -15,11 +15,11 @@ following properties:
 
 - C++ interface based on static functions and a few simple wrapper
   classes for results which can be linked directly to the client code
-- Function signatures similar to [TraCI](TraCI.md)
+- Function signatures similar to [TraCI](TraCI/index.md)
 - Pre-built language bindings for Java and Python (using
-  [SWIG](http://www.swig.org/))
+  [SWIG](https://www.swig.org/))
 - Support for other programming languages via
-  [SWIG](http://www.swig.org/)
+  [SWIG](https://www.swig.org/)
 
 # Limitations
 
@@ -33,8 +33,17 @@ The following things currently do not work (or work differently than with the Tr
   - TraCI automatically converts every parameter into a string if a string is needed, Libsumo does not
 - using traci.init or traci.connect is not possible (you always need to use traci.start / libsumo.start)
 - with traci every TraCIException will generate a message on stderr, Libsumo does not generate this message
+- libsumo by itself cannot be used to [connect multiple clients to the simulation](TraCI/Interfacing_TraCI_from_Python.md#controlling_the_same_simulation_from_multiple_clients) (though connecting normal TraCI clients to a libsumo instance is possible)
+- running parallel instances of libsumo requires the [multiprocessing module (in python)](https://docs.python.org/3/library/multiprocessing.html)
 
-# Building it
+To avoid the limitations with respect to GUI, multi-clients support, you can also use [libtraci](Libtraci.md). This is a C++ traci client library which is fully API-compatible with libsumo.
+
+# Building and Installing it
+
+The binary windows release already contains the readily compiled libsumo
+for C++ and Java. For Python you can install it via `pip install libsumo`.
+For C# the generated source files are provided.
+Only if your platform or language is not supported follow the steps below.
 
 It currently requires cmake and swig being installed together with the
 developer packages for Python (and Java if needed), for Windows see
@@ -46,24 +55,32 @@ make again if you previously did a build without swig).
 For the python bindings you will get a libsumo.py and a
 _libsumo.so (or .pyd on Windows). If you place them somewhere on your
 python path you should be able to use them as described below.
+If you want to enable the experimental C# support, make sure that
+you have `ENABLE_CS_BINDINGS` set in your cmake configuration.
 
 !!! note
     Make sure to add `"/your/path/to/sumo/tools"` to the `PYTHONPATH` environment variable.
 
 # Using libsumo
 
+If you want to use the (experimental) GUI then you need to have `sumo-gui`
+in your start command instead of `sumo` or define the environment variable
+`LIBSUMO_GUI`.
+
 ## Python
 
+Make sure you have libsumo installed (`pip install libsumo`).
+
 ```py
-import libsumo
-libsumo.start(["sumo", "-c", "test.sumocfg"])
+import libsumo
+libsumo.start(["sumo", "-c", "test.sumocfg"])
 libsumo.simulationStep()
 ```
 
 Existing traci scripts can be reused (subject to the [limitations](#limitations) mentioned above) by calling
 
 ```py
-import libsumo as traci
+import libsumo as traci
 ```
 
 In case you have a lot of scripts you can also set the environment
@@ -77,6 +94,9 @@ Please note the extra `#define` for enabling GUI code which is not needed if you
 
 ### Example Code (test.cpp)
 
+The example assumes you have the named sumocfg file in your current working directory and the SUMO `bin` directory included
+in the `PATH` environmental variable. Otherwise you need to provide the full file path.
+
 ```cpp
 #include <iostream>
 #define HAVE_LIBSUMOGUI  // if you are on Windows or have libsumo compiled yourself without GUI you should remove this line
@@ -85,7 +105,7 @@ Please note the extra `#define` for enabling GUI code which is not needed if you
 using namespace libsumo;
 
 int main(int argc, char* argv[]) {
-    Simulation::load({"-c", "test.sumocfg"});
+    Simulation::start({"sumo", "-c", "test.sumocfg"});
     for (int i = 0; i < 5; i++) {
         Simulation::step();
     }
@@ -107,6 +127,9 @@ LD_LIBRARY_PATH=$SUMO_HOME/bin ./test
 
 ## Java
 
+On Windows it is strongly recommended to use at least OpenJDK 21.0.5 (for libsumo 1.22.0 or later).
+Earlier versions show unexplained crashes.
+
 You might want to use the available [Maven package](Developer/Maven.md).
 
 ### Example Code (Test.java)
@@ -117,8 +140,8 @@ import org.eclipse.sumo.libsumo.StringVector;
 
 public class Test {
     public static void main(String[] args) {
-        System.loadLibrary("libsumojni");
-        Simulation.load(new StringVector(new String[] {"-c", "test.sumocfg"}));
+        Simulation.preloadLibraries();
+        Simulation.start(new StringVector(new String[] {"sumo", "-c", "test.sumocfg"}));
         for (int i = 0; i < 5; i++) {
             Simulation.step();
         }
@@ -127,14 +150,64 @@ public class Test {
 }
 ```
 
+Please note that starting with SUMO 1.16.0 it seems to be necessary to preload some libraries
+on Windows, see https://github.com/eclipse-sumo/sumo/issues/12605.
+This has been encapsulated in a separate convenience call `Simulation.preloadLibraries()` since SUMO 1.24.0.
+
 ### compiling on Linux (make sure SUMO_HOME is set and sumo has been built)
 
 ```
-javac -cp $SUMO_HOME/bin/libsumo-1.8.0-SNAPSHOT.jar Test.java
+javac -cp $SUMO_HOME/bin/libsumo-{{Version}}-SNAPSHOT.jar Test.java
 ```
 
 ### running on Linux
 
 ```
-java -Djava.library.path=$SUMO_HOME/bin -cp $SUMO_HOME/bin/libsumo-1.8.0-SNAPSHOT.jar:. Test
+java -Djava.library.path=$SUMO_HOME/bin -cp $SUMO_HOME/bin/libsumo-{{Version}}-SNAPSHOT.jar:. Test
+```
+
+### casting subscription results
+
+Please be aware that casting subscription results is not straightforward with Java.
+You have to use the `cast` function as below. If the cast is not successful it will not throw an exception
+but return a null pointer.
+
+```
+TraCIResults ssRes = Simulation.getSubscriptionResults();
+for (Map.Entry<Integer, TraCIResult> entry : ssRes.entrySet()) {
+    TraCIResult sR = entry.getValue();
+    TraCIStringList vehIDs = TraCIStringList.cast(sR);
+    for (String vehID : vehIDs.getValue()) {
+        System.out.println("Subscription Departed vehicles: " + vehID);
+    }
+}
+```
+## Matlab
+
+Please install the [Python package](#python). You can then use all commands inside your Matlab scripts
+just as in Python by adding the `py.` prefix.
+
+```
+py.libsumo.start(["sumo", "-c", "test.sumocfg"])
+py.libsumo.simulationStep()
+```
+
+## C#
+
+### Example Code (Program.cs)
+Make sure you have added the swig generated C# bindings to your solution, as well as the compiled libsumocs.dll if not present in your Sumo installation folder.
+
+```c#
+using Eclipse.Sumo.Libsumo;
+
+internal class Program
+{
+    static void Main(String[] args) {
+        Simulation.start(new StringVector(new String[] {"sumo", "-c", "test.sumocfg"}));
+        for (int i = 0; i < 5; i++) {
+            Simulation.step();
+        }
+        Simulation.close();
+    }
+}
 ```

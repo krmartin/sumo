@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2011-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2011-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -50,7 +50,7 @@ public:
      */
     NBLoadedSUMOTLDef(const std::string& id, const std::string& programID, SUMOTime offset, TrafficLightType type);
 
-    /** @brief Constructor that copies from an existing definition and its computed logic (used by NETEDIT)
+    /** @brief Constructor that copies from an existing definition and its computed logic (used by netedit)
      * @param[in] def The definition to copy
      * @param[in] logic The computed logic of the given def
      */
@@ -71,7 +71,7 @@ public:
      */
     void setTLControllingInformation() const;
 
-    /** @brief Replaces occurences of the removed edge in incoming/outgoing edges of all definitions
+    /** @brief Replaces occurrences of the removed edge in incoming/outgoing edges of all definitions
      * @param[in] removed The removed edge
      * @param[in] incoming The edges to use instead if an incoming edge was removed
      * @param[in] outgoing The edges to use instead if an outgoing edge was removed
@@ -121,7 +121,7 @@ public:
 
 
     /** @brief removes the given connection from the traffic light
-     * if recontruct=true, reconstructs the logic and informs the edges for immediate use in NETEDIT
+     * if recontruct=true, reconstructs the logic and informs the edges for immediate use in netedit
      * @note: tlIndex is not necessarily unique. we need the whole connection data here
      */
     void removeConnection(const NBConnection& conn, bool reconstruct = true);
@@ -146,7 +146,7 @@ public:
     void setType(TrafficLightType type);
 
     /// @brief whether the given index must yield to the foeIndex while turing right on a red light
-    bool rightOnRedConflict(int index, int foeIndex) const;
+    bool extraConflict(int index, int foeIndex) const;
 
     /* @brief shortens phase states to remove states that are not referenced by
      * any controlled link and returns whether states were shortened
@@ -174,6 +174,9 @@ public:
 
     /// @brief perform optional final checks (on writing)
     void finalChecks() const;
+
+    /// @brief replace the given link index in all connections
+    void replaceIndex(int oldIndex, int newIndex);
 
 protected:
     /// @brief Collects the links participating in this traffic light (only if not previously loaded)
@@ -204,9 +207,6 @@ protected:
 
     /// @brief return whether the given link index is used by any connectons
     bool isUsed(int index) const;
-
-    /// @brief replace the given link index in all connections
-    void replaceIndex(int oldIndex, int newIndex);
 
     /// brief retrieve all edges with connections that use the given traffic light index
     std::set<const NBEdge*> getEdgesUsingIndex(int index) const;
@@ -239,6 +239,9 @@ private:
 
     /// @brief return whether all tls link indices are valid
     bool hasValidIndices() const;
+
+    /// @brief return whether the given connection is still valid
+    bool isValid(const NBConnection& con) const;
 
 private:
     /// @brief class for identifying connections

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2012-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -40,24 +40,25 @@ namespace LIBSUMO_NAMESPACE {
  */
 class Simulation {
 public:
-#ifdef LIBTRACI
+    // not implemented in libsumo
     static std::pair<int, std::string> init(int port = 8813, int numRetries = libsumo::DEFAULT_NUM_RETRIES,
                                             const std::string& host = "localhost", const std::string& label = "default", FILE* const pipe = nullptr);
-
-    static bool isLibsumo();
-
-    // we cannot call this switch because it is a reserved word in C++
-    static void switchConnection(const std::string& label);
-
-    static const std::string& getLabel();
-
-    static void setOrder(int order);
-
-#endif
 
     static std::pair<int, std::string> start(const std::vector<std::string>& cmd, int port = -1, int numRetries = libsumo::DEFAULT_NUM_RETRIES,
             const std::string& label = "default", const bool verbose = false,
             const std::string& traceFile = "", bool traceGetters = true, void* _stdout = nullptr);
+
+    static bool isLibsumo();
+
+    // we cannot call this switch because it is a reserved word in C++
+    // not implemented in libsumo
+    static void switchConnection(const std::string& label);
+
+    // not implemented in libsumo
+    static const std::string& getLabel();
+
+    // not implemented in libsumo
+    static void setOrder(int order);
 
     /// @brief load a simulation with the given arguments
     static void load(const std::vector<std::string>& args);
@@ -70,6 +71,9 @@ public:
 
     /// @brief Advances by one step (or up to the given time)
     static void step(const double time = 0.);
+
+    /// @brief Advances a "half" step
+    static void executeMove();
 
     /// @brief close simulation
     static void close(const std::string& reason = "Libsumo requested termination.");
@@ -142,7 +146,8 @@ public:
     static double getDistance2D(double x1, double y1, double x2, double y2, bool isGeo = false, bool isDriving = false);
     static double getDistanceRoad(const std::string& edgeID1, double pos1, const std::string& edgeID2, double pos2, bool isDriving = false);
 
-    static libsumo::TraCIStage findRoute(const std::string& fromEdge, const std::string& toEdge, const std::string& vType = "", const double depart = -1., const int routingMode = 0);
+    static libsumo::TraCIStage findRoute(const std::string& fromEdge, const std::string& toEdge, const std::string& vType = "",
+                                         double depart = -1., int routingMode = 0, double departPos = 0, double arrivalPos = libsumo::INVALID_DOUBLE_VALUE);
 
     /* @note: default arrivalPos is not -1 because this would lead to very short walks when moving against the edge direction,
      * instead the middle of the edge is used. DepartPos is treated differently so that 1-edge walks do not have length 0.
@@ -154,7 +159,7 @@ public:
 
     static std::string getParameter(const std::string& objectID, const std::string& key);
     static const std::pair<std::string, std::string> getParameterWithKey(const std::string& objectID, const std::string& key);
-    static void setParameter(const std::string& objectID, const std::string& param, const std::string& value);
+    static void setParameter(const std::string& objectID, const std::string& key, const std::string& value);
 
     static void setScale(double value);
     static void clearPending(const std::string& routeID = "");
@@ -163,10 +168,10 @@ public:
     static double loadState(const std::string& fileName);
     static void writeMessage(const std::string& msg);
 
-    static void subscribe(const std::vector<int>& varIDs = std::vector<int>(), double begin = libsumo::INVALID_DOUBLE_VALUE, double end = libsumo::INVALID_DOUBLE_VALUE, const libsumo::TraCIResults& params = libsumo::TraCIResults());
-    static const libsumo::TraCIResults getSubscriptionResults();
-
     LIBSUMO_SUBSCRIPTION_API
+
+    static void subscribe(const std::vector<int>& varIDs = std::vector<int>({-1}), double begin = libsumo::INVALID_DOUBLE_VALUE, double end = libsumo::INVALID_DOUBLE_VALUE, const libsumo::TraCIResults& parameters = libsumo::TraCIResults());
+    static const libsumo::TraCIResults getSubscriptionResults();
 
 #ifndef LIBTRACI
 #ifndef SWIG
@@ -182,6 +187,10 @@ private:
 #ifndef LIBTRACI
     static SubscriptionResults mySubscriptionResults;
     static ContextSubscriptionResults myContextSubscriptionResults;
+#ifdef HAVE_FOX
+    /// @brief to avoid concurrent write access to the subscription results
+    static FXMutex myStepMutex;
+#endif
 #endif
 
     /// @brief invalidated standard constructor

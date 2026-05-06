@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -18,39 +18,64 @@
 // A abstract class for data sets
 /****************************************************************************/
 
-
-// ===========================================================================
-// included modules
-// ===========================================================================
-#include <config.h>
-
 #include <netedit/GNENet.h>
-#include <netedit/GNEViewNet.h>
-#include <netedit/GNEUndoList.h>
+#include <netedit/GNETagProperties.h>
 #include <netedit/GNEViewParent.h>
 #include <netedit/changes/GNEChange_Attribute.h>
+#include <netedit/frames/GNEElementTree.h>
 #include <netedit/frames/common/GNEInspectorFrame.h>
 
 #include "GNEDataInterval.h"
-
 
 // ===========================================================================
 // member method definitions
 // ===========================================================================
 
-// ---------------------------------------------------------------------------
-// GNEDataInterval - methods
-// ---------------------------------------------------------------------------
-
 GNEDataInterval::GNEDataInterval(GNEDataSet* dataSetParent, const double begin, const double end) :
-    GNEHierarchicalElement(dataSetParent->getNet(), SUMO_TAG_DATAINTERVAL, {}, {}, {}, {}, {}, {}),
-                       myDataSetParent(dataSetParent),
-                       myBegin(begin),
-myEnd(end) {
+    GNEAttributeCarrier(SUMO_TAG_DATAINTERVAL, dataSetParent->getNet(), dataSetParent->getFileBucket()),
+    myDataSetParent(dataSetParent),
+    myBegin(begin),
+    myEnd(end) {
 }
 
 
 GNEDataInterval::~GNEDataInterval() {}
+
+
+GNEHierarchicalElement*
+GNEDataInterval::getHierarchicalElement() {
+    return this;
+}
+
+
+GNEMoveElement*
+GNEDataInterval::getMoveElement() const {
+    return nullptr;
+}
+
+
+Parameterised*
+GNEDataInterval::getParameters() {
+    return nullptr;
+}
+
+
+const Parameterised*
+GNEDataInterval::getParameters() const {
+    return nullptr;
+}
+
+
+GUIGlObject*
+GNEDataInterval::getGUIGlObject() {
+    return nullptr;
+}
+
+
+const GUIGlObject*
+GNEDataInterval::getGUIGlObject() const {
+    return nullptr;
+}
 
 
 void
@@ -58,11 +83,11 @@ GNEDataInterval::updateGenericDataIDs() {
     if (myNet->isUpdateDataEnabled()) {
         // iterate over generic data childrens
         for (const auto& genericData : myGenericDataChildren) {
-            if (genericData->getTagProperty().getTag() == SUMO_TAG_MEANDATA_EDGE) {
+            if (genericData->getTagProperty()->getTag() == GNE_TAG_EDGEREL_SINGLE) {
                 // {dataset}[{begin}m{end}]{edge}
                 genericData->setMicrosimID(myDataSetParent->getID() + "[" + toString(myBegin) + "," + toString(myEnd) + "]" +
                                            genericData->getParentEdges().front()->getID());
-            } else if (genericData->getTagProperty().getTag() == SUMO_TAG_EDGEREL) {
+            } else if (genericData->getTagProperty()->getTag() == SUMO_TAG_EDGEREL) {
                 // {dataset}[{begin}m{end}]{from}->{to}
                 genericData->setMicrosimID(myDataSetParent->getID() + "[" + toString(myBegin) + "," + toString(myEnd) + "]" +
                                            genericData->getParentEdges().front()->getID() + "->" + genericData->getParentEdges().back()->getID());
@@ -87,7 +112,7 @@ GNEDataInterval::updateAttributeColors() {
                     const double value = parse<double>(param.second);
                     // update values in both containers
                     myAllAttributeColors.updateValues(param.first, value);
-                    mySpecificAttributeColors[genericData->getTagProperty().getTag()].updateValues(param.first, value);
+                    mySpecificAttributeColors[genericData->getTagProperty()->getTag()].updateValues(param.first, value);
                 }
             }
         }
@@ -107,12 +132,6 @@ GNEDataInterval::getSpecificAttributeColors() const {
 }
 
 
-GUIGlObject*
-GNEDataInterval::getGUIGlObject() {
-    return nullptr;
-}
-
-
 void
 GNEDataInterval::updateGeometry() {
     // nothing to update
@@ -122,6 +141,64 @@ GNEDataInterval::updateGeometry() {
 Position
 GNEDataInterval::getPositionInView() const {
     return Position();
+}
+
+
+bool
+GNEDataInterval::checkDrawFromContour() const {
+    return false;
+}
+
+
+bool
+GNEDataInterval::checkDrawToContour() const {
+    return false;
+}
+
+
+bool
+GNEDataInterval::checkDrawRelatedContour() const {
+    return false;
+}
+
+
+bool
+GNEDataInterval::checkDrawOverContour() const {
+    return false;
+}
+
+
+bool
+GNEDataInterval::checkDrawDeleteContour() const {
+    return false;
+}
+
+
+bool
+GNEDataInterval::checkDrawDeleteContourSmall() const {
+    return false;
+}
+
+
+bool
+GNEDataInterval::checkDrawSelectContour() const {
+    return false;
+}
+
+
+bool
+GNEDataInterval::checkDrawMoveContour() const {
+    return false;
+}
+
+
+FileBucket*
+GNEDataInterval::getFileBucket() const {
+    if (isTemplate()) {
+        return nullptr;
+    } else {
+        return myDataSetParent->getFileBucket();
+    }
 }
 
 
@@ -156,10 +233,8 @@ GNEDataInterval::addGenericDataChild(GNEGenericData* genericData) {
         myGenericDataChildren.push_back(genericData);
         // update generic data IDs
         updateGenericDataIDs();
-        // check if add to boundary
-        if (genericData->getTagProperty().isPlacedInRTree()) {
-            myNet->getGrid().addAdditionalGLObject(genericData->getGUIGlObject());
-        }
+        // add id RTREE
+        myNet->addGLObjectIntoGrid(genericData);
         // update geometry after insertion if myUpdateGeometryEnabled is enabled
         if (myNet->isUpdateGeometryEnabled()) {
             // update generic data RTREE
@@ -170,7 +245,7 @@ GNEDataInterval::addGenericDataChild(GNEGenericData* genericData) {
         // update colors
         genericData->getDataIntervalParent()->getDataSetParent()->updateAttributeColors();
     } else {
-        throw ProcessError("GenericData was already inserted");
+        throw ProcessError(TL("GenericData was already inserted"));
     }
 }
 
@@ -183,20 +258,18 @@ GNEDataInterval::removeGenericDataChild(GNEGenericData* genericData) {
         // remove generic data child
         myGenericDataChildren.erase(it);
         // remove it from inspected ACs and GNEElementTree
-        myDataSetParent->getNet()->getViewNet()->removeFromAttributeCarrierInspected(genericData);
-        myDataSetParent->getNet()->getViewNet()->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(genericData);
+        myDataSetParent->getNet()->getViewNet()->getInspectedElements().uninspectAC(genericData);
+        myDataSetParent->getNet()->getViewParent()->getInspectorFrame()->getHierarchicalElementTree()->removeCurrentEditedAttributeCarrier(genericData);
         // update colors
         genericData->getDataIntervalParent()->getDataSetParent()->updateAttributeColors();
         // delete path element
-        myNet->getPathManager()->removePath(genericData);
-        // check if remove from RTREE
-        if (genericData->getTagProperty().isPlacedInRTree()) {
-            myNet->getGrid().removeAdditionalGLObject(genericData->getGUIGlObject());
-        }
+        myNet->getDataPathManager()->removePath(genericData);
+        // add in RTREE
+        myNet->removeGLObjectFromGrid(genericData);
         // remove reference from attributeCarriers
         myNet->getAttributeCarriers()->deleteGenericData(genericData);
     } else {
-        throw ProcessError("GenericData wasn't previously inserted");
+        throw ProcessError(TL("GenericData wasn't previously inserted"));
     }
 }
 
@@ -214,10 +287,37 @@ GNEDataInterval::getGenericDataChildren() const {
 
 
 bool
-GNEDataInterval::TAZRelExists(const GNEAdditional* TAZ) const {
-    // interate over all generic datas and check TAZ parents
+GNEDataInterval::edgeRelSingleExists(const GNEEdge* edge) const {
+    // interate over all edgeRels and check edge parents
     for (const auto& genericData : myGenericDataChildren) {
-        if ((genericData->getTagProperty().getTag() == SUMO_TAG_TAZREL) &&
+        if ((genericData->getTagProperty()->getTag() == GNE_TAG_EDGEREL_SINGLE) &&
+                (genericData->getParentEdges().front() == edge)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool
+GNEDataInterval::edgeRelExists(const GNEEdge* fromEdge, const GNEEdge* toEdge) const {
+    // interate over all edgeRels and check edge parents
+    for (const auto& genericData : myGenericDataChildren) {
+        if ((genericData->getTagProperty()->getTag() == SUMO_TAG_EDGEREL) &&
+                (genericData->getParentEdges().front() == fromEdge) &&
+                (genericData->getParentEdges().back() == toEdge)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool
+GNEDataInterval::TAZRelExists(const GNEAdditional* TAZ) const {
+    // interate over all TAZRels and check TAZ parents
+    for (const auto& genericData : myGenericDataChildren) {
+        if ((genericData->getTagProperty()->getTag() == SUMO_TAG_TAZREL) &&
                 (genericData->getParentAdditionals().size() == 1) &&
                 (genericData->getParentAdditionals().front() == TAZ)) {
             return true;
@@ -229,9 +329,9 @@ GNEDataInterval::TAZRelExists(const GNEAdditional* TAZ) const {
 
 bool
 GNEDataInterval::TAZRelExists(const GNEAdditional* fromTAZ, const GNEAdditional* toTAZ) const {
-    // interate over all generic datas and check TAZ parents
+    // interate over all TAZRels and check TAZ parents
     for (const auto& genericData : myGenericDataChildren) {
-        if ((genericData->getTagProperty().getTag() == SUMO_TAG_TAZREL) &&
+        if ((genericData->getTagProperty()->getTag() == SUMO_TAG_TAZREL) &&
                 (genericData->getParentAdditionals().size() == 2) &&
                 (genericData->getParentAdditionals().front() == fromTAZ) &&
                 (genericData->getParentAdditionals().back() == toTAZ)) {
@@ -252,7 +352,7 @@ GNEDataInterval::getAttribute(SumoXMLAttr key) const {
         case SUMO_ATTR_END:
             return toString(myEnd);
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return getCommonAttribute(key);
     }
 }
 
@@ -265,8 +365,20 @@ GNEDataInterval::getAttributeDouble(SumoXMLAttr key) const {
         case SUMO_ATTR_END:
             return myEnd;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have a double attribute of type '" + toString(key) + "'");
+            return getCommonAttributeDouble(key);
     }
+}
+
+
+Position
+GNEDataInterval::getAttributePosition(SumoXMLAttr key) const {
+    return getCommonAttributePosition(key);
+}
+
+
+PositionVector
+GNEDataInterval::getAttributePositionVector(SumoXMLAttr key) const {
+    return getCommonAttributePositionVector(key);
 }
 
 
@@ -275,10 +387,11 @@ GNEDataInterval::setAttribute(SumoXMLAttr key, const std::string& value, GNEUndo
     switch (key) {
         case SUMO_ATTR_BEGIN:
         case SUMO_ATTR_END:
-            undoList->changeAttribute(new GNEChange_Attribute(this, key, value));
+            GNEChange_Attribute::changeAttribute(this, key, value, undoList);
             break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setCommonAttribute(key, value, undoList);
+            break;
     }
 }
 
@@ -291,7 +404,7 @@ GNEDataInterval::isValid(SumoXMLAttr key, const std::string& value) {
         case SUMO_ATTR_END:
             return canParse<double>(value);
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return isCommonAttributeValid(key, value);
     }
 }
 
@@ -319,12 +432,6 @@ GNEDataInterval::getHierarchyName() const {
 }
 
 
-const Parameterised::Map&
-GNEDataInterval::getACParametersMap() const {
-    return getParametersMap();
-}
-
-
 void
 GNEDataInterval::setAttribute(SumoXMLAttr key, const std::string& value) {
     switch (key) {
@@ -339,7 +446,8 @@ GNEDataInterval::setAttribute(SumoXMLAttr key, const std::string& value) {
             updateGenericDataIDs();
             break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setCommonAttribute(key, value);
+            break;
     }
     // mark interval toolbar for update
     myNet->getViewNet()->getIntervalBar().markForUpdate();

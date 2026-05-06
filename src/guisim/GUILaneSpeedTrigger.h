@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -25,6 +25,7 @@
 #include <vector>
 #include <string>
 #include <microsim/trigger/MSLaneSpeedTrigger.h>
+#include <utils/foxtools/MFXComboBoxIcon.h>
 #include <utils/gui/globjects/GUIGlObject_AbstractAdd.h>
 #include <utils/gui/globjects/GUIGLObjectPopupMenu.h>
 #include <gui/GUIManipulator.h>
@@ -66,8 +67,7 @@ public:
      * @return The built popup-menu
      * @see GUIGlObject::getPopUpMenu
      */
-    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app,
-                                       GUISUMOAbstractView& parent);
+    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /** @brief Returns an own parameter window
      *
@@ -76,36 +76,33 @@ public:
      * @return The built parameter window
      * @see GUIGlObject::getParameterWindow
      */
-    GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app,
-            GUISUMOAbstractView& parent);
+    GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /// @brief return exaggeration associated with this GLObject
-    double getExaggeration(const GUIVisualizationSettings& s) const;
+    double getExaggeration(const GUIVisualizationSettings& s) const override;
 
     /** @brief Returns the boundary to which the view shall be centered in order to show the object
      *
      * @return The boundary the object is within
      * @see GUIGlObject::getCenteringBoundary
      */
-    Boundary getCenteringBoundary() const;
+    Boundary getCenteringBoundary() const override;
 
     /** @brief Draws the object
      * @param[in] s The settings for the current view (may influence drawing)
      * @see GUIGlObject::drawGL
      */
-    void drawGL(const GUIVisualizationSettings& s) const;
+    void drawGL(const GUIVisualizationSettings& s) const override;
     //@}
 
-    GUIManipulator* openManipulator(GUIMainWindow& app,
-                                    GUISUMOAbstractView& parent);
+    GUIManipulator* openManipulator(GUIMainWindow& app, GUISUMOAbstractView& parent);
 
 public:
     class GUILaneSpeedTriggerPopupMenu : public GUIGLObjectPopupMenu {
         FXDECLARE(GUILaneSpeedTriggerPopupMenu)
     public:
 
-        GUILaneSpeedTriggerPopupMenu(GUIMainWindow& app,
-                                     GUISUMOAbstractView& parent, GUIGlObject& o);
+        GUILaneSpeedTriggerPopupMenu(GUIMainWindow& app, GUISUMOAbstractView& parent, GUIGlObject* o);
 
         ~GUILaneSpeedTriggerPopupMenu();
 
@@ -135,7 +132,6 @@ public:
         /// Destructor
         virtual ~GUIManip_LaneSpeedTrigger();
 
-        long onCmdOverride(FXObject*, FXSelector, void*);
         long onCmdClose(FXObject*, FXSelector, void*);
         long onCmdUserDef(FXObject*, FXSelector, void*);
         long onUpdUserDef(FXObject*, FXSelector, void*);
@@ -156,13 +152,12 @@ public:
 
         FXRealSpinner* myUserDefinedSpeed;
 
-        FXComboBox* myPredefinedValues;
+        MFXComboBoxIcon* myPredefinedValues;
 
         GUILaneSpeedTrigger* myObject;
 
     protected:
-        GUIManip_LaneSpeedTrigger() { }
-
+        FOX_CONSTRUCTOR(GUIManip_LaneSpeedTrigger)
     };
 
 private:

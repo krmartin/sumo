@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -98,7 +98,7 @@ public:
          *
          * Indicator if the reminders is still active for the passed
          * vehicle/parameters. If false, the vehicle will erase this reminder
-         * from it's reminder-container.
+         * from its reminder-container.
          *
          * @param[in] veh Vehicle that asks this reminder.
          * @param[in] oldPos Position before move.
@@ -141,8 +141,8 @@ public:
          * @param[in] numLanes The total number of lanes for which the data was collected
          * @exception IOError If an error on writing occurs (!!! not yet implemented)
          */
-        virtual void write(OutputDevice& dev, long long int attributeMask, const SUMOTime period,
-                           const double numLanes, const double speedLimit, const double defaultTravelTime,
+        virtual void write(OutputDevice& dev, const SumoXMLAttrMask& attributeMask, const SUMOTime period,
+                           const int numLanes, const double speedLimit, const double defaultTravelTime,
                            const int numVehicles = -1) const = 0;
 
         /** @brief Returns the number of collected sample seconds.
@@ -155,6 +155,23 @@ public:
         */
         double getTravelledDistance() const {
             return travelledDistance;
+        }
+
+        SUMOTime getResetTime() const {
+            return resetTime;
+        }
+
+        double getLaneLength() const {
+            return myLaneLength;
+        }
+
+        /// @brief return attribute value
+        virtual double getAttributeValue(SumoXMLAttr a, const SUMOTime period, const double numLanes, const double speedLimit) const {
+            UNUSED_PARAMETER(a);
+            UNUSED_PARAMETER(period);
+            UNUSED_PARAMETER(numLanes);
+            UNUSED_PARAMETER(speedLimit);
+            return 0;
         }
 
     protected:
@@ -173,6 +190,8 @@ public:
         double travelledDistance;
         //@}
 
+        /// @brief time at which collection was reset;
+        SUMOTime resetTime;
     };
 
 
@@ -243,8 +262,8 @@ public:
          * @param[in] numLanes The total number of lanes for which the data was collected
          * @exception IOError If an error on writing occurs (!!! not yet implemented)
          */
-        void write(OutputDevice& dev, long long int attributeMask, const SUMOTime period,
-                   const double numLanes, const double speedLimit, const double defaultTravelTime,
+        void write(OutputDevice& dev, const SumoXMLAttrMask& attributeMask, const SUMOTime period,
+                   const int numLanes, const double speedLimit, const double defaultTravelTime,
                    const int numVehicles = -1) const;
 
         int getNumReady() const;
@@ -276,10 +295,10 @@ public:
         };
 
         /// @brief The map of vehicles to data entries
-        std::map<const SUMOTrafficObject*, TrackerEntry*> myTrackedData;
+        std::map<const SUMOTrafficObject*, std::shared_ptr<TrackerEntry> > myTrackedData;
 
         /// @brief The currently active meandata "intervals"
-        std::list<TrackerEntry*> myCurrentData;
+        std::list<std::shared_ptr<TrackerEntry> > myCurrentData;
 
     };
 
@@ -291,8 +310,7 @@ public:
      * @param[in] dumpBegin Begin time of dump
      * @param[in] dumpEnd End time of dump
      * @param[in] useLanes Information whether lane-based or edge-based dump shall be generated
-     * @param[in] withEmpty Information whether empty lanes/edges shall be written
-     * @param[in] withInternal Information whether internal lanes/edges shall be written
+     * @param[in] excludeEmpty Information if and which empty lanes/edges shall be written
      * @param[in] trackVehicles Information whether vehicles shall be tracked
      * @param[in] detectPersons Whether pedestrians shall be detected instead of vehicles
      * @param[in] maxTravelTime the maximum travel time to use when calculating per vehicle output
@@ -302,15 +320,14 @@ public:
      */
     MSMeanData(const std::string& id,
                const SUMOTime dumpBegin, const SUMOTime dumpEnd,
-               const bool useLanes, const bool withEmpty,
-               const bool printDefaults, const bool withInternal,
+               const bool useLanes, const std::string& excludeEmpty, const bool withInternal,
                const bool trackVehicles, const int detectPersons,
                const double minSamples,
                const double maxTravelTime,
                const std::string& vTypes,
                const std::string& writeAttributes,
                const std::vector<MSEdge*>& edges,
-               bool aggregate);
+               AggregateType aggregate);
 
 
     /// @brief Destructor
@@ -364,6 +381,20 @@ public:
         return myAmEdgeBased;
     }
 
+    /// @brief return all attributes that are (potentially) written by this output
+    virtual std::vector<std::string> getAttributeNames() const {
+        return std::vector<std::string>();
+    }
+
+    /// @brief return attribute value for the given lane
+    virtual double getAttributeValue(const MSLane* lane, SumoXMLAttr a, double defaultValue) const {
+        UNUSED_PARAMETER(lane);
+        UNUSED_PARAMETER(a);
+        return defaultValue;
+    }
+
+    /// @brief retrieve all MeanDataValues
+    const std::vector<MSMoveReminder*> getReminders() const;
 
 protected:
     /** @brief Create an instance of MeanDataValues
@@ -401,10 +432,10 @@ protected:
      * @exception IOError If an error on writing occurs (!!! not yet implemented)
      */
     void writeEdge(OutputDevice& dev, const std::vector<MeanDataValues*>& edgeValues,
-                   MSEdge* edge, SUMOTime startTime, SUMOTime stopTime);
+                   const MSEdge* const edge, SUMOTime startTime, SUMOTime stopTime);
 
 
-    /** @brief Writes aggregate of all edge values into the given stream
+    /** @brief Writes aggregated data of all edge values into the given stream
      *
      * microsim: It is checked whether the dump shall be generated edge-
      *  or lane-wise. In the first case, the lane-data are collected
@@ -417,6 +448,19 @@ protected:
      */
     void writeAggregated(OutputDevice& dev, SUMOTime startTime, SUMOTime stopTime);
 
+    /** @brief Writes aggregated data for each TAZ into the given stream
+     *
+     * microsim: It is checked whether the dump shall be generated edge-
+     *  or lane-wise. In the first case, the lane-data are collected
+     *  and aggregated and written directly. In the second case, "writeLane"
+     *  is used to write each lane's state.
+     *
+     * @param[in] dev The output device to write the data into
+     * @param[in] startTime First time step the data were gathered
+     * @param[in] stopTime Last time step the data were gathered
+     */
+    void writeAggregatedTAZ(OutputDevice& dev, SUMOTime startTime, SUMOTime stopTime);
+
     /** @brief Writes the interval opener
      *
      * @param[in] dev The output device to write the data into
@@ -425,17 +469,20 @@ protected:
      */
     virtual void openInterval(OutputDevice& dev, const SUMOTime startTime, const SUMOTime stopTime);
 
-    /** @brief Checks for emptiness and writes prefix into the given stream
+    /** @brief Writes the surrounding element into the given stream
      *
      * @param[in] dev The output device to write the data into
      * @param[in] values The values to check for emptiness
      * @param[in] tag The xml tag to write (lane / edge)
      * @param[in] id The id for the lane / edge to write
-     * @return whether further output should be generated
      * @exception IOError If an error on writing occurs (!!! not yet implemented)
      */
-    virtual bool writePrefix(OutputDevice& dev, const MeanDataValues& values,
+    virtual void writePrefix(OutputDevice& dev, const MeanDataValues& values,
                              const SumoXMLTag tag, const std::string id) const;
+
+
+protected:
+    const std::vector<MeanDataValues*>* getEdgeValues(const MSEdge* edge) const;
 
 protected:
     /// @brief the minimum sample seconds
@@ -448,14 +495,12 @@ protected:
     std::vector<std::vector<MeanDataValues*> > myMeasures;
 
     /// @brief Whether empty lanes/edges shall be written
-    const bool myDumpEmpty;
-
-private:
-    static long long int initWrittenAttributes(const std::string writeAttributes, const std::string& id);
+    bool myDumpEmpty = true;
 
     /// @brief Information whether the output shall be edge-based (not lane-based)
     const bool myAmEdgeBased;
 
+private:
     /// @brief The first and the last time step to write information (-1 indicates always)
     const SUMOTime myDumpBegin, myDumpEnd;
 
@@ -465,8 +510,16 @@ private:
     /// @brief The corresponding first edges
     MSEdgeVector myEdges;
 
-    /// @brief Whether empty lanes/edges shall be written
-    const bool myPrintDefaults;
+    ConstMSEdgeVector myTAZ;
+
+    /// @brief The index in myEdges / myMeasures
+    std::map<const MSEdge*, int> myEdgeIndex;
+
+    /// @brief Whether empty lanes/edges shall be written with default values
+    bool myPrintDefaults = false;
+
+    /// @brief Whether only empty lanes/edges which have been modified shall be written
+    bool myPrintModified = false;
 
     /// @brief Whether internal lanes/edges shall be written
     const bool myDumpInternal;
@@ -475,10 +528,10 @@ private:
     const bool myTrackVehicles;
 
     /// @brief bit mask for checking attributes to be written
-    const long long int myWrittenAttributes;
+    const SumoXMLAttrMask myWrittenAttributes;
 
     /// @brief whether the data for all edges shall be aggregated
-    const bool myAggregate;
+    const AggregateType myAggregate;
 
     /// @brief The intervals for which output still has to be generated (only in the tracking case)
     std::list< std::pair<SUMOTime, SUMOTime> > myPendingIntervals;

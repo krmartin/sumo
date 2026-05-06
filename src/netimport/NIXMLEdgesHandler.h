@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -54,7 +54,7 @@ class NBTrafficLightLogicCont;
  * @todo One day, one should rethink the order of parsing. Now, the handler
  *  is able to load edges, using information from the types, first, and extending
  *  them by given information. In addition, if the read edge is already known,
- *  it's values are also used. Then, defining vehicles allowed per lane, and
+ *  its values are also used. Then, defining vehicles allowed per lane, and
  *  additional edge split definitions add some further complexity. This all
  *  works somehow for most of our use cases, but it's definitely not as consistent
  *  that everything what seems to be possible would also work appropriately.
@@ -253,11 +253,17 @@ private:
 
     bool myHaveWarnedAboutDeprecatedLaneId;
 
+    /// @brief the default node type for splits
+    SumoXMLNodeType myDefaultNodeType;
+
     /// @brief Whether the edge shape shall be kept generally
     const bool myKeepEdgeShape;
 
     /// @brief element to receive parameters
     std::vector<Parameterised*> myLastParameterised;
+
+    /// @brief The coordinate transformation which was used compute the node coordinates
+    GeoConvHelper* myLocation = nullptr;
 
 private:
 

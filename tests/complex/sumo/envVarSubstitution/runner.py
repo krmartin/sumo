@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2008-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -40,9 +40,9 @@ subprocess.call([sumoBinary, "-c", "sumo.sumocfg", "--no-step-log", "-C", "confi
 # file output direct
 subprocess.call([sumoBinary, "-c", "config.sumocfg"])
 
-files = list(sorted(os.listdir()))
+files = list(sorted(os.listdir(".")))
 print("uncheck:", files, os.curdir)
-assert(files[0].endswith(".trips.xml"))
-assert(int(files[0][:-10]) > 0)
-assert("collision.xml" in files)
-assert(len(files) == 11)
+assert files[0].endswith(".trips.xml")
+assert int(files[0][:-10]) > 0
+assert "collision.xml" in files
+assert len(files) == 11

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -30,9 +30,13 @@
 #include <microsim/transportables/MSPerson.h>
 #include <microsim/transportables/MSStageDriving.h>
 #include <microsim/transportables/MSPModel_NonInteracting.h>
+#ifdef HAVE_JUPEDSIM
+#include <microsim/transportables/MSPModel_JuPedSim.h>
+#endif
 #include <microsim/transportables/MSPModel_Striping.h>
 #include <microsim/transportables/MSTransportableControl.h>
 #include <microsim/devices/MSDevice_Vehroutes.h>
+#include <microsim/devices/MSDevice_Taxi.h>
 #include <microsim/MSNet.h>
 #include <microsim/MSEdge.h>
 #include <microsim/MSVehicle.h>
@@ -50,23 +54,27 @@ MSTransportableControl::MSTransportableControl(const bool isPerson):
     myWaitingForDepartureNumber(0),
     myWaitingForVehicleNumber(0),
     myWaitingUntilNumber(0),
+    myAccessNumber(0),
     myEndedNumber(0),
     myArrivedNumber(0),
+    myTeleportsAbortWait(0),
+    myTeleportsWrongDest(0),
     myHaveNewWaiting(false) {
     const OptionsCont& oc = OptionsCont::getOptions();
     MSNet* const net = MSNet::getInstance();
+    myMovementModel = myNonInteractingModel = new MSPModel_NonInteracting(oc, net);
     if (isPerson) {
-        const std::string model = oc.getString("pedestrian.model");
-        myNonInteractingModel = new MSPModel_NonInteracting(oc, net);
+        const std::string& model = oc.getString("pedestrian.model");
         if (model == "striping") {
             myMovementModel = new MSPModel_Striping(oc, net);
-        } else if (model == "nonInteracting") {
-            myMovementModel = myNonInteractingModel;
-        } else {
-            throw ProcessError("Unknown pedestrian model '" + model + "'");
+#ifdef HAVE_JUPEDSIM
+        } else if (model == "jupedsim") {
+            myMovementModel = new MSPModel_JuPedSim(oc, net);
+#endif
+        } else if (model != "nonInteracting") {
+            delete myNonInteractingModel;
+            throw ProcessError(TLF("Unknown pedestrian model '%'", model));
         }
-    } else {
-        myMovementModel = myNonInteractingModel = new MSPModel_NonInteracting(oc, net);
     }
     if (oc.isSet("vehroute-output")) {
         myRouteInfos.routeOut = &OutputDevice::getDeviceByOption("vehroute-output");
@@ -75,7 +83,11 @@ MSTransportableControl::MSTransportableControl(const bool isPerson):
         OutputDevice::createDeviceByOption("personroute-output", "routes", "routes_file.xsd");
         myRouteInfos.routeOut = &OutputDevice::getDeviceByOption("personroute-output");
     }
+    if (oc.isSet("personinfo-output")) {
+        OutputDevice::createDeviceByOption("personinfo-output", "tripinfos", "tripinfo_file.xsd");
+    }
     myAbortWaitingTimeout = string2time(oc.getString("time-to-teleport.ride"));
+    myMaxTransportableNumber = isPerson ? oc.getInt("max-num-persons") : -1;
 }
 
 
@@ -134,7 +146,9 @@ MSTransportableControl::get(const std::string& id) const {
 void
 MSTransportableControl::erase(MSTransportable* transportable) {
     const OptionsCont& oc = OptionsCont::getOptions();
-    if (oc.isSet("tripinfo-output")) {
+    if (oc.isSet("personinfo-output")) {
+        transportable->tripInfoOutput(OutputDevice::getDeviceByOption("personinfo-output"));
+    } else if (oc.isSet("tripinfo-output")) {
         transportable->tripInfoOutput(OutputDevice::getDeviceByOption("tripinfo-output"));
     } else if (oc.getBool("duration-log.statistics")) {
         // collecting statistics is a sideffect
@@ -143,20 +157,25 @@ MSTransportableControl::erase(MSTransportable* transportable) {
     }
     if (oc.isSet("vehroute-output") || oc.isSet("personroute-output")) {
         if (transportable->hasArrived() || oc.getBool("vehroute-output.write-unfinished")) {
-            if (oc.getBool("vehroute-output.sorted")) {
-                const SUMOTime departure = oc.getBool("vehroute-output.intended-depart") ? transportable->getParameter().depart : transportable->getDeparture();
-                OutputDevice_String od(1);
-                transportable->routeOutput(od, oc.getBool("vehroute-output.route-length"));
-                MSDevice_Vehroutes::writeSortedOutput(&myRouteInfos,
-                        departure, transportable->getID(), od.getString());
-            } else {
-                transportable->routeOutput(*myRouteInfos.routeOut, oc.getBool("vehroute-output.route-length"));
+            // @todo: adapt this if we ever introduce person-device.vehroute
+            if (transportable->getBoolParam("has.vehroute.person-device", false, true)) {
+                if (oc.getBool("vehroute-output.sorted")) {
+                    const SUMOTime departure = oc.getBool("vehroute-output.intended-depart") ? transportable->getParameter().depart : transportable->getDeparture();
+                    OutputDevice_String od(1);
+                    transportable->routeOutput(od, oc.getBool("vehroute-output.route-length"));
+                    MSDevice_Vehroutes::writeSortedOutput(&myRouteInfos,
+                                                          departure, transportable->getNumericalID(), od.getString());
+                } else {
+                    transportable->routeOutput(*myRouteInfos.routeOut, oc.getBool("vehroute-output.route-length"));
+                }
             }
         }
     }
     const std::map<std::string, MSTransportable*>::iterator i = myTransportables.find(transportable->getID());
     if (i != myTransportables.end()) {
-        myRunningNumber--;
+        if (i->second->hasDeparted()) {
+            myRunningNumber--;
+        }
         myEndedNumber++;
         MSNet::getInstance()->informTransportableStateListener(transportable,
                 transportable->isPerson() ? MSNet::TransportableState::PERSON_ARRIVED : MSNet::TransportableState::CONTAINER_ARRIVED);
@@ -167,10 +186,20 @@ MSTransportableControl::erase(MSTransportable* transportable) {
 
 
 void
+MSTransportableControl::eraseAll() {
+    // avoid taxi device having dangling references to erased customers
+    MSDevice_Taxi::allCustomersErased();
+    while (loadedBegin() != loadedEnd()) {
+        erase(loadedBegin()->second);
+    }
+}
+
+
+void
 MSTransportableControl::setWaitEnd(const SUMOTime time, MSTransportable* transportable) {
     const SUMOTime step = time % DELTA_T == 0 ? time : (time / DELTA_T + 1) * DELTA_T;
     // avoid double registration
-    const TransportableVector& transportables = myWaiting4Departure[step];
+    const TransportableVector& transportables = myWaitingUntil[step];
     if (std::find(transportables.begin(), transportables.end(), transportable) == transportables.end()) {
         myWaitingUntil[step].push_back(transportable);
         myWaitingUntilNumber++;
@@ -186,9 +215,20 @@ MSTransportableControl::checkWaiting(MSNet* net, const SUMOTime time) {
         // we cannot use an iterator here because there might be additions to the vector while proceeding
         for (auto it = transportables.begin(); it != transportables.end();) {
             MSTransportable* t = *it;
+            if (myMaxTransportableNumber > 0 && myRunningNumber >= myMaxTransportableNumber) {
+                TransportableVector& nextStep = myWaiting4Departure[time + DELTA_T];
+                nextStep.insert(nextStep.begin(), transportables.begin(), transportables.end());
+                transportables.clear();
+                break;
+            } else if (myMaxTransportableNumber == 0) {
+                erase(t);
+                it = transportables.erase(it);
+                continue;
+            }
             it = transportables.erase(it);
             myWaitingForDepartureNumber--;
             const bool isPerson = t->isPerson();
+            t->setDeparted(time);
             if (t->proceed(net, time)) {
                 myRunningNumber++;
                 MSNet::getInstance()->informTransportableStateListener(t,
@@ -209,15 +249,15 @@ MSTransportableControl::checkWaiting(MSNet* net, const SUMOTime time) {
         myWaiting4Departure.erase(time);
     }
     while (myWaitingUntil.find(time) != myWaitingUntil.end()) {
-        const TransportableVector& transportables = myWaitingUntil[time];
-        // we cannot use an iterator here because there might be additions to the vector while proceeding
-        for (int i = 0; i < (int)transportables.size(); ++i) {
+        // make a copy because 0-duration stops might modify the vector
+        const TransportableVector transportables = myWaitingUntil[time];
+        myWaitingUntil.erase(time);
+        for (MSTransportable* t : transportables) {
             myWaitingUntilNumber--;
-            if (!transportables[i]->proceed(net, time)) {
-                erase(transportables[i]);
+            if (!t->proceed(net, time)) {
+                erase(t);
             }
         }
-        myWaitingUntil.erase(time);
     }
 }
 
@@ -256,7 +296,7 @@ MSTransportableControl::hasAnyWaiting(const MSEdge* edge, SUMOVehicle* vehicle) 
 
 
 bool
-MSTransportableControl::loadAnyWaiting(const MSEdge* edge, SUMOVehicle* vehicle, SUMOTime& timeToLoadNext, SUMOTime& stopDuration) {
+MSTransportableControl::loadAnyWaiting(const MSEdge* edge, SUMOVehicle* vehicle, SUMOTime& timeToLoadNext, SUMOTime& stopDuration, MSTransportable* const force) {
     bool ret = false;
     const auto wait = myWaiting4Vehicle.find(edge);
     if (wait != myWaiting4Vehicle.end()) {
@@ -264,17 +304,17 @@ MSTransportableControl::loadAnyWaiting(const MSEdge* edge, SUMOVehicle* vehicle,
         TransportableVector& transportables = wait->second;
         for (TransportableVector::iterator i = transportables.begin(); i != transportables.end();) {
             MSTransportable* const t = *i;
-            if (t->isWaitingFor(vehicle)
-                    && vehicle->allowsBoarding(t)
-                    && timeToLoadNext - DELTA_T <= currentTime
-                    && vehicle->isStoppedInRange(t->getEdgePos(), MSGlobals::gStopTolerance)) {
+            if (t->isWaitingFor(vehicle) && (t == force ||
+                                             (vehicle->allowsBoarding(t)
+                                              && timeToLoadNext - DELTA_T <= currentTime
+                                              && vehicle->isStoppedInRange(t->getEdgePos(), MSGlobals::gStopTolerance)))) {
                 edge->removeTransportable(t);
                 vehicle->addTransportable(t);
                 if (myAbortWaitingTimeout >= 0) {
                     t->setAbortWaiting(-1);
                 }
                 if (timeToLoadNext >= 0) { // meso does not have loading times
-                    const SUMOTime loadingDuration = vehicle->getVehicleType().getLoadingDuration(t->isPerson());
+                    const SUMOTime loadingDuration = (SUMOTime)((double)vehicle->getVehicleType().getLoadingDuration(t->isPerson()) * t->getVehicleType().getBoardingFactor());
                     //update the time point at which the next transportable can be loaded on the vehicle
                     if (timeToLoadNext > currentTime - DELTA_T) {
                         timeToLoadNext += loadingDuration;
@@ -315,7 +355,7 @@ MSTransportableControl::hasTransportables() const {
 
 bool
 MSTransportableControl::hasNonWaiting() const {
-    return !myWaiting4Departure.empty() || myWaitingForVehicleNumber < myRunningNumber || myHaveNewWaiting;
+    return !myWaiting4Departure.empty() || getMovingNumber() > 0 || myWaitingUntilNumber > 0 || myHaveNewWaiting;
 }
 
 
@@ -327,7 +367,7 @@ MSTransportableControl::getActiveCount() {
 
 int
 MSTransportableControl::getMovingNumber() const {
-    return myMovementModel->getActiveNumber();
+    return myMovementModel->getActiveNumber() + myAccessNumber;
 }
 
 
@@ -372,6 +412,7 @@ MSTransportableControl::abortWaitingForVehicle(MSTransportable* t) {
                 (*it2)->setAbortWaiting(-1);
             }
             waiting.erase(it2);
+            myWaitingForVehicleNumber--;
         }
     }
 }
@@ -398,7 +439,7 @@ MSTransportableControl::abortWaiting(MSTransportable* t) {
 MSTransportable*
 MSTransportableControl::buildPerson(const SUMOVehicleParameter* pars, MSVehicleType* vtype, MSTransportable::MSTransportablePlan* plan,
                                     SumoRNG* rng) const {
-    const double speedFactor = vtype->computeChosenSpeedDeviation(rng);
+    const double speedFactor = vtype->computeChosenSpeedDeviation(pars->speedFactor, rng);
     return new MSPerson(pars, vtype, plan, speedFactor);
 }
 

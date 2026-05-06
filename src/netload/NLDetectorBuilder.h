@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -114,7 +114,8 @@ public:
                                           const std::string& lane, double pos,
                                           const std::string& device, bool friendlyPos,
                                           const std::string name, const std::string& vTypes,
-                                          const std::string& nextEdges);
+                                          const std::string& nextEdges,
+                                          int detectPersons);
 
 
     /** @brief Builds a new E2 detector and adds it to the net's detector control. Also performs some
@@ -162,7 +163,7 @@ public:
                                    double haltingSpeedThreshold, SUMOTime haltingTimeThreshold,
                                    const std::string name, const std::string& vTypes,
                                    const std::string& nextEdges,
-                                   int detectPersons, bool openEntry);
+                                   int detectPersons, bool openEntry, bool expectArrival);
 
 
     /** @brief Builds an entry point of an e3 detector
@@ -294,7 +295,8 @@ public:
     virtual MSDetectorFileOutput* createInstantInductLoop(const std::string& id,
             MSLane* lane, double pos, const std::string& od,
             const std::string name, const std::string& vTypes,
-            const std::string& nextEdges);
+            const std::string& nextEdges,
+            int detectPersons);
 
 
     /** @brief Creates a MSE2Collector instance, overridden by GUIE2Collector::createE2Detector()
@@ -332,7 +334,7 @@ public:
             double haltingSpeedThreshold, SUMOTime haltingTimeThreshold,
             const std::string name, const std::string& vTypes,
             const std::string& nextEdges,
-            int detectPersons, bool openEntry);
+            int detectPersons, bool openEntry, bool expectArrival);
 
 
     /** @brief Creates edge based mean data collector using the given specification
@@ -343,7 +345,7 @@ public:
      * @param[in] end dump end time
      * @param[in] type The type of values to be generated
      * @param[in] useLanes Information whether lane-based or edge-based dump shall be generated
-     * @param[in] withEmpty Information whether empty lanes/edges shall be written
+     * @param[in] excludeEmpty Information if and which empty lanes/edges shall be written
      * @param[in] withInternal Information whether internal lanes/edges shall be written
      * @param[in] trackVehicles Information whether information shall be collected per vehicle
      * @param[in] detectPersons Whether pedestrians shall be detected instead of vehicles
@@ -355,13 +357,13 @@ public:
      */
     void createEdgeLaneMeanData(const std::string& id, SUMOTime frequency,
                                 SUMOTime begin, SUMOTime end, const std::string& type,
-                                const bool useLanes, const bool withEmpty, const bool printDefaults,
+                                const bool useLanes, const std::string& excludeEmpty,
                                 const bool withInternal, const bool trackVehicles, const int detectPersons,
                                 const double maxTravelTime, const double minSamples,
                                 const double haltSpeed, const std::string& vTypes,
                                 const std::string& writeAttributes,
                                 std::vector<MSEdge*> edges,
-                                bool aggregate,
+                                AggregateType aggregate,
                                 const std::string& device);
     /// @}
 
@@ -385,7 +387,7 @@ protected:
                              SUMOTime haltingTimeThreshold, SUMOTime splInterval,
                              const std::string name, const std::string& vTypes,
                              const std::string& nextEdges,
-                             int detectPersons, bool openEntry);
+                             int detectPersons, bool openEntry, bool expectArrival);
 
         /// @brief Destructor
         virtual ~E3DetectorDefinition();
@@ -414,6 +416,8 @@ protected:
         int myDetectPersons;
         /// @brief Whether the detector is declared as having incomplete entry detectors
         bool myOpenEntry;
+        /// @brief Whether the detector expects vehicles to arrive inside (and doesn't issue a warning in this case)
+        bool myExpectArrival;
         //@}
 
     private:

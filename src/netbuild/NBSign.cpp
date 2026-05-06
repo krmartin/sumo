@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2012-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -24,6 +24,7 @@
 #include <cassert>
 #include <utils/common/RGBColor.h>
 #include <utils/common/ToString.h>
+#include <utils/geom/GeomHelper.h>
 #include <utils/iodevices/OutputDevice.h>
 #include "NBEdge.h"
 #include "NBSign.h"
@@ -40,6 +41,7 @@ static StringBijection<NBSign::SignType>::Entry signTypeStringsInitializer[] = {
     {"on ramp",           NBSign::SIGN_TYPE_ON_RAMP},
     {"priority",          NBSign::SIGN_TYPE_PRIORITY},
     {"right before left", NBSign::SIGN_TYPE_RIGHT_BEFORE_LEFT},
+    {"left before right", NBSign::SIGN_TYPE_LEFT_BEFORE_RIGHT},
     {"roundabout",        NBSign::SIGN_TYPE_ROUNDABOUT},
     {"rail crossing",     NBSign::SIGN_TYPE_RAIL_CROSSING},
     {"slope",             NBSign::SIGN_TYPE_SLOPE},
@@ -95,6 +97,7 @@ NBSign::writeAsPOI(OutputDevice& into, const NBEdge* edge) const {
             into.writeAttr(SUMO_ATTR_COLOR, RGBColor::YELLOW);
             break;
         case SIGN_TYPE_RIGHT_BEFORE_LEFT:
+        case SIGN_TYPE_LEFT_BEFORE_RIGHT:
             into.writeAttr(SUMO_ATTR_COLOR, RGBColor(255, 153, 0, 255));
             break;
         case SIGN_TYPE_ROUNDABOUT:
@@ -103,7 +106,7 @@ NBSign::writeAsPOI(OutputDevice& into, const NBEdge* edge) const {
     }
     into.writeAttr(SUMO_ATTR_X, pos.x());
     into.writeAttr(SUMO_ATTR_Y, pos.y());
-    into.writeAttr(SUMO_ATTR_ANGLE, 0); // XXX use road angle?
+    into.writeAttr(SUMO_ATTR_ANGLE, GeomHelper::naviDegree(shp.rotationAtOffset(myOffset)));
     // @todo add image resources and default images for all signs
     //into.writeAttr(SUMO_ATTR_IMGFILE, p->getImgFile());
     //into.writeAttr(SUMO_ATTR_WIDTH, p->getWidth());

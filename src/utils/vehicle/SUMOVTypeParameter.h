@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -28,6 +28,7 @@
 #include <utils/common/RGBColor.h>
 #include <utils/common/SUMOTime.h>
 #include <utils/common/SUMOVehicleClass.h>
+#include <utils/common/LinearApproxHelpers.h>
 #include <utils/distribution/Distribution_Parameterized.h>
 
 // ===========================================================================
@@ -68,12 +69,17 @@ const long long int VTYPEPARS_DESIRED_MAXSPEED_SET = 1 << 24;
 const long long int VTYPEPARS_CARRIAGE_LENGTH_SET = 1 << 25;
 const long long int VTYPEPARS_LOCOMOTIVE_LENGTH_SET = 1 << 26;
 const long long int VTYPEPARS_CARRIAGE_GAP_SET = 1 << 27;
-const long long int VTYPEPARS_MANEUVER_ANGLE_TIMES_SET = 1 << 28;
-const long long int VTYPEPARS_FRONT_SEAT_POS_SET = 1 << 29;
-const long long int VTYPEPARS_SCALE_SET = 1 << 30;
-const long long int VTYPEPARS_MASS_SET = (long long int)1 << 31;
-const long long int VTYPEPARS_TTT_SET = (long long int)1 << 32;
-const long long int VTYPEPARS_TTT_BIDI_SET = (long long int)1 << 33;
+const long long int VTYPEPARS_CARRIAGE_DOORS_SET = 1 << 28;
+const long long int VTYPEPARS_MANEUVER_ANGLE_TIMES_SET = 1 << 29;
+const long long int VTYPEPARS_FRONT_SEAT_POS_SET = 1 << 30;
+const long long int VTYPEPARS_SCALE_SET = (long long int)1 << 31;
+const long long int VTYPEPARS_MASS_SET = (long long int)1 << 32;
+const long long int VTYPEPARS_TTT_SET = (long long int)1 << 33;
+const long long int VTYPEPARS_TTT_BIDI_SET = (long long int)1 << 34;
+const long long int VTYPEPARS_SEATING_WIDTH_SET = (long long int)1 << 35;
+const long long int VTYPEPARS_SPEEDFACTOR_PREMATURE_SET = (long long int)1 << 36;
+const long long int VTYPEPARS_PARKING_BADGES_SET = (long long int)1 << 37;
+const long long int VTYPEPARS_BOARDING_FACTOR_SET = (long long int)1 << 38;
 
 
 const int VTYPEPARS_DEFAULT_EMERGENCYDECEL_DEFAULT = -1;
@@ -128,6 +134,9 @@ public:
         /// @brief This class' free space in front of the vehicle itself
         double minGap;
 
+        /// @brief The vehicle type's minimum lateral gap [m]
+        double minGapLat;
+
         /// @brief The vehicle type's maximum speed [m/s] (technical limit, not subject to speed deviation)
         double maxSpeed;
 
@@ -167,6 +176,15 @@ public:
         /// @brief the length of train locomotive
         double locomotiveLength;
 
+        /// @brief the number of doors per carriage
+        int carriageDoors;
+
+        /// @brief the width of the carriage doors
+        double carriageDoorWidth;
+
+        /// @brief the maximum distance between platform and train
+        double maxPlatformDistance;
+
         /// @brief the lateral alignment procedure
         LatAlignmentDefinition latAlignmentProcedure;
 
@@ -205,6 +223,9 @@ public:
      * @return The named value from the map or the default if it does not exist there
      */
     double getCFParam(const SumoXMLAttr attr, const double defaultValue) const;
+
+    /// @brief retrieve value table from cfParameter
+    std::vector<double> getCFValueTable(SumoXMLAttr attr) const;
 
     /** @brief Returns the named value from the map, or the default if it is not contained there
     * @param[in] attr The corresponding xml attribute
@@ -250,7 +271,7 @@ public:
     void cacheParamRestrictions(const std::vector<std::string>& restrictionKeys);
 
     /// @brief init Rail Visualization Parameters
-    void initRailVisualizationParameters();
+    void initRailVisualizationParameters(const std::string fileName = "");
 
     /// @brief The vehicle type's id
     std::string id;
@@ -324,6 +345,9 @@ public:
 
     /// @brief Image file for this class
     std::string imgFile;
+
+    /// @brief Image files for additional carriages
+    std::vector<std::string> carriageImages;
     /// @}
 
 
@@ -354,10 +378,26 @@ public:
     /// @brief The vehicle type's minimum lateral gap [m]
     double minGapLat;
 
-    /// @brief the length of train carriages and locomotive
+    /// @brief the scaling factor when drawing the object
+    double scaleVisual;
+
+    /// @brief the length of train carriages
     double carriageLength;
+
+    /// @brief the length of the locomotive
     double locomotiveLength;
+
+    /// @brief the length of the gap between carriages
     double carriageGap;
+
+    /// @brief the number of doors per carriage
+    int carriageDoors;
+
+    /// @brief the width of the carriage doors
+    double carriageDoorWidth;
+
+    /// @brief the maximum distance between platform and train
+    double maxPlatformDistance;
 
     /// @brief the custom time-to-teleport for this type
     SUMOTime timeToTeleport;
@@ -365,8 +405,20 @@ public:
     /// @brief the custom time-to-teleport.bidi for this type
     SUMOTime timeToTeleportBidi;
 
+    /// @brief the possible speed reduction when a train is ahead of schedule
+    double speedFactorPremature;
+
     /// @brief the offset of the first person seat from the front of the vehicle
     double frontSeatPos;
+
+    /// @brief width to be used when comping seats
+    double seatingWidth;
+
+    /// @brief the parking access rights
+    std::vector<std::string> parkingBadges;
+
+    /// @brief factor for boardingDuration / loadingDuration
+    double boardingFactor;
 
     /// @brief Information for the router which parameter were set
     long long int parametersSet;
@@ -379,6 +431,9 @@ public:
 
     /// @brief cached value of parameters which may restrict access to certain edges
     std::vector<double> paramRestrictions;
+
+    /// @brief allowed attrs for the junction model
+    static std::set<SumoXMLAttr> AllowedJMAttrs;
 
     /// @brief satisfy vType / router template requirements
     inline double getLength() const {
@@ -480,4 +535,33 @@ public:
 
     /// @brief return time-to-teleport.bidi (either custom or default)
     SUMOTime getTimeToTeleportBidi(SUMOTime defaultValue) const;
+
+    /** @brief Returns the default maximum acceleration profile for the given vehicle class
+     * This needs to be a function because the actual profile is stored in the car following model
+     * @param[in] vc the vehicle class
+     * @param[in] maxAccel the maximum acceleration for all speeds
+     * @return the maximum acceleration profile in m/s^2
+     */
+    static LinearApproxHelpers::LinearApproxMap getDefaultMaxAccelProfile(const SUMOVehicleClass vc, double maxAccel);
+
+    /** @brief Returns the default desired acceleration profile for the given vehicle class
+     * This needs to be a function because the actual profile is stored in the car following model
+     * @param[in] vc the vehicle class
+     * @param[in] desAccel the desired acceleration for all speeds
+     * @return the desired acceleration profile in m/s^2
+     */
+    static LinearApproxHelpers::LinearApproxMap getDefaultDesAccelProfile(const SUMOVehicleClass vc, double desAccel);
+
+    /** @brief Returns the named value from the map, or the default if it is not contained there
+     * @param[in] attr The corresponding xml attribute
+     * @param[in] defaultValue The value to return if the given map does not contain the named variable
+     * @return The named value from the map or the default if it does not exist there
+     */
+    LinearApproxHelpers::LinearApproxMap getCFProfile(const SumoXMLAttr attr, const LinearApproxHelpers::LinearApproxMap& defaultProfile) const;
+
+    /** @brief Creates a vector of pairs from a string
+     * @param[in] profile The string containing pairs
+     * @return The vector of pairs
+     */
+    std::vector<std::pair<double, double> > createCFProfile(const SumoXMLAttr attr, const std::string profile) const;
 };

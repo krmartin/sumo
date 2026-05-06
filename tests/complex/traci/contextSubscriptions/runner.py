@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2008-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -27,6 +27,8 @@ if "SUMO_HOME" in os.environ:
     sys.path.append(os.path.join(os.environ["SUMO_HOME"], "tools"))
 import sumolib  # noqa
 import traci  # noqa
+sumoOptions = [a for a in sys.argv[1:] if a.startswith('--')]
+positionalArgs = [a for a in sys.argv[1:] if not a.startswith('--')]
 
 
 def dist2(v, w):
@@ -49,7 +51,7 @@ def runSingle(traciEndTime, viewRange, module, objID):
     seen1 = 0
     seen2 = 0
     step = 0
-    traci.start([sumolib.checkBinary(sys.argv[1]), '-Q', "-c", "sumo.sumocfg"])
+    traci.start([sumolib.checkBinary(positionalArgs[0]), '-Q', "-c", "sumo.sumocfg"] + sumoOptions)
     traci.poi.add("poi", 400, 500, (1, 0, 0, 0))
     traci.polygon.add("poly", ((400, 400), (450, 400), (450, 400)), (1, 0, 0, 0))
     subscribed = False
@@ -75,8 +77,7 @@ def runSingle(traciEndTime, viewRange, module, objID):
         elif hasattr(module, "getShape"):
             shape = module.getShape(objID)
         elif module == traci.edge:
-            # it's a hack, I know,  but do we really need to introduce
-            # edge.getShape?
+            # it's a hack, I know, but do we really need to introduce edge.getShape?
             shape = traci.lane.getShape(objID + "_0")
         near2 = set()
         for v in pos:
@@ -108,10 +109,12 @@ def runSingle(traciEndTime, viewRange, module, objID):
 
         step += 1
     module.unsubscribeContext(objID, traci.constants.CMD_GET_VEHICLE_VARIABLE, viewRange)
-    responses = traci.simulationStep()
-    print([r[0] for r in responses])  # person subscription should still be active
+    traci.simulationStep()
+    responses = list(module.getAllContextSubscriptionResults())
+    print(responses)  # person subscription should still be active
     module.unsubscribeContext(objID, traci.constants.CMD_GET_PERSON_VARIABLE, viewRange)
-    responses = traci.simulationStep()
+    traci.simulationStep()
+    responses = module.getAllContextSubscriptionResults()
     if responses:
         print("Error: Unsubscribe did not work", responses)
     else:
@@ -128,17 +131,17 @@ def runSingle(traciEndTime, viewRange, module, objID):
 
 
 sys.stdout.flush()
-if sys.argv[3] == "vehicle":
-    runSingle(1000, float(sys.argv[2]), traci.vehicle, "ego")
-elif sys.argv[3] == "edge":
-    runSingle(1000, float(sys.argv[2]), traci.edge, "1fi")
-elif sys.argv[3] == "lane":
-    runSingle(1000, float(sys.argv[2]), traci.lane, "2si_0")
-elif sys.argv[3] == "junction":
-    runSingle(1000, float(sys.argv[2]), traci.junction, "0")
-elif sys.argv[3] == "poi":
-    runSingle(1000, float(sys.argv[2]), traci.poi, "poi")
-elif sys.argv[3] == "polygon":
-    runSingle(1000, float(sys.argv[2]), traci.polygon, "poly")
-elif sys.argv[3] == "person":
-    runSingle(1000, float(sys.argv[2]), traci.person, "p0")
+if positionalArgs[2] == "vehicle":
+    runSingle(1000, float(positionalArgs[1]), traci.vehicle, "ego")
+elif positionalArgs[2] == "edge":
+    runSingle(1000, float(positionalArgs[1]), traci.edge, "1fi")
+elif positionalArgs[2] == "lane":
+    runSingle(1000, float(positionalArgs[1]), traci.lane, "2si_0")
+elif positionalArgs[2] == "junction":
+    runSingle(1000, float(positionalArgs[1]), traci.junction, "0")
+elif positionalArgs[2] == "poi":
+    runSingle(1000, float(positionalArgs[1]), traci.poi, "poi")
+elif positionalArgs[2] == "polygon":
+    runSingle(1000, float(positionalArgs[1]), traci.polygon, "poly")
+elif positionalArgs[2] == "person":
+    runSingle(1000, float(positionalArgs[1]), traci.person, "p0")

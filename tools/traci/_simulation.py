@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2011-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2011-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -21,7 +21,7 @@ from __future__ import absolute_import
 import warnings
 from . import constants as tc
 from .domain import Domain
-from .exceptions import FatalTraCIError
+from .exceptions import FatalTraCIError, deprecated
 
 
 class Stage(object):
@@ -146,7 +146,7 @@ class Stage(object):
 
 def _readStage(result):
     # compound size and type
-    assert(result.read("!i")[0] == 13)
+    assert result.read("!i")[0] == 13
     stageType = result.readTypedInt()
     vType = result.readTypedString()
     line = result.readTypedString()
@@ -271,7 +271,15 @@ class SimulationDomain(Domain):
         """
         if self._connection is None:
             raise FatalTraCIError("Not connected.")
-        return self._connection.simulationStep(time)
+        self._connection.simulationStep(time)
+
+    def executeMove(self):
+        """executeMove() -> None
+        Make "half" a simulation step.
+        """
+        if self._connection is None:
+            raise FatalTraCIError("Not connected.")
+        self._connection._sendCmd(tc.CMD_EXECUTEMOVE, None, None)
 
     def getCurrentTime(self):
         """getCurrentTime() -> integer
@@ -290,9 +298,9 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.VAR_LOADED_VEHICLES_NUMBER)
 
     def getLoadedIDList(self):
-        """getLoadedIDList() -> list(string)
+        """getLoadedIDList() -> tuple(string)
 
-        Returns a list of ids of vehicles which were loaded in this time step.
+        Returns a tuple of ids of vehicles which were loaded in this time step.
         """
         return self._getUniversal(tc.VAR_LOADED_VEHICLES_IDS)
 
@@ -304,9 +312,9 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.VAR_DEPARTED_VEHICLES_NUMBER)
 
     def getDepartedIDList(self):
-        """getDepartedIDList() -> list(string)
+        """getDepartedIDList() -> tuple(string)
 
-        Returns a list of ids of vehicles which departed (were inserted into the road network) in this time step.
+        Returns a tuple of ids of vehicles which departed (were inserted into the road network) in this time step.
         """
         return self._getUniversal(tc.VAR_DEPARTED_VEHICLES_IDS)
 
@@ -319,9 +327,9 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.VAR_ARRIVED_VEHICLES_NUMBER)
 
     def getArrivedIDList(self):
-        """getArrivedIDList() -> list(string)
+        """getArrivedIDList() -> tuple(string)
 
-        Returns a list of ids of vehicles which arrived (have reached their destination and are removed from the road
+        Returns a tuple of ids of vehicles which arrived (have reached their destination and are removed from the road
         network) in this time step.
         """
         return self._getUniversal(tc.VAR_ARRIVED_VEHICLES_IDS)
@@ -334,9 +342,9 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.VAR_DEPARTED_PERSONS_NUMBER)
 
     def getDepartedPersonIDList(self):
-        """getDepartedPersonIDList() -> list(string)
+        """getDepartedPersonIDList() -> tuple(string)
 
-        Returns a list of ids of persons which departed (were inserted into the road network) in this time step.
+        Returns a tuple of ids of persons which departed (were inserted into the road network) in this time step.
         """
         return self._getUniversal(tc.VAR_DEPARTED_PERSONS_IDS)
 
@@ -349,9 +357,9 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.VAR_ARRIVED_PERSONS_NUMBER)
 
     def getArrivedPersonIDList(self):
-        """getArrivedPersonIDList() -> list(string)
+        """getArrivedPersonIDList() -> tuple(string)
 
-        Returns a list of ids of persons which arrived (have reached their destination and are removed from the road
+        Returns a tuple of ids of persons which arrived (have reached their destination and are removed from the road
         network) in this time step.
         """
         return self._getUniversal(tc.VAR_ARRIVED_PERSONS_IDS)
@@ -364,7 +372,7 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.VAR_PARKING_STARTING_VEHICLES_NUMBER)
 
     def getParkingStartingVehiclesIDList(self):
-        """getParkingStartingVehiclesIDList() -> list(string)
+        """getParkingStartingVehiclesIDList() -> tuple(string)
 
         .
         """
@@ -378,7 +386,7 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.VAR_PARKING_ENDING_VEHICLES_NUMBER)
 
     def getParkingEndingVehiclesIDList(self):
-        """getParkingEndingVehiclesIDList() -> list(string)
+        """getParkingEndingVehiclesIDList() -> tuple(string)
 
         .
         """
@@ -392,7 +400,7 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.VAR_STOP_STARTING_VEHICLES_NUMBER)
 
     def getStopStartingVehiclesIDList(self):
-        """getStopStartingVehiclesIDList() -> list(string)
+        """getStopStartingVehiclesIDList() -> tuple(string)
 
         .
         """
@@ -406,7 +414,7 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.VAR_STOP_ENDING_VEHICLES_NUMBER)
 
     def getStopEndingVehiclesIDList(self):
-        """getStopEndingVehiclesIDList() -> list(string)
+        """getStopEndingVehiclesIDList() -> tuple(string)
 
         .
         """
@@ -420,7 +428,7 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.VAR_COLLIDING_VEHICLES_NUMBER)
 
     def getCollidingVehiclesIDList(self):
-        """getCollidingVehiclesIDList() -> list(string)
+        """getCollidingVehiclesIDList() -> tuple(string)
         Return Ids of vehicles involved in a collision (typically 2 per
         collision).
         """
@@ -433,7 +441,7 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.VAR_EMERGENCYSTOPPING_VEHICLES_NUMBER)
 
     def getEmergencyStoppingVehiclesIDList(self):
-        """getEmergencyStoppingVehiclesIDList() -> list(string)
+        """getEmergencyStoppingVehiclesIDList() -> tuple(string)
         Return Ids of vehicles that peformed an emergency stop in the last step
         """
         return self._getUniversal(tc.VAR_EMERGENCYSTOPPING_VEHICLES_IDS)
@@ -452,17 +460,20 @@ class SimulationDomain(Domain):
         """
         return self._getUniversal(tc.VAR_MIN_EXPECTED_VEHICLES)
 
+    @deprecated("busstop.getIDList")
     def getBusStopIDList(self):
         return self._getUniversal(tc.VAR_BUS_STOP_ID_LIST)
 
+    @deprecated("busstop.getPersonCount")
     def getBusStopWaiting(self, stopID):
         """getBusStopWaiting() -> integer
         Get the total number of waiting persons at the named bus stop.
         """
         return self._getUniversal(tc.VAR_BUS_STOP_WAITING, stopID)
 
+    @deprecated("busstop.getPersonIDs")
     def getBusStopWaitingIDList(self, stopID):
-        """getBusStopWaiting() -> list(string)
+        """getBusStopWaiting() -> tuple(string)
         Get the IDs of waiting persons at the named bus stop.
         """
         return self._getUniversal(tc.VAR_BUS_STOP_WAITING_IDS, stopID)
@@ -475,9 +486,9 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.VAR_TELEPORT_STARTING_VEHICLES_NUMBER)
 
     def getStartingTeleportIDList(self):
-        """getStartingTeleportIDList() -> list(string)
+        """getStartingTeleportIDList() -> tuple(string)
 
-        Returns a list of ids of vehicles which started to teleport in this time step.
+        Returns a tuple of ids of vehicles which started to teleport in this time step.
         """
         return self._getUniversal(tc.VAR_TELEPORT_STARTING_VEHICLES_IDS)
 
@@ -489,21 +500,21 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.VAR_TELEPORT_ENDING_VEHICLES_NUMBER)
 
     def getEndingTeleportIDList(self):
-        """getEndingTeleportIDList() -> list(string)
+        """getEndingTeleportIDList() -> tuple(string)
 
-        Returns a list of ids of vehicles which ended to be teleported in this time step.
+        Returns a tuple of ids of vehicles which ended to be teleported in this time step.
         """
         return self._getUniversal(tc.VAR_TELEPORT_ENDING_VEHICLES_IDS)
 
     def getCollisions(self):
-        """getCollisions() -> list(Collision)
-        Returns a list of collision objects
+        """getCollisions() -> tuple(Collision)
+        Returns a tuple of collision objects
         """
         return self._getUniversal(tc.VAR_COLLISIONS)
 
     def getPendingVehicles(self):
-        """getPendingVehicles() -> list(string)
-        Returns a list of all vehicle ids waiting for insertion (with depart delay)
+        """getPendingVehicles() -> tuple(string)
+        Returns a tuple of all vehicle ids waiting for insertion (with depart delay)
         """
         return self._getUniversal(tc.VAR_PENDING_VEHICLES)
 
@@ -592,8 +603,9 @@ class SimulationDomain(Domain):
         return self._getUniversal(tc.DISTANCE_REQUEST, "", "trru", 3,
                                   (edgeID1, pos1, 0), (edgeID2, pos2, 0), distType)
 
-    def findRoute(self, fromEdge, toEdge, vType="", depart=-1., routingMode=0):
-        """findRoute(string, string, string, double, int) -> Stage
+    def findRoute(self, fromEdge, toEdge, vType="", depart=-1., routingMode=0,
+                  departPos=0., arrivalPos=tc.INVALID_DOUBLE_VALUE):
+        """findRoute(string, string, string, double, int, double, double) -> Stage
         Computes the fastest route between the given edges for the given vehicle
         type (defaults to DEFAULT_VEHTYPE)
         Returns a Stage object that holds the edge list and the travel time
@@ -601,17 +613,18 @@ class SimulationDomain(Domain):
         will be used. The routing mode may be ROUTING_MODE_DEFAULT (loaded or
         default speeds) and ROUTING_MODE_AGGREGATED (averaged historical speeds)
         """
-        return self._getUniversal(tc.FIND_ROUTE, "", "tsssdi", 5, fromEdge, toEdge, vType, depart, routingMode)
+        return self._getUniversal(tc.FIND_ROUTE, "", "tsssdidd", 7, fromEdge, toEdge, vType, depart,
+                                  routingMode, departPos, arrivalPos)
 
     def findIntermodalRoute(self, fromEdge, toEdge, modes="", depart=-1., routingMode=0, speed=-1.,
                             walkFactor=-1., departPos=0., arrivalPos=tc.INVALID_DOUBLE_VALUE, departPosLat=0.,
                             pType="", vType="", destStop=""):
         """findIntermodalRoute(string, string, string, double, int, double,
-        double, double, double, double, string, string, string) -> Stage
+        double, double, double, double, string, string, string) -> tuple(Stage)
         Computes the fastest intermoal route between the given edges for the
         given combination of transport modes (i.e. "car public" may result in
         driving to the train station and then riding the train).
-        Returns a list of Stage objects that correspond to the sequence of walks
+        Returns a tuple of Stage objects that correspond to the sequence of walks
         and rides to reach the destination.
         When the depart time is not set, the travel times at the current time will be used.
         The routing mode may be ROUTING_MODE_DEFAULT (loaded or
@@ -655,12 +668,12 @@ class SimulationDomain(Domain):
     def writeMessage(self, msg):
         self._setCmd(tc.CMD_MESSAGE, "", "s", msg)
 
-    def subscribe(self, varIDs=(tc.VAR_DEPARTED_VEHICLES_IDS,), begin=0, end=2**31 - 1):
-        """subscribe(list(integer), double, double) -> None
+    def subscribe(self, varIDs=(tc.VAR_DEPARTED_VEHICLES_IDS,), begin=0, end=2**31 - 1, parameters=None):
+        """subscribe(list(integer), double, double, map) -> None
 
         Subscribe to one or more simulation values for the given interval.
         """
-        Domain.subscribe(self, "", varIDs, begin, end)
+        Domain.subscribe(self, "", varIDs, begin, end, parameters)
 
     def getSubscriptionResults(self):
         """getSubscriptionResults() -> dict(integer: <value_type>)

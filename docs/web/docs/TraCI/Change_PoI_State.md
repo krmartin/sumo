@@ -17,16 +17,16 @@ changed, the parameter which must be given are also shown in the table.
 
 | Variable          | ValueType                          | Description                      | [Python Method](../TraCI/Interfacing_TraCI_from_Python.md)                  |
 | ----------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| type (0x4f)       | string                             | Sets the PoI's type to the given value                                                                   | [setType](https://sumo.dlr.de/pydoc/traci._poi.html#PoiDomain-setType)           |
-| color (0x45)      | color (ubyte,ubyte,ubyte,ubyte)    | Sets the PoI's color to the given value (r,g,b,a) - please note that a(lpha) = 0 means fully transparent | [setColor](https://sumo.dlr.de/pydoc/traci._poi.html#PoiDomain-setColor)         |
-| position (0x42)   | Position2D (double, double)        | Sets the PoI's position to the given value                                                               | [setPosition](https://sumo.dlr.de/pydoc/traci._poi.html#PoiDomain-setPosition)   |
-| image file (0x93) | string                             | sets the path to the image file of the poi                                                               | [setImageFile](https://sumo.dlr.de/pydoc/traci._poi.html#PoiDomain-setImageFile) |
-| width (0x4d)      | float                              | Sets the width for the rendered image file                                                               | [setWidth](https://sumo.dlr.de/pydoc/traci._poi.html#PoiDomain-setWidth)         |
-| height (0xbc)     | float                              | Sets the height for the rendered image file                                                              | [setHeight](https://sumo.dlr.de/pydoc/traci._poi.html#PoiDomain-setHeight)       |
-| angle (0x43)      | float                              | sets the angle for the rendered image file                                                               | [setAngle](https://sumo.dlr.de/pydoc/traci._poi.html#PoiDomain-setAngle)         |
-| ADD (0x80)        | PoI-definition, see below          | Adds the defined PoI                                                                                     | [add](https://sumo.dlr.de/pydoc/traci._poi.html#PoiDomain-add)                   |
-| REMOVE (0x81)     | int (layer), see below             | Removes the defined PoI                                                                                  | [remove](https://sumo.dlr.de/pydoc/traci._poi.html#PoiDomain-remove)             |
-| highlight (0x6c)  | highlight specification, see below | Adds a highlight to the PoI                                                                              | [remove](https://sumo.dlr.de/pydoc/traci._poi.html#PoiDomain-remove)             |
+| type (0x4f)       | string                             | Sets the PoI's type to the given value                                                                   | [setType](https://sumo.dlr.de/pydoc/traci/_poi.html#PoiDomain.setType)           |
+| color (0x45)      | color (ubyte,ubyte,ubyte,ubyte)    | Sets the PoI's color to the given value (r,g,b,a) - please note that a(lpha) = 0 means fully transparent | [setColor](https://sumo.dlr.de/pydoc/traci/_poi.html#PoiDomain.setColor)         |
+| position (0x42)   | Position2D (double, double)        | Sets the PoI's position to the given value                                                               | [setPosition](https://sumo.dlr.de/pydoc/traci/_poi.html#PoiDomain.setPosition)   |
+| image file (0x93) | string                             | sets the path to the image file of the poi                                                               | [setImageFile](https://sumo.dlr.de/pydoc/traci/_poi.html#PoiDomain.setImageFile) |
+| width (0x4d)      | float                              | Sets the width for the rendered image file                                                               | [setWidth](https://sumo.dlr.de/pydoc/traci/_poi.html#PoiDomain.setWidth)         |
+| height (0xbc)     | float                              | Sets the height for the rendered image file                                                              | [setHeight](https://sumo.dlr.de/pydoc/traci/_poi.html#PoiDomain.setHeight)       |
+| angle (0x43)      | float                              | sets the angle for the rendered image file                                                               | [setAngle](https://sumo.dlr.de/pydoc/traci/_poi.html#PoiDomain.setAngle)         |
+| ADD (0x80)        | PoI-definition, see below          | Adds the defined PoI                                                                                     | [add](https://sumo.dlr.de/pydoc/traci/_poi.html#PoiDomain.add)                   |
+| REMOVE (0x81)     | int (layer), see below             | Removes the defined PoI                                                                                  | [remove](https://sumo.dlr.de/pydoc/traci/_poi.html#PoiDomain.remove)             |
+| highlight (0x6c)  | highlight specification, see below | Adds a highlight to the PoI                                                                              | [highlight](https://sumo.dlr.de/pydoc/traci/_poi.html#PoiDomain.highlight)             |
 |                   |                                    |                                                                                                          |                                                                                  |
 
 
@@ -58,7 +58,7 @@ The message contents are as following:
 | value type *compound* | item number = 4 | value type *string* | type name | value type *color* | color | value type *int* | layer | value type *position2D* | position |
 
 If the PoI could not been added because another one with the same ID
-already exists within the layer, an error message is generated.  
+already exists within the layer, an error message is generated.
 Please note that, if an image has been passed (through the `imgFile` attribute), the resultant color of the POI is a combination of the image's native color and the value of `color` passed. In this case, passing `color` as (255,255,255) will result in the POI having the same colors as that of the image passed.
 
 ### REMOVE (0x81)

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -31,6 +31,7 @@
 // ===========================================================================
 // class declarations
 // ===========================================================================
+class SUMOVehicle;
 class MSEdge;
 class MSLink;
 class MSDetectorFileOutput;
@@ -50,6 +51,8 @@ class MESegment : public Named {
 public:
     static const double DO_NOT_PATCH_JAM_THRESHOLD;
     static const int PARKING_QUEUE = -1;
+    /// @brief special param value
+    static const std::string OVERRIDE_TLS_PENALTIES;
 
     /// @brief edge type specific meso parameters
     struct MesoEdgeType {
@@ -63,6 +66,7 @@ public:
         double tlsFlowPenalty;
         SUMOTime minorPenalty;
         bool overtaking;
+        double edgeLength;
     };
 
 
@@ -111,6 +115,10 @@ private:
             myPermissions = p;
         }
 
+        void addDetector(MSMoveReminder* data);
+
+        void addReminders(MEVehicle* veh) const;
+
     private:
         /// The vClass permissions for this queue
         SVCPermissions myPermissions;
@@ -125,6 +133,10 @@ private:
 
         /// @brief The block time
         SUMOTime myBlockTime = -1;
+
+        /// @brief The data collection for all kinds of detectors
+        std::vector<MSMoveReminder*> myDetectorData;
+
     };
 
 public:
@@ -154,20 +166,23 @@ public:
     /** @brief Adds a data collector for a detector to this segment
      *
      * @param[in] data The data collector to add
+     * @param[in] queueIndex The queue (aka lane) to use, -1 means all
      */
-    void addDetector(MSMoveReminder* data);
+    void addDetector(MSMoveReminder* data, int queueIndex = -1);
 
     /** @brief Removes a data collector for a detector from this segment
      *
      * @param[in] data The data collector to remove
+     * @note: currently not used
      */
-    void removeDetector(MSMoveReminder* data);
+    // void removeDetector(MSMoveReminder* data);
 
-    /** @brief Updates data of a detector for all vehicle queues
+    /** @brief Updates data of a detector for one or all vehicle queues
      *
      * @param[in] data The detector data to update
+     * @param[in] queueIndex The queue (aka lane) to use, -1 means all
      */
-    void prepareDetectorForWriting(MSMoveReminder& data);
+    void prepareDetectorForWriting(MSMoveReminder& data, int queueIndex = -1);
     /// @}
 
     /** @brief Returns whether the given vehicle would still fit into the segment
@@ -206,6 +221,11 @@ public:
     inline const std::vector<MEVehicle*>& getQueue(int index) const {
         assert(index < (int)myQueues.size());
         return myQueues[index].getVehicles();
+    }
+
+    inline SUMOTime getQueueBlockTime(int index) const {
+        assert(index < (int)myQueues.size());
+        return myQueues[index].getBlockTime();
     }
 
     /** @brief Returns the running index of the segment in the edge (0 is the most upstream).
@@ -261,7 +281,7 @@ public:
 
     /** @brief Returns the relative occupany of the segment (percentage of road used))
      * at which the segment is considered jammed
-     * @return the jam treshold of the segment in percent
+     * @return the jam threshold of the segment in percent
      */
     inline double getRelativeJamThreshold() const {
         return myJamThreshold / myCapacity;
@@ -278,6 +298,9 @@ public:
      * @return the average speed on the segment
      */
     double getMeanSpeed(bool useCache) const;
+
+    /// @brief reset myLastMeanSpeedUpdate
+    void resetCachedSpeeds();
 
     /// @brief wrapper to satisfy the FunctionBinding signature
     inline double getMeanSpeed() const {
@@ -354,7 +377,7 @@ public:
      * all vehicles in it. Also set/recompute myJamThreshold
      * @param[in] jamThresh follows the semantic of option meso-jam-threshold
      */
-    void setSpeed(double newSpeed, SUMOTime currentTime, double jamThresh = DO_NOT_PATCH_JAM_THRESHOLD);
+    void setSpeed(double newSpeed, SUMOTime currentTime, double jamThresh = DO_NOT_PATCH_JAM_THRESHOLD, int qIdx = -1);
 
     /** @brief Returns the (planned) time at which the next vehicle leaves this segment
      * @return The time the vehicle thinks it leaves
@@ -408,14 +431,13 @@ public:
      *  edge are filled the same way. Then, the departure of last vehicles onto the next
      *  edge are restored.
      *
-     * @param[in] vehIDs The vehicle ids for the current que
-     * @param[in] vc The vehicle control to retrieve references vehicles from
+     * @param[in] vehs The vehicles for the current que
      * @param[in] blockTime The time the last vehicle left the que
      * @param[in] queIdx The index of the current que
      * @todo What about throwing an IOError?
      * @todo What about throwing an error if something else fails (a vehicle can not be referenced)?
      */
-    void loadState(const std::vector<std::string>& vehIDs, MSVehicleControl& vc, const SUMOTime blockTime, const int queIdx);
+    void loadState(const std::vector<SUMOVehicle*>& vehs, const SUMOTime blockTime, const SUMOTime entryBlockTime, const int queIdx);
     /// @}
 
 
@@ -466,6 +488,16 @@ public:
 
     /// @brief called when permissions change due to Rerouter or TraCI
     void updatePermissions();
+
+    /// @brief whether the traffic light should use normal junction control despite penalty options
+    void overrideTLSPenalty() {
+        myTLSPenalty = false;
+    }
+
+    /// @brief convert net time gap (leader back to follower front) to gross time gap (leader front to follower front)
+    inline SUMOTime getMinTauWithVehLength(double lengthWithGap, double vehicleTau) const {
+        return (SUMOTime)((double)myTau_ff * vehicleTau + lengthWithGap * myTau_length);
+    }
 
 private:
     bool overtake();
@@ -543,9 +575,6 @@ private:
 
     /// @brief The space (in m) which needs to be occupied before the segment is considered jammed
     double myJamThreshold;
-
-    /// @brief The data collection for all kinds of detectors
-    std::vector<MSMoveReminder*> myDetectorData;
 
     /// @brief The car queues. Vehicles are inserted in the front and removed in the back
     std::vector<Queue> myQueues;

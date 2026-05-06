@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2008-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -40,7 +40,7 @@ def printAggregated():
           traci.multientryexit.getLastIntervalVehicleSum(detID))
 
 
-traci.start([sumolib.checkBinary('sumo'), "-c", "sumo.sumocfg"])
+traci.start([sumolib.checkBinary('sumo'), "-c", "sumo.sumocfg"] + sys.argv[1:])
 for step in range(4):
     print("step", step)
     traci.simulationStep()
@@ -60,7 +60,7 @@ printAggregated()
 
 traci.multientryexit.setParameter(detID, "foo", "42")
 print("parameter", traci.multientryexit.getParameter(detID, "foo"))
-print("parameter from XML", traci.multientryexit.getParameter(detID, "loadedFromXML"))
+print("parameter from XML '%s'" % traci.multientryexit.getParameter(detID, "loadedFromXML"))
 
 traci.multientryexit.subscribe(detID)
 print(traci.multientryexit.getSubscriptionResults(detID))

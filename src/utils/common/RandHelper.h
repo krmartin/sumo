@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2005-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2005-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,14 +21,39 @@
 /****************************************************************************/
 #pragma once
 #include <config.h>
+
 #include <cassert>
+#include <cstring>
 #include <vector>
 #include <map>
 #include <random>
 #include <sstream>
 #include <iostream>
+#include <algorithm>
+
+// TODO make this configurable
+#define SAVE_ONLY_COUNT 1000000
+
+// ===========================================================================
+// helper function
+// ===========================================================================
+
+#ifdef __clang__
+__attribute__((no_sanitize("unsigned-integer-overflow")))
+#endif
+inline uint64_t splitmix64(const uint64_t seed) {
+    uint64_t z = (seed + 0x9e3779b97f4a7c15);
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
+    return z ^ (z >> 31);
+}
 
 
+// ===========================================================================
+// class declaration
+// ===========================================================================
+
+class OptionsCont;
 
 // ===========================================================================
 // class definitions
@@ -80,13 +105,6 @@ private:
         return (x << k) | (x >> (64 - k));
     }
 
-    static inline uint64_t splitmix64(const uint64_t seed) {
-        uint64_t z = (seed + 0x9e3779b97f4a7c15);
-        z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
-        z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
-        return z ^ (z >> 31);
-    }
-
     uint64_t state[4];
 
 };
@@ -97,7 +115,13 @@ class SumoRNG : public std::mt19937 {
 public:
     SumoRNG(const std::string& _id) : id(_id) {}
 
+    void setSeed(int _seed) {
+        origSeed = _seed;
+        seed(_seed);
+    }
+
     unsigned long long int count = 0;
+    int origSeed = default_seed;
     std::string id;
 };
 
@@ -107,15 +131,18 @@ public:
  * @brief Utility functions for using a global, resetable random number generator
  */
 class RandHelper {
+
 public:
     /// @brief Initialises the given options container with random number options
-    static void insertRandOptions();
+    static void insertRandOptions(OptionsCont& oc);
 
     /// @brief Initialises the random number generator with hardware randomness or seed
     static void initRand(SumoRNG* which = nullptr, const bool random = false, const int seed = 23423);
 
     /// @brief Reads the given random number options and initialises the random number generator in accordance
     static void initRandGlobal(SumoRNG* which = nullptr);
+
+    static int getSeed(SumoRNG* which = nullptr);
 
     /// @brief Returns a random real number in [0, 1)
     static double rand(SumoRNG* rng = nullptr);
@@ -206,10 +233,9 @@ public:
             rng = &myRandomNumberGenerator;
         }
         std::ostringstream oss;
-        if (rng->count < 1000000) { // TODO make this configurable
-            oss << rng->count;
-        } else {
-            oss << (*rng);
+        oss << rng->count;
+        if (rng->count >= SAVE_ONLY_COUNT) {
+            oss << " " << (*rng);
         }
         return oss.str();
     }
@@ -220,17 +246,79 @@ public:
             rng = &myRandomNumberGenerator;
         }
         std::istringstream iss(state);
-        if (state.size() < 10) {
-            iss >> rng->count;
+        iss >> rng->count;
+        if (rng->count < SAVE_ONLY_COUNT) {
             rng->discard(rng->count);
         } else {
             iss >> (*rng);
         }
     }
 
+    template<class T>
+    static void shuffle(std::vector<T>& v, SumoRNG* rng = nullptr) {
+        for (int i = (int)(v.size() - 1); i > 0; --i) {
+            std::swap(*(v.begin() + i), *(v.begin() + rand(i, rng)));
+        }
+    }
+
+    static long long int count() {
+        return myRandomNumberGenerator.count;
+    }
+
+    /// @brief return a value scrambled value from [0, 1]
+    static double randHash(long long int x) {
+        const uint64_t h = splitmix64(x) >> 11;
+        return (double)h / (double(1ULL << 53));
+    }
+
+    /// @brief string hashing adapted from https://en.wikipedia.org/wiki/MurmurHash
+#ifdef __clang__
+    __attribute__((no_sanitize("integer"))) // left-shift and unsigned-integer-overflow
+#endif
+    static uint32_t murmur3_32(const std::string& key2, int seed) {
+        const uint8_t* key = reinterpret_cast<const uint8_t*>(key2.data());
+        const size_t len = key2.size();
+        uint32_t h = seed;
+        uint32_t k;
+        /* Read in groups of 4. */
+        for (size_t i = len >> 2; i; i--) {
+            memcpy(&k, key, sizeof(uint32_t));
+            key += sizeof(uint32_t);
+            h ^= murmur_32_scramble(k);
+            h = (h << 13) | (h >> 19);
+            h = h * 5 + 0xe6546b64;
+        }
+        /* Read the rest. */
+        k = 0;
+        for (size_t i = len & 3; i; i--) {
+            k <<= 8;
+            k |= key[i - 1];
+        }
+        h ^= murmur_32_scramble(k);
+        /* Finalize. */
+        h ^= len;
+        h ^= h >> 16;
+        h *= 0x85ebca6b;
+        h ^= h >> 13;
+        h *= 0xc2b2ae35;
+        h ^= h >> 16;
+        return h;
+    }
+
 
 protected:
     /// @brief the default random number generator to use
     static SumoRNG myRandomNumberGenerator;
+
+    /// @brief helper function for murmur_32_scramble from https://en.wikipedia.org/wiki/MurmurHash
+#ifdef __clang__
+    __attribute__((no_sanitize("integer"))) // left-shift and unsigned-integer-overflow
+#endif
+    static inline uint32_t murmur_32_scramble(uint32_t k) {
+        k *= 0xcc9e2d51;
+        k = (k << 15) | (k >> 17);
+        k *= 0x1b873593;
+        return k;
+    }
 
 };

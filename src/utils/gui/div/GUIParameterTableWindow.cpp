@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2002-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -16,6 +16,7 @@
 /// @author  Laura Bieker
 /// @author  Michael Behrisch
 /// @author  Jakob Erdmann
+/// @author  Mirko Barthauer
 /// @date    Sept 2002
 ///
 // The window that holds the table of an object's parameter
@@ -26,6 +27,7 @@
 #include <utils/foxtools/fxheader.h>
 #include "GUIParameterTableWindow.h"
 #include <utils/gui/globjects/GUIGlObject.h>
+#include <utils/common/MsgHandler.h>
 #include <utils/common/ToString.h>
 #include <utils/common/Parameterised.h>
 #include <utils/gui/div/GUIParam_PopupMenu.h>
@@ -50,18 +52,23 @@ FXDEFMAP(GUIParameterTableWindow) GUIParameterTableWindowMap[] = {
 
 FXIMPLEMENT(GUIParameterTableWindow, FXMainWindow, GUIParameterTableWindowMap, ARRAYNUMBER(GUIParameterTableWindowMap))
 
-
 // ===========================================================================
 // static value definitions
 // ===========================================================================
+
 FXMutex GUIParameterTableWindow::myGlobalContainerLock;
 std::vector<GUIParameterTableWindow*> GUIParameterTableWindow::myContainer;
 
 // ===========================================================================
 // method definitions
 // ===========================================================================
-GUIParameterTableWindow::GUIParameterTableWindow(GUIMainWindow& app, GUIGlObject& o) :
-    FXMainWindow(app.getApp(), (o.getFullName() + " Parameter").c_str(), nullptr, nullptr, DECOR_ALL, 20, 20, 200, 500),
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4355) // mask warning about "this" in initializers
+#endif
+GUIParameterTableWindow::GUIParameterTableWindow(GUIMainWindow& app, GUIGlObject& o, const std::string& title) :
+    FXMainWindow(app.getApp(), ((title == "" ? o.getFullName() : title) + " parameter").c_str(), nullptr, nullptr, DECOR_ALL, 20, 40, 200, 500),
+    GUIPersistentWindowPos(this, "DIALOG_PARAMETERS", false, 20, 40),
     myObject(&o),
     myApplication(&app),
     myTrackerY(50),
@@ -69,10 +76,10 @@ GUIParameterTableWindow::GUIParameterTableWindow(GUIMainWindow& app, GUIGlObject
     myTable = new FXTable(this, this, MID_TABLE, TABLE_COL_SIZABLE | TABLE_ROW_SIZABLE | LAYOUT_FILL_X | LAYOUT_FILL_Y);
     myTable->setTableSize(1, 3);
     myTable->setVisibleColumns(3);
-    myTable->setBackColor(FXRGB(255, 255, 255));
-    myTable->setColumnText(0, "Name");
-    myTable->setColumnText(1, "Value");
-    myTable->setColumnText(2, "Dynamic");
+    myTable->setBackColor(GUIDesignBackgroundColorWhite);
+    myTable->setColumnText(0, TL("Name"));
+    myTable->setColumnText(1, TL("Value"));
+    myTable->setColumnText(2, TL("Dynamic"));
     myTable->getRowHeader()->setWidth(0);
     FXHeader* header = myTable->getColumnHeader();
     header->setItemJustify(0, JUSTIFY_CENTER_X);
@@ -89,7 +96,11 @@ GUIParameterTableWindow::GUIParameterTableWindow(GUIMainWindow& app, GUIGlObject
     myContainer.push_back(this);
     // Table cannot be editable
     myTable->setEditable(FALSE);
+    loadWindowPos();
 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 GUIParameterTableWindow::~GUIParameterTableWindow() {
     myApplication->removeChild(this);
@@ -145,7 +156,7 @@ GUIParameterTableWindow::onLeftBtnPress(FXObject* sender, FXSelector sel, void* 
         GUIParameterTableItemInterface* i = myItems[row];
         if (i->dynamic() && i->getdoubleSourceCopy() != nullptr) {
             // open tracker directly
-            const std::string trackerName = i->getName() + " from " + myObject->getFullName();
+            const std::string trackerName = i->getName() + " of " + myObject->getFullName();
             TrackerValueDesc* newTracked = new TrackerValueDesc(i->getName(), RGBColor::BLACK, myApplication->getCurrentSimTime(), myApplication->getTrackerInterval());
             if (!GUIParameterTracker::addTrackedMultiplot(*myObject, i->getdoubleSourceCopy(), newTracked)) {
                 GUIParameterTracker* tr = new GUIParameterTracker(*myApplication, trackerName);
@@ -180,7 +191,7 @@ GUIParameterTableWindow::onRightButtonPress(FXObject* /*sender*/, FXSelector /*s
     ValueSource<double>* doubleSource = i->getdoubleSourceCopy();
     if (doubleSource != nullptr) {
         GUIParam_PopupMenuInterface* p = new GUIParam_PopupMenuInterface(*myApplication, *this, *myObject, i->getName(), doubleSource);
-        GUIDesigns::buildFXMenuCommand(p, "Open in new Tracker", nullptr, p, MID_OPENTRACKER);
+        GUIDesigns::buildFXMenuCommand(p, TL("Open in new Tracker"), nullptr, p, MID_OPENTRACKER);
         // set geometry
         p->setX(static_cast<FXEvent*>(eventData)->root_x);
         p->setY(static_cast<FXEvent*>(eventData)->root_y);
@@ -246,7 +257,7 @@ GUIParameterTableWindow::updateTable() {
 
 void
 GUIParameterTableWindow::closeBuilding(const Parameterised* p) {
-    // add generic paramters if available
+    // add generic parameters if available
     if (p == nullptr) {
         p = dynamic_cast<const Parameterised*>(myObject);
     }
@@ -257,7 +268,12 @@ GUIParameterTableWindow::closeBuilding(const Parameterised* p) {
         }
     }
     const int rows = (int)myItems.size() + 1;
-    setHeight(rows * 20 + 40);
+    int h = rows * 20 + 40;
+    // adjust size in case there are higher (multi-line) rows
+    for (int i = 0; i < (int)myItems.size(); i++) {
+        h += MAX2(0, myTable->getRowHeight(i) - 20);
+    }
+    setHeight(h);
     myTable->fitColumnsToContents(1);
     setWidth(myTable->getContentWidth() + 40);
     myTable->setVisibleRows(rows);
@@ -265,6 +281,7 @@ GUIParameterTableWindow::closeBuilding(const Parameterised* p) {
     create();
     show();
 }
+
 
 void
 GUIParameterTableWindow::checkFont(const std::string& text) {

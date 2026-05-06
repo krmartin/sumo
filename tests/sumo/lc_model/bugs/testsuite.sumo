@@ -34,3 +34,34 @@ ticket10988
 
 # excessive emergency braking at discontinuity in bestlaneoffset
 ticket11695
+
+# delayed lane change while decelerating
+ticket12108
+
+# counter lane change deadlock at busstop
+ticket12320
+ticket11468
+
+# invalid speed advice to self causing deadlock
+ticket14322
+
+# emergency braking in roundabout
+ticket14587
+
+# invalid cooperative changing ahead of roundabout	
+ticket15854
+
+# deadlock with 3 vehicles
+ticket15857
+
+# deadlock on junction
+ticket15887
+
+# collision on junction
+ticket15927
+
+# missing cooperation at lane addition
+ticket16443
+
+# prolonged failure to change lane
+ticket16780

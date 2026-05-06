@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -20,26 +20,24 @@
 /****************************************************************************/
 #pragma once
 #include <config.h>
+
 #include <utils/gui/globjects/GUIPolygon.h>
+#include <utils/xml/CommonXMLStructure.h>
 
 #include "GNEAdditional.h"
 
 // ===========================================================================
 // class declarations
 // ===========================================================================
+
 class GeoConvHelper;
+class GNEMoveElementShape;
 class GNENetworkElement;
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @class GNEPoly
- *
- * In the case the represented junction's shape is empty, the boundary
- *  is computed using the junction's position to which an offset of 1m to each
- *  side is added.
- */
+
 class GNEPoly : public TesselatedPolygon, public GNEAdditional {
 
 public:
@@ -47,38 +45,56 @@ public:
     using GNEAdditional::getID;
 
     /// @brief default Constructor
-    GNEPoly(GNENet* net);
+    GNEPoly(SumoXMLTag tag, GNENet* net);
 
-    /** @brief Constructor
-     * @param[in] net net in which this polygon is placed
+    /** @brief Constructor for polygons
      * @param[in] id The name of the polygon
+     * @param[in] net net in which this polygon is placed
+     * @param[in] fileBucket file in which this element is stored
      * @param[in] type The (abstract) type of the polygon
      * @param[in] shape The shape of the polygon
-     * @param[in] geo specifiy if shape was loaded as GEO
+     * @param[in] geo specify if shape was loaded as GEO
      * @param[in] color The color of the polygon
      * @param[in] layer The layer of the polygon
      * @param[in] angle The rotation of the polygon
      * @param[in] imgFile The raster image of the polygon
-     * @param[in] relativePath set image file as relative path
      * @param[in] fill Whether the polygon shall be filled
      * @param[in] lineWidth Line width when drawing unfilled polygon
      * @param[in] name Poly's name
      * @param[in] parameters generic parameters
      */
-    GNEPoly(GNENet* net, const std::string& id, const std::string& type, const PositionVector& shape, bool geo, bool fill,
-            double lineWidth, const RGBColor& color, double layer, double angle, const std::string& imgFile, bool relativePath,
+    GNEPoly(const std::string& id, GNENet* net, FileBucket* fileBucket, const std::string& type, const PositionVector& shape,
+            bool geo, bool fill, double lineWidth, const RGBColor& color, double layer, double angle, const std::string& imgFile,
             const std::string& name, const Parameterised::Map& parameters);
+
+    /** @brief Constructor for JuPedSim elements
+     * @param[in] id The name of the polygon
+     * @param[in] net net in which this polygon is placed
+     * @param[in] fileBucket file in which this element is stored
+     * @param[in] shape The shape of the polygon
+     * @param[in] geo specify if shape was loaded as GEO
+     * @param[in] name Poly's name
+     * @param[in] parameters generic parameters
+     */
+    GNEPoly(SumoXMLTag tag, const std::string& id, GNENet* net, FileBucket* fileBucket, const PositionVector& shape,
+            bool geo, const std::string& name, const Parameterised::Map& parameters);
 
     /// @brief Destructor
     ~GNEPoly();
 
-    /**@brief get move operation
-    * @note returned GNEMoveOperation can be nullptr
-    */
-    GNEMoveOperation* getMoveOperation() override;
+    /// @brief methods to retrieve the elements linked to this poly
+    /// @{
 
-    /// @brief remove geometry point in the clicked position
-    void removeGeometryPoint(const Position clickedPosition, GNEUndoList* undoList) override;
+    /// @brief get GNEMoveElement associated with this poly
+    GNEMoveElement* getMoveElement() const override;
+
+    /// @brief get parameters associated with this poly
+    Parameterised* getParameters() override;
+
+    /// @brief get parameters associated with this poly (constant)
+    const Parameterised* getParameters() const override;
+
+    /// @}
 
     /// @brief gererate a new ID for an element child
     std::string generateChildID(SumoXMLTag childTag);
@@ -102,12 +118,29 @@ public:
                            const GNENetworkElement* newElement, GNEUndoList* undoList) override;
 
     /**@brief write additional element into a xml file
-     * @param[in] device device in which write parameters of additional element
-     */
+    * @param[in] device device in which write parameters of additional element
+    */
     void writeAdditional(OutputDevice& device) const override;
+
+    /// @brief check if current additional is valid to be written into XML (must be reimplemented in all detector children)
+    bool isAdditionalValid() const override;
+
+    /// @brief return a string with the current additional problem (must be reimplemented in all detector children)
+    std::string getAdditionalProblem() const override;
+
+    /// @brief fix additional problem (must be reimplemented in all detector children)
+    void fixAdditionalProblem() override;
 
     /// @brief Returns the numerical id of the object
     GUIGlID getGlID() const;
+
+    /// @}
+
+    /// @name Function related with contour drawing
+    /// @{
+
+    /// @brief check if draw move contour (red)
+    bool checkDrawMoveContour() const override;
 
     /// @}
 
@@ -133,9 +166,6 @@ public:
      */
     void drawGL(const GUIVisualizationSettings& s) const override;
 
-    double getClickPriority() const override {
-        return getShapeLayer();
-    }
     /// @}
 
     /// @name inherited from GNEAttributeCarrier
@@ -146,14 +176,23 @@ public:
      */
     std::string getAttribute(SumoXMLAttr key) const override;
 
-    /* @brief method for getting the Attribute of an XML key in double format (to avoid unnecessary parse<double>(...) for certain attributes)
+    /* @brief method for getting the Attribute of an XML key in double format
      * @param[in] key The attribute key
      * @return double with the value associated to key
      */
     double getAttributeDouble(SumoXMLAttr key) const override;
 
-    /// @brief get parameters map
-    const Parameterised::Map& getACParametersMap() const override;
+    /* @brief method for getting the Attribute of an XML key in position format
+     * @param[in] key The attribute key
+     * @return position with the value associated to key
+     */
+    Position getAttributePosition(SumoXMLAttr key) const override;
+
+    /* @brief method for getting the Attribute of an XML key in positionVector format
+     * @param[in] key The attribute key
+     * @return positionVector with the value associated to key
+     */
+    PositionVector getAttributePositionVector(SumoXMLAttr key) const override;
 
     /**@brief method for setting the attribute and letting the object perform additional changes
      * @param[in] key The attribute key
@@ -206,25 +245,40 @@ public:
     /// @brief replace the current shape with a rectangle
     void simplifyShape(bool allowUndo = true);
 
+    /// @brief get SUMOBaseObject with all polygon attributes
+    CommonXMLStructure::SumoBaseObject* getSumoBaseObject() const;
+
 protected:
+    /// @brief move element shape
+    GNEMoveElementShape* myMoveElementShape = nullptr;
+
     /// @brief Latitude of Polygon
     PositionVector myGeoShape;
 
-    /// @brief flag to indicate if polygon is simplified
-    bool mySimplifiedShape;
+    /// @brief flag to indicate if polygon is closed
+    bool myClosedShape = false;
 
-    /// @brief geometry for lengths/rotations
-    GUIGeometry myPolygonGeometry;
+    /// @brief flag to indicate if polygon is simplified
+    bool mySimplifiedShape = false;
 
 private:
     /// @brief set attribute after validation
     void setAttribute(SumoXMLAttr key, const std::string& value) override;
 
-    /// @brief set move shape
-    void setMoveShape(const GNEMoveResult& moveResult) override;
+    /// @brief draw polygon
+    void drawPolygon(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                     const RGBColor& color, const double exaggeration) const;
 
-    /// @brief commit move shape
-    void commitMoveShape(const GNEMoveResult& moveResult, GNEUndoList* undoList) override;
+    /// @brief draw contour
+    void drawPolygonContour(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                            const RGBColor& color, const double exaggeration) const;
+
+    /// @brief draw geometry points
+    void drawGeometryPoints(const GUIVisualizationSettings& s, const GUIVisualizationSettings::Detail d,
+                            const RGBColor& color, const double exaggeration) const;
+
+    /// @brief draw polygon name and type
+    void drawPolygonNameAndType(const GUIVisualizationSettings& s) const;
 
     /// @brief Invalidated copy constructor.
     GNEPoly(const GNEPoly&) = delete;

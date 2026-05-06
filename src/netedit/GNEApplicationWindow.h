@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -22,31 +22,33 @@
 
 #include "GNEApplicationWindowHelper.h"
 
+// ===========================================================================
+// class declarations
+// ===========================================================================
+
+class GUIEvent;
+class GNEUndoListDialog;
+class GNEUndoList;
+class GNETagPropertiesDatabase;
+class GNELoadThread;
+class GNEInternalTest;
+class GNEExternalRunner;
 
 // ===========================================================================
 // class definition
 // ===========================================================================
-/**
- * @class GNEApplicationWindow
- * @brief The main window of the Netedit.
- *
- * Contains the file opening support and a canvas to display the network in.
- *
- * Beside views on the simulation, shown within a MDI-window, the main window
- * may also have some further views (children) assigned which are stored
- * within a separate list.
- */
+
 class GNEApplicationWindow : public GUIMainWindow, public MFXInterThreadEventClient {
     /// @brief FOX-declaration
     FXDECLARE(GNEApplicationWindow)
 
 public:
-
     /**@brief Constructor
-     * @param[in] a The FOX application
+     * @param[in] app The FOX application
+     * @param[in] tagPropertiesDatabase pointer to tag properties database
      * @param[in] configPattern The pattern used for loading configurations
      */
-    GNEApplicationWindow(FXApp* a, const std::string& configPattern);
+    GNEApplicationWindow(FXApp* app, const GNETagPropertiesDatabase* tagPropertiesDatabase, const std::string& configPattern);
 
     /// @brief Destructor
     ~GNEApplicationWindow();
@@ -57,8 +59,17 @@ public:
     /// @brief load net on startup
     void loadOptionOnStartup();
 
+    /// @brief create new network
+    void createNewNetwork();
+
     /// @brief load network
-    void loadNet(const std::string& file);
+    void loadNetwork(const std::string& networkFile);
+
+    /// @brief starts to load a configuration
+    void loadConfiguration(const std::string& configurationFile);
+
+    /// @brief starts to load a OSM File
+    void loadOSM(const std::string& OSMFile);
 
     /// @brief build dependent
     void dependentBuild();
@@ -67,28 +78,24 @@ public:
     void setStatusBarText(const std::string& statusBarText);
 
     /// @brief called if the user selects Processing->compute junctions with volatile options
-    long computeJunctionWithVolatileOptions();
+    long computeJunctionWithVolatileOptions(FXObject* sender, FXSelector sel, void* ptr);
 
-    /// @brief enable save TLS Programs
-    void enableSaveTLSProgramsMenu();
+    /// @brief check if console options was already loaded
+    bool consoleOptionsLoaded();
 
-    /// @brief enable save additionals
-    void enableSaveAdditionalsMenu();
+    /// @brief get file bucket handler
+    GNEApplicationWindowHelper::FileBucketHandler* getFileBucketHandler() const;
 
-    /// @brief disable save additionals
-    void disableSaveAdditionalsMenu();
+    /// @name functions related with external runner
+    /// @{
 
-    /// @brief enable save demand elements
-    void enableSaveDemandElementsMenu();
+    /// @brief get external runner
+    GNEExternalRunner* getExternalRunner() const;
 
-    /// @brief disable save demand elements
-    void disableSaveDemandElementsMenu();
+    /// @brief set external runner
+    void setExternalRunner(GNEExternalRunner* externalRunner);
 
-    /// @brief enable save data elements
-    void enableSaveDataElementsMenu();
-
-    /// @brief disable save data elements
-    void disableSaveDataElementsMenu();
+    /// @}
 
     /// @name Inter-thread event handling
     /// @{
@@ -96,10 +103,11 @@ public:
     void eventOccurred();
 
     /// @brief handle event of type Network loaded
-    void handleEvent_NetworkLoaded(GUIEvent* e);
+    void handleEvent_FileLoaded(GUIEvent* e);
 
     /// @brief handle event of type message
     void handleEvent_Message(GUIEvent* e);
+
     /// @}
 
     /// @name FOX-callbacks
@@ -110,8 +118,8 @@ public:
     /// @brief called when the command/FXCall new network is executed
     long onCmdNewNetwork(FXObject*, FXSelector, void*);
 
-    /// @brief called when the command/FXCall open configuration is executed
-    long onCmdOpenConfiguration(FXObject*, FXSelector, void*);
+    /// @brief called when the command/FXCall open netconvertconfiguration is executed
+    long onCmdOpenNetconvertConfig(FXObject*, FXSelector, void*);
 
     /// @brief called when the command/FXCall open network is executed
     long onCmdOpenNetwork(FXObject*, FXSelector, void*);
@@ -119,14 +127,23 @@ public:
     /// @brief called when the command/FXCall open foreign is executed
     long onCmdOpenForeign(FXObject*, FXSelector, void*);
 
-    /// @brief called when the command/FXCall open SUMOConfig is executed
-    long onCmdOpenSUMOConfig(FXObject*, FXSelector, void*);
+    /// @brief called when the command/FXCall open netedit config is executed
+    long onCmdOpenNeteditConfig(FXObject*, FXSelector, void*);
 
-    /// @brief called when the command/FXCall reload SUMOConfig is executed
-    long onCmdReloadSUMOConfig(FXObject*, FXSelector, void*);
+    /// @brief called when the command/FXCall open SumoConfig is executed
+    long onCmdOpenSumoConfig(FXObject*, FXSelector, void*);
 
-    /// @brief called when the command/FXCall reload SUMOConfig is updated
-    long onUpdReloadSUMOConfig(FXObject*, FXSelector, void*);
+    /// @brief called when the command/FXCall reload netedit config is executed
+    long onCmdReloadNeteditConfig(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall reload SumoConfig is executed
+    long onCmdReloadSumoConfig(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall reload netedit config is updated
+    long onUpdReloadNeteditConfig(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall reload SumoConfig is updated
+    long onUpdReloadSumoConfig(FXObject*, FXSelector, void*);
 
     /// @brief called when the command/FXCall open TLS programs is executed
     long onCmdOpenTLSPrograms(FXObject*, FXSelector, void*);
@@ -146,8 +163,17 @@ public:
     /// @brief called when the command/FXCall reload edge types is updated
     long onUpdReloadEdgeTypes(FXObject*, FXSelector, void*);
 
-    /// @brief called when the command/FXCall reload is executed
-    long onCmdReload(FXObject*, FXSelector, void*);
+    /// @brief called when the command/FXCall smart reload is executed
+    long onCmdSmartReload(FXObject*, FXSelector, void*);
+
+    /// @brief called when the update/FXCall smart reload is executed
+    long onUpdSmartReload(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall network reload is executed
+    long onCmdReloadNetwork(FXObject*, FXSelector, void*);
+
+    /// @brief called when the update/FXCall network reload is executed
+    long onUpdReloadNetwork(FXObject*, FXSelector, void*);
 
     /// @brief called when the command/FXCall open recent is executed
     long onCmdOpenRecent(FXObject*, FXSelector, void*);
@@ -164,23 +190,50 @@ public:
     /// @brief called when the command/FXCall locate is executed
     long onCmdLocate(FXObject*, FXSelector, void*);
 
-    /// @brief called when the command/FXCall run NetDiff is executed
-    long onCmdToolNetDiff(FXObject*, FXSelector, void*);
+    /// @brief called when user press over a tool dialog button
+    long onCmdOpenPythonToolDialog(FXObject* obj, FXSelector, void*);
 
-    /// @brief called when the command/FXCall save all elements is executed
-    long onCmdSaveAllElements(FXObject*, FXSelector, void*);
+    /// @brief called when user run a tool
+    long onCmdRunPythonTool(FXObject* obj, FXSelector, void*);
+
+    /// @brief post processing after run tool
+    long onCmdPostProcessingPythonTool(FXObject* obj, FXSelector, void*);
+
+    /// @brief called when the command/FXCall python tool is updated
+    long onUpdPythonTool(FXObject*, FXSelector, void*);
 
     /// @brief called when the command/FXCall save network is executed
     long onCmdSaveNetwork(FXObject*, FXSelector, void*);
 
-    /// @brief called when the command/FXCall save SUMOConfig is executed
-    long onCmdSaveSUMOConfig(FXObject*, FXSelector, void*);
+    /// @brief called when the command/FXCall save network as is executed
+    long onCmdSaveNetworkAs(FXObject*, FXSelector, void*);
 
-    /// @brief called when the command/FXCall save SUMOConfig as is executed
-    long onCmdSaveSUMOConfigAs(FXObject*, FXSelector, void*);
+    /// @brief called when the command/FXCall save plain xml is executed
+    long onCmdSavePlainXML(FXObject*, FXSelector, void*);
 
-    /// @brief called when the command/FXCall save SUMOConfig is updated
-    long onUpdSaveSUMOConfig(FXObject*, FXSelector, void*);
+    /// @brief called when the command/FXCall save as plain xml is executed
+    long onCmdSavePlainXMLAs(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall save joined is executed
+    long onCmdSaveJoinedJunctionsAs(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall save netedit config is executed
+    long onCmdSaveNeteditConfig(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall save netedit config as is executed
+    long onCmdSaveNeteditConfigAs(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall save netedit config is updated
+    long onUpdSaveNeteditConfig(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall save SumoConfig is executed
+    long onCmdSaveSumoConfig(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall save SumoConfig as is executed
+    long onCmdSaveSumoConfigAs(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall save SumoConfig is updated
+    long onUpdSaveSumoConfig(FXObject*, FXSelector, void*);
 
     /// @brief called when the command/FXCall save TLSPrograms is executed
     long onCmdSaveTLSPrograms(FXObject*, FXSelector, void*);
@@ -200,23 +253,26 @@ public:
     /// @brief called when the command/FXCall save edgeTypes as is executed
     long onCmdSaveEdgeTypesAs(FXObject*, FXSelector, void*);
 
-    /// @brief called when the command/FXCall save edgeTypes as is updated
-    long onUpdSaveEdgeTypesAs(FXObject*, FXSelector, void*);
-
     /// @brief called when the command/FXCall open additionals is executed
-    long onCmdOpenAdditionals(FXObject*, FXSelector, void*);
+    long onCmdOpenAdditionalElements(FXObject*, FXSelector, void*);
 
     /// @brief called when the command/FXCall reload additionals is executed
-    long onCmdReloadAdditionals(FXObject*, FXSelector, void*);
+    long onCmdReloadAdditionalElements(FXObject*, FXSelector, void*);
 
     /// @brief called when the command/FXCall reload additionals is updated
-    long onUpdReloadAdditionals(FXObject*, FXSelector, void*);
+    long onUpdReloadAdditionalElements(FXObject*, FXSelector, void*);
 
     /// @brief called when the command/FXCall save additionals is executed
-    long onCmdSaveAdditionals(FXObject*, FXSelector, void*);
+    long onCmdSaveAdditionalElements(FXObject*, FXSelector, void*);
 
-    /// @brief called when the command/FXCall save additionals as is executed
-    long onCmdSaveAdditionalsAs(FXObject*, FXSelector, void*);
+    /// @brief called when the command/FXCall save additionals as
+    long onCmdSaveAdditionalElementsAs(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall save additionals unified is executed
+    long onCmdSaveAdditionalElementsUnified(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall save JuPedSim elements as is executed
+    long onCmdSaveJuPedSimElementsAs(FXObject*, FXSelector, void*);
 
     /// @brief called when the command/FXCall open demand is executed
     long onCmdOpenDemandElements(FXObject*, FXSelector, void*);
@@ -242,50 +298,74 @@ public:
     /// @brief called when the command/FXCall save demand elements as is executed
     long onCmdSaveDemandElementsAs(FXObject*, FXSelector, void*);
 
+    /// @brief called when the command/FXCall save demand elements unified is executed
+    long onCmdSaveDemandElementsUnified(FXObject*, FXSelector, void*);
+
     /// @brief called when the command/FXCall save data elements is executed
     long onCmdSaveDataElements(FXObject*, FXSelector, void*);
 
     /// @brief called when the command/FXCall save data elements as is executed
     long onCmdSaveDataElementsAs(FXObject*, FXSelector, void*);
 
-    /// @brief called when the command/FXCall save network as is executed
-    long onCmdSaveAsNetwork(FXObject*, FXSelector, void*);
+    /// @brief called when the command/FXCall save data elements unified is executed
+    long onCmdSaveDataElementsUnified(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall open meanDatas is executed
+    long onCmdOpenMeanDataElements(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall reload meanDatas is executed
+    long onCmdReloadMeanDataElements(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall reload meanDatas is updated
+    long onUpdReloadMeanDataElements(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall save meanDatas is executed
+    long onCmdSaveMeanDataElements(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall save meanDatas as is executed
+    long onCmdSaveMeanDataElementsAs(FXObject*, FXSelector, void*);
+
+    /// @brief called when the command/FXCall save meanDatas unified is executed
+    long onCmdSaveMeanDataElementsUnified(FXObject*, FXSelector, void*);
 
     /// @brief called when the update/FXCall needs network is executed
     long onUpdNeedsNetwork(FXObject*, FXSelector, void*);
 
-    /// @brief called when the update/FXCall needs at least one newtork element is executed
+    /// @brief called when the update/FXCall needs at least one network element is executed
     long onUpdNeedsNetworkElement(FXObject*, FXSelector, void*);
 
     /// @brief called when the update/FXCall needs front element is executed
     long onUpdNeedsFrontElement(FXObject*, FXSelector, void*);
 
-    /// @brief called when the update/FXCall reload is executed
-    long onUpdReload(FXObject*, FXSelector, void*);
-
-    /// @brief called when the update/FXCall save all elements is executed
-    long onUpdSaveAllElements(FXObject*, FXSelector, void*);
-
     /// @brief called when the update/FXCall save network is executed
     long onUpdSaveNetwork(FXObject*, FXSelector, void*);
 
     /// @brief called when the update/FXCall save additionals is executed
-    long onUpdSaveAdditionals(FXObject*, FXSelector, void*);
+    long onUpdSaveAdditionalElements(FXObject*, FXSelector, void*);
 
-    /// @brief called when the update/FXCall save additionals as is executed
-    long onUpdSaveAdditionalsAs(FXObject*, FXSelector, void*);
+    /// @brief called when the update/FXCall save additionals unified is executed
+    long onUpdSaveAdditionalElementsUnified(FXObject*, FXSelector, void*);
+
+    /// @brief called when the update/FXCall save juPedSim as is executed
+    long onUpdSaveJuPedSimElementsAs(FXObject*, FXSelector, void*);
 
     /// @brief called when the update/FXCall save demand elements is executed
     long onUpdSaveDemandElements(FXObject*, FXSelector, void*);
 
-    /// @brief called when the update/FXCall save demand elements as is executed
-    long onUpdSaveDemandElementsAs(FXObject*, FXSelector, void*);
+    /// @brief called when the update/FXCall save demand elements unified is executed
+    long onUpdSaveDemandElementsUnified(FXObject*, FXSelector, void*);
 
     /// @brief called when the update/FXCall save data elements is executed
     long onUpdSaveDataElements(FXObject*, FXSelector, void*);
 
-    /// @brief called when the update/FXCall save data elements as is executed
-    long onUpdSaveDataElementsAs(FXObject*, FXSelector, void*);
+    /// @brief called when the update/FXCall save data elements unified is executed
+    long onUpdSaveDataElementsUnified(FXObject*, FXSelector, void*);
+
+    /// @brief called when the update/FXCall save meanDatas is executed
+    long onUpdSaveMeanDataElements(FXObject*, FXSelector, void*);
+
+    /// @brief called when the update/FXCall save meanDatas unified is executed
+    long onUpdSaveMeanDataElementsUnified(FXObject*, FXSelector, void*);
 
     /// @brief called when the update/FXCall undo is executed
     long onUpdUndo(FXObject* obj, FXSelector sel, void* ptr);
@@ -302,21 +382,13 @@ public:
     /// @brief update viewOption
     long onUpdToggleViewOption(FXObject*, FXSelector, void*);
 
-    /// @brief called when the command/FXCall save as plain xml is executed
-    long onCmdSaveAsPlainXML(FXObject*, FXSelector, void*);
-
-    /// @brief called when the command/FXCall save joined is executed
-    long onCmdSaveJoined(FXObject*, FXSelector, void*);
-
     /// @brief called when a key is pressed
     long onKeyPress(FXObject* o, FXSelector sel, void* data);
 
     /// @brief called when a key is released
     long onKeyRelease(FXObject* o, FXSelector sel, void* data);
 
-    /**@brief Called by FOX if the application shall be closed
-     * @note Called either by FileMenu->Quit, the normal close-menu or SIGINT
-     */
+    /// @brief Called by FOX if the application shall be closed
     long onCmdQuit(FXObject*, FXSelector, void*);
 
     /// @brief called when the command/FXCall edit chosen is executed
@@ -365,7 +437,7 @@ public:
     long onUpdLockMenuTitle(FXObject*, FXSelector sel, void*);
 
     /// @brief called when user press a process button (or a shortcut)
-    long onCmdProcessButton(FXObject*, FXSelector sel, void*);
+    long onCmdProcessButton(FXObject* sender, FXSelector sel, void*);
 
     /// @brief called if the user hints ctrl + T
     long onCmdOpenSUMOGUI(FXObject* sender, FXSelector sel, void* ptr);
@@ -382,35 +454,41 @@ public:
     /// @brief called if the user hits backspace
     long onCmdBackspace(FXObject* sender, FXSelector sel, void* ptr);
 
-    /// @brief force save network (flag)
-    long onCmdForceSaveNetwork(FXObject* sender, FXSelector sel, void* ptr);
-
-    /// @brief force save additionals (flag)
-    long onCmdForceSaveAdditionals(FXObject* sender, FXSelector sel, void* ptr);
-
-    /// @brief force save demand elements (flag)
-    long onCmdForceSaveDemandElements(FXObject* sender, FXSelector sel, void* ptr);
-
-    /// @brief force save data elements (flag)
-    long onCmdForceSaveDataElements(FXObject* sender, FXSelector sel, void* ptr);
+    /// @brief called if the user hits key combination for clear selection
+    long onCmdClearSelectionShortcut(FXObject* sender, FXSelector sel, void* ptr);
 
     /// @brief called if the user hits key combination for focus on frame
     long onCmdFocusFrame(FXObject* sender, FXSelector sel, void* ptr);
 
+    /// @brief called if the user press the toggle time format button
+    long onCmdToggleTimeFormat(FXObject* sender, FXSelector sel, void* ptr);
+
+    /// @brief update toggle time format button
+    long onUpdToggleTimeFormat(FXObject* sender, FXSelector sel, void* ptr);
+
+    /// @brief run tests
+    long onCmdRunTests(FXObject*, FXSelector, void*);
+
     /// @brief enable or disable sender object depending if viewNet exist
     long onUpdRequireViewNet(FXObject* sender, FXSelector sel, void* ptr);
 
-    /// @brief update label for requiere recomputing
+    /// @brief update label for require recomputing
     long onUpdRequireRecomputing(FXObject* sender, FXSelector sel, void* ptr);
-    
+
+    /// @brief called when run netgenerate is called
+    long onCmdRunNetgenerate(FXObject* sender, FXSelector sel, void* ptr);
+
+    /// @brief postprocessing netgenerate
+    long onCmdPostprocessingNetgenerate(FXObject* sender, FXSelector sel, void* ptr);
+
     /// @brief called if the user press key combination Ctrl + G to toggle grid
     long onCmdToggleGrid(FXObject*, FXSelector, void*);
 
     /// @brief called if the user press key combination Ctrl + J to toggle draw junction shape
     long onCmdToggleDrawJunctionShape(FXObject*, FXSelector, void*);
 
-    /// @brief called if the user call set front element
-    long onCmdSetFrontElement(FXObject*, FXSelector, void*);
+    /// @brief called if the user call toggle front element
+    long onCmdToggleFrontElement(FXObject*, FXSelector, void*);
 
     /// @brief called if the user press key combination Alt + <0-9>
     long onCmdToggleEditOptions(FXObject*, FXSelector, void*);
@@ -427,14 +505,35 @@ public:
     /// @brief called if the user selects help->Tutorial
     long onCmdTutorial(FXObject* sender, FXSelector sel, void* ptr);
 
-    /// @brief called if the user selects Processing->Configure Options
-    long onCmdOptions(FXObject*, FXSelector, void*);
+    /// @brief called if the user selects help->feedback
+    long onCmdFeedback(FXObject* sender, FXSelector sel, void* ptr);
+
+    /// @brief called when toggle checkbox compute network when switching between supermodes
+    long onCmdToggleComputeNetworkData(FXObject*, FXSelector, void*);
+
+    /// @brief called when toggle checkbox disable undo redo (processing)
+    long onCmdToggleUndoRedo(FXObject*, FXSelector, void*);
+
+    /// @brief called when toggle checkbox disable undo redo during loading (file)
+    long onCmdToggleUndoRedoLoading(FXObject*, FXSelector, void*);
+
+    /// @brief called when user press "options" button
+    long onCmdOpenOptionsDialog(FXObject*, FXSelector, void*);
+
+    /// @brief called when user press "sumo options" button
+    long onCmdOpenSumoOptionsDialog(FXObject*, FXSelector, void*);
+
+    /// @brief called when user press "netgenerate" button
+    long onCmdOpenNetgenerateDialog(FXObject*, FXSelector, void*);
+
+    /// @brief called when user press "netgenerate options" button
+    long onCmdOpenNetgenerateOptionsDialog(FXObject*, FXSelector, void*);
 
     /// @brief called when user press Ctrl+Z
-    long onCmdUndo(FXObject*, FXSelector, void*);
+    long onCmdUndo(FXObject* sender, FXSelector, void*);
 
     // @brief called when user press Ctrl+Y
-    long onCmdRedo(FXObject*, FXSelector, void*);
+    long onCmdRedo(FXObject* sender, FXSelector, void*);
 
     // @brief called when user press open undoList dialog
     long onCmdOpenUndoListDialog(FXObject*, FXSelector, void*);
@@ -467,7 +566,7 @@ public:
 
     /// @name inherited from GUIMainWindow
     /// @{
-    /// @brief get build OpenGL Canvas (due NETEDIT only uses a single View, it always return nullptr)
+    /// @brief get build OpenGL Canvas (due netedit only uses a single View, it always return nullptr)
     FXGLCanvas* getBuildGLCanvas() const;
 
     /// @brief get current simulation time (pure virtual but we don't need it)
@@ -480,11 +579,11 @@ public:
     /// @brief get default cursor
     FXCursor* getDefaultCursor();
 
+    /// @brief get tag properties database
+    const GNETagPropertiesDatabase* getTagPropertiesDatabase() const;
+
     /// @brief get pointer to undoList
     GNEUndoList* getUndoList();
-
-    /// @brief get pointer to undoList dialog
-    GNEUndoListDialog* getUndoListDialog();
 
     /// @brief get pointer to viewNet
     GNEViewNet* getViewNet();
@@ -501,53 +600,134 @@ public:
     /// @brief update FXMenuCommands depending of supermode
     void updateSuperModeMenuCommands(const Supermode supermode);
 
-    /// @brief disable undo-redo giving a string with the reason
-    void disableUndoRedo(const std::string& reason);
+    /// @name functions related with undo-redo
+    /// @{
+    /// @brief check if undo-redo is allow (processing/checkbox)
+    bool isUndoRedoAllowed() const;
 
-    /// @brief disable undo-redo
-    void enableUndoRedo();
+    /// @brief enable undo-redo temporally (for example, after creating an edge)
+    void enableUndoRedoTemporally();
 
-    /// @brief check if undo-redo is enabled
-    const std::string& isUndoRedoEnabled() const;
+    /// @brief disable undo-redo temporally giving a string with the reason  (for example, if we're creating an edge)
+    void disableUndoRedoTemporally(const std::string& reason);
 
-    /// @brief getEdit Menu Commands (needed for show/hide menu commands)
+    /// @brief check if undo-redo is enabled temporally
+    const std::string& isUndoRedoEnabledTemporally() const;
+
+    /// @brief clear undo list
+    void clearUndoList();
+
+    /// @}
+
+    /// @brief get file Menu Commands (needed for show/hide menu commands)
+    GNEApplicationWindowHelper::FileMenuCommands& getFileMenuCommands();
+
+    /// @brief get modes Menu Commands (needed for show/hide menu commands)
+    GNEApplicationWindowHelper::ModesMenuCommands& getModesMenuCommands();
+
+    /// @brief get Edit Menu Commands (needed for show/hide menu commands)
     GNEApplicationWindowHelper::EditMenuCommands& getEditMenuCommands();
+
+    /// @brief get processing Menu Commands
+    const GNEApplicationWindowHelper::ProcessingMenuCommands& getProcessingMenuCommands() const;
 
     /// @brief get lock Menu Commands
     GNEApplicationWindowHelper::LockMenuCommands& getLockMenuCommands();
 
-    /// @brief clear undo list
-    void clearUndoList();
+    /// @brief get SUMO options container
+    OptionsCont& getSumoOptions();
+
+    /// @brief get netgenerate options container
+    OptionsCont& getNetgenerateOptions();
+
+    /// @brief load additional elements from netedit options
+    void loadAdditionalElements(const std::string operation);
+
+    /// @brief load demand elements from netedit options
+    void loadDemandElements(const std::string operation);
+
+    /// @brief load data elements from netedit options
+    void loadDataElements(const std::string operation);
+
+    /// @brief load meanData elements from netedit options
+    void loadMeanDataElements(const std::string operation);
+
+    /// @brief load traffic lights
+    void loadTrafficLights(const std::string operation);
+
+    /// @brief load meanData elements
+    void loadEdgeTypes(const std::string operation);
+
+    /// @name functions related with test system
+    /// @{
+
+    /// @brief get netedit test system
+    GNEInternalTest* getInternalTest() const;
+
+    /// @brief check if ignore input signal (using during netedit tests)
+    bool allowInputSignals(FXObject* obj) const;
+
+    /// @}
 
 protected:
     /// @brief FOX needs this for static members
     GNEApplicationWindow();
 
+    /// @brief external runner for running external tools
+    GNEExternalRunner* myExternalRunner = nullptr;
+
     /// @brief the thread that loads the network
     GNELoadThread* myLoadThread = nullptr;
 
+    /// @brief internal test system
+public:
+    GNEInternalTest* myInternalTest = nullptr;
+private:
     /// @brief information whether the gui is currently loading and the load-options shall be greyed out
     bool myAmLoading = false;
 
-    /// @brief information whether the gui is currently reloading
-    bool myReloading = false;
-
     /// @brief the submenus
-    FXMenuPane *myFileMenu = nullptr,
-               *myFileMenuSUMOConfig = nullptr,
-               *myFileMenuTLS = nullptr,
-               *myFileMenuEdgeTypes = nullptr,
-               *myFileMenuAdditionals = nullptr,
-               *myFileMenuDemandElements = nullptr,
-               *myFileMenuDataElements = nullptr,
-               *myModesMenu = nullptr,
-               *myEditMenu = nullptr,
-               *myLockMenu = nullptr,
-               *myProcessingMenu = nullptr,
-               *myLocatorMenu = nullptr,
-               *myToolsMenu = nullptr,
-               *myWindowMenu = nullptr,
-               *myHelpMenu = nullptr;
+    FXMenuPane* myFileMenu = nullptr;
+    FXMenuPane* myFileMenuNeteditConfig = nullptr;
+    FXMenuPane* myFileMenuSumoConfig = nullptr;
+    FXMenuPane* myFileMenuTLS = nullptr;
+    FXMenuPane* myFileMenuEdgeTypes = nullptr;
+    FXMenuPane* myFileMenuAdditionals = nullptr;
+    FXMenuPane* myFileMenuDemandElements = nullptr;
+    FXMenuPane* myFileMenuDataElements = nullptr;
+    FXMenuPane* myFileMenuMeanDataElements = nullptr;
+    FXMenuPane* myFileMenuRecentNetworks = nullptr;
+    FXMenuPane* myFileMenuRecentConfigs = nullptr;
+    FXMenuPane* myModesMenu = nullptr;
+    FXMenuPane* myEditMenu = nullptr;
+    FXMenuPane* myLockMenu = nullptr;
+    FXMenuPane* myProcessingMenu = nullptr;
+    FXMenuPane* myLocatorMenu = nullptr;
+    FXMenuPane* myToolsMenu = nullptr;
+    FXMenuPane* myToolsAssignMenu = nullptr;
+    FXMenuPane* myToolsDetectorMenu = nullptr;
+    FXMenuPane* myToolsDistrictMenu = nullptr;
+    FXMenuPane* myToolsDRTMenu = nullptr;
+    FXMenuPane* myToolsEmissionsMenu = nullptr;
+    FXMenuPane* myToolsImportMenu = nullptr;
+    FXMenuPane* myToolsImportCityBrainMenu = nullptr;
+    FXMenuPane* myToolsImportGTFSMenu = nullptr;
+    FXMenuPane* myToolsImportVissim = nullptr;
+    FXMenuPane* myToolsImportVisum = nullptr;
+    FXMenuPane* myToolsNetMenu = nullptr;
+    FXMenuPane* myToolsRouteMenu = nullptr;
+    FXMenuPane* myToolsOutputMenu = nullptr;
+    FXMenuPane* myToolsShapes = nullptr;
+    FXMenuPane* myToolsTLS = nullptr;
+    FXMenuPane* myToolsTriggerMenu = nullptr;
+    FXMenuPane* myToolsTurnDefs = nullptr;
+    FXMenuPane* myToolsVisualizationMenu = nullptr;
+    FXMenuPane* myToolsXML = nullptr;
+    FXMenuPane* myWindowMenu = nullptr;
+    FXMenuPane* myHelpMenu = nullptr;
+
+    /// @brief map with menu pane tools and strings
+    std::map<std::string, FXMenuPane*> myMenuPaneToolMaps;
 
     /// @brief menu title for modes
     FXMenuTitle* myModesMenuTitle = nullptr;
@@ -564,8 +744,8 @@ protected:
     /// @brief Button used for show if recomputing is needed
     MFXButtonTooltip* myRequireRecomputingButton = nullptr;
 
-    /// @brief List of got requests
-    MFXSynchQue<GUIEvent*> myEvents;
+    /// @brief List of load requests
+    MFXSynchQue<GUIEvent*> myThreadEvents;
 
     /// @brief io-event with the load-thread
     FXEX::MFXThreadEvent myLoadThreadEvent;
@@ -573,20 +753,41 @@ protected:
     /// @brief check if had dependent build
     bool myHadDependentBuild = false;
 
+    /// @brief tagProperties database
+    const GNETagPropertiesDatabase* myTagPropertiesDatabase = nullptr;
+
     /// @brief we are responsible for the net
     GNENet* myNet = nullptr;
 
     /// @brief the one and only undo list
     GNEUndoList* myUndoList = nullptr;
 
-    /// @brief undoList dialog
-    GNEUndoListDialog* myUndoListDialog = nullptr;
-
     /// @brief Input file pattern
     std::string myConfigPattern;
 
     /// @brief string to check if undo/redo list is enabled (a String is used to keep the disabling reason)
     std::string myUndoRedoListEnabled;
+
+    /// @brief original netedit options container
+    OptionsCont myOriginalNeteditOptions;
+
+    /// @brief sumo options container
+    OptionsCont mySumoOptions;
+
+    /// @brief netconvert options container
+    OptionsCont myNetconvertOptions;
+
+    /// @brief original sumo options container
+    OptionsCont myOriginalSumoOptions;
+
+    /// @brief netgenerate options container
+    OptionsCont myNetgenerateOptions;
+
+    /// @brief original netgenerate options container
+    OptionsCont myOriginalNetgenerateOptions;
+
+    /// @brief flag for check if console options was already loaded
+    bool myConsoleOptionsLoaded = true;
 
 private:
     /// @brief Toolbars Grip
@@ -619,8 +820,14 @@ private:
     /// @brief Windows Menu Commands
     GNEApplicationWindowHelper::WindowsMenuCommands myWindowsMenuCommands;
 
+    /// @brief Help Menu Commands
+    GNEApplicationWindowHelper::HelpMenuCommands myHelpMenuCommands;
+
     /// @brief Supermode Commands
     GNEApplicationWindowHelper::SupermodeCommands mySupermodeCommands;
+
+    /// @brief saving files handler
+    GNEApplicationWindowHelper::FileBucketHandler* myFileBucketHandler = nullptr;
 
     /// @brief pointer to current view net
     GNEViewNet* myViewNet = nullptr;
@@ -628,32 +835,23 @@ private:
     /// @brief the prefix for the window title
     const FXString myTitlePrefix;
 
+    /// @brief allow undo-redo (read from registry)
+    bool myAllowUndoRedo = true;
+
+    /// @brief allow undo-redo loading (read from registry)
+    bool myAllowUndoRedoLoading = true;
+
     /// @brief The menu used for the MDI-windows
     FXMDIMenu* myMDIMenu = nullptr;
 
     /// @brief Builds the menu bar
     void fillMenuBar();
 
-    /// @brief starts to load a netimport configuration or a network */
-    void loadConfigOrNet(const std::string file, bool isNet, bool isReload = false, bool useStartupOptions = false, bool newNet = false);
-
-    /// @brief this method closes all windows and deletes the current simulation */
-    void closeAllWindows();
+    /// @brief this method closes all windows and deletes the current simulation
+    void closeAllWindows(const bool resetFilenames);
 
     /// @brief warns about unsaved changes and gives the user the option to abort
-    bool continueWithUnsavedChanges(const std::string& operation);
-
-    /// @brief warns about unsaved changes in additionals and gives the user the option to abort
-    bool continueWithUnsavedAdditionalChanges(const std::string& operation);
-
-    /// @brief warns about unsaved changes in demand elements and gives the user the option to abort
-    bool continueWithUnsavedDemandElementChanges(const std::string& operation);
-
-    /// @brief warns about unsaved changes in data elements and gives the user the option to abort
-    bool continueWithUnsavedDataElementChanges(const std::string& operation);
-
-    /// @brief extract folder
-    FXString getFolder(const std::string& folder) const;
+    bool askSaveElements(FXObject* sender, FXSelector sel, void* ptr);
 
     /// @brief Invalidated copy constructor.
     GNEApplicationWindow(const GNEApplicationWindow&) = delete;

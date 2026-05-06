@@ -1,18 +1,32 @@
 set(netedit_elements_demand_SRCS
    GNERouteHandler.h
    GNERouteHandler.cpp
+   GNEPlanParents.h
+   GNEPlanParents.cpp
    GNEDemandElement.h
    GNEDemandElement.cpp
+   GNEDemandElementFlow.h
+   GNEDemandElementFlow.cpp
+   GNEDemandElementPlan.h
+   GNEDemandElementPlan.cpp
    GNERoute.h
    GNERoute.cpp
+   GNERouteRef.h
+   GNERouteRef.cpp
+   GNERouteDistribution.h
+   GNERouteDistribution.cpp
    GNEVType.h
    GNEVType.cpp
+   GNEVTypeRef.h
+   GNEVTypeRef.cpp
    GNEVTypeDistribution.h
    GNEVTypeDistribution.cpp
    GNEVehicle.h
    GNEVehicle.cpp
    GNEStop.h
    GNEStop.cpp
+   GNEStopPlan.h
+   GNEStopPlan.cpp
    GNEPerson.h
    GNEPerson.cpp
    GNEPersonTrip.h

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
 
-    <xsd:include schemaLocation="baseTypes.xsd"/>
+    <xsd:include schemaLocation="types/base.xsd"/>
 
     <xsd:element name="detectors">
         <xsd:complexType>
@@ -15,7 +15,7 @@
         <xsd:complexType>
             <xsd:attribute name="id" type="xsd:string" use="required"/>
             <xsd:attribute name="lane" type="xsd:string" use="required"/>
-            <xsd:attribute name="pos" type="xsd:float" use="required"/>
+            <xsd:attribute name="pos" type="floatType" use="required"/>
             <xsd:attribute name="type" use="optional">
                 <xsd:simpleType>
                     <xsd:restriction base="xsd:string">

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -80,7 +80,7 @@ public:
                                 bool includeInternal, ConnectionStyle style = SUMONET, bool geoAccuracy = false);
 
     /// @brief writes the given prohibitions
-    static void writeProhibitions(OutputDevice& into, const NBConnectionProhibits& prohibitions);
+    static void writeProhibitions(OutputDevice& into, const NBConnectionProhibits& prohibitions, const NBEdgeCont& ec);
 
     /// @brief writes the traffic light logics to the given device
     static void writeTrafficLights(OutputDevice& into, const NBTrafficLightLogicCont& tllCont);
@@ -119,13 +119,17 @@ private:
     static bool writeInternalEdges(OutputDevice& into, const NBEdgeCont& ec, const NBNode& n);
 
 
+    /// @brief retrieve bidi edge id for internal corresponding to the given connection
+    static std::string getInternalBidi(const NBEdge* e, const NBEdge::Connection& k, double& length);
+
+
     /** @brief Writes an edge (<edge ...)
      * @param[in] into The device to write the edge into
      * @param[in] e The edge to write
      * @param[in] noNames Whether names shall be ignored
      * @see writeLane()
      */
-    static void writeEdge(OutputDevice& into, const NBEdge& e, bool noNames);
+    static void writeEdge(OutputDevice& into, const NBEdge& e, bool noNames, LaneSpreadFunction defaultSpread);
 
 
     /** @brief Writes a lane (<lane ...) of an edge
@@ -147,7 +151,8 @@ private:
                           const Parameterised* params, double length, int index,
                           const std::string& oppositeID, const std::string& type,
                           bool accelRamp = false,
-                          bool customShape = false);
+                          bool customShape = false,
+                          const PositionVector& outlineShape = PositionVector());
 
 
     /** @brief Writes a junction (<junction ...)
@@ -188,7 +193,6 @@ private:
 
     /// @brief writes a SUMOTime as int if possible, otherwise as a float
     static std::string writeSUMOTime(SUMOTime time);
-
 
     /// @brief the attribute value for a prohibition
     static std::string prohibitionConnection(const NBConnection& c);

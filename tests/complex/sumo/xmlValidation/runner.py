@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2008-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -38,6 +38,8 @@ for scheme, elem in ((None, "trip"), (None, "tri"), ("blub", "trip"), ("blub", "
         else:
             env["SUMO_HOME"] = home
         for valid in ("never", "local", "auto", "always"):
+            if home == os.environ["SUMO_HOME"]:
+                home = "<environ>"
             print("XML schema:", scheme, "XML element:", elem, "SUMO_HOME:", home, "--xml-validation", valid)
             sys.stdout.flush()
             subprocess.call([sumoBinary, "-n", "n.net.xml", "-r", routes.name, "-X", valid, "--no-step-log"],

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -57,9 +57,6 @@ Boundary::Boundary(double x1, double y1, double z1, double x2, double y2, double
     add(x1, y1, z1);
     add(x2, y2, z2);
 }
-
-
-Boundary::~Boundary() {}
 
 
 void
@@ -171,9 +168,25 @@ Boundary::getZRange() const {
 bool
 Boundary::around(const Position& p, double offset) const {
     return
-        (p.x() <= myXmax + offset && p.x() >= myXmin - offset) &&
-        (p.y() <= myYmax + offset && p.y() >= myYmin - offset) &&
-        (p.z() <= myZmax + offset && p.z() >= myZmin - offset);
+        ((p.x() <= myXmax + offset) && (p.x() >= myXmin - offset)) &&
+        ((p.y() <= myYmax + offset) && (p.y() >= myYmin - offset)) &&
+        ((p.z() <= myZmax + offset) && (p.z() >= myZmin - offset));
+}
+
+
+bool
+Boundary::around2D(const Position& p, double offset) const {
+    return
+        ((p.x() <= myXmax + offset) && (p.x() >= myXmin - offset)) &&
+        ((p.y() <= myYmax + offset) && (p.y() >= myYmin - offset));
+}
+
+
+bool
+Boundary::around2D(const double x, const double y) const {
+    return
+        ((x <= myXmax) && (x >= myXmin)) &&
+        ((y <= myYmax) && (y >= myYmin));
 }
 
 
@@ -209,6 +222,33 @@ Boundary::crosses(const Position& p1, const Position& p2) const {
         line.intersects(Position(myXmin, myYmin), Position(myXmax, myYmin))
         ||
         line.intersects(Position(myXmax, myYmin), Position(myXmax, myYmax));
+}
+
+
+bool
+Boundary::contains2D(const Boundary& b) const {
+    if ((myXmin <= b.xmin()) && (myYmin <= b.ymin()) &&
+            (myXmax >= b.xmax()) && (myYmax >= b.ymax())) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+
+bool
+Boundary::overlaps2D(const Boundary& b) const {
+    if (around2D(b.myXmin, b.myYmin)) {
+        return true;
+    } else if (around2D(b.myXmin, b.myYmax)) {
+        return true;
+    } else if (around2D(b.myXmax, b.myYmin)) {
+        return true;
+    } else if (around2D(b.myXmax, b.myYmax)) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 

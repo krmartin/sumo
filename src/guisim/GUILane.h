@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -79,7 +79,8 @@ public:
             SVCPermissions permissions,
             SVCPermissions changeLeft, SVCPermissions changeRight,
             int index, bool isRampAccel,
-            const std::string& type);
+            const std::string& type,
+            const PositionVector& outlineShape);
 
 
     /// @brief Destructor
@@ -93,6 +94,13 @@ public:
         return getEdge().getID();
     }
 
+    void addSecondaryShape(const PositionVector& shape) override;
+
+    double getLengthGeometryFactor(bool secondaryShape) const override {
+        return secondaryShape ? myLengthGeometryFactor2 :  myLengthGeometryFactor;
+    }
+
+    void updateMesoGUISegments() override;
 
     /// @name Access to vehicles
     /// @{
@@ -128,7 +136,7 @@ public:
 
     /** the same as in MSLane, but locks the access for the visualisation
         first; the access will be granted at the end of this method */
-    void setJunctionApproaches(const SUMOTime t) const override;
+    void setJunctionApproaches() const override;
 
     /** the same as in MSLane, but locks the access for the visualisation
         first; the access will be granted at the end of this method */
@@ -187,9 +195,6 @@ public:
      */
     GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
-    /// @brief return exaggeration associated with this GLObject
-    double getExaggeration(const GUIVisualizationSettings& s) const override;
-
     /** @brief Returns the boundary to which the view shall be centered in order to show the object
      *
      * @return The boundary the object is within
@@ -206,11 +211,14 @@ public:
     double getClickPriority() const override;
     //@}
 
-    const PositionVector& getShape() const;
-    const std::vector<double>& getShapeRotations() const;
-    const std::vector<double>& getShapeLengths() const;
+    const PositionVector& getShape(bool secondary) const override;
+    const std::vector<double>& getShapeRotations(bool secondary) const;
+    const std::vector<double>& getShapeLengths(bool secondary) const;
 
     double firstWaitingTime() const;
+
+    /// @brief whether any of the neighboring lanes is not a bidi-lane
+    bool neighLaneNotBidi() const;
 
     /// @brief draw lane borders and white markings
     void drawMarkings(const GUIVisualizationSettings& s, double scale) const;
@@ -222,7 +230,7 @@ public:
     void drawJunctionChangeProhibitions() const;
 
     /// @brief direction indicators for lanes
-    void drawDirectionIndicators(double exaggeration, bool spreadSuperposed) const;
+    void drawDirectionIndicators(double exaggeration, bool spreadSuperposed, bool s2) const;
 
     /// @brief draw intersection positions of foe internal lanes with this one
     void debugDrawFoeIntersections() const;
@@ -270,6 +278,9 @@ public:
     /// @brief return color value based on cached settings
     double getColorValueForTracker() const;
 
+    /// @brief gets the scaling value according to the current scheme index
+    double getScaleValue(const GUIVisualizationSettings& s, int activeScheme, bool s2) const;
+
     /// @brief whether this lane is selected in the GUI
     bool isSelected() const override;
 
@@ -308,8 +319,8 @@ private:
     void drawLinkRules(const GUIVisualizationSettings& s, const GUINet& net) const;
     void drawLinkRule(const GUIVisualizationSettings& s, const GUINet& net, const MSLink* link,
                       const PositionVector& shape, double x1, double x2) const;
-    void drawArrows() const;
-    void drawLane2LaneConnections(double exaggeration) const;
+    void drawArrows(bool secondaryShape) const;
+    void drawLane2LaneConnections(double exaggeration, bool s2) const;
 
 
     /// @brief add intermediate points at segment borders
@@ -319,9 +330,10 @@ private:
     double getPendingEmits() const;
 
 private:
-
-    /// @brief gets the scaling value according to the current scheme index
-    double getScaleValue(int activeScheme) const;
+    void initRotations(const PositionVector& shape,
+                       std::vector<double>& rotations,
+                       std::vector<double>& lengths,
+                       std::vector<RGBColor>& colors);
 
     /// @brief sets multiple colors according to the current scheme index and some lane function
     bool setMultiColor(const GUIVisualizationSettings& s, const GUIColorer& c, RGBColor& col) const;
@@ -335,14 +347,19 @@ private:
     /// @brief whether this lane or its parent edge is selected in the GUI
     bool isLaneOrEdgeSelected() const;
 
+    std::vector<RGBColor>& getShapeColors(bool secondary) const;
+
     /// The rotations of the shape parts
     std::vector<double> myShapeRotations;
+    std::vector<double> myShapeRotations2;
 
     /// The lengths of the shape parts
     std::vector<double> myShapeLengths;
+    std::vector<double> myShapeLengths2;
 
     /// The color of the shape parts (cached)
     mutable std::vector<RGBColor> myShapeColors;
+    mutable std::vector<RGBColor> myShapeColors2;
 
     /// @brief the meso segment index for each geometry segment
     std::vector<int> myShapeSegments;
@@ -356,7 +373,7 @@ private:
     double myQuarterLaneWidth;
 
     /// @brief the time distance from a particular edge
-    double myReachability;
+    double myReachability = INVALID_DOUBLE;
 
     /// @brief list of parkingAreas on this lane
     mutable std::vector<MSParkingArea*>* myParkingAreas;
@@ -370,6 +387,10 @@ private:
 
     /// @brief state for dynamic lane closings
     bool myAmClosed;
+
+    /// @brief secondary shape for visualization
+    PositionVector myShape2;
+    double myLengthGeometryFactor2;
 
     /// @brief cached for tracking color value
     static GUIVisualizationSettings* myCachedGUISettings;

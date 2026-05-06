@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -24,6 +24,8 @@
 #include <config.h>
 
 #include <cassert>
+#include <memory>
+#include <utils/common/MsgHandler.h>
 #include <utils/options/OptionsCont.h>
 #include <utils/common/FileHelpers.h>
 #include <utils/common/RandHelper.h>
@@ -45,6 +47,7 @@
 #include "cfmodels/MSCFModel_W99.h"
 #include "cfmodels/MSCFModel_ACC.h"
 #include "cfmodels/MSCFModel_CACC.h"
+#include "MSInsertionControl.h"
 #include "MSVehicleControl.h"
 #include "cfmodels/MSCFModel_CC.h"
 #include "MSVehicleType.h"
@@ -85,8 +88,10 @@ MSVehicleType::~MSVehicleType() {
 
 
 double
-MSVehicleType::computeChosenSpeedDeviation(SumoRNG* rng, const double minDev) const {
-    return roundDecimal(MAX2(minDev, myParameter.speedFactor.sample(rng)), gPrecisionRandom);
+MSVehicleType::computeChosenSpeedDeviation(double speedFactorOverride, SumoRNG* rng, const double minDev) const {
+    return speedFactorOverride < 0
+        ? roundDecimal(MAX2(minDev, myParameter.speedFactor.sample(rng)), gPrecisionRandom)
+        : speedFactorOverride;
 }
 
 
@@ -165,6 +170,12 @@ MSVehicleType::setVClass(SUMOVehicleClass vclass) {
 
 
 void
+MSVehicleType::setGUIShape(SUMOVehicleShape shape) {
+    myParameter.shape = shape;
+    myParameter.parametersSet |= VTYPEPARS_SHAPE_SET;
+}
+
+void
 MSVehicleType::setPreferredLateralAlignment(const LatAlignmentDefinition& latAlignment, double latAlignmentOffset) {
     myParameter.latAlignmentProcedure = latAlignment;
     myParameter.latAlignmentOffset = latAlignmentOffset;
@@ -174,6 +185,13 @@ MSVehicleType::setPreferredLateralAlignment(const LatAlignmentDefinition& latAli
 void
 MSVehicleType::setScale(double value) {
     myParameter.scale = value;
+    MSInsertionControl& insertControl = MSNet::getInstance()->getInsertionControl();
+    insertControl.updateScale(getID());
+}
+
+void
+MSVehicleType::setLcContRight(const std::string& value) {
+    myParameter.lcParameter[SUMO_ATTR_LCA_CONTRIGHT] = value;
 }
 
 void
@@ -190,9 +208,9 @@ MSVehicleType::setDefaultProbability(const double& prob) {
 void
 MSVehicleType::setSpeedFactor(const double& factor) {
     if (myOriginalType != nullptr && factor < 0) {
-        myParameter.speedFactor.getParameter()[0] = myOriginalType->myParameter.speedFactor.getParameter()[0];
+        myParameter.speedFactor.setParameter(0, myOriginalType->myParameter.speedFactor.getParameter(0));
     } else {
-        myParameter.speedFactor.getParameter()[0] = factor;
+        myParameter.speedFactor.setParameter(0, factor);
     }
     myParameter.parametersSet |= VTYPEPARS_SPEEDFACTOR_SET;
 }
@@ -201,9 +219,9 @@ MSVehicleType::setSpeedFactor(const double& factor) {
 void
 MSVehicleType::setSpeedDeviation(const double& dev) {
     if (myOriginalType != nullptr && dev < 0) {
-        myParameter.speedFactor.getParameter()[1] = myOriginalType->myParameter.speedFactor.getParameter()[1];
+        myParameter.speedFactor.setParameter(1, myOriginalType->myParameter.speedFactor.getParameter(1));
     } else {
-        myParameter.speedFactor.getParameter()[1] = dev;
+        myParameter.speedFactor.setParameter(1, dev);
     }
     myParameter.parametersSet |= VTYPEPARS_SPEEDFACTOR_SET;
 }
@@ -256,6 +274,7 @@ void
 MSVehicleType::setMass(double mass) {
     myParameter.mass = mass;
     myParameter.parametersSet |= VTYPEPARS_MASS_SET;
+    const_cast<EnergyParams&>(myEnergyParams).setMass(mass);
 }
 
 
@@ -263,6 +282,13 @@ void
 MSVehicleType::setColor(const RGBColor& color) {
     myParameter.color = color;
     myParameter.parametersSet |= VTYPEPARS_COLOR_SET;
+}
+
+
+void
+MSVehicleType::setParkingBadges(const std::vector<std::string>& badges) {
+    myParameter.parkingBadges.assign(badges.begin(), badges.end());
+    myParameter.parametersSet |= VTYPEPARS_PARKING_BADGES_SET;
 }
 
 
@@ -278,14 +304,24 @@ MSVehicleType::setWidth(const double& width) {
 
 void
 MSVehicleType::setImpatience(const double impatience) {
-    if (myOriginalType != nullptr && impatience < 0) {
-        myParameter.impatience = myOriginalType->getImpatience();
-    } else {
-        myParameter.impatience = impatience;
-    }
+    myParameter.impatience = impatience;
     myParameter.parametersSet |= VTYPEPARS_IMPATIENCE_SET;
 }
 
+
+void
+MSVehicleType::setBoardingDuration(SUMOTime duration, bool isPerson) {
+    if (myOriginalType != nullptr && duration < 0) {
+        myParameter.boardingDuration = myOriginalType->getBoardingDuration(isPerson);
+    } else {
+        if (isPerson) {
+            myParameter.boardingDuration = duration;
+        } else {
+            myParameter.loadingDuration = duration;
+        }
+    }
+    myParameter.parametersSet |= VTYPEPARS_BOARDING_DURATION;
+}
 
 void
 MSVehicleType::setShape(SUMOVehicleShape shape) {
@@ -297,18 +333,29 @@ MSVehicleType::setShape(SUMOVehicleShape shape) {
 
 // ------------ Static methods for building vehicle types
 MSVehicleType*
-MSVehicleType::build(SUMOVTypeParameter& from) {
-    MSVehicleType* vtype = new MSVehicleType(from);
+MSVehicleType::build(SUMOVTypeParameter& from, const std::string& fileName) {
+    if (from.hasParameter("vehicleMass")) {
+        if (from.wasSet(VTYPEPARS_MASS_SET)) {
+            WRITE_WARNINGF(TL("The vType '%' has a 'mass' attribute and a 'vehicleMass' parameter. The 'mass' attribute will take precedence."), from.id);
+        } else {
+            WRITE_WARNINGF(TL("The vType '%' has a 'vehicleMass' parameter, which is deprecated. Please use the 'mass' attribute (for the empty mass) and the 'loading' parameter, if needed."), from.id);
+            from.mass = from.getDouble("vehicleMass", from.mass);
+            from.parametersSet |= VTYPEPARS_MASS_SET;
+        }
+    }
+    // the unique_ptr ensures the type is deleted if an exception occurs
+    std::unique_ptr<MSVehicleType> vtypeOwner(new MSVehicleType(from));
+    MSVehicleType* vtype = vtypeOwner.get();
     const double decel = from.getCFParam(SUMO_ATTR_DECEL, SUMOVTypeParameter::getDefaultDecel(from.vehicleClass));
     const double emergencyDecel = from.getCFParam(SUMO_ATTR_EMERGENCYDECEL, SUMOVTypeParameter::getDefaultEmergencyDecel(from.vehicleClass, decel, MSGlobals::gDefaultEmergencyDecel));
     // by default decel and apparentDecel are identical
     const double apparentDecel = from.getCFParam(SUMO_ATTR_APPARENTDECEL, decel);
 
     if (emergencyDecel < decel) {
-        WRITE_WARNING("Value of 'emergencyDecel' (" + toString(emergencyDecel) + ") should be higher than 'decel' (" + toString(decel) + ") for vType '" + from.id + "'.");
+        WRITE_WARNINGF(TL("Value of 'emergencyDecel' (%) should be higher than 'decel' (%) for vType '%'."), toString(emergencyDecel), toString(decel), from.id);
     }
     if (emergencyDecel < apparentDecel) {
-        WRITE_WARNING("Value of 'emergencyDecel' (" + toString(emergencyDecel) + ") is lower than 'apparentDecel' (" + toString(apparentDecel) + ") for vType '" + from.id + "' may cause collisions.");
+        WRITE_WARNINGF(TL("Value of 'emergencyDecel' (%) is lower than 'apparentDecel' (%) for vType '%' may cause collisions."), toString(emergencyDecel), toString(apparentDecel), from.id);
     }
 
     switch (from.cfModel) {
@@ -366,8 +413,8 @@ MSVehicleType::build(SUMOVTypeParameter& from) {
             break;
     }
     // init Rail visualization parameters
-    vtype->myParameter.initRailVisualizationParameters();
-    return vtype;
+    vtype->myParameter.initRailVisualizationParameters(fileName);
+    return vtypeOwner.release();
 }
 
 SUMOTime
@@ -395,8 +442,8 @@ MSVehicleType::duplicateType(const std::string& id, bool persistent) const {
         vtype->myOriginalType = this;
     }
     if (!MSNet::getInstance()->getVehicleControl().addVType(vtype)) {
-        std::string singular = persistent ? "" : "singular ";
-        throw ProcessError("could not add " + singular + "type " + vtype->getID());
+        std::string singular = persistent ? "" : TL("singular ");
+        throw ProcessError(TLF("could not add %type %", singular, vtype->getID()));
     }
     return vtype;
 }
@@ -430,17 +477,27 @@ MSVehicleType::check() {
     if (!myWarnedStepLengthTauOnce && TS > getCarFollowModel().getHeadwayTime()
             && !MSGlobals::gUseMesoSim) {
         myWarnedStepLengthTauOnce = true;
-        WRITE_WARNINGF("Value of tau=% in vehicle type '%' lower than simulation step size may cause collisions.",
+        WRITE_WARNINGF(TL("Value of tau=% in vehicle type '%' lower than simulation step size may cause collisions."),
                        getCarFollowModel().getHeadwayTime(), getID());
     }
     if (MSGlobals::gUseMesoSim && getVehicleClass() != SVC_PEDESTRIAN && !OptionsCont::getOptions().getBool("meso-lane-queue")) {
         SVCPermissions ignoreVClasses = parseVehicleClasses(OptionsCont::getOptions().getStringVector("meso-ignore-lanes-by-vclass"));
         if ((ignoreVClasses & getVehicleClass()) != 0) {
-            WRITE_WARNINGF("Vehicle class '%' of vType '%' is set as ignored by option --meso-ignore-lanes-by-vclass to ensure default vehicle capacity. Set option --meso-lane-queue for multi-modal meso simulation",
+            WRITE_WARNINGF(TL("Vehicle class '%' of vType '%' is set as ignored by option --meso-ignore-lanes-by-vclass to ensure default vehicle capacity. Set option --meso-lane-queue for multi-modal meso simulation"),
                            toString(getVehicleClass()), getID());
         }
     }
+    if (!myParameter.wasSet(VTYPEPARS_EMISSIONCLASS_SET) && !OptionsCont::getOptions().getBool("device.battery.track-fuel")
+            && (OptionsCont::getOptions().getFloat("device.battery.probability") == 1.
+                || myParameter.getDouble("device.battery.probability", -1.) == 1.
+                || StringUtils::toBool(myParameter.getParameter("has.battery.device", "false")))) {
+        myParameter.emissionClass = PollutantsInterface::getClassByName("Energy");
+        myParameter.parametersSet |= VTYPEPARS_EMISSIONCLASS_SET;
+        WRITE_MESSAGEF(TL("The battery device is active for vType '%' but no emission class is set. The emission class Energy/unknown will be used, please consider setting an explicit emission class!"),
+                       getID());
+    }
 }
+
 
 void
 MSVehicleType::setAccel(double accel) {
@@ -479,6 +536,92 @@ MSVehicleType::setApparentDecel(double apparentDecel) {
 }
 
 void
+MSVehicleType::setMaxAccelProfile(std::vector<std::pair<double, double> > /* accelProfile */) {
+    /*
+    if (myOriginalType != nullptr) {
+        accelProfile = myOriginalType->getCarFollowModel().getMaxAccelProfile();
+    } else {
+        if (accelProfile[0].first > 0.) {
+            accelProfile.insert(accelProfile.begin(), std::make_pair(0.0, accelProfile[0].second));
+        }
+        if (accelProfile.back().first < (10000 / 3.6)) {
+            accelProfile.push_back(std::make_pair((10000 / 3.6), accelProfile.back().second));
+        }
+        double prevSpeed = 0.0;
+        for (const auto& accelPair : accelProfile) {
+            if (accelPair.first < 0.) {
+                accelProfile = myOriginalType->getCarFollowModel().getMaxAccelProfile();
+                break;
+            } else if (accelPair.second < 0.) {
+                accelProfile = myOriginalType->getCarFollowModel().getMaxAccelProfile();
+                break;
+            } else if (accelPair.first < prevSpeed) {
+                accelProfile = myOriginalType->getCarFollowModel().getMaxAccelProfile();
+                break;
+            }
+            prevSpeed = accelPair.first;
+        }
+    }
+    myCarFollowModel->setMaxAccelProfile(accelProfile);
+
+    std::stringstream accelProfileString;
+    accelProfileString << std::fixed << std::setprecision(2);
+    int count = 0;
+    for (const auto& accelPair : accelProfile) {
+        if (count > 0) {
+            accelProfileString << " ";
+        }
+        accelProfileString << toString(accelPair.first) + "," << accelPair.second;
+        count++;
+    }
+    myParameter.cfParameter[SUMO_ATTR_MAXACCEL_PROFILE] = accelProfileString.str();
+    */
+}
+
+void
+MSVehicleType::setDesAccelProfile(std::vector<std::pair<double, double> > /* accelProfile */) {
+    /*
+    if (myOriginalType != nullptr) {
+        accelProfile = myOriginalType->getCarFollowModel().getDesAccelProfile();
+    } else {
+        if (accelProfile[0].first > 0.) {
+            accelProfile.insert(accelProfile.begin(), std::make_pair(0.0, accelProfile[0].second));
+        }
+        if (accelProfile.back().first < (10000 / 3.6)) {
+            accelProfile.push_back(std::make_pair((10000 / 3.6), accelProfile.back().second));
+        }
+        double prevSpeed = 0.0;
+        for (const auto& accelPair : accelProfile) {
+            if (accelPair.first < 0.) {
+                accelProfile = myOriginalType->getCarFollowModel().getDesAccelProfile();
+                break;
+            } else if (accelPair.second < 0.) {
+                accelProfile = myOriginalType->getCarFollowModel().getDesAccelProfile();
+                break;
+            } else if (accelPair.first < prevSpeed) {
+                accelProfile = myOriginalType->getCarFollowModel().getDesAccelProfile();
+                break;
+            }
+            prevSpeed = accelPair.first;
+        }
+    }
+    myCarFollowModel->setDesAccelProfile(accelProfile);
+
+    std::stringstream accelProfileString;
+    accelProfileString << std::fixed << std::setprecision(2);
+    int count = 0;
+    for (const auto& accelPair : accelProfile) {
+        if (count > 0) {
+            accelProfileString << " ";
+        }
+        accelProfileString << toString(accelPair.first) + "," << accelPair.second;
+        count++;
+    }
+    myParameter.cfParameter[SUMO_ATTR_DESACCEL_PROFILE] = accelProfileString.str();
+    */
+}
+
+void
 MSVehicleType::setImperfection(double imperfection) {
     if (myOriginalType != nullptr && imperfection < 0) {
         imperfection = myOriginalType->getCarFollowModel().getImperfection();
@@ -495,5 +638,6 @@ MSVehicleType::setTau(double tau) {
     myCarFollowModel->setHeadwayTime(tau);
     myParameter.cfParameter[SUMO_ATTR_TAU] = toString(tau);
 }
+
 
 /****************************************************************************/

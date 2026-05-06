@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -65,6 +65,13 @@ public:
      */
     static std::string getFilePath(const std::string& path);
 
+    /** @brief Removes the path information from the given path
+     *
+     * @param[in] path The path to the file to return the file (with extension)
+     * @return the named file (with extension)
+     */
+    static std::string getFileFromPath(std::string path, const bool removeExtension);
+
     /** @brief Add an extension to the given file path
      *
      * @param[in] path The path to the file
@@ -109,7 +116,7 @@ public:
      */
     static bool isAbsolute(const std::string& path);
 
-    /** @brief Returns the path from a configuration so that it is accessable from the current working directory
+    /** @brief Returns the path from a configuration so that it is accessible from the current working directory
      *
      * If the path is absolute, it is returned. Otherwise, the file's position
      *  is computed regarding the configuration path (see getConfigurationRelative).
@@ -151,6 +158,8 @@ public:
     /// @brief prepend the given prefix to the last path component of the given file path
     static std::string prependToLastPathComponent(const std::string& prefix, const std::string& path);
 
+    /// @brief append the given suffix after the file name but before the extension
+    static std::string appendBeforeExtension(const std::string& path, const std::string& suffix, bool checkSep = true);
     /// @}
 
     /// @name binary writing functions
@@ -308,7 +317,7 @@ void FileHelpers::readEdgeVector(std::istream& in, std::vector<const E*>& edges,
             }
             int followIndex = (data >> ((numFields - field - 1) * bits)) & mask;
             if (followIndex >= prev->getNumSuccessors()) {
-                throw ProcessError("Invalid follower index in route '" + rid + "'!");
+                throw ProcessError(TLF("Invalid follower index in route '%'!", rid));
             }
             prev = prev->getSuccessors()[followIndex];
             edges.push_back(prev);
@@ -318,7 +327,7 @@ void FileHelpers::readEdgeVector(std::istream& in, std::vector<const E*>& edges,
         while (size > 0) {
             const E* edge = E::getAllEdges()[bitsOrEntry];
             if (edge == 0) {
-                throw ProcessError("An edge within the route '" + rid + "' is not known!");
+                throw ProcessError(TLF("An edge within the route '%' is not known!", rid));
             }
             edges.push_back(edge);
             size--;

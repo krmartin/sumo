@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -19,8 +19,12 @@
 /****************************************************************************/
 #include <config.h>
 
+#include "MFXStaticToolTip.h"
 #include "MFXLabelTooltip.h"
 
+// ===========================================================================
+// FOX callback mapping
+// ===========================================================================
 
 FXDEFMAP(MFXLabelTooltip) MFXLabelTooltipMap[] = {
     FXMAPFUNC(SEL_PAINT,    0,  MFXLabelTooltip::onPaint),
@@ -32,6 +36,9 @@ FXDEFMAP(MFXLabelTooltip) MFXLabelTooltipMap[] = {
 // Object implementation
 FXIMPLEMENT(MFXLabelTooltip, FXButton, MFXLabelTooltipMap, ARRAYNUMBER(MFXLabelTooltipMap))
 
+// ===========================================================================
+// method definitions
+// ===========================================================================
 
 MFXLabelTooltip::MFXLabelTooltip(FXComposite* p, MFXStaticToolTip* staticToolTip, const FXString& text, FXIcon* ic, FXuint opts,
                                  FXint x, FXint y, FXint w, FXint h, FXint pl, FXint pr, FXint pt, FXint pb) :
@@ -45,8 +52,8 @@ MFXLabelTooltip::MFXLabelTooltip(FXComposite* p, MFXStaticToolTip* staticToolTip
 MFXLabelTooltip::~MFXLabelTooltip() {}
 
 
-long 
-MFXLabelTooltip::onPaint(FXObject*,FXSelector,void* ptr){
+long
+MFXLabelTooltip::onPaint(FXObject*, FXSelector, void* ptr) {
     FXEvent* ev = (FXEvent*)ptr;
     FXDCWindow dc(this, ev);
     FXint tw = 0, th = 0, iw = 0, ih = 0, tx, ty, ix, iy;
@@ -62,7 +69,7 @@ MFXLabelTooltip::onPaint(FXObject*,FXSelector,void* ptr){
     }
     just_x(tx, ix, tw, iw);
     just_y(ty, iy, th, ih);
-    if (icon){
+    if (icon) {
         dc.drawIcon(icon, ix, iy);
     }
     if (!label.empty()) {
@@ -91,7 +98,7 @@ MFXLabelTooltip::onLeave(FXObject* sender, FXSelector sel, void* ptr) {
 }
 
 
-long 
+long
 MFXLabelTooltip::onMotion(FXObject* sender, FXSelector sel, void* ptr) {
     // update static tooltip
     myStaticToolTip->onUpdate(sender, sel, ptr);

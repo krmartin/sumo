@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2012-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -72,12 +72,12 @@
  *  be reported as an error or as a warning.
  *
  */
-template<class E, class V>
+template<class E, class V, class M>
 class AStarRouter : public SUMOAbstractRouter<E, V> {
 public:
     typedef AbstractLookupTable<E, V> LookupTable;
     typedef FullLookupTable<E, V> FLT;
-    typedef LandmarkLookupTable<E, V> LMLT;
+    typedef LandmarkLookupTable<E, V, M> LMLT;
 
     /**
      * @class EdgeInfoComparator
@@ -121,8 +121,8 @@ public:
     virtual ~AStarRouter() {}
 
     virtual SUMOAbstractRouter<E, V>* clone() {
-        return new AStarRouter<E, V>(this->myEdgeInfos, this->myErrorMsgHandler == MsgHandler::getWarningInstance(), this->myOperation, myLookupTable,
-                                     this->myHavePermissions, this->myHaveRestrictions);
+        return new AStarRouter<E, V, M>(this->myEdgeInfos, this->myErrorMsgHandler == MsgHandler::getWarningInstance(), this->myOperation, myLookupTable,
+                                        this->myHavePermissions, this->myHaveRestrictions);
     }
 
     /** @brief Builds the route between the given edges using the minimum travel time */
@@ -130,13 +130,14 @@ public:
                  SUMOTime msTime, std::vector<const E*>& into, bool silent = false) {
         assert(from != nullptr && to != nullptr);
         // check whether from and to can be used
-        if (this->myEdgeInfos[from->getNumericalID()].prohibited || this->isProhibited(from, vehicle)) {
+        if (this->isProhibited(from, vehicle, STEPS2TIME(msTime))) {
             if (!silent) {
                 this->myErrorMsgHandler->inform("Vehicle '" + Named::getIDSecure(vehicle) + "' is not allowed on source edge '" + from->getID() + "'.");
             }
             return false;
         }
-        if (this->myEdgeInfos[to->getNumericalID()].prohibited || this->isProhibited(to, vehicle)) {
+        // technically, a temporary permission might be lifted by the time of arrival
+        if (this->isProhibited(to, vehicle, STEPS2TIME(msTime))) {
             if (!silent) {
                 this->myErrorMsgHandler->inform("Vehicle '" + Named::getIDSecure(vehicle) + "' is not allowed on destination edge '" + to->getID() + "'.");
             }
@@ -164,13 +165,26 @@ public:
         }
         // loop
         int num_visited = 0;
-        const bool mayRevisit = myLookupTable != 0 && !myLookupTable->consistent();
+        const bool mayRevisit = myLookupTable != nullptr && !myLookupTable->consistent();
         const double speed = vehicle == nullptr ? myMaxSpeed : MIN2(vehicle->getMaxSpeed(), myMaxSpeed * vehicle->getChosenSpeedFactor());
         while (!this->myFrontierList.empty()) {
             num_visited += 1;
             // use the node with the minimal length
             auto* const minimumInfo = this->myFrontierList.front();
             const E* const minEdge = minimumInfo->edge;
+#ifdef ASTAR_DEBUG_QUERY
+            if (ASTAR_DEBUG_COND) {
+                std::cout << "DEBUG: hit=" << minEdge->getID()
+                          << " TT=" << minimumInfo->effort
+                          << " EF=" << this->getEffort(minEdge, vehicle, minimumInfo->leaveTime)
+                          << " HT=" << minimumInfo->heuristicEffort
+                          << " Q(TT,HT,Edge)=";
+                for (const auto& edgeInfo : this->myFrontierList) {
+                    std::cout << "\n   " << edgeInfo->effort << "," << edgeInfo->heuristicEffort << "," << edgeInfo->edge->getID();
+                }
+                std::cout << "\n";
+            }
+#endif
             // check whether the destination node was already reached
             if (minEdge == to) {
                 this->buildPathFrom(minimumInfo, into);
@@ -184,8 +198,8 @@ public:
 #endif
 #ifdef ASTAR_DEBUG_VISITED
                 if (ASTAR_DEBUG_COND) {
-                    OutputDevice& dev = OutputDevice::getDevice(Named::getIDSecure(vehicle) + "_" + toString(STEPS2TIME(msTime)));
-                    for (const auto& i : myEdgeInfos) {
+                    OutputDevice& dev = OutputDevice::getDevice(StringUtils::replace(Named::getIDSecure(vehicle), ":", "_") + "_" + toString(STEPS2TIME(msTime)));
+                    for (const auto& i : this->myEdgeInfos) {
                         if (i.visited) {
                             dev << "edge:" << i.edge->getID() << "\n";
                         }
@@ -199,23 +213,11 @@ public:
             this->myFrontierList.pop_back();
             this->myFound.push_back(minimumInfo);
             minimumInfo->visited = true;
-#ifdef ASTAR_DEBUG_QUERY
-            if (ASTAR_DEBUG_COND) {
-                std::cout << "DEBUG: hit=" << minEdge->getID()
-                          << " TT=" << minimumInfo->effort
-                          << " EF=" << this->getEffort(minEdge, vehicle, minimumInfo->leaveTime)
-                          << " HT=" << minimumInfo->heuristicEffort
-                          << " Q(TT,HT,Edge)=";
-                for (const auto& edgeInfo : myFrontierList) {
-                    std::cout << edgeInfo->effort << "," << edgeInfo->heuristicEffort << "," << edgeInfo->edge->getID() << " ";
-                }
-                std::cout << "\n";
-            }
-#endif
             const double effortDelta = this->getEffort(minEdge, vehicle, minimumInfo->leaveTime);
             const double leaveTime = minimumInfo->leaveTime + this->getTravelTime(minEdge, vehicle, minimumInfo->leaveTime, effortDelta);
 
             // admissible A* heuristic: straight line distance at maximum speed
+            // this is calculated from the end of minEdge so it possibly includes via efforts to the followers
             const double heuristic_remaining = (myLookupTable == nullptr ? minEdge->getDistanceTo(to) / speed :
                                                 myLookupTable->lowerBound(minEdge, to, speed, vehicle->getChosenSpeedFactor(),
                                                         minEdge->getMinimumTravelTime(nullptr), to->getMinimumTravelTime(nullptr)));
@@ -227,7 +229,7 @@ public:
             for (const std::pair<const E*, const E*>& follower : minEdge->getViaSuccessors(vClass)) {
                 auto& followerInfo = this->myEdgeInfos[follower.first->getNumericalID()];
                 // check whether it can be used
-                if (followerInfo.prohibited || this->isProhibited(follower.first, vehicle)) {
+                if (this->isProhibited(follower.first, vehicle, leaveTime)) {
                     continue;
                 }
                 double effort = minimumInfo->effort + effortDelta;
@@ -237,7 +239,8 @@ public:
                 if ((!followerInfo.visited || mayRevisit) && effort < oldEffort) {
                     followerInfo.effort = effort;
                     // if we use the effort including the via effort below we would count the via twice as shown by the ticket676 test
-                    followerInfo.heuristicEffort = MIN2(heuristicEffort, followerInfo.heuristicEffort);
+                    // but we should never get below the real effort, see #12463
+                    followerInfo.heuristicEffort = MAX2(MIN2(heuristicEffort, followerInfo.heuristicEffort), effort);
                     followerInfo.leaveTime = time;
                     followerInfo.prev = minimumInfo;
 #ifdef ASTAR_DEBUG_QUERY_FOLLOWERS
@@ -270,7 +273,7 @@ public:
         }
 #endif
         if (!silent) {
-            this->myErrorMsgHandler->informf("No connection between edge '%' and edge '%' found.", from->getID(), to->getID());
+            this->myErrorMsgHandler->informf(TL("No connection between edge '%' and edge '%' found."), from->getID(), to->getID());
         }
         return false;
     }

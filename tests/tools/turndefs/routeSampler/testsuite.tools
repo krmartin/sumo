@@ -2,6 +2,10 @@
 # 
 output-styles
 
+# write stops that are found in the input
+# 
+stops
+
 # 
 # 
 output-styles_pedestrians
@@ -11,6 +15,27 @@ intervals
 
 # sample routes by probabilites or counts
 weighted
+
+# make use of turn-ratios in addition to counts
+ratios
+
+# test option total-count
+totalCount
+
+# test origin destination inputs
+OD
+
+# load a custom  distribution for depart times
+departtime_dist
+
+# Use the input as a starting point for sampling
+keep_input
+
+# Use the input as a starting point for sampling and keep attributes
+keep_input_attrs
+
+# Use the input as a starting point for sampling (with multiple data intervals)
+keep_input_intervals
 verbose
 
 # save configuration file
@@ -21,6 +46,9 @@ save_template
 
 # using edgedata as input
 edgedata
+
+# read multiple attributes from the same edge
+edgedata_entered_departed
 
 # using edgedata as input to specify departure counts
 edgedata_departures
@@ -34,12 +62,12 @@ walk_input
 # using another GEH threshold
 geh
 
-# test option --od-files
-od_files
-
 # test additional vehicle attributes
 attrs
 mismatch-output
+
+# change scaling for estimating hourly traffic
+gehScale
 
 # use linear programming to optimize route usage
 optimize_full
@@ -77,7 +105,10 @@ turn-max-gap
 
 # set minimum number of visited counting locations per route
 min_count
+min_count2
 
 # set minimum number of visited counting locations per route
 min_count_optimize
+
+timeline
 errors

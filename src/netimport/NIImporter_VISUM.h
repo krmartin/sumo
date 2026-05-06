@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -55,7 +55,7 @@ class NBEdge;
  *  So, nodes are loaded first, then edges, etc.
  *
  * Because these structures may have a different order within the VISUM-file
- *  than we need, at first the file is scanned and any occurence of one of the
+ *  than we need, at first the file is scanned and any occurrence of one of the
  *  searched dbs is saved. That's where the "Found $XXX at YYY" are printed.
  *  "YYY" is the character position within the file.
  *
@@ -102,7 +102,7 @@ protected:
     /** @brief Parses the VISUM-network file storing the parsed structures within myNetBuilder
      *
      * At first, it is checked whether the file can be opened. A ProcessError is thrown
-     *  if not. Otherwise, the file is scanned for occurences of db table begins. For each found
+     *  if not. Otherwise, the file is scanned for occurrences of db table begins. For each found
      *  db, its position within the file, and the column names are stored in the according
      *  TypeParser. After this, the sorted list of type parsers is one through and each
      *  found is used to parse the entries at the found positions using the found column names.
@@ -192,7 +192,7 @@ private:
     double getWeightedFloat2(const std::string& name, const std::string& name2, const std::string& suffix);
 
     /// @brief parse permissions
-    SVCPermissions getPermissions(const std::string& name, bool warn = false, SVCPermissions unknown = SVCAll);
+    SVCPermissions getPermissions(const std::string& name, const std::string& edgeType, SVCPermissions unknown);
 
     /** @brief tries to get a bool which is possibly assigned to a certain modality
      *
@@ -308,7 +308,7 @@ private:
 
     /** @brief Returns the opposite direction of the given edge
      *
-     * Because the opposite direction edge may be split, not the the plain opposite
+     * Because the opposite direction edge may be split, not the plain opposite
      *  edge, the one which name is obtained by adding/removing the leading '-', is returned,
      *  but its continuation until the named node.
      *
@@ -372,17 +372,19 @@ private:
         /** @brief Position of the according db within the file
          *
          * Set to -1 in the constructor, and reset to the position while
-         *  scaning the file if the according db was found */
+         *  scanning the file if the according db was found */
         long position;
 
         /** @brief The column names
          *
-         * Set while scaning the file if the according db was found */
+         * Set while scanning the file if the according db was found */
         std::string pattern;
 
     };
 
 
+    /// @brief Parses meta data (i.e. projection)
+    void parse_Network();
 
     /// @brief Parses VSYS
     void parse_VSysTypes();
@@ -482,7 +484,12 @@ private:
     NBCapacity2Lanes myCapacity2Lanes;
 
     /// @brief Definition of a storage for vsystypes
-    typedef std::map<std::string, std::string> VSysTypeNames;
+    struct VSysType {
+        VSysType(const std::string& _type, const std::string& _name) : type(_type), name(_name) {}
+        const std::string type;
+        const std::string name;
+    };
+    typedef std::map<std::string, VSysType> VSysTypeNames;
     /// @brief The used vsystypes
     VSysTypeNames myVSysTypes;
 
@@ -520,6 +527,8 @@ private:
 
     /// @brief A temporary storage for district shapes as they are filled incrementally
     std::map<NBDistrict*, PositionVector> myDistrictShapes;
+
+    SVCPermissions myDefaultPermissions;
 
 protected:
     /**
@@ -572,6 +581,9 @@ protected:
         VISUM_CATID,
         VISUM_EDGEITEM,
         VISUM_POICATEGORY,
+        VISUM_NETWORK,
+        VISUM_PROJECTIONDEFINITION,
+        VISUM_PRT,
         VISUM_NO // must be the last one
     };
 

@@ -1,10 +1,10 @@
 set(netedit_dialogs_tools_SRCS
-   GNEToolDialog.h
-   GNEToolDialog.cpp
-   GNEToolDialogElements.h
-   GNEToolDialogElements.cpp
-   GNEToolNetDiff.h
-   GNEToolNetDiff.cpp
+   GNENetgenerateDialog.cpp
+   GNENetgenerateDialog.h
+   GNEPythonToolDialog.cpp
+   GNEPythonToolDialog.h
+   GNEPythonToolDialogElements.cpp
+   GNEPythonToolDialogElements.h
    )
 
 add_library(netedit_dialogs_tools STATIC ${netedit_dialogs_tools_SRCS})

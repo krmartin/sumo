@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2008-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -31,7 +31,7 @@ sumoBinary = sumolib.checkBinary('sumo')
 traci.start([sumoBinary,
              "-n", "input_net.net.xml",
              "--no-step-log",
-             ])
+             ] + sys.argv[1:])
 
 print("getDistanceRoad (no connection):",
       traci.simulation.getDistanceRoad("gneE0", 100, "gneE1", 100, isDriving=True))
@@ -49,5 +49,31 @@ print("getDistanceRoad (2nd internal to normal):",
       traci.simulation.getDistanceRoad(":gneJ5_7", 5, "-gneE2", 50, isDriving=True))
 print("getDistanceRoad (2nd internal to 1st internal):",
       traci.simulation.getDistanceRoad(":gneJ5_7", 5, ":gneJ5_4", 5, isDriving=True))
+
+traci.route.add("r", ["gneE4", "-gneE2"])
+traci.vehicletype.setMaxSpeed("DEFAULT_VEHTYPE", 1)
+traci.vehicle.add("v", "r")
+traci.simulationStep()
+
+print("getDrivingDistance (no connection):",
+      traci.vehicle.getDrivingDistance("v", "gneE1", 100))
+print("getDrivingDistance (normal to normal):",
+      traci.vehicle.getDrivingDistance("v", "-gneE2", 50))
+print("getDrivingDistance (normal to 1st internal):",
+      traci.vehicle.getDrivingDistance("v", ":gneJ5_4", 5))
+print("getDrivingDistance (normal to 2nd internal):",
+      traci.vehicle.getDrivingDistance("v", ":gneJ5_7", 5))
+while traci.vehicle.getRoadID("v") != ":gneJ5_4":
+    traci.simulationStep()
+print("getDrivingDistance (1st internal to normal):",
+      traci.vehicle.getDrivingDistance("v", "-gneE2", 50))
+print("getDrivingDistance (1st internal to 2nd internal):",
+      traci.vehicle.getDrivingDistance("v", ":gneJ5_7", 5))
+while traci.vehicle.getRoadID("v") != ":gneJ5_7":
+    traci.simulationStep()
+print("getDrivingDistance (2nd internal to normal):",
+      traci.vehicle.getDrivingDistance("v", "-gneE2", 50))
+print("getDrivingDistance (2nd internal to 1st internal):",
+      traci.vehicle.getDrivingDistance("v", ":gneJ5_4", 5))
 
 traci.close()

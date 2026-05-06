@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2007-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2007-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -28,16 +28,20 @@
 #include <thread>
 #include <utils/common/SUMOTime.h>
 #include <utils/common/WrappingCommand.h>
-#include <utils/router/SUMOAbstractRouter.h>
 #include <utils/router/AStarRouter.h>
-#include <utils/router/RouterProvider.h>
 #include <microsim/MSEdge.h>
-#include <microsim/MSVehicle.h>
-#include "MSDevice.h"
+#include <microsim/MSRouterDefs.h>
 
 #ifdef HAVE_FOX
 #include <utils/foxtools/MFXWorkerThread.h>
 #endif
+
+
+// ===========================================================================
+// class declarations
+// ===========================================================================
+class MSTransportable;
+class SUMOSAXAttributes;
 
 // ===========================================================================
 // class definitions
@@ -62,13 +66,16 @@
  */
 class MSRoutingEngine {
 public:
-    typedef RouterProvider<MSEdge, MSLane, MSJunction, SUMOVehicle> MSRouterProvider;
+    typedef SUMOAbstractRouter<MSEdge, SUMOVehicle>::Prohibitions Prohibitions;
+
+    /// @brief initialize constants for using myPriorityFactor 
+    static void initWeightConstants(const OptionsCont& oc);
 
     /// @brief intialize period edge weight update
-    static void initWeightUpdate();
+    static void initWeightUpdate(SUMOTime lastAdaption = - 1);
 
     /// @brief initialize the edge weights if not done before
-    static void initEdgeWeights(SUMOVehicleClass svc);
+    static void initEdgeWeights(SUMOVehicleClass svc, SUMOTime lastAdaption = -1, int index = -1);
 
     /// @brief returns whether any edge weight updates will take place
     static bool hasEdgeUpdates() {
@@ -80,14 +87,42 @@ public:
         return myLastAdaptation;
     }
 
+    static bool haveExtras() {
+        return myHaveExtras;
+    }
+
+    /// @brief apply cost modifications from randomness, priorityFactor and preferences
+    static inline void applyExtras(const MSEdge* const e, const SUMOVehicle* const v, SUMOTime step, double& effort) {
+        if (gWeightsRandomFactor != 1.) {
+            long long int key = v->getRandomSeed() ^ e->getNumericalID();
+            if (myDynamicRandomness) {
+                key ^= step;
+            }
+            effort *= (1 + RandHelper::randHash(key) * (gWeightsRandomFactor - 1));
+        }
+        if (myPriorityFactor != 0) {
+            // lower priority should result in higher effort (and the edge with
+            // minimum priority receives a factor of 1 + myPriorityFactor
+            const double relativeInversePrio = 1 - ((e->getPriority() - myMinEdgePriority) / myEdgePriorityRange);
+            effort *= 1 + relativeInversePrio * myPriorityFactor;
+        }
+        if (gRoutingPreferences) {
+            effort /= MSNet::getInstance()->getPreference(e->getRoutingType(), v->getVTypeParameter());
+        }
+    }
+
     /// @brief return the cached route or nullptr on miss
-    static const MSRoute* getCachedRoute(const std::pair<const MSEdge*, const MSEdge*>& key);
+    static ConstMSRoutePtr getCachedRoute(const std::pair<const MSEdge*, const MSEdge*>& key);
 
     static void initRouter(SUMOVehicle* vehicle = nullptr);
 
     /// @brief initiate the rerouting, create router / thread pool on first use
     static void reroute(SUMOVehicle& vehicle, const SUMOTime currentTime, const std::string& info,
-                        const bool onInit = false, const bool silent = false, const MSEdgeVector& prohibited = MSEdgeVector());
+                        const bool onInit = false, const bool silent = false, const Prohibitions& prohibited = {});
+
+    /// @brief initiate the person rerouting, create router / thread pool on first use
+    static void reroute(MSTransportable& t, const SUMOTime currentTime, const std::string& info,
+                        const bool onInit = false, const bool silent = false, const Prohibitions& prohibited = {});
 
     /// @brief adapt the known travel time for an edge
     static void setEdgeTravelTime(const MSEdge* const edge, const double travelTime);
@@ -100,10 +135,19 @@ public:
         return !myWithTaz && myAdaptationInterval >= 0;
     }
 
-    /// @brief return the router instance
-    static SUMOAbstractRouter<MSEdge, SUMOVehicle>& getRouterTT(const int rngIndex,
-            SUMOVehicleClass svc,
-            const MSEdgeVector& prohibited = MSEdgeVector());
+    /// @brief return the vehicle router instance
+    static MSVehicleRouter& getRouterTT(const int rngIndex,
+                                        SUMOVehicleClass svc,
+                                        const Prohibitions& prohibited = {});
+
+    /// @brief return the person router instance
+    static MSTransportableRouter& getIntermodalRouterTT(const int rngIndex,
+            const Prohibitions& prohibited = {});
+
+    /// @brief whether the router collects bicycle speeds
+    static bool hasBikeSpeeds() {
+        return myBikeSpeeds;
+    }
 
     /** @brief Returns the effort to pass an edge
     *
@@ -135,6 +179,18 @@ public:
     /// @brief record actual travel time for an edge
     static void addEdgeTravelTime(const MSEdge& edge, const SUMOTime travelTime);
 
+    /** @brief Saves the state (i.e. recorded speeds)
+     *
+     * @param[in] out The OutputDevice to write the information into
+     */
+    static void saveState(OutputDevice& out);
+
+    /** @brief Loads the state
+     *
+     * @param[in] attrs XML attributes describing the current state
+     */
+    static void loadState(const SUMOSAXAttributes& attrs);
+
 #ifdef HAVE_FOX
     static void waitForAll();
 #endif
@@ -149,7 +205,7 @@ private:
     class RoutingTask : public MFXWorkerThread::Task {
     public:
         RoutingTask(SUMOVehicle& v, const SUMOTime time, const std::string& info,
-                    const bool onInit, const bool silent, const MSEdgeVector& prohibited)
+                    const bool onInit, const bool silent, const Prohibitions& prohibited)
             : myVehicle(v), myTime(time), myInfo(info), myOnInit(onInit), mySilent(silent), myProhibited(prohibited) {}
         void run(MFXWorkerThread* context);
     private:
@@ -158,11 +214,12 @@ private:
         const std::string myInfo;
         const bool myOnInit;
         const bool mySilent;
-        const MSEdgeVector myProhibited;
+        const Prohibitions myProhibited;
     private:
         /// @brief Invalidated assignment operator.
         RoutingTask& operator=(const RoutingTask&) = delete;
     };
+
 #endif
 
     /// @name Network state adaptation
@@ -231,10 +288,8 @@ private:
     /// @brief The router to use
     static MSRouterProvider* myRouterProvider;
 
-    static std::map<std::thread::id, SumoRNG*> myThreadRNGs;
-
     /// @brief The container of pre-calculated routes
-    static std::map<std::pair<const MSEdge*, const MSEdge*>, const MSRoute*> myCachedRoutes;
+    static std::map<std::pair<const MSEdge*, const MSEdge*>, ConstMSRoutePtr> myCachedRoutes;
 
     /// @brief Coefficient for factoring edge priority into routing weight
     static double myPriorityFactor;
@@ -243,6 +298,12 @@ private:
     static double myMinEdgePriority;
     /// @brief the difference between maximum and minimum priority for all edges
     static double myEdgePriorityRange;
+
+    /// @brief whether randomness varies over time
+    static bool myDynamicRandomness;
+
+    /// @brief whether extra routing cost modifications are configured
+    static bool myHaveExtras;
 
 #ifdef HAVE_FOX
     /// @brief Mutex for accessing the route cache

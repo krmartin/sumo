@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2012-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,15 +21,17 @@
 #pragma once
 #include <config.h>
 
+#include <set>
 #include <vector>
-#include "NBEdge.h"
 
 
 // ===========================================================================
 // class declarations
 // ===========================================================================
+class NBEdge;
 class NBEdgeCont;
 class NBPTStopCont;
+class NBPTLine;
 class NBPTLineCont;
 class OptionsCont;
 class NBVehicle;
@@ -49,13 +51,15 @@ public:
     static void analyzeTopology(NBEdgeCont& ec);
     static int repairTopology(NBEdgeCont& ec, NBPTStopCont& sc, NBPTLineCont& lc);
     static int makeAllBidi(NBEdgeCont& ec);
+    static void setPTLinePriority(NBEdgeCont& ec, NBPTLineCont& lc, SVCPermissions vClasses);
     static void extendDirectionPriority(NBEdgeCont& ec, bool fromUniDir);
 
     /// routing edge
     class Track {
     public:
-        Track(NBEdge* e, int i = -1, const std::string& _id = "") :
+        Track(NBEdge* e, int i = -1, const std::string& _id = "", double _penalty = 1) :
             edge(e),
+            penalty(_penalty),
             index(i < 0 ? edge->getNumericalID() : i),
             id(_id == "" ? edge->getID() : _id),
             minPermissions(edge->getPermissions()) {
@@ -63,7 +67,7 @@ public:
 
         void addSuccessor(Track* track);
         const std::vector<Track*>& getSuccessors(SUMOVehicleClass svc = SVC_IGNORING) const;
-        const std::vector<std::pair<const Track*, const Track*> >& getViaSuccessors(SUMOVehicleClass svc = SVC_IGNORING) const;
+        const std::vector<std::pair<const Track*, const Track*> >& getViaSuccessors(SUMOVehicleClass svc = SVC_IGNORING, bool ignoreTransientPermissions = false) const;
 
         const std::string& getID() const {
             return id;
@@ -72,7 +76,7 @@ public:
             return index;
         }
         double getLength() const {
-            return 0.;
+            return 0;
         }
         const Track* getBidiEdge() const {
             return this;
@@ -88,6 +92,7 @@ public:
         }
 
         NBEdge* edge;
+        double penalty;
 
     private:
         const int index;
@@ -101,9 +106,9 @@ public:
         Track& operator=(const Track&) = delete;
     };
     static double getTravelTimeStatic(const Track* const track, const NBVehicle* const veh, double time);
+    static std::set<NBNode*> getRailNodes(NBEdgeCont& ec, bool verbose = false);
 
 private:
-    static std::set<NBNode*> getRailNodes(NBEdgeCont& ec, bool verbose = false);
     static std::set<NBNode*> getBrokenRailNodes(NBEdgeCont& ec, bool verbose = false);
 
     /// @brief filter out rail edges among all edges of a the given node
@@ -129,7 +134,10 @@ private:
     static int extendBidiEdges(NBEdgeCont& ec, NBNode* node, NBEdge* bidiIn);
 
     /// @brief reverse edges sequences that are to broken nodes on both sides
-    static int reverseEdges(NBEdgeCont& ec, NBPTStopCont& sc);
+    static int reverseEdges(NBEdgeCont& ec, NBPTStopCont& sc, NBPTLineCont& lc);
+
+    /// @brief reverse a single edge
+    static void reverseEdge(NBEdge* e);
 
     /// @brief add bidi-edges to connect buffers stops in both directions
     static int addBidiEdgesForBufferStops(NBEdgeCont& ec);
@@ -138,12 +146,34 @@ private:
     static int addBidiEdgesBetweenSwitches(NBEdgeCont& ec);
 
     /// @brief add bidi-edges to connect successive public transport stops
-    static int addBidiEdgesForStops(NBEdgeCont& ec, NBPTLineCont& lc);
+    static int addBidiEdgesForStops(NBEdgeCont& ec, NBPTLineCont& lc, NBPTStopCont& sc, bool minimal);
 
     /// @brief add bidi-edges to connect straight tracks
     static int addBidiEdgesForStraightConnectivity(NBEdgeCont& ec, bool geometryLike);
 
-    /// recompute turning directions for both nodes of the given edge
+    /// @brief recompute turning directions for both nodes of the given edge
     static void updateTurns(NBEdge* edge);
+
+    /// @brief identify lines that are likely to require bidirectional tracks
+    static std::set<NBPTLine*> findBidiCandidates(NBPTLineCont& lc);
+
+};
+
+
+class NBRailwaySignalGuesser {
+
+public:
+    static int guessRailSignals(NBNodeCont& nc, NBEdgeCont& ec, NBPTStopCont& sc, NBDistrictCont& dc);
+
+private:
+    static int guessByStops(NBNodeCont& nc, NBEdgeCont& ec, NBPTStopCont& sc, NBDistrictCont& dc, double minLength, bool split);
+    static bool canBeSignal(const NBNode* node);
+
+};
+
+class NBRailwayGeometryHelper {
+
+public:
+    static int straigthenCorrdidor(NBEdgeCont& ec, double maxAngle);
 
 };

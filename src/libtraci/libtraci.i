@@ -1,4 +1,5 @@
 %module libtraci
+#define SWIG_MODULE libtraci
 #define LIBTRACI 1
 %{
 #define LIBTRACI 1
@@ -8,6 +9,20 @@
 #endif
 
 %include "../libsumo/libsumo_typemap.i"
+
+#if defined(SWIGJAVA)
+%typemap(javaimports) libtraci::Simulation "import java.lang.Runtime.Version;"
+%extend libtraci::Simulation {
+%proxycode %{
+    public static void preloadLibraries() {
+        if (Version.parse(System.getProperty("java.version")).compareTo(Version.parse("21.0.5")) < 0) {
+            System.err.println("The recommended minimal Java version is 21.0.5.");
+        }
+        System.loadLibrary("libtracijni");
+    }
+%}
+}
+#endif
 
 // Add necessary symbols to generated header
 %{
@@ -41,13 +56,14 @@
 %include "../libsumo/TraCIDefs.h"
 %template(TraCILogicVector) std::vector<libsumo::TraCILogic>;
 %template(TraCIStageVector) std::vector<libsumo::TraCIStage>;
-%template(TraCINextStopDataVector2) std::vector<libsumo::TraCINextStopData>;
+%template(TraCINextStopDataVector) std::vector<libsumo::TraCINextStopData>;
 %template(TraCIReservationVector) std::vector<libsumo::TraCIReservation>;
 %template(TraCISignalConstraintVector) std::vector<libsumo::TraCISignalConstraint>;
 %template(TraCICollisionVector) std::vector<libsumo::TraCICollision>;
 #ifndef SWIGPYTHON
-%template(TraCIBestLanesVector) std::vector<libsumo::TraCIBestLanesData>;
+%template(TraCIBestLanesDataVector) std::vector<libsumo::TraCIBestLanesData>;
 %template(TraCIConnectionVector) std::vector<libsumo::TraCIConnection>;
+%template(TraCIJunctionFoeVector) std::vector<libsumo::TraCIJunctionFoe>;
 %template(TraCILinkVector) std::vector<libsumo::TraCILink>;
 %template(TraCILinkVectorVector) std::vector< std::vector<libsumo::TraCILink> >;
 %template(TraCINextTLSVector) std::vector<libsumo::TraCINextTLSData>;

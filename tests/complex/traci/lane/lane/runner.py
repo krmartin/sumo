@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2008-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -15,6 +15,7 @@
 # @file    runner.py
 # @author  Michael Behrisch
 # @author  Daniel Krajzewicz
+# @author  Mirko Barthauer
 # @date    2011-03-04
 
 from __future__ import print_function
@@ -36,6 +37,8 @@ print("lane count", traci.lane.getIDCount())
 laneID = "2fi_0"
 print("examining", laneID)
 print("length", traci.lane.getLength(laneID))
+print("angle (with default relative position)", traci.lane.getAngle(laneID))
+print("angle (with some relative position)", traci.lane.getAngle(laneID, 10))
 print("maxSpeed", traci.lane.getMaxSpeed(laneID))
 print("width", traci.lane.getWidth(laneID))
 print("allowed", traci.lane.getAllowed(laneID))
@@ -66,6 +69,18 @@ print("haltVeh", traci.lane.getLastStepHaltingNumber(laneID))
 print("vehIds", traci.lane.getLastStepVehicleIDs(laneID))
 print("waiting time", traci.lane.getWaitingTime(laneID))
 
+centerLaneID = "2si_1"
+print("allowed to change to the left", traci.lane.getChangePermissions(centerLaneID, traci.constants.LANECHANGE_LEFT))
+print("allowed to change to the right", traci.lane.getChangePermissions(centerLaneID, traci.constants.LANECHANGE_RIGHT))
+traci.lane.setChangePermissions(centerLaneID, ['ignoring'], traci.constants.LANECHANGE_LEFT)
+print("allowed to change to the left after setChangePermissions",
+      traci.lane.getChangePermissions(centerLaneID, traci.constants.LANECHANGE_LEFT))
+traci.lane.setChangePermissions(centerLaneID, ['passenger'], traci.constants.LANECHANGE_RIGHT)
+print("allowed to change to the right after setChangePermissions",
+      traci.lane.getChangePermissions(centerLaneID, traci.constants.LANECHANGE_RIGHT))
+
+print("loaded permissions", traci.lane.getAllowed(
+    "1fi_0"), traci.lane.getDisallowed("1fi_0"))
 traci.lane.setAllowed(laneID, ["taxi"])
 print("after setAllowed", traci.lane.getAllowed(
     laneID), traci.lane.getDisallowed(laneID))
@@ -80,6 +95,8 @@ print("after setLength", traci.lane.getLength(laneID))
 print("foes", traci.lane.getFoes("1si_0", "3o_0"))
 
 traci.lane.subscribe(laneID)
+param = {traci.constants.VAR_ANGLE: 10.0}
+traci.lane.subscribe(laneID, [traci.constants.VAR_ANGLE], parameters=param)
 print(traci.lane.getSubscriptionResults(laneID))
 for step in range(3, 6):
     print("step", step)

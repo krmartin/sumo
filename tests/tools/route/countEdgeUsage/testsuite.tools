@@ -1,6 +1,9 @@
 # Tests for <SUMO_DIST>/tools/countEdgeUsage.py
 basic
 
+# Tests for <SUMO_DIST>/tools/countEdgeUsage.py
+verbose
+
 # load 2 input files
 # 
 two_inputs
@@ -18,6 +21,9 @@ taz_subpart
 subpart
 
 # Tests for <SUMO_DIST>/tools/countEdgeUsage.py
+subpart_gap
+
+# Tests for <SUMO_DIST>/tools/countEdgeUsage.py
 subpart_trip
 
 # Tests for <SUMO_DIST>/tools/countEdgeUsage.py
@@ -31,3 +37,27 @@ begin_end
 
 # restrict included data by departure time
 period
+
+# Tests for <SUMO_DIST>/tools/countEdgeUsage.py
+named_routes
+
+# Tests for <SUMO_DIST>/tools/countEdgeUsage.py
+named_routes_elements
+
+# Tests for <SUMO_DIST>/tools/countEdgeUsage.py
+named_routes_period
+
+# Tests for <SUMO_DIST>/tools/countEdgeUsage.py
+save_template
+
+# Tests for <SUMO_DIST>/tools/countEdgeUsage.py
+flow
+
+# Tests for <SUMO_DIST>/tools/countEdgeUsage.py
+flow_poisson
+
+# Tests for <SUMO_DIST>/tools/countEdgeUsage.py
+flow_fractional
+
+# Tests for <SUMO_DIST>/tools/countEdgeUsage.py
+replacedRoutes

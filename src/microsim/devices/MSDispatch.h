@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2007-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2007-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -31,6 +31,7 @@
 // class declarations
 // ===========================================================================
 class MSTransportable;
+class MSStoppingPlace;
 
 // ===========================================================================
 // class definitions
@@ -45,21 +46,27 @@ struct Reservation {
     };
 
     Reservation(const std::string& _id,
-                const std::vector<MSTransportable*>& _persons,
+                const std::vector<const MSTransportable*>& _persons,
                 SUMOTime _reservationTime,
                 SUMOTime _pickupTime,
+                SUMOTime _earliestPickupTime,
                 const MSEdge* _from, double _fromPos,
+                const MSStoppingPlace* _fromStop,
                 const MSEdge* _to, double _toPos,
+                const MSStoppingPlace* _toStop,
                 const std::string& _group,
                 const std::string& _line) :
         id(_id),
         persons(_persons.begin(), _persons.end()),
         reservationTime(_reservationTime),
         pickupTime(_pickupTime),
+        earliestPickupTime(_earliestPickupTime),
         from(_from),
         fromPos(_fromPos),
+        fromStop(_fromStop),
         to(_to),
         toPos(_toPos),
+        toStop(_toStop),
         group(_group),
         line(_line),
         recheck(_reservationTime),
@@ -67,13 +74,16 @@ struct Reservation {
     {}
 
     std::string id;
-    std::set<MSTransportable*> persons;
+    std::set<const MSTransportable*, ComparatorNumericalIdLess> persons;
     SUMOTime reservationTime;
     SUMOTime pickupTime;
+    SUMOTime earliestPickupTime;
     const MSEdge* from;
     double fromPos;
+    const MSStoppingPlace* fromStop;
     const MSEdge* to;
     double toPos;
+    const MSStoppingPlace* toStop;
     std::string group;
     std::string line;
     SUMOTime recheck;
@@ -91,8 +101,10 @@ struct Reservation {
                && line == other.line;
     }
 
-    /// @brief debug identification
-    std::string getID() const;
+    /// @brief for sorting by id
+    std::string getID() const {
+        return id;
+    }
 };
 
 /**
@@ -110,7 +122,7 @@ public:
 
         /// @brief Comparing operator
         int operator()(const Reservation* r1, const Reservation* r2) const {
-            return r1->reservationTime < r2->reservationTime;
+            return MAX2(r1->reservationTime, r1->earliestPickupTime) < MAX2(r2->reservationTime, r2->earliestPickupTime);
         }
     };
 
@@ -118,24 +130,35 @@ public:
     MSDispatch(const Parameterised::Map& params);
 
     /// @brief Destructor
-    virtual ~MSDispatch() { }
+    virtual ~MSDispatch();
 
     /// @brief add a new reservation
     virtual Reservation* addReservation(MSTransportable* person,
                                         SUMOTime reservationTime,
                                         SUMOTime pickupTime,
+                                        SUMOTime earliestPickupTime,
                                         const MSEdge* from, double fromPos,
+                                        const MSStoppingPlace* fromStop,
                                         const MSEdge* to, double toPos,
+                                        const MSStoppingPlace* tostop,
                                         std::string group,
                                         const std::string& line,
                                         int maxCapacity,
                                         int maxContainerCapacity);
 
-    /// @brief remove person from reservation. If the whole reservation is removed, return it's id
+    /// @brief remove person from reservation. If the whole reservation is removed, return its id
     virtual std::string removeReservation(MSTransportable* person,
                                           const MSEdge* from, double fromPos,
                                           const MSEdge* to, double toPos,
                                           std::string group);
+
+    /// @brief update fromPos of the person's reservation.
+    /// TODO: if there is already a reservation with the newFromPos, add to this reservation
+    /// TODO: if there are other persons in this reservation, create a new reservation for the updated one
+    virtual Reservation* updateReservationFromPos(MSTransportable* person,
+            const MSEdge* from, double fromPos,
+            const MSEdge* to, double toPos,
+            std::string group, double newFromPos);
 
     /// @brief erase reservation from storage
     virtual void fulfilledReservation(const Reservation* res);
@@ -154,8 +177,13 @@ public:
         return myHasServableReservations;
     }
 
+    virtual SUMOAbstractRouter<MSEdge, SUMOVehicle>& getRouter() const;
+
     ///@brief compute time to pick up the given reservation
     static SUMOTime computePickupTime(SUMOTime t, const MSDevice_Taxi* taxi, const Reservation& res, SUMOAbstractRouter<MSEdge, SUMOVehicle>& router);
+
+    ///@brief compute whether the reservation is servable
+    bool isReachable(SUMOTime t, const MSDevice_Taxi* taxi, const Reservation& res, SUMOAbstractRouter<MSEdge, SUMOVehicle>& router);
 
     ///@brief compute directTime and detourTime
     static double computeDetourTime(SUMOTime t, SUMOTime viaTime, const MSDevice_Taxi* taxi,
@@ -169,19 +197,44 @@ public:
     /// @brief whether the last call to computeDispatch has left servable reservations
     bool myHasServableReservations = false;
 
+    void swappedRunning(const Reservation* res, MSDevice_Taxi* taxi);
+
+    /** @brief Saves the state of the device
+     *
+     * @param[in] out The OutputDevice to write the information into
+     */
+    virtual void saveState(OutputDevice& out, SUMOTime nextDispatch) const;
+
+    /** @brief Loads the state of the device from the given description
+     *
+     * The default implementation does nothing.
+     * @param[in] attrs XML attributes describing the current state
+     */
+    virtual void loadState(const SUMOSAXAttributes& attrs);
+
+    void servedReservation(const Reservation* res, MSDevice_Taxi* taxi);
+
 protected:
-    void servedReservation(const Reservation* res);
 
     /// @brief whether the given taxi has sufficient capacity to serve the reservation
     int remainingCapacity(const MSDevice_Taxi* taxi, const Reservation* res);
 
     // reservations that are currently being served (could still be used during re-dispatch)
-    std::set<const Reservation*> myRunningReservations;
+    std::map<std::string, std::map<const Reservation*, MSDevice_Taxi*, ComparatorIdLess> > myRunningReservations;
 
     /// @brief optional file output for dispatch information
     OutputDevice* myOutput;
 
     int myReservationCount;
+
+    /// @brief the duration before canceling unreachable reservations
+    SUMOTime myKeepUnreachableResTime;
+
     std::map<std::string, std::vector<Reservation*> > myGroupReservations;
 
+    /// @brief which router/edge weights to use
+    const int myRoutingMode;
+
+    /// @brief reservations loaded from state
+    std::map<std::string, std::string> myLoadedReservations;
 };

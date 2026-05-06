@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -18,13 +18,9 @@
 // class for edge relation data
 /****************************************************************************/
 
-
-// ===========================================================================
-// included modules
-// ===========================================================================
-#include <config.h>
-
 #include <netedit/GNENet.h>
+#include <netedit/GNETagProperties.h>
+#include <netedit/GNESegment.h>
 #include <netedit/GNEUndoList.h>
 #include <netedit/GNEViewNet.h>
 #include <netedit/GNEViewParent.h>
@@ -36,26 +32,27 @@
 #include "GNEEdgeRelData.h"
 #include "GNEDataInterval.h"
 
-
 // ===========================================================================
 // member method definitions
 // ===========================================================================
 
-// ---------------------------------------------------------------------------
-// GNEEdgeRelData - methods
-// ---------------------------------------------------------------------------
+GNEEdgeRelData::GNEEdgeRelData(GNENet* net) :
+    GNEGenericData(SUMO_TAG_EDGEREL, net) {
+}
+
 
 GNEEdgeRelData::GNEEdgeRelData(GNEDataInterval* dataIntervalParent, GNEEdge* fromEdge, GNEEdge* toEdge,
                                const Parameterised::Map& parameters) :
-    GNEGenericData(SUMO_TAG_EDGEREL, GUIIconSubSys::getIcon(GUIIcon::EDGERELDATA), GLO_EDGERELDATA,
-    dataIntervalParent, parameters, {}, {fromEdge, toEdge}, {}, {}, {}, {}) {
+    GNEGenericData(SUMO_TAG_EDGEREL, dataIntervalParent, parameters) {
+    // set parents
+    setParents<GNEEdge*>({fromEdge, toEdge});
 }
 
 
 GNEEdgeRelData::~GNEEdgeRelData() {}
 
 
-void
+RGBColor
 GNEEdgeRelData::setColor(const GUIVisualizationSettings& s) const {
     // set default color
     RGBColor col = RGBColor::GREEN;
@@ -67,19 +64,19 @@ GNEEdgeRelData::setColor(const GUIVisualizationSettings& s) const {
         col = s.dataColorer.getScheme().getColor(val);
     } else if (myNet->getViewNet()->getEditModes().dataEditMode == DataEditMode::DATA_EDGERELDATA) {
         // get selected data interval and filtered attribute
-        const GNEDataInterval* dataInterval = myNet->getViewNet()->getViewParent()->getEdgeRelDataFrame()->getIntervalSelector()->getDataInterval();
-        const std::string filteredAttribute = myNet->getViewNet()->getViewParent()->getEdgeRelDataFrame()->getAttributeSelector()->getFilteredAttribute();
+        const GNEDataInterval* dataInterval = myNet->getViewParent()->getEdgeRelDataFrame()->getIntervalSelector()->getDataInterval();
+        const std::string filteredAttribute = myNet->getViewParent()->getEdgeRelDataFrame()->getAttributeSelector()->getFilteredAttribute();
         // continue if there is a selected data interval and filtered attribute
         if (dataInterval && (filteredAttribute.size() > 0)) {
             // obtain minimum and maximum value
-            const double minValue = dataInterval->getSpecificAttributeColors().at(myTagProperty.getTag()).getMinValue(filteredAttribute);
-            const double maxValue = dataInterval->getSpecificAttributeColors().at(myTagProperty.getTag()).getMaxValue(filteredAttribute);
+            const double minValue = dataInterval->getSpecificAttributeColors().at(myTagProperty->getTag()).getMinValue(filteredAttribute);
+            const double maxValue = dataInterval->getSpecificAttributeColors().at(myTagProperty->getTag()).getMaxValue(filteredAttribute);
             // get value
             const double value = parse<double>(getParameter(filteredAttribute, "0"));
             col = GNEViewNetHelper::getRainbowScaledColor(minValue, maxValue, value);
         }
     }
-    GLHelper::setColor(col);
+    return col;
 }
 
 
@@ -97,7 +94,7 @@ GNEEdgeRelData::getColorValue(const GUIVisualizationSettings& s, int activeSchem
         case 4:
             // by numerical attribute value
             try {
-                if (knowsParameter(s.relDataAttr)) {
+                if (hasParameter(s.relDataAttr)) {
                     return StringUtils::toDouble(getParameter(s.relDataAttr, "-1"));
                 } else {
                     return GUIVisualizationSettings::MISSING_DATA;
@@ -105,15 +102,16 @@ GNEEdgeRelData::getColorValue(const GUIVisualizationSettings& s, int activeSchem
             } catch (NumberFormatException&) {
                 return GUIVisualizationSettings::MISSING_DATA;
             }
+        default:
+            return 0;
     }
-    return 0;
 }
 
 
 bool
 GNEEdgeRelData::isGenericDataVisible() const {
     // obtain pointer to edge data frame (only for code legibly)
-    const GNEEdgeRelDataFrame* edgeRelDataFrame = myNet->getViewNet()->getViewParent()->getEdgeRelDataFrame();
+    const GNEEdgeRelDataFrame* edgeRelDataFrame = myNet->getViewParent()->getEdgeRelDataFrame();
     // get current data edit mode
     DataEditMode dataMode = myNet->getViewNet()->getEditModes().dataEditMode;
     // check if we have to filter generic data
@@ -152,225 +150,88 @@ GNEEdgeRelData::drawGL(const GUIVisualizationSettings& /*s*/) const {
 }
 
 
-double
-GNEEdgeRelData::getExaggeration(const GUIVisualizationSettings& /*s*/) const {
-    return 1;
-}
-
-
 void
 GNEEdgeRelData::computePathElement() {
     // calculate path
-    myNet->getPathManager()->calculateConsecutivePathEdges(this, SVC_IGNORING, getParentEdges());
+    myNet->getDataPathManager()->calculateConsecutivePathEdges(this, SVC_IGNORING, getParentEdges());
 }
 
 
 void
-GNEEdgeRelData::drawPartialGL(const GUIVisualizationSettings& s, const GNELane* lane, const GNEPathManager::Segment* /*segment*/, const double offsetFront) const {
-    if (myNet->getViewNet()->getEditModes().isCurrentSupermodeData()) {
-        // get flag for only draw contour
-        const bool onlyDrawContour = !isGenericDataVisible();
-        // Start drawing adding an gl identificator
-        if (!onlyDrawContour) {
-            GLHelper::pushName(getGlID());
-        }
+GNEEdgeRelData::drawLanePartialGL(const GUIVisualizationSettings& s, const GNESegment* segment, const double offsetFront) const {
+    // get color
+    const auto color = setColor(s);
+    if (segment->getLane() && (color.alpha() != 0) && myNet->getViewNet()->getEditModes().isCurrentSupermodeData()) {
+        // get detail level
+        const auto d = s.getDetailLevel(1);
         // draw over all edge's lanes
-        for (const auto& laneEdge : lane->getParentEdge()->getLanes()) {
+        for (const auto& laneEdge : segment->getLane()->getParentEdge()->getChildLanes()) {
             // get lane width
             const double laneWidth = s.addSize.getExaggeration(s, laneEdge) * s.edgeRelWidthExaggeration *
-                (laneEdge->getParentEdge()->getNBEdge()->getLaneWidth(laneEdge->getIndex()) * 0.5);
+                                     (laneEdge->getParentEdge()->getNBEdge()->getLaneWidth(laneEdge->getIndex()) * 0.5);
             // Add a draw matrix
             GLHelper::pushMatrix();
             // Start with the drawing of the area translating matrix to origin
-            myNet->getViewNet()->drawTranslateFrontAttributeCarrier(this, GLO_EDGERELDATA, offsetFront);
+            drawInLayer(GLO_EDGERELDATA, offsetFront);
             GLHelper::setColor(RGBColor::BLACK);
             // draw box lines
-            GUIGeometry::drawLaneGeometry(s, myNet->getViewNet()->getPositionInformation(),
-                laneEdge->getLaneShape(), laneEdge->getShapeRotations(),
-                laneEdge->getShapeLengths(), {}, laneWidth, onlyDrawContour);
+
+
+            GLHelper::drawBoxLines(laneEdge->getLaneShape(), laneEdge->getShapeRotations(),
+                                   laneEdge->getShapeLengths(), laneWidth);
             // translate to top
             glTranslated(0, 0, 0.01);
-            setColor(s);
-            // draw interne box lines
-            GUIGeometry::drawLaneGeometry(s, myNet->getViewNet()->getPositionInformation(),
-                laneEdge->getLaneShape(), laneEdge->getShapeRotations(),
-                laneEdge->getShapeLengths(), {}, laneWidth - 0.1, onlyDrawContour);
+            GLHelper::setColor(color);
+            // draw internal box lines
+            GLHelper::drawBoxLines(laneEdge->getLaneShape(), laneEdge->getShapeRotations(),
+                                   laneEdge->getShapeLengths(), (laneWidth - 0.1));
             // Pop last matrix
             GLHelper::popMatrix();
             // draw lock icon
-            GNEViewNetHelper::LockIcon::drawLockIcon(this, getType(), getPositionInView(), 1);
-            // check if mouse is over element
-            for (const auto &laneEdgeParent : laneEdge->getParentEdge()->getLanes()) {
-                // get lane drawing constants
-                GNELane::LaneDrawingConstants laneDrawingConstants(s, laneEdgeParent);
-                mouseWithinGeometry(laneEdgeParent->getLaneShape(), laneDrawingConstants.halfWidth * s.edgeRelWidthExaggeration);
-            }
+            GNEViewNetHelper::LockIcon::drawLockIcon(d, this, getType(), getPositionInView(), 1);
             // draw filtered attribute
-            if (getParentEdges().front()->getLanes().front() == laneEdge) {
+            if (getParentEdges().front()->getChildLanes().front() == laneEdge) {
                 drawFilteredAttribute(s, laneEdge->getLaneShape(),
-                    myNet->getViewNet()->getViewParent()->getEdgeRelDataFrame()->getAttributeSelector()->getFilteredAttribute(),
-                    myNet->getViewNet()->getViewParent()->getEdgeRelDataFrame()->getIntervalSelector()->getDataInterval());
+                                      myNet->getViewParent()->getEdgeRelDataFrame()->getAttributeSelector()->getFilteredAttribute(),
+                                      myNet->getViewParent()->getEdgeRelDataFrame()->getIntervalSelector()->getDataInterval());
             }
-            // inspect contour
-            if (myNet->getViewNet()->isAttributeCarrierInspected(this)) {
-                GNEEdge::drawDottedContourEdge(s, GUIDottedGeometry::DottedContourType::INSPECT,
-                    laneEdge->getParentEdge(), true, true, s.edgeRelWidthExaggeration);
-            }
-            // front contour
-            if (myNet->getViewNet()->getFrontAttributeCarrier() == this) {
-                GNEEdge::drawDottedContourEdge(s, GUIDottedGeometry::DottedContourType::FRONT,
-                    laneEdge->getParentEdge(), true, true, s.edgeRelWidthExaggeration);
-            }
-            // delete contour
-            if (myNet->getViewNet()->drawDeleteContour(this, this)) {
-                GNEEdge::drawDottedContourEdge(s, GUIDottedGeometry::DottedContourType::REMOVE,
-                    laneEdge->getParentEdge(), true, true, s.edgeRelWidthExaggeration);
-            }
-            // delete contour
-            if (myNet->getViewNet()->drawSelectContour(this, this)) {
-                GNEEdge::drawDottedContourEdge(s, GUIDottedGeometry::DottedContourType::SELECT,
-                    laneEdge->getParentEdge(), true, true, s.edgeRelWidthExaggeration);
-            }
+            // draw dotted contour
+            segment->getContour()->drawDottedContours(s, d, this, s.dottedContourSettings.segmentWidth, true);
         }
-        // Pop name
-        if (!onlyDrawContour) {
-            GLHelper::popName();
+        // draw dotted contour
+        if (getParentEdges().front() == segment->getLane()->getParentEdge()) {
+            segment->getContour()->calculateContourEdge(s, d, getParentEdges().front(), this, getType(), true, false);
         }
+        if (getParentEdges().back() == segment->getLane()->getParentEdge()) {
+            segment->getContour()->calculateContourEdge(s, d, getParentEdges().back(), this, getType(), false, true);
+        }
+        // check if add this path element to redraw buffer
+        if (!gViewObjectsHandler.isPathElementMarkForRedraw(this) && segment->getContour()->checkDrawPathContour(s, d, this)) {
+            gViewObjectsHandler.addToRedrawPathElements(this);
+        }
+
     }
 }
 
 
 void
-GNEEdgeRelData::drawPartialGL(const GUIVisualizationSettings& s, const GNELane* fromLane, const GNELane* toLane, const GNEPathManager::Segment* /*segment*/, const double offsetFront) const {
-    if (myNet->getViewNet()->getEditModes().isCurrentSupermodeData()) {
+GNEEdgeRelData::drawJunctionPartialGL(const GUIVisualizationSettings& s, const GNESegment* segment, const double /*offsetFront*/) const {
+    // get color
+    const auto color = setColor(s);
+    if ((color.alpha() != 0) && myNet->getViewNet()->getEditModes().isCurrentSupermodeData()) {
+        // get detail level
+        const auto d = s.getDetailLevel(1);
         // get flag for only draw contour
-        const bool onlyDrawContour = !isGenericDataVisible();
-        if ((fromLane->getParentEdge() == getParentEdges().front()) && (toLane->getParentEdge() == getParentEdges().back()) &&
-                (getParentEdges().front() != getParentEdges().back())) {
-            // Start drawing adding an gl identificator
-            if (!onlyDrawContour) {
-                GLHelper::pushName(getGlID());
-            }
-            // draw lanes
-            const auto fromLanes = fromLane->getParentEdge()->getLanes();
-            const auto toLanes = toLane->getParentEdge()->getLanes();
-            size_t index = 0;
-            while ((index < fromLanes.size()) || (index < toLanes.size())) {
-                // get lanes
-                const GNELane* from = (index < fromLanes.size()) ? fromLanes.at(index) : fromLanes.back();
-                const GNELane* to = (index < toLanes.size()) ? toLanes.at(index) : toLanes.back();
-                // get lane widths
-                const double laneWidthFrom = s.addSize.getExaggeration(s, from) * s.edgeRelWidthExaggeration *
-                    (from->getParentEdge()->getNBEdge()->getLaneWidth(from->getIndex()) * 0.5);
-                const double laneWidthTo = s.addSize.getExaggeration(s, to) * s.edgeRelWidthExaggeration *
-                    (to->getParentEdge()->getNBEdge()->getLaneWidth(to->getIndex()) * 0.5);
-                const double laneWidth = (laneWidthFrom < laneWidthTo) ? laneWidthFrom : laneWidthTo;
-                // Add a draw matrix
-                GLHelper::pushMatrix();
-                // translate to GLO
-                glTranslated(0, 0, getType() + offsetFront);
-                // Set color
-                GLHelper::setColor(RGBColor::BLACK);
-                if (from->getLane2laneConnections().exist(to)) {
-                    // draw box lines
-                    GUIGeometry::drawContourGeometry(from->getLane2laneConnections().getLane2laneGeometry(to), laneWidth);
-                    // translate to top
-                    glTranslated(0, 0, 0.01);
-                    setColor(s);
-                    // draw interne box lines
-                    GUIGeometry::drawContourGeometry(from->getLane2laneConnections().getLane2laneGeometry(to), laneWidth - 0.1);
-                } else {
-                    // draw line between end of first shape and first position of second shape
-                    GLHelper::drawBoxLines({from->getLaneShape().back(), to->getLaneShape().front()}, laneWidth);
-                    // translate to top
-                    glTranslated(0, 0, 0.01);
-                    setColor(s);
-                    // draw interne line between end of first shape and first position of second shape
-                    GLHelper::drawBoxLines({from->getLaneShape().back(), to->getLaneShape().front()}, laneWidth - 0.1);
-                }
-                // Pop last matrix
-                GLHelper::popMatrix();
-                // update index
-                index++;
-            }
-            // Pop name
-            if (!onlyDrawContour) {
-                GLHelper::popName();
-            }
-            // declare contour type
-            GUIDottedGeometry::DottedContourType type = GUIDottedGeometry::DottedContourType::NOTHING;
-            if (myNet->getViewNet()->isAttributeCarrierInspected(this)) {
-                type = GUIDottedGeometry::DottedContourType::INSPECT;
-            } else if (myNet->getViewNet()->getFrontAttributeCarrier() == this) {
-                type = GUIDottedGeometry::DottedContourType::FRONT;
-            } else if (myNet->getViewNet()->drawDeleteContour(this, this)) {
-                type = GUIDottedGeometry::DottedContourType::REMOVE;
-            } else if (myNet->getViewNet()->drawSelectContour(this, this)) {
-                type = GUIDottedGeometry::DottedContourType::SELECT;
-            }
-            // draw dotted contour
-            if (type != GUIDottedGeometry::DottedContourType::NOTHING) {
-                // declare lanes
-                const GNELane* laneTopA = getParentEdges().front()->getLanes().front();
-                const GNELane* laneTopB = getParentEdges().back()->getLanes().front();
-                const GNELane* laneBotA = getParentEdges().front()->getLanes().back();
-                const GNELane* laneBotB = getParentEdges().back()->getLanes().back();
-                // declare LaneDrawingConstants
-                GNELane::LaneDrawingConstants laneDrawingConstantsTop(s, laneTopA);
-                GNELane::LaneDrawingConstants laneDrawingConstantsBot(s, laneBotA);
-                // declare DottedGeometryColor
-                GUIDottedGeometry::DottedGeometryColor dottedGeometryColor(s);
-                // Push draw matrix
-                GLHelper::pushMatrix();
-                // translate to front
-                glTranslated(0, 0, GLO_DOTTEDCONTOUR_INSPECTED);
-                // check if lane2lane connection exist
-                if (laneTopA->getLane2laneConnections().exist(laneTopB)) {
-                    // obtain lane2lane top dotted geometry
-                    GUIDottedGeometry lane2lane(s, laneTopA->getLane2laneConnections().getLane2laneGeometry(laneTopB).getShape(), false);
-                    // move shape to side
-                    lane2lane.moveShapeToSide(laneDrawingConstantsTop.halfWidth * s.edgeRelWidthExaggeration);
-                    // invert offset
-                    lane2lane.invertOffset();
-                    // reset dottedGeometryColor
-                    dottedGeometryColor.reset();
-                    // draw top dotted geometry
-                    lane2lane.drawDottedGeometry(s, type, dottedGeometryColor);
-                } else {
-                    // create dotted geometry using lane extremes
-                    GUIDottedGeometry dottedGeometry(s, {laneTopA->getLaneShape().back(), laneTopB->getLaneShape().front()}, false);
-                    // move shape to side
-                    dottedGeometry.moveShapeToSide(laneDrawingConstantsTop.halfWidth * s.edgeRelWidthExaggeration);
-                    // invert offset
-                    dottedGeometry.invertOffset();
-                    // reset dottedGeometryColor
-                    dottedGeometryColor.reset();
-                    // draw top dotted geometry
-                    dottedGeometry.drawDottedGeometry(s, type, dottedGeometryColor);
-                }
-                // check if lane2lane bot connection exist
-                if (laneBotA->getLane2laneConnections().exist(laneBotB)) {
-                    // obtain lane2lane dotted geometry
-                    GUIDottedGeometry lane2lane(s, laneBotA->getLane2laneConnections().getLane2laneGeometry(laneBotB).getShape(), false);
-                    // move shape to side
-                    lane2lane.moveShapeToSide(laneDrawingConstantsBot.halfWidth * -1 * s.edgeRelWidthExaggeration);
-                    // reset dottedGeometryColor
-                    dottedGeometryColor.reset();
-                    // draw top dotted geometry
-                    lane2lane.drawDottedGeometry(s, type, dottedGeometryColor);
-                } else {
-                    // create dotted geometry using lane extremes
-                    GUIDottedGeometry dottedGeometry(s, {laneBotA->getLaneShape().back(), laneBotB->getLaneShape().front()}, false);
-                    // move shape to side
-                    dottedGeometry.moveShapeToSide(laneDrawingConstantsBot.halfWidth * -1 * s.edgeRelWidthExaggeration);
-                    // reset dottedGeometryColor
-                    dottedGeometryColor.reset();
-                    // draw top dotted geometry
-                    dottedGeometry.drawDottedGeometry(s, type, dottedGeometryColor);
-                }
-                // pop matrix
-                GLHelper::popMatrix();
-            }
+
+        // finish
+
+        // draw dotted contour
+        if (segment->getPreviousLane() && segment->getNextLane()) {
+            segment->getContour()->calculateContourEdges(s, d, segment->getPreviousLane()->getParentEdge(), segment->getNextLane()->getParentEdge());
+        }
+        // check if add this path element to redraw buffer
+        if (!gViewObjectsHandler.isPathElementMarkForRedraw(this) && segment->getContour()->checkDrawPathContour(s, d, this)) {
+            gViewObjectsHandler.addToRedrawPathElements(this);
         }
     }
 }
@@ -449,19 +310,19 @@ GNEEdgeRelData::getAttribute(SumoXMLAttr key) const {
             return getParentEdges().back()->getID();
         case GNE_ATTR_DATASET:
             return myDataIntervalParent->getDataSetParent()->getID();
-        case GNE_ATTR_SELECTED:
-            return toString(isAttributeCarrierSelected());
-        case GNE_ATTR_PARAMETERS:
-            return getParametersStr();
+        case SUMO_ATTR_BEGIN:
+            return myDataIntervalParent->getAttribute(SUMO_ATTR_BEGIN);
+        case SUMO_ATTR_END:
+            return myDataIntervalParent->getAttribute(SUMO_ATTR_END);
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return getCommonAttribute(key);
     }
 }
 
 
 double
 GNEEdgeRelData::getAttributeDouble(SumoXMLAttr key) const {
-    throw InvalidArgument(getTagStr() + " doesn't have a double attribute of type '" + toString(key) + "'");
+    return getCommonAttributeDouble(key);
 }
 
 
@@ -473,12 +334,11 @@ GNEEdgeRelData::setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoL
     switch (key) {
         case SUMO_ATTR_FROM:
         case SUMO_ATTR_TO:
-        case GNE_ATTR_SELECTED:
-        case GNE_ATTR_PARAMETERS:
-            undoList->changeAttribute(new GNEChange_Attribute(this, key, value));
+            GNEChange_Attribute::changeAttribute(this, key, value, undoList);
             break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setCommonAttribute(key, value, undoList);
+            break;
     }
 }
 
@@ -492,12 +352,8 @@ GNEEdgeRelData::isValid(SumoXMLAttr key, const std::string& value) {
         case SUMO_ATTR_TO:
             return SUMOXMLDefinitions::isValidNetID(value) && (myNet->getAttributeCarriers()->retrieveEdge(value, false) != nullptr) &&
                    (value != getParentEdges().front()->getID());
-        case GNE_ATTR_SELECTED:
-            return canParse<bool>(value);
-        case GNE_ATTR_PARAMETERS:
-            return Parameterised::areAttributesValid(value, true);
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return isCommonAttributeValid(key, value);
     }
 }
 
@@ -537,23 +393,17 @@ GNEEdgeRelData::setAttribute(SumoXMLAttr key, const std::string& value) {
             replaceLastParentEdge(value);
             break;
         }
-        case GNE_ATTR_SELECTED:
-            if (parse<bool>(value)) {
-                selectAttributeCarrier();
-            } else {
-                unselectAttributeCarrier();
+        default:
+            setCommonAttribute(key, value);
+            if (!isTemplate()) {
+                myDataIntervalParent->getDataSetParent()->updateAttributeColors();
             }
             break;
-        case GNE_ATTR_PARAMETERS:
-            setParametersStr(value);
-            // update attribute colors
-            myDataIntervalParent->getDataSetParent()->updateAttributeColors();
-            break;
-        default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
     }
     // mark interval toolbar for update
-    myNet->getViewNet()->getIntervalBar().markForUpdate();
+    if (!isTemplate()) {
+        myNet->getViewNet()->getIntervalBar().markForUpdate();
+    }
 }
 
 /****************************************************************************/

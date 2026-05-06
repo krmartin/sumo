@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2006-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2006-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,8 +17,7 @@
 ///
 // Some helper functions for FOX
 /****************************************************************************/
-#ifndef MFXUtils_h
-#define MFXUtils_h
+#pragma once
 #include <config.h>
 
 #include "fxheader.h"
@@ -59,7 +58,7 @@ public:
         FXWindow* const parent, const FXString& file);
 
 
-    /** @brief Returns the title text in dependance to an optional file name
+    /** @brief Returns the title text in dependence to an optional file name
      *
      * The title is computed as default on windows: The application name only if no
      *  file name is given. If a file name is given, it is used without the extension,
@@ -90,12 +89,16 @@ public:
      *  extension is appended to the file name/path. Otherwise the
      *  file name/path remains as is.
      * The so obtained correct file name is returned.
-     * @param[in] filename The filename to evaluate
-     * @param[in] defaultExtension The default extension to use
+     * @param[in] openDialog the opened dialog
      * @return The corrected filename (with extension if no one was given
      */
-    static FXString assureExtension(const FXString& filename, const FXString& defaultExtension);
+    static FXString assureExtension(const FXFileDialog& openDialog);
 
+    /**@brief parse extensions
+     * @param[in] patternText the patternText used in dialog
+     * @return a vector with extensions
+     */
+    static std::vector<FXString> parseExtensions(FXString patternText);
 
     /** @brief Returns the file name to write
      *
@@ -109,13 +112,12 @@ public:
      *
      * @param[in] parent The window needed to display dialogs
      * @param[in] header Title of the save-dialog
-     * @param[in] extension The extension the file should have (must be in the form '.xxx'
+     * @param[in] extension The extension the file should have
      * @param[in] icon The icon the dialog should have
      * @param[in] currentFolder The string into which the information about the current folder shall be saved
      * @return The name of the file to write
      */
-    static FXString getFilename2Write(FXWindow* parent,
-                                      const FXString& header, const FXString& extension,
+    static FXString getFilename2Write(FXWindow* parent, const FXString& header, const FXString& extensions,
                                       FXIcon* icon, FXString& currentFolder);
 
 
@@ -126,6 +128,3 @@ public:
     static FXColor getFXColor(const RGBColor& col);
 
 };
-
-
-#endif

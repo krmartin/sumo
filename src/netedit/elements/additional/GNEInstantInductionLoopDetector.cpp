@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,63 +17,69 @@
 ///
 //
 /****************************************************************************/
+#include <config.h>
 
-#include <netedit/GNENet.h>
-#include <netedit/GNEUndoList.h>
-#include <netedit/GNEViewNet.h>
-#include <netedit/GNEViewParent.h>
 #include <netedit/changes/GNEChange_Attribute.h>
-#include <netedit/frames/network/GNETLSEditorFrame.h>
+#include <netedit/elements/moving/GNEMoveElementLaneSingle.h>
+#include <netedit/GNENet.h>
+#include <netedit/GNETagProperties.h>
 #include <utils/gui/div/GLHelper.h>
-#include <utils/gui/div/GUIGlobalPostDrawing.h>
 
 #include "GNEInstantInductionLoopDetector.h"
-#include "GNEAdditionalHandler.h"
-
 
 // ===========================================================================
 // member method definitions
 // ===========================================================================
 
 GNEInstantInductionLoopDetector::GNEInstantInductionLoopDetector(GNENet* net) :
-    GNEDetector("", net, GLO_E1DETECTOR_INSTANT, SUMO_TAG_INSTANT_INDUCTION_LOOP, GUIIconSubSys::getIcon(GUIIcon::E1INSTANT), 
-        0, 0, {}, "", {}, "", false, Parameterised::Map()) {
-    // reset default values
-    resetDefaultValues();
+    GNEDetector(net, SUMO_TAG_INSTANT_INDUCTION_LOOP),
+    myMoveElementLaneSingle(new GNEMoveElementLaneSingle(this, SUMO_ATTR_POSITION, myPosOverLane, myFriendlyPos,
+                            GNEMoveElementLaneSingle::PositionType::SINGLE)) {
 }
 
 
-GNEInstantInductionLoopDetector::GNEInstantInductionLoopDetector(const std::string& id, GNELane* lane, GNENet* net, const double pos, const std::string& filename, const std::vector<std::string>& vehicleTypes,
-        const std::string& name, const bool friendlyPos, const Parameterised::Map& parameters) :
-    GNEDetector(id, net, GLO_E1DETECTOR_INSTANT, SUMO_TAG_INSTANT_INDUCTION_LOOP, GUIIconSubSys::getIcon(GUIIcon::E1INSTANT), 
-        pos, 0, {lane}, filename, vehicleTypes, name, friendlyPos, parameters) {
+GNEInstantInductionLoopDetector::GNEInstantInductionLoopDetector(const std::string& id, GNENet* net, FileBucket* fileBucket, GNELane* lane,
+        const double pos, const std::string& outputFilename, const std::vector<std::string>& vehicleTypes, const std::vector<std::string>& nextEdges,
+        const std::string& detectPersons, const std::string& name, const bool friendlyPos, const Parameterised::Map& parameters) :
+    GNEDetector(id, net, fileBucket, SUMO_TAG_INSTANT_INDUCTION_LOOP, 0, outputFilename,
+                vehicleTypes, nextEdges, detectPersons, name, parameters),
+    myPosOverLane(pos),
+    myFriendlyPos(friendlyPos),
+    myMoveElementLaneSingle(new GNEMoveElementLaneSingle(this, SUMO_ATTR_POSITION, myPosOverLane, myFriendlyPos,
+                            GNEMoveElementLaneSingle::PositionType::SINGLE)) {
+    // set parents
+    setParent<GNELane*>(lane);
     // update centering boundary without updating grid
     updateCenteringBoundary(false);
 }
 
 
 GNEInstantInductionLoopDetector::~GNEInstantInductionLoopDetector() {
+    delete myMoveElementLaneSingle;
+}
+
+
+GNEMoveElement*
+GNEInstantInductionLoopDetector::getMoveElement() const {
+    return myMoveElementLaneSingle;
+}
+
+
+Parameterised*
+GNEInstantInductionLoopDetector::getParameters() {
+    return this;
 }
 
 
 void
 GNEInstantInductionLoopDetector::writeAdditional(OutputDevice& device) const {
-    device.openTag(getTagProperty().getTag());
-    device.writeAttr(SUMO_ATTR_ID, getID());
-    if (!myAdditionalName.empty()) {
-        device.writeAttr(SUMO_ATTR_NAME, StringUtils::escapeXML(myAdditionalName));
-    }
-    device.writeAttr(SUMO_ATTR_LANE, getParentLanes().front()->getID());
-    device.writeAttr(SUMO_ATTR_POSITION, myPositionOverLane);
-    if (myFilename.size() > 0) {
-        device.writeAttr(SUMO_ATTR_FILE, myFilename);
-    }
-    if (myVehicleTypes.size() > 0) {
-        device.writeAttr(SUMO_ATTR_VTYPES, myVehicleTypes);
-    }
-    if (myFriendlyPosition) {
-        device.writeAttr(SUMO_ATTR_FRIENDLY_POS, true);
-    }
+    device.openTag(getTagProperty()->getTag());
+    // write common additional attributes
+    writeAdditionalAttributes(device);
+    // write move attributes
+    myMoveElementLaneSingle->writeMoveAttributes(device);
+    // write common detector parameters
+    writeDetectorValues(device);
     // write parameters (Always after children to avoid problems with additionals.xsd)
     writeParams(device);
     device.closeTag();
@@ -82,53 +88,29 @@ GNEInstantInductionLoopDetector::writeAdditional(OutputDevice& device) const {
 
 bool
 GNEInstantInductionLoopDetector::isAdditionalValid() const {
-    // with friendly position enabled position are "always fixed"
-    if (myFriendlyPosition) {
-        return true;
-    } else {
-        return fabs(myPositionOverLane) <= getParentLanes().front()->getParentEdge()->getNBEdge()->getFinalLength();
-    }
+    // only movement problems
+    return myMoveElementLaneSingle->isMoveElementValid();
 }
 
 
 std::string
 GNEInstantInductionLoopDetector::getAdditionalProblem() const {
-    // obtain final length
-    const double len = getParentLanes().front()->getParentEdge()->getNBEdge()->getFinalLength();
-    // check if detector has a problem
-    if (GNEAdditionalHandler::checkLanePosition(myPositionOverLane, 0, len, myFriendlyPosition)) {
-        return "";
-    } else {
-        // declare variable for error position
-        std::string errorPosition;
-        // check positions over lane
-        if (myPositionOverLane < 0) {
-            errorPosition = (toString(SUMO_ATTR_POSITION) + " < 0");
-        }
-        if (myPositionOverLane > len) {
-            errorPosition = (toString(SUMO_ATTR_POSITION) + " > lanes's length");
-        }
-        return errorPosition;
-    }
+    // only movement problems
+    return myMoveElementLaneSingle->getMovingProblem();
 }
 
 
 void
 GNEInstantInductionLoopDetector::fixAdditionalProblem() {
-    // declare new position
-    double newPositionOverLane = myPositionOverLane;
-    // fix pos and length checkAndFixDetectorPosition
-    double length = 0;
-    GNEAdditionalHandler::fixLanePosition(newPositionOverLane, length, getParentLanes().front()->getParentEdge()->getNBEdge()->getFinalLength());
-    // set new position
-    setAttribute(SUMO_ATTR_POSITION, toString(newPositionOverLane), myNet->getViewNet()->getUndoList());
+    // only movement problems
+    myMoveElementLaneSingle->fixMovingProblem();
 }
 
 
 void
 GNEInstantInductionLoopDetector::updateGeometry() {
     // update geometry
-    myAdditionalGeometry.updateGeometry(getParentLanes().front()->getLaneShape(), getGeometryPositionOverLane(), myMoveElementLateralOffset);
+    myAdditionalGeometry.updateGeometry(getParentLanes().front()->getLaneShape(), myMoveElementLaneSingle->getFixedPositionOverLane(true), myMoveElementLaneSingle->myMovingLateralOffset);
     // update centering boundary without updating grid
     updateCenteringBoundary(false);
 }
@@ -137,13 +119,14 @@ GNEInstantInductionLoopDetector::updateGeometry() {
 void
 GNEInstantInductionLoopDetector::drawGL(const GUIVisualizationSettings& s) const {
     // check if additional has to be drawn
-    if (myNet->getViewNet()->getDataViewOptions().showAdditionals() && !myNet->getViewNet()->selectingDetectorsTLSMode()) {
+    if (myNet->getViewNet()->getDataViewOptions().showAdditionals() &&
+            !myNet->getViewNet()->selectingDetectorsTLSMode()) {
         // Obtain exaggeration of the draw
         const double E1InstantExaggeration = getExaggeration(s);
-        // check exaggeration
-        if (s.drawAdditionals(E1InstantExaggeration)) {
-            // obtain scaledSize
-            const double scaledWidth = s.detectorSettings.E1InstantWidth * 0.5 * s.scale;
+        // get detail level
+        const auto d = s.getDetailLevel(E1InstantExaggeration);
+        // draw geometry only if we'rent in drawForObjectUnderCursor mode
+        if (s.checkDrawAdditional(d, isAttributeCarrierSelected())) {
             // declare colors
             RGBColor mainColor, secondColor, textColor;
             // set color
@@ -158,151 +141,60 @@ GNEInstantInductionLoopDetector::drawGL(const GUIVisualizationSettings& s) const
             }
             // draw parent and child lines
             drawParentChildLines(s, s.additionalSettings.connectionColor);
-            // start drawing
-            GLHelper::pushName(getGlID());
             // push layer matrix
             GLHelper::pushMatrix();
             // translate to front
-            myNet->getViewNet()->drawTranslateFrontAttributeCarrier(this, GLO_E1DETECTOR_INSTANT);
+            drawInLayer(GLO_E1DETECTOR_INSTANT);
             // draw E1Instant shape
-            drawE1Shape(s, E1InstantExaggeration, scaledWidth, mainColor, secondColor);
-            // Check if the distance is enought to draw details
-            if (s.drawDetail(s.detailSettings.detectorDetails, E1InstantExaggeration)) {
-                // draw E1 Logo
-                drawDetectorLogo(s, E1InstantExaggeration, "E1", textColor);
-            }
+            drawE1Shape(d, E1InstantExaggeration, mainColor, secondColor);
+            // draw E1 Logo
+            drawE1DetectorLogo(s, d, E1InstantExaggeration, "E1", textColor);
             // pop layer matrix
             GLHelper::popMatrix();
-            // Pop name
-            GLHelper::popName();
             // draw lock icon
-            GNEViewNetHelper::LockIcon::drawLockIcon(this, getType(), myAdditionalGeometry.getShape().getCentroid(), E1InstantExaggeration);
-            // check if mouse is over element
-            mouseWithinGeometry(myAdditionalGeometry.getShape().front(), 2, 1, 0, 0, 
-                    myAdditionalGeometry.getShapeRotations().front());
-            // inspect contour
-            if (myNet->getViewNet()->isAttributeCarrierInspected(this)) {
-                GUIDottedGeometry::drawDottedSquaredShape(s, GUIDottedGeometry::DottedContourType::INSPECT, myAdditionalGeometry.getShape().front(), 
-                    2, 1, 0, 0, myAdditionalGeometry.getShapeRotations().front(), E1InstantExaggeration);
-            }
-            // front element contour
-            if (myNet->getViewNet()->getFrontAttributeCarrier() == this) {
-                GUIDottedGeometry::drawDottedSquaredShape(s, GUIDottedGeometry::DottedContourType::FRONT, myAdditionalGeometry.getShape().front(), 
-                    2, 1, 0, 0, myAdditionalGeometry.getShapeRotations().front(), E1InstantExaggeration);
-            }
-            // delete contour
-            if (myNet->getViewNet()->drawDeleteContour(this, this)) {
-                GUIDottedGeometry::drawDottedSquaredShape(s, GUIDottedGeometry::DottedContourType::REMOVE, myAdditionalGeometry.getShape().front(), 
-                    2, 1, 0, 0, myAdditionalGeometry.getShapeRotations().front(), E1InstantExaggeration);
-            }
-            // select contour
-            if (myNet->getViewNet()->drawSelectContour(this, this)) {
-                GUIDottedGeometry::drawDottedSquaredShape(s, GUIDottedGeometry::DottedContourType::SELECT, myAdditionalGeometry.getShape().front(), 
-                    2, 1, 0, 0, myAdditionalGeometry.getShapeRotations().front(), E1InstantExaggeration);
-            }
+            GNEViewNetHelper::LockIcon::drawLockIcon(d, this, getType(), myAdditionalGeometry.getShape().getCentroid(),
+                    E1InstantExaggeration);
+            // Draw additional ID
+            drawAdditionalID(s);
+            // draw additional name
+            drawAdditionalName(s);
+            // draw dotted contour
+            myAdditionalContour.drawDottedContours(s, d, this, s.dottedContourSettings.segmentWidth, true);
         }
-        // Draw additional ID
-        drawAdditionalID(s);
-        // draw additional name
-        drawAdditionalName(s);
+        // draw dotted contour
+        myAdditionalContour.calculateContourRectangleShape(s, d, this, myAdditionalGeometry.getShape().front(), 2, 1, getType(), 0, 0,
+                myAdditionalGeometry.getShapeRotations().front(), E1InstantExaggeration, getParentLanes().front()->getParentEdge());
     }
 }
 
 
 std::string
 GNEInstantInductionLoopDetector::getAttribute(SumoXMLAttr key) const {
-    switch (key) {
-        case SUMO_ATTR_ID:
-            return getMicrosimID();
-        case SUMO_ATTR_LANE:
-            return getParentLanes().front()->getID();
-        case SUMO_ATTR_POSITION:
-            return toString(myPositionOverLane);
-        case SUMO_ATTR_NAME:
-            return myAdditionalName;
-        case SUMO_ATTR_FILE:
-            return myFilename;
-        case SUMO_ATTR_VTYPES:
-            return toString(myVehicleTypes);
-        case SUMO_ATTR_FRIENDLY_POS:
-            return toString(myFriendlyPosition);
-        case GNE_ATTR_SELECTED:
-            return toString(isAttributeCarrierSelected());
-        case GNE_ATTR_PARAMETERS:
-            return getParametersStr();
-        case GNE_ATTR_SHIFTLANEINDEX:
-            return "";
-        default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
-    }
+    return getDetectorAttribute(key);
 }
 
 
 double
 GNEInstantInductionLoopDetector::getAttributeDouble(SumoXMLAttr key) const {
-    switch (key) {
-        case SUMO_ATTR_POSITION:
-            return myPositionOverLane;
-        default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
-    }
+    return getDetectorAttributeDouble(key);
+}
+
+
+Position
+GNEInstantInductionLoopDetector::getAttributePosition(SumoXMLAttr key) const {
+    return getDetectorAttributePosition(key);
 }
 
 
 void
 GNEInstantInductionLoopDetector::setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList) {
-    switch (key) {
-        case SUMO_ATTR_ID:
-        case SUMO_ATTR_LANE:
-        case SUMO_ATTR_POSITION:
-        case SUMO_ATTR_NAME:
-        case SUMO_ATTR_FILE:
-        case SUMO_ATTR_VTYPES:
-        case SUMO_ATTR_FRIENDLY_POS:
-        case GNE_ATTR_SELECTED:
-        case GNE_ATTR_PARAMETERS:
-        case GNE_ATTR_SHIFTLANEINDEX:
-            undoList->changeAttribute(new GNEChange_Attribute(this, key, value));
-            break;
-        default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
-    }
-
+    setDetectorAttribute(key, value, undoList);
 }
 
 
 bool
 GNEInstantInductionLoopDetector::isValid(SumoXMLAttr key, const std::string& value) {
-    switch (key) {
-        case SUMO_ATTR_ID:
-            return isValidDetectorID(value);
-        case SUMO_ATTR_LANE:
-            if (myNet->getAttributeCarriers()->retrieveLane(value, false) != nullptr) {
-                return true;
-            } else {
-                return false;
-            }
-        case SUMO_ATTR_POSITION:
-            return canParse<double>(value) && fabs(parse<double>(value)) < getParentLanes().front()->getParentEdge()->getNBEdge()->getFinalLength();
-        case SUMO_ATTR_NAME:
-            return SUMOXMLDefinitions::isValidAttribute(value);
-        case SUMO_ATTR_FILE:
-            return SUMOXMLDefinitions::isValidFilename(value);
-        case SUMO_ATTR_VTYPES:
-            if (value.empty()) {
-                return true;
-            } else {
-                return SUMOXMLDefinitions::isValidListOfTypeID(value);
-            }
-        case SUMO_ATTR_FRIENDLY_POS:
-            return canParse<bool>(value);
-        case GNE_ATTR_SELECTED:
-            return canParse<bool>(value);
-        case GNE_ATTR_PARAMETERS:
-            return areParametersValid(value);
-        default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
-    }
+    return isDetectorValid(key, value);
 }
 
 // ===========================================================================
@@ -312,73 +204,13 @@ GNEInstantInductionLoopDetector::isValid(SumoXMLAttr key, const std::string& val
 void
 GNEInstantInductionLoopDetector::setAttribute(SumoXMLAttr key, const std::string& value) {
     switch (key) {
-        case SUMO_ATTR_ID:
-            // update microsimID
-            setMicrosimID(value);
-            break;
         case SUMO_ATTR_LANE:
             replaceAdditionalParentLanes(value);
             break;
-        case SUMO_ATTR_POSITION:
-            myPositionOverLane = parse<double>(value);
-            break;
-        case SUMO_ATTR_NAME:
-            myAdditionalName = value;
-            break;
-        case SUMO_ATTR_FILE:
-            myFilename = value;
-            break;
-        case SUMO_ATTR_VTYPES:
-            myVehicleTypes = parse<std::vector<std::string> >(value);
-            break;
-        case SUMO_ATTR_FRIENDLY_POS:
-            myFriendlyPosition = parse<bool>(value);
-            break;
-        case GNE_ATTR_SELECTED:
-            if (parse<bool>(value)) {
-                selectAttributeCarrier();
-            } else {
-                unselectAttributeCarrier();
-            }
-            break;
-        case GNE_ATTR_PARAMETERS:
-            setParametersStr(value);
-            break;
-        case GNE_ATTR_SHIFTLANEINDEX:
-            shiftLaneIndex();
-            break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setDetectorAttribute(key, value);
+            break;
     }
-}
-
-
-void
-GNEInstantInductionLoopDetector::setMoveShape(const GNEMoveResult& moveResult) {
-    // change position
-    myPositionOverLane = moveResult.newFirstPos;
-    // set lateral offset
-    myMoveElementLateralOffset = moveResult.firstLaneOffset;
-    // update geometry
-    updateGeometry();
-}
-
-
-void
-GNEInstantInductionLoopDetector::commitMoveShape(const GNEMoveResult& moveResult, GNEUndoList* undoList) {
-    // reset lateral offset
-    myMoveElementLateralOffset = 0;
-    // begin change attribute
-    undoList->begin(myTagProperty.getGUIIcon(), "position of " + getTagStr());
-    // set startPosition
-    setAttribute(SUMO_ATTR_POSITION, toString(moveResult.newFirstPos), undoList);
-    // check if lane has to be changed
-    if (moveResult.newFirstLane) {
-        // set new lane
-        setAttribute(SUMO_ATTR_LANE, moveResult.newFirstLane->getID(), undoList);
-    }
-    // end change attribute
-    undoList->end();
 }
 
 /****************************************************************************/

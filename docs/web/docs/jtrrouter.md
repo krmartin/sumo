@@ -37,7 +37,7 @@ turn-ratios](Demand/Routing_by_Turn_Probabilities.md).
 
 You may use a XML schema definition file for setting up a jtrrouter
 configuration:
-[jtrrouterConfiguration.xsd](http://sumo.dlr.de/xsd/jtrrouterConfiguration.xsd).
+[jtrrouterConfiguration.xsd](https://sumo.dlr.de/xsd/jtrrouterConfiguration.xsd).
 
 ### Configuration
 
@@ -60,7 +60,7 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 | Option | Description |
 |--------|-------------|
 | **-n** {{DT_FILE}}<br> **--net-file** {{DT_FILE}} | Use FILE as SUMO-network to route on |
-| **-d** {{DT_FILE}}<br> **--additional-files** {{DT_FILE}} | Read additional network data (districts, bus stops) from FILE(s) |
+| **-a** {{DT_FILE}}<br> **--additional-files** {{DT_FILE}} | Read additional network data (districts, bus stops) from FILE(s) |
 | **-r** {{DT_FILE}}<br> **--route-files** {{DT_FILE}} | Read sumo routes, alternatives, flows, and trips from FILE(s) |
 | **--phemlight-path** {{DT_FILE}} | Determines where to load PHEMlight definitions from; *default:* **./PHEMlight/** |
 | **--phemlight-year** {{DT_INT}} | Enable fleet age modelling with the given reference year in PHEMlight5; *default:* **0** |
@@ -78,9 +78,15 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 | **--emissions.volumetric-fuel** {{DT_BOOL}} | Return fuel consumption values in (legacy) unit l instead of mg; *default:* **false** |
 | **--named-routes** {{DT_BOOL}} | Write vehicles that reference routes by their id; *default:* **false** |
 | **--write-license** {{DT_BOOL}} | Include license info into every output file; *default:* **false** |
+| **--write-metadata** {{DT_BOOL}} | Write parsable metadata (configuration etc.) instead of comments; *default:* **false** |
 | **--output-prefix** {{DT_STR}} | Prefix which is applied to all output files. The special string 'TIME' is replaced by the current time. |
+| **--output-suffix** {{DT_STR}} | Suffix which is applied to all output files. The special string 'TIME' is replaced by the current time. |
 | **--precision** {{DT_INT}} | Defines the number of digits after the comma for floating point output; *default:* **2** |
 | **--precision.geo** {{DT_INT}} | Defines the number of digits after the comma for lon,lat output; *default:* **6** |
+| **--output.compression** {{DT_STR}} | Defines the standard compression algorithm (currently only for parquet output) |
+| **--output.format** {{DT_STR}} | Defines the standard output format if not derivable from the file name ('xml', 'csv', 'parquet'); *default:* **xml** |
+| **--output.column-header** {{DT_STR}} | How to derive column headers from attribute names ('none', 'tag', 'auto', 'plain'); *default:* **tag** |
+| **--output.column-separator** {{DT_STR}} | Separator in CSV output; *default:* **;** |
 | **-H** {{DT_BOOL}}<br> **--human-readable-time** {{DT_BOOL}} | Write time values as hour:minute:second or day:hour:minute:second rather than seconds; *default:* **false** |
 | **--exit-times** {{DT_BOOL}} | Write exit times (weights) for each edge; *default:* **false** |
 
@@ -98,15 +104,20 @@ Files](Basics/Using_the_Command_Line_Applications.md#configuration_files).
 | **--repair** {{DT_BOOL}} | Tries to correct a false route; *default:* **false** |
 | **--repair.from** {{DT_BOOL}} | Tries to correct an invalid starting edge by using the first usable edge instead; *default:* **false** |
 | **--repair.to** {{DT_BOOL}} | Tries to correct an invalid destination edge by using the last usable edge instead; *default:* **false** |
+| **--repair.max-detour-factor** {{DT_FLOAT}} | Backtrack on route if the detour is longer than the gap by FACTOR; *default:* **10** |
 | **--mapmatch.distance** {{DT_FLOAT}} | Maximum distance when mapping input coordinates (fromXY etc.) to the road network; *default:* **100** |
 | **--mapmatch.junctions** {{DT_BOOL}} | Match positions to junctions instead of edges; *default:* **false** |
+| **--mapmatch.taz** {{DT_BOOL}} | Match positions to taz instead of edges; *default:* **false** |
 | **--bulk-routing** {{DT_BOOL}} | Aggregate routing queries with the same origin; *default:* **false** |
 | **--routing-threads** {{DT_INT}} | The number of parallel execution threads used for routing; *default:* **0** |
-| **--restriction-params** {{DT_STR[]}} | Comma separated list of param keys to compare for additional restrictions |
+| **--restriction-params** {{DT_STR_LIST}} | Comma separated list of param keys to compare for additional restrictions |
 | **--weights.minor-penalty** {{DT_FLOAT}} | Apply the given time penalty when computing routing costs for minor-link internal lanes; *default:* **1.5** |
+| **--weights.tls-penalty** {{DT_FLOAT}} | Apply the given time penalty when computing routing costs across a traffic light; *default:* **0** |
+| **--weights.turnaround-penalty** {{DT_FLOAT}} | Apply the given time penalty when computing routing costs for turnaround internal lanes; *default:* **5** |
+| **--weights.reversal-penalty** {{DT_FLOAT}} | Apply the given time penalty when computing routing costs for train reversal. Negative values disable reversal; *default:* **60** |
 | **--max-edges-factor** {{DT_FLOAT}} | Routes are cut off when the route edges to net edges ratio is larger than FLOAT; *default:* **2** |
-| **-T** {{DT_STR[]}}<br> **--turn-defaults** {{DT_STR[]}} | Use STR[] as default turn definition; *default:* **30,50,20** |
-| **--sink-edges** {{DT_STR[]}} | Use STR[] as list of sink edges |
+| **-T** {{DT_STR_LIST}}<br> **--turn-defaults** {{DT_STR_LIST}} | Use STR[] as default turn definition; *default:* **30,50,20** |
+| **--sink-edges** {{DT_STR_LIST}} | Use STR[] as list of sink edges |
 | **-A** {{DT_BOOL}}<br> **--accept-all-destinations** {{DT_BOOL}} | Whether all edges are allowed as sink edges; *default:* **false** |
 | **-i** {{DT_BOOL}}<br> **--ignore-vclasses** {{DT_BOOL}} | Ignore road restrictions based on vehicle class; *default:* **false** |
 | **--allow-loops** {{DT_BOOL}} | Allow to re-use a road; *default:* **false** |
@@ -153,6 +164,9 @@ Options](Basics/Using_the_Command_Line_Applications.md#reporting_options).
 | **-l** {{DT_FILE}}<br> **--log** {{DT_FILE}} | Writes all messages to FILE (implies verbose) |
 | **--message-log** {{DT_FILE}} | Writes all non-error messages to FILE (implies verbose) |
 | **--error-log** {{DT_FILE}} | Writes all warnings and errors to FILE |
+| **--log.timestamps** {{DT_BOOL}} | Writes timestamps in front of all messages; *default:* **false** |
+| **--log.processid** {{DT_BOOL}} | Writes process ID in front of all messages; *default:* **false** |
+| **--language** {{DT_STR}} | Language to use in messages; *default:* **C** |
 | **--ignore-errors** {{DT_BOOL}} | Continue if a route could not be build; *default:* **false** |
 | **--stats-period** {{DT_INT}} | Defines how often statistics shall be printed; *default:* **-1** |
 | **--no-step-log** {{DT_BOOL}} | Disable console output of route parsing step; *default:* **false** |
@@ -168,5 +182,3 @@ Options](Basics/Using_the_Command_Line_Applications.md#random_number_options).
 |--------|-------------|
 | **--random** {{DT_BOOL}} | Initialises the random number generator with the current system time; *default:* **false** |
 | **--seed** {{DT_INT}} | Initialises the random number generator with the given value; *default:* **23423** |
-
-

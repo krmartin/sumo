@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -98,8 +98,12 @@ public:
 
     /// @brief clear all elements of position vector
     using vp::clear;
+
     /// @brief returns size of position vector
     using vp::size;
+
+    /// @brief returns whether the position vector is empty
+    using vp::empty;
 
     /// @brief get the front element of position vector
     using vp::front;
@@ -146,21 +150,29 @@ public:
     /// @brief Returns the position of the intersection
     Position intersectionPosition2D(const PositionVector& v1) const;
 
+    /// @brief open polygon
+    void openPolygon();
+
     /// @brief ensures that the last position equals the first
     void closePolygon();
 
-    /// @brief returns the constat position at the given index
-    /// @ToDo !!! exceptions?
+    /// @brief returns the constant position at the given index, negative indices are interpreted python style
+    /// @throws OutOfBoundsException if index >= size or index < -size
     const Position& operator[](int index) const;
 
-    /// @brief returns the position at the given index
+    /// @brief returns the position at the given index, negative indices are interpreted python style
+    /// @throws OutOfBoundsException if index >= size or index < -size
     Position& operator[](int index);
 
     /// @brief Returns the position at the given length
     Position positionAtOffset(double pos, double lateralOffset = 0) const;
 
     /// @brief Returns the position at the given length
-    Position positionAtOffset2D(double pos, double lateralOffset = 0) const;
+    Position positionAtOffset2D(double pos, double lateralOffset = 0, bool extrapolateBeyond = false) const;
+
+    /* @brief Returns position similar to positionAtOffset but instead of applying the
+     * lateral offset orthogonal to the shape, apply it orthogonal to the given angle */
+    Position sidePositionAtAngle(double pos, double lateralOffset, double angle) const;
 
     /// @brief Returns the rotation at the given length
     double rotationAtOffset(double pos) const;
@@ -175,7 +187,11 @@ public:
     static Position positionAtOffset(const Position& p1, const Position& p2, double pos, double lateralOffset = 0.);
 
     /// Returns the position between the two given point at the specified position
-    static Position positionAtOffset2D(const Position& p1, const Position& p2, double pos, double lateralOffset = 0.);
+    static Position positionAtOffset2D(const Position& p1, const Position& p2, double pos, double lateralOffset = 0, bool extrapolateBeyond = false);
+
+    /* @brief Returns position similar to positionAtOffset but instead of applying the
+     * lateral offset orthogonal to the shape, apply it orthogonal to the given angle */
+    static Position sidePositionAtAngle(const Position& p1, const Position& p2, double pos, double lateralOffset, double angle);
 
     /// @brief Returns a boundary enclosing this list of lines
     Boundary getBoxBoundary() const;
@@ -235,6 +251,12 @@ public:
     //// @brief rotate all points around (0,0) in the plane by the given angle
     void rotate2D(double angle);
 
+    //// @brief rotate all points around the given position in the plane by the given angle
+    void rotate2D(const Position& pos, double angle);
+
+    //// @brief rotate all points around the first element
+    void rotateAroundFirstElement2D(double angle);
+
     //// @brief append the given vector to this one
     void append(const PositionVector& v, double sameThreshold = 2.0);
 
@@ -251,6 +273,7 @@ public:
     PositionVector getSubpartByIndex(int beginIndex, int count) const;
 
     /// @brief sort as polygon CW by angle
+    /// @remark this function works for non-convex polygons but won't possibly yield the desired polygon
     void sortAsPolyCWByAngle();
 
     /// @brief sort by increasing X-Y Positions
@@ -268,13 +291,13 @@ public:
     /// @brief get a side position of position vector using a offset
     static Position sideOffset(const Position& beg, const Position& end, const double amount);
 
-    /// @brief move position vector to side using certain ammount
+    /// @brief move position vector to side using certain amount
     void move2side(double amount, double maxExtension = 100);
 
     /// @brief move position vector to side using a custom offset for each geometry point
     void move2sideCustom(std::vector<double> amount, double maxExtension = 100);
 
-    /// @brief get angle in certain position of position vector
+    /// @brief get angle in certain position of position vector (in radians between -M_PI and M_PI)
     double angleAt2D(int pos) const;
 
     /**@brief inserts p between the two closest positions
@@ -293,13 +316,13 @@ public:
     /// @brief comparing operation
     bool operator!=(const PositionVector& v2) const;
 
-    /// @brief substracts two vectors (requires vectors of the same length)
+    /// @brief subtracts two vectors (requires vectors of the same length)
     PositionVector operator-(const PositionVector& v2) const;
 
     /// @brief adds two vectors (requires vectors of the same length)
     PositionVector operator+(const PositionVector& v2) const;
 
-    /// @brief clase for CW Sorter
+    /// @brief class for CW Sorter
     class as_poly_cw_sorter {
     public:
         /// @brief constructor
@@ -307,6 +330,10 @@ public:
 
         /// @brief comparing operation for sort
         int operator()(const Position& p1, const Position& p2) const;
+
+    private:
+        /// @brief computes the angle of the given vector, in the range $[0,2*\pi[$
+        double atAngle2D(const Position& p) const;
     };
 
     /// @brief clase for increasing Sorter
@@ -375,6 +402,12 @@ public:
     /// @brief check if PositionVector is NAN
     bool isNAN() const;
 
+    /// @brief round all coordinates to the given precision
+    void round(int precision, bool avoidDegeneration = true);
+
+    /// @brief ensure minimum length so that the geometry will not degenerate to 0-length on writing with the given precision
+    void ensureMinLength(int precision);
+
     /** @brief Removes positions if too near
      * @param[in] minDist The minimum accepted distance; default: POSITION_EPS
      * @param[in] assertLength Whether the result must at least contain two points (be a line); default: false, to ensure original behaviour
@@ -386,6 +419,8 @@ public:
 
     /// @brief return the same shape with intermediate colinear points removed
     PositionVector simplified() const;
+    // test implementation of an alternative check
+    const PositionVector simplified2(const bool closed, const double eps = NUMERICAL_EPS) const;
 
     /** @brief return orthogonal through p (extending this vector if necessary)
      * @param[in] p The point through which to draw the orthogonal
@@ -416,10 +451,21 @@ public:
      */
     double getMaxGrade(double& maxJump) const;
 
+    /// @brief return minimum z-coordinate
+    double getMinZ() const;
+
+    /// @brief check if the two vectors have the same length and pairwise similar positions
+    bool almostSame(const PositionVector& v2, double maxDiv = POSITION_EPS) const;
+
     /// @brief return a bezier interpolation
     PositionVector bezier(int numPoints);
 
     static double localAngle(const Position& from, const Position& pos, const Position& to);
+
+    /* @brief checks if the polygon represented by the PositionVector is clockwise-oriented
+       @remark this function works for non-convex polygons
+    */
+    bool isClockwiseOriented(void);
 
 private:
     /// @brief return whether the line segments defined by Line p11,p12 and Line p21,p22 intersect

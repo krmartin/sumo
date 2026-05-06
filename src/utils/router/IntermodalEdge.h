@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -136,8 +136,9 @@ public:
         return myFollowingEdges;
     }
 
-    virtual const std::vector<std::pair<const IntermodalEdge*, const IntermodalEdge*> >& getViaSuccessors(SUMOVehicleClass vClass = SVC_IGNORING) const {
+    virtual const std::vector<std::pair<const IntermodalEdge*, const IntermodalEdge*> >& getViaSuccessors(SUMOVehicleClass vClass = SVC_IGNORING, bool ignoreTransientPermissions = false) const {
         UNUSED_PARAMETER(vClass);
+        UNUSED_PARAMETER(ignoreTransientPermissions);
         // the network is already tailored. No need to check for permissions here
         return myFollowingViaEdges;
     }
@@ -169,17 +170,20 @@ public:
     }
 
     static inline double getTravelTimeStatic(const IntermodalEdge* const edge, const IntermodalTrip<E, N, V>* const trip, double time) {
-        return edge == nullptr ? 0. : edge->getTravelTime(trip, time);
+        return edge == nullptr ? 0. : edge->getTravelTime(trip, time) * getRoutingFactor(edge, trip);
     }
 
     static inline double getTravelTimeStaticRandomized(const IntermodalEdge* const edge, const IntermodalTrip<E, N, V>* const trip, double time) {
-        return edge == nullptr ? 0. : edge->getTravelTime(trip, time) * RandHelper::rand(1., gWeightsRandomFactor);
+        return edge == nullptr ? 0. : edge->getTravelTime(trip, time) * RandHelper::rand(1., gWeightsRandomFactor) * getRoutingFactor(edge, trip);
     }
 
     static inline double getTravelTimeAggregated(const IntermodalEdge* const edge, const IntermodalTrip<E, N, V>* const trip, double time) {
-        return edge == nullptr ? 0. : edge->getTravelTimeAggregated(trip, time);
+        return edge == nullptr ? 0. : edge->getTravelTimeAggregated(trip, time) * getRoutingFactor(edge, trip);
     }
 
+    static inline double getRoutingFactor(const IntermodalEdge* const edge, const IntermodalTrip<E, N, V>* const trip) {
+        return (!gRoutingPreferences || edge == nullptr || edge->myEdge == nullptr || trip == nullptr) ? 1 : 1 / edge->myEdge->getPreference(trip->getVTypeParameter());
+    }
 
     virtual double getEffort(const IntermodalTrip<E, N, V>* const /* trip */, double /* time */) const {
         return 0.;

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -27,6 +27,7 @@
 #include <utils/common/MsgHandler.h>
 #include <utils/common/ToString.h>
 #include <utils/options/OptionsCont.h>
+#include <utils/gui/div/GUIGeometry.h>
 #define FONTSTASH_IMPLEMENTATION // Expands implementation
 #ifdef _MSC_VER
 #pragma warning(disable: 4505 5219) // do not warn about unused functions and implicit float conversions
@@ -274,6 +275,24 @@ GLHelper::drawFilledPolyTesselated(const PositionVector& v, bool close) {
 
 
 void
+GLHelper::drawRectangle(const Position& center, const double width, const double height) {
+    const double halfWidth = width * 0.5;
+    const double halfHeight = height * 0.5;
+    GLHelper::pushMatrix();
+    glTranslated(center.x(), center.y(), 0);
+    glBegin(GL_QUADS);
+    glVertex2d(-halfWidth, halfHeight);
+    glVertex2d(-halfWidth, -halfHeight);
+    glVertex2d(halfWidth, -halfHeight);
+    glVertex2d(halfWidth, halfHeight);
+    glEnd();
+    GLHelper::popMatrix();
+#ifdef CHECK_ELEMENTCOUNTER
+    myVertexCounter += 4;
+#endif
+}
+
+void
 GLHelper::drawBoxLine(const Position& beg, double rot, double visLength,
                       double width, double offset) {
     GLHelper::pushMatrix();
@@ -383,7 +402,6 @@ GLHelper::drawBoxLines(const PositionVector& geom,
             setColor(cols[i]);
             glTranslated(geom[i].x(), geom[i].y(), 0);
             drawFilledCircle(width, cornerDetail);
-            glEnd();
             GLHelper::popMatrix();
         }
     }
@@ -405,15 +423,9 @@ GLHelper::drawBoxLines(const PositionVector& geom1,
 
 void
 GLHelper::drawBoxLines(const PositionVector& geom, double width) {
-    int e = (int) geom.size() - 1;
-    for (int i = 0; i < e; i++) {
-        const Position& f = geom[i];
-        const Position& s = geom[i + 1];
-        drawBoxLine(f,
-                    RAD2DEG(atan2((s.x() - f.x()), (f.y() - s.y()))),
-                    f.distanceTo(s),
-                    width);
-    }
+    // first convert to GUIGeometry to avoid graphical errors with Z value (see #13992)
+    const auto geometry = GUIGeometry(geom);
+    drawBoxLines(geometry.getShape(), geometry.getShapeRotations(), geometry.getShapeLengths(), width);
 }
 
 
@@ -495,13 +507,67 @@ GLHelper::drawLine(const Position& beg, const Position& end) {
 
 
 void
-GLHelper::drawFilledCircle(double width, int steps) {
-    drawFilledCircle(width, steps, 0, 360);
+GLHelper::drawFilledCircleDetailled(const GUIVisualizationSettings::Detail d, const double radius,
+                                    double beg, double end) {
+    // get current resolution level
+    switch (d) {
+        case GUIVisualizationSettings::Detail::CircleResolution32:
+            drawFilledCircle(radius, 32, beg, end);
+            break;
+        case GUIVisualizationSettings::Detail::CircleResolution16:
+            drawFilledCircle(radius, 16, beg, end);
+            break;
+        case GUIVisualizationSettings::Detail::CircleResolution8:
+            drawFilledCircle(radius, 8, beg, end);
+            break;
+        case GUIVisualizationSettings::Detail::CircleResolution4:
+            drawFilledCircleDetailled(d, radius);
+            break;
+        default:
+            // nothing to draw
+            break;
+    }
 }
 
 
 void
-GLHelper::drawFilledCircle(double width, int steps, double beg, double end) {
+GLHelper::drawFilledCircleDetailled(const GUIVisualizationSettings::Detail d, const double radius) {
+    // get current resolution level
+    switch (d) {
+        case GUIVisualizationSettings::Detail::CircleResolution32:
+            drawFilledCircle(radius, 32);
+            break;
+        case GUIVisualizationSettings::Detail::CircleResolution16:
+            drawFilledCircle(radius, 16);
+            break;
+        case GUIVisualizationSettings::Detail::CircleResolution8:
+            drawFilledCircle(radius, 8);
+            break;
+        default:
+            // draw only a square
+            GLHelper::pushMatrix();
+            glBegin(GL_QUADS);
+            glVertex2d(-radius, radius);
+            glVertex2d(-radius, -radius);
+            glVertex2d(radius, -radius);
+            glVertex2d(radius, radius);
+            glEnd();
+            GLHelper::popMatrix();
+#ifdef CHECK_ELEMENTCOUNTER
+            myVertexCounter += 4;
+#endif
+            break;
+    }
+}
+
+void
+GLHelper::drawFilledCircle(double const radius, int const steps) {
+    drawFilledCircle(radius, steps, 0, 360);
+}
+
+
+void
+GLHelper::drawFilledCircle(double radius, int steps, double beg, double end) {
     const double inc = (end - beg) / (double)steps;
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     std::pair<double, double> p1 = getCircleCoords().at(angleLookup(beg));
@@ -509,26 +575,26 @@ GLHelper::drawFilledCircle(double width, int steps, double beg, double end) {
     for (int i = 0; i <= steps; ++i) {
         const std::pair<double, double>& p2 = getCircleCoords().at(angleLookup(beg + i * inc));
         glBegin(GL_TRIANGLES);
-        glVertex2d(p1.first * width, p1.second * width);
-        glVertex2d(p2.first * width, p2.second * width);
+        glVertex2d(p1.first * radius, p1.second * radius);
+        glVertex2d(p2.first * radius, p2.second * radius);
         glVertex2d(0, 0);
         glEnd();
         p1 = p2;
 #ifdef CHECK_ELEMENTCOUNTER
-        myVertexCounter += 2;
+        myVertexCounter += 3;
 #endif
     }
 }
 
 
 void
-GLHelper::drawOutlineCircle(double width, double iwidth, int steps) {
-    drawOutlineCircle(width, iwidth, steps, 0, 360);
+GLHelper::drawOutlineCircle(double radius, double iRadius, int steps) {
+    drawOutlineCircle(radius, iRadius, steps, 0, 360);
 }
 
 
 void
-GLHelper::drawOutlineCircle(double width, double iwidth, int steps,
+GLHelper::drawOutlineCircle(double radius, double iRadius, int steps,
                             double beg, double end) {
     const double inc = (end - beg) / (double)steps;
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -537,13 +603,13 @@ GLHelper::drawOutlineCircle(double width, double iwidth, int steps,
     for (int i = 0; i <= steps; ++i) {
         const std::pair<double, double>& p2 = getCircleCoords().at(angleLookup(beg + i * inc));
         glBegin(GL_TRIANGLES);
-        glVertex2d(p1.first * width, p1.second * width);
-        glVertex2d(p2.first * width, p2.second * width);
-        glVertex2d(p2.first * iwidth, p2.second * iwidth);
+        glVertex2d(p1.first * radius, p1.second * radius);
+        glVertex2d(p2.first * radius, p2.second * radius);
+        glVertex2d(p2.first * iRadius, p2.second * iRadius);
 
-        glVertex2d(p2.first * iwidth, p2.second * iwidth);
-        glVertex2d(p1.first * iwidth, p1.second * iwidth);
-        glVertex2d(p1.first * width, p1.second * width);
+        glVertex2d(p2.first * iRadius, p2.second * iRadius);
+        glVertex2d(p1.first * iRadius, p1.second * iRadius);
+        glVertex2d(p1.first * radius, p1.second * radius);
 
         glEnd();
         p1 = p2;
@@ -612,9 +678,6 @@ GLHelper::setGL2PS(bool active) {
 void
 GLHelper::drawSpaceOccupancies(const double exaggeration, const Position& pos, const double rotation,
                                const double width, const double length, const bool vehicle) {
-    // declare colors
-    const RGBColor red(255, 0, 0, 255);
-    const RGBColor green(0, 255, 0, 255);
     // declare geometry
     PositionVector geom;
     const double w = width / 2. - 0.1 * exaggeration;
@@ -625,13 +688,7 @@ GLHelper::drawSpaceOccupancies(const double exaggeration, const Position& pos, c
     geom.push_back(Position(+w, +h, 0.));
     geom.push_back(Position(-w, +h, 0.));
     geom.push_back(Position(-w, +0, 0.));
-    /*
-    geom.push_back(Position(pos.x(), pos.y(), pos.z()));
-    geom.push_back(Position(pos.x() + (*l).second.myWidth, pos.y(), pos.z()));
-    geom.push_back(Position(pos.x() + (*l).second.myWidth, pos.y() - (*l).second.myLength, pos.z()));
-    geom.push_back(Position(pos.x(), pos.y() - (*l).second.myLength, pos.z()));
-    geom.push_back(Position(pos.x(), pos.y(), pos.z()));
-    */
+
     // push matrix
     GLHelper::pushMatrix();
     // translate
@@ -639,7 +696,7 @@ GLHelper::drawSpaceOccupancies(const double exaggeration, const Position& pos, c
     // rotate
     glRotated(rotation, 0, 0, 1);
     // set color
-    GLHelper::setColor(vehicle ? green : red);
+    GLHelper::setColor(vehicle ? RGBColor::RED : RGBColor::GREEN);
     // draw box lines
     GLHelper::drawBoxLines(geom, 0.1 * exaggeration);
     // pop matrix
@@ -781,12 +838,11 @@ GLHelper::drawTextAtEnd(const std::string& text, const PositionVector& shape, do
     GLHelper::popMatrix();
 }
 
+
 void
-GLHelper::drawCrossTies(const PositionVector& geom,
-                        const std::vector<double>& rots,
-                        const std::vector<double>& lengths,
-                        double length, double spacing,
-                        double halfWidth, bool drawForSelection) {
+GLHelper::drawCrossTies(const PositionVector& geom, const std::vector<double>& rots,
+                        const std::vector<double>& lengths, double length, double spacing,
+                        double halfWidth, double offset, bool lessDetail) {
     GLHelper::pushMatrix();
     // draw on top of of the white area between the rails
     glTranslated(0, 0, 0.1);
@@ -795,14 +851,14 @@ GLHelper::drawCrossTies(const PositionVector& geom,
         GLHelper::pushMatrix();
         glTranslated(geom[i].x(), geom[i].y(), 0.0);
         glRotated(rots[i], 0, 0, 1);
-        // draw crossing depending if isn't being drawn for selecting
-        if (!drawForSelection) {
+        // draw crossing depending of detail
+        if (!lessDetail) {
             for (double t = 0; t < lengths[i]; t += spacing) {
                 glBegin(GL_QUADS);
-                glVertex2d(-halfWidth, -t);
-                glVertex2d(-halfWidth, -t - length);
-                glVertex2d(halfWidth, -t - length);
-                glVertex2d(halfWidth, -t);
+                glVertex2d(-halfWidth - offset, -t);
+                glVertex2d(-halfWidth - offset, -t - length);
+                glVertex2d(halfWidth - offset, -t - length);
+                glVertex2d(halfWidth - offset, -t);
                 glEnd();
 #ifdef CHECK_ELEMENTCOUNTER
                 myVertexCounter += 4;
@@ -811,10 +867,10 @@ GLHelper::drawCrossTies(const PositionVector& geom,
         } else {
             // only draw a single rectangle if it's being drawn only for selecting
             glBegin(GL_QUADS);
-            glVertex2d(-halfWidth, 0);
-            glVertex2d(-halfWidth, -lengths.back());
-            glVertex2d(halfWidth, -lengths.back());
-            glVertex2d(halfWidth, 0);
+            glVertex2d(-halfWidth - offset, 0);
+            glVertex2d(-halfWidth - offset, -lengths.back());
+            glVertex2d(halfWidth - offset, -lengths.back());
+            glVertex2d(halfWidth - offset, 0);
             glEnd();
 #ifdef CHECK_ELEMENTCOUNTER
             myVertexCounter += 4;
@@ -841,11 +897,13 @@ GLHelper::drawInverseMarkings(const PositionVector& geom,
             mw2 *= -1;
         }
         int e = (int) geom.size() - 1;
+        double offset = 0;
         for (int i = 0; i < e; ++i) {
             GLHelper::pushMatrix();
             glTranslated(geom[i].x(), geom[i].y(), 2.1);
             glRotated(rots[i], 0, 0, 1);
-            for (double t = 0; t < lengths[i]; t += spacing) {
+            double t;
+            for (t = offset; t < lengths[i]; t += spacing) {
                 const double length = MIN2((double)maxLength, lengths[i] - t);
                 glBegin(GL_QUADS);
                 glVertex2d(-mw, -t);
@@ -870,6 +928,7 @@ GLHelper::drawInverseMarkings(const PositionVector& geom,
 #endif
                 }
             }
+            offset = t - lengths[i] - spacing;
             GLHelper::popMatrix();
         }
     }
@@ -878,11 +937,10 @@ GLHelper::drawInverseMarkings(const PositionVector& geom,
 
 void
 GLHelper::debugVertices(const PositionVector& shape, const GUIVisualizationTextSettings& settings, double scale, double layer) {
-    RGBColor color = RGBColor::randomHue();
     for (int i = 0; i < (int)shape.size(); ++i) {
         drawTextBox(toString(i), shape[i], layer,
                     settings.scaledSize(scale),
-                    color,
+                    settings.color,
                     settings.bgColor,
                     RGBColor::INVISIBLE,
                     0, 0, 0.2);
@@ -891,16 +949,18 @@ GLHelper::debugVertices(const PositionVector& shape, const GUIVisualizationTextS
 
 
 void
-GLHelper::drawBoundary(const Boundary& b) {
-    GLHelper::pushMatrix();
-    GLHelper::setColor(RGBColor::MAGENTA);
-    // draw on top
-    glTranslated(0, 0, 1024);
-    drawLine(Position(b.xmin(), b.ymax()), Position(b.xmax(), b.ymax()));
-    drawLine(Position(b.xmax(), b.ymax()), Position(b.xmax(), b.ymin()));
-    drawLine(Position(b.xmax(), b.ymin()), Position(b.xmin(), b.ymin()));
-    drawLine(Position(b.xmin(), b.ymin()), Position(b.xmin(), b.ymax()));
-    GLHelper::popMatrix();
+GLHelper::drawBoundary(const GUIVisualizationSettings& s, const Boundary& b) {
+    if (s.drawBoundaries) {
+        GLHelper::pushMatrix();
+        GLHelper::setColor(RGBColor::MAGENTA);
+        // draw on top
+        glTranslated(0, 0, 1024);
+        drawLine(Position(b.xmin(), b.ymax()), Position(b.xmax(), b.ymax()));
+        drawLine(Position(b.xmax(), b.ymax()), Position(b.xmax(), b.ymin()));
+        drawLine(Position(b.xmax(), b.ymin()), Position(b.xmin(), b.ymin()));
+        drawLine(Position(b.xmin(), b.ymin()), Position(b.xmin(), b.ymax()));
+        GLHelper::popMatrix();
+    }
 }
 
 

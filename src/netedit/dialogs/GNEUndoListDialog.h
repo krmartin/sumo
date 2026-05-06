@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -20,51 +20,34 @@
 #pragma once
 #include <config.h>
 
-#include <utils/foxtools/MFXTextFieldTooltip.h>
-
+#include "GNEDialog.h"
 
 // ===========================================================================
 // class declarations
 // ===========================================================================
 
-class GNEUndoList;
-class GNEApplicationWindow;
+class MFXTextFieldIcon;
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
 
-/**
- * @class GNEUndoListDialog
- * @brief Dialog for edit rerouters
- */
-class GNEUndoListDialog : protected FXTopWindow {
+class GNEUndoListDialog : public GNEDialog {
     /// @brief FOX-declaration
     FXDECLARE(GNEUndoListDialog)
 
 public:
     /// @brief Constructor
-    GNEUndoListDialog(GNEApplicationWindow* GNEApp);
+    GNEUndoListDialog(GNEApplicationWindow* applicationWindow);
 
     /// @brief destructor
     ~GNEUndoListDialog();
 
-    /// @brief show window
-    void show();
-
-    /// @brief hide window
-    void hide();
-
-    /// @brief check if dialog is shown
-    bool shown() const;
-
-    /// @brief Move the focus to this window
-    void setFocus();
+    /// @brief run internal test
+    void runInternalTest(const InternalTestStep::DialogArgument* dialogArgument);
 
     /// @name FOX-callbacks
     /// @{
-    /// @brief event after press close button
-    long onCmdClose(FXObject*, FXSelector, void*);
 
     /// @brief event after select row
     long onCmdSelectRow(FXObject*, FXSelector, void*);
@@ -72,19 +55,10 @@ public:
     /// @}
 
 protected:
-    /// @brief FOX needs this
-    FOX_CONSTRUCTOR(GNEUndoListDialog)
-
-    /// @brief update list destroying and creating rows
-    void updateList();
-
-    /// @brief recalc list destroying and creating rows
-    void recalcList();
-
     /// @struct class for keep every row value
     struct UndoListRow {
         /// @brief constructor
-        UndoListRow(const int index_, FXIcon* icon_, const std::string text_);
+        UndoListRow(const int index_, FXIcon* icon_, const std::string description_, const std::string timestamp_);
 
         /// @brief index uses for count undo/redos
         int index = 0;
@@ -93,7 +67,10 @@ protected:
         FXIcon* icon = nullptr;
 
         /// @brief definition of undo/redo operation
-        std::string text;
+        std::string description;
+
+        /// @brief timestamp
+        std::string timestamp;
     };
 
     /// @brief row used for show GUI row elements
@@ -107,7 +84,7 @@ protected:
         ~GUIRow();
 
         /// @brief update row
-        void update(const UndoListRow &row);
+        void update(const UndoListRow& row);
 
         /// @brief get index
         int getIndex() const;
@@ -118,7 +95,7 @@ protected:
         /// @brief set red background
         void setRedBackground();
 
-        /// @brief set blue blackground
+        /// @brief set blue background
         void setBlueBackground();
 
         /// @brief check row and set background green
@@ -133,13 +110,19 @@ protected:
 
         /// @brief label with icon
         FXLabel* myIcon = nullptr;
-        
-        /// @brief textField tooltip
-        MFXTextFieldTooltip* myTextFieldTooltip = nullptr;
+
+        /// @brief textField description
+        MFXTextFieldIcon* myTextFieldDescription = nullptr;
+
+        /// @brief textField timeStamp
+        FXTextField* myTextFieldTimeStamp = nullptr;
     };
 
-    /// @brief pointer to GNEApplicationWindow
-    GNEApplicationWindow* myGNEApp;
+    /// @brief FOX needs this
+    FOX_CONSTRUCTOR(GNEUndoListDialog)
+
+    /// @brief update list destroying and creating rows
+    void updateList();
 
     /// @brief frame for rows
     FXVerticalFrame* myRowFrame = nullptr;
@@ -154,4 +137,3 @@ private:
     /// @brief Invalidated assignment operator.
     GNEUndoListDialog& operator=(const GNEUndoListDialog&) = delete;
 };
-

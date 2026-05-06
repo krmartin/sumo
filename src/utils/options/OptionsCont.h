@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -87,19 +87,19 @@
  * @see addDescription
  */
 class OptionsCont {
+
 public:
-    /** @brief Retrieves the options */
+    /// @brief Retrieves the options
     static OptionsCont& getOptions();
 
+    /// @brief empty option container
+    static OptionsCont EMPTY_OPTIONS;
 
-    /** @brief Constructor */
+    /// @brief Constructor
     OptionsCont();
 
-
-    /** @brief Destructor */
+    /// @brief Destructor
     ~OptionsCont();
-
-
 
     /// @name Methods setting and getting information about the appplication and currently set options
     /// @{
@@ -111,13 +111,11 @@ public:
      */
     void setApplicationName(const std::string& appName, const std::string& fullName);
 
-
     /** @brief Sets the application description
      *
      * @param[in] appDesc A description of the application
      */
     void setApplicationDescription(const std::string& appDesc);
-
 
     /** @brief Add a call example
      *
@@ -126,13 +124,11 @@ public:
      */
     void addCallExample(const std::string& example, const std::string& desc);
 
-
     /** @brief Sets an additional message to be printed at the begin of the help screen
      *
      * @param[in] example Some additional information about how to use the application
      */
     void setAdditionalHelpMessage(const std::string& add);
-
 
     /** @brief Adds a copyright notice to the help output
      *
@@ -140,11 +136,9 @@ public:
      */
     void addCopyrightNotice(const std::string& copyrightLine);
 
-
     /** @brief Removes all copyright information
      */
     void clearCopyrightNotices();
-
 
     /** @brief Adds an option subtopic
      *
@@ -155,7 +149,6 @@ public:
      * @param[in] topic The options sub topic
      */
     void addOptionSubTopic(const std::string& topic);
-
 
     /** @brief Prints the help
      *
@@ -183,8 +176,7 @@ public:
      */
     void writeConfiguration(std::ostream& os, const bool filled,
                             const bool complete, const bool addComments, const std::string& relativeTo = "",
-                            const bool forceRelative = false, const bool inComment = false) const;
-
+                            const bool forceRelative = false, const bool inComment = false, const std::string& indent = "") const;
 
     /** @brief Writes the xml schema for the configuration
      *
@@ -195,7 +187,6 @@ public:
      */
     void writeSchema(std::ostream& os);
 
-
     /** @brief Writes a standard XML header, including the configuration
      *
      * The header consists of the xml-declaration with encoding as defined
@@ -205,21 +196,18 @@ public:
      * @param[in] os The stream to write the header into
      */
     void writeXMLHeader(std::ostream& os, const bool includeConfig = true) const;
+
     /// @}
-
-
-
 
     /// @name Methods for registering options
     /// @{
 
     /** @brief Adds an option under the given name
      * @param[in] name The (long) name of the option
-     * @param[in] v The option (typed value storage)
+     * @param[in] o The option (typed value storage)
      * @exception InvalidArgument If the name is already used
      */
-    void doRegister(const std::string& name, Option* v);
-
+    void doRegister(const std::string& name, Option* o);
 
     /** @brief Adds an option under the given name and the given abbreviation
      *
@@ -230,8 +218,7 @@ public:
      * @param[in] v The option (typed value storage)
      * @exception InvalidArgument If one of the names is already used
      */
-    void doRegister(const std::string& name, char abbr, Option* v);
-
+    void doRegister(const std::string& name, char abbr, Option* o);
 
     /** @brief Adds a synonyme for an options name (any order)
      *
@@ -251,14 +238,12 @@ public:
      */
     void addSynonyme(const std::string& name1, const std::string& name2, bool isDeprecated = false);
 
-
     /** @brief Adds an XML root element to handle by default. The special root "" denotes the default handler.
      *
      * @param[in] name The option name
      * @param[in] xmlRoot The name of the xml root element to handle
      */
     void addXMLDefault(const std::string& name, const std::string& xmlRoot = "");
-
 
     /** @brief Adds a description for an option
      *
@@ -273,12 +258,34 @@ public:
      * @param[in] description The description
      * @exception InvalidArgument If none of the synonymes or both synonymes with different options were registered before
      */
-    void addDescription(const std::string& name, const std::string& subtopic,
-                        const std::string& description);
+    void addDescription(const std::string& name, const std::string& subtopic, const std::string& description);
+
+    /** @brief mark option as required
+     *
+     * Tries to retrieve the named option and set as required. Adds
+     *  the name to the list of option names to be located in the named subtopic.
+     *
+     * Throws an InvalidArgument if the option is not known
+     *
+     * @param[in] name The option's name
+     * @param[in] subtopic The subtopic to locate the description within
+     * @exception InvalidArgument If none of the synonymes or both synonymes with different options were registered before
+     */
+    void setFurtherAttributes(const std::string& name, const std::string& subtopic, bool required, bool positional, const std::string& listSep);
+
+    /** @brief set option editable
+     *
+     * Tries to change the flag editable in the given option
+     *
+     * Throws an InvalidArgument if the option is not known
+     *
+     * @param[in] name The option's name
+     * @param[in] value editable value (true/false)
+     * @exception InvalidArgument If option doesn't exist
+     */
+    void setOptionEditable(const std::string& name, const bool value);
+
     /// @}
-
-
-
 
     /// @name Methods for retrieving information about options
     /// @{
@@ -287,7 +294,6 @@ public:
      * @return true if an option has been added before under the given name, false otherwise
      */
     bool exists(const std::string& name) const;
-
 
     /** @brief Returns the information whether the named option is set
      *
@@ -306,7 +312,6 @@ public:
      */
     bool isSet(const std::string& name, bool failOnNonExistant = true) const;
 
-
     /** @brief Returns the information whether the named option has still the default value
      *
      * The named option is tried to be retrieved from the container. If
@@ -322,7 +327,6 @@ public:
      */
     bool isDefault(const std::string& name) const;
 
-
     /** @brief Returns the information whether the option is a boolean option
      *
      * The option is retrieved from the container, first, what may cause an InvalidArgument
@@ -334,14 +338,13 @@ public:
      */
     bool isBool(const std::string& name) const;
 
-
     /** @brief Checks whether the named option is usable as a file list (with at least a single file)
      *
      * The method returns true, if the named option is set with entries containing
-     *  names of accessable files.
+     *  names of accessible files.
      *
      * Throw an InvalidArgument exception if the option is not known. If the option
-     *  is not set, false is returned. Also, if the list is empty (conatins delimiters only)
+     *  is not set, false is returned. Also, if the list is empty (contains delimiters only)
      *  or if one of the named files (obtained using getStringVector) does not exist,
      *  false is returned. Additionally, an error is sent to MsgHandler in both cases.
      *
@@ -354,10 +357,9 @@ public:
      */
     bool isUsableFileList(const std::string& name) const;
 
-
     /** @brief Checks whether an option is set, which has options with a prefix depending on it.
      *
-     * The method returns true, if the named option is set or no option dependoing on it is set.
+     * The method returns true, if the named option is set or no option depending on it is set.
      * Throws an InvalidArgument exception if the option is not known.
      *
      * @param[in] name The name of the option to check
@@ -367,7 +369,6 @@ public:
      */
     bool checkDependingSuboptions(const std::string& name, const std::string& prefix) const;
 
-
     /** @brief Modifies file name options according to the configuration path
      *
      * If the configuration path given is a relative one all filenames inside
@@ -376,7 +377,6 @@ public:
      * @param[in] configuration The path to the configuration file
      */
     void relocateFiles(const std::string& configuration) const;
-
 
     /** @brief Returns the synonymes of an option name
      *
@@ -397,6 +397,13 @@ public:
      **/
     const std::string& getDescription(const std::string& name) const;
 
+    /** @brief Returns the option category
+     *
+     * @param[in] name The name of the option to return the category of
+     * @return category
+     * @exception InvalidArgument If the named option does not exist
+     **/
+    const std::string& getSubTopic(const std::string& name) const;
 
     /** @brief Returns the information whether the named option may be set
      *
@@ -410,13 +417,20 @@ public:
      * @exception InvalidArgument If the option does not exist
      */
     bool isWriteable(const std::string& name);
+
+    /** @brief Returns the information whether the named option is editable
+     *
+     * @param[in] name The name of the option to check
+     * @return Whether the value is editable
+     * @exception InvalidArgument If the option does not exist
+     */
+    bool isEditable(const std::string& name);
+
     /// @}
-
-
-
 
     /// @name Methods for retrieving values from options
     /// @{
+
     /** @brief Returns the string-value of the named option (all options)
      *
      * This method returns the string-value of an existing option.
@@ -441,7 +455,6 @@ public:
      */
     std::string getString(const std::string& name) const;
 
-
     /** @brief Returns the double-value of the named option (only for Option_Float)
      *
      * This method returns the double-value of an existing double-option.
@@ -453,7 +466,6 @@ public:
      * @exception InvalidArgument If the option does not exist or is not a double-option
      */
     double getFloat(const std::string& name) const;
-
 
     /** @brief Returns the int-value of the named option (only for Option_Integer)
      *
@@ -467,7 +479,6 @@ public:
      */
     int getInt(const std::string& name) const;
 
-
     /** @brief Returns the boolean-value of the named option (only for Option_Bool)
      *
      * This method returns the boolean-value of an existing boolean-option.
@@ -479,7 +490,6 @@ public:
      * @exception InvalidArgument If the option does not exist or is not a boolean-option
      */
     bool getBool(const std::string& name) const;
-
 
     /** @brief Returns the list of integer-value of the named option (only for Option_IntVector)
      *
@@ -527,12 +537,9 @@ public:
      * @see getStringVector()
      * @todo Try to optimize - at each call, the vector is rebuilt
      */
-    bool isInStringVector(const std::string& optionName,
-                          const std::string& itemName) const;
+    bool isInStringVector(const std::string& optionName, const std::string& itemName) const;
+
     /// @}
-
-
-
 
     /// @name Methods for setting values into options
     /// @{
@@ -592,8 +599,8 @@ public:
      * @see OptionsCont::set(const std::string &, const std::string &)
      */
     bool setByRootElement(const std::string& name, const std::string& value);
-    /// @}
 
+    /// @}
 
     /** @brief Resets all options to be writeable
      *
@@ -602,6 +609,12 @@ public:
      *  known options.
      */
     void resetWritable();
+
+    /// @brief Resets all options to default
+    void resetDefault();
+
+    /// @brief Reset specific option to default
+    void resetDefault(const std::string& name);
 
     /** @brief Output operator
      *
@@ -613,10 +626,8 @@ public:
      */
     friend std::ostream& operator<<(std::ostream& os, const OptionsCont& oc);
 
-
-    /** @brief Removes all information from the container */
+    /// @brief Removes all information from the container
     void clear();
-
 
     /** @brief Checks for help and configuration output, returns whether we should exit
      *
@@ -628,7 +639,7 @@ public:
      *  template or the current configuration shall be written.
      *
      * This method throws a ProcessError if the configuration should be saved,
-     *  but the file is not accessable. An error message is supplied.
+     *  but the file is not accessible. An error message is supplied.
      *
      * @param[in] missingOptions Whether no options have been given
      * @return Whether the application shall stop
@@ -636,32 +647,31 @@ public:
      */
     bool processMetaOptions(bool missingOptions);
 
+    void localizeDescriptions();
 
     /// @brief return the list of subtopics
-    const std::vector<std::string>& getSubTopics() const {
-        return mySubTopics;
-    }
-
+    const std::vector<std::string>& getSubTopics() const;
 
     /// @brief return the list of entries for the given subtopic
-    std::vector<std::string> getSubTopicsEntries(const std::string& subtopic) const {
-        if (mySubTopicEntries.count(subtopic) > 0) {
-            return mySubTopicEntries.find(subtopic)->second;
-        } else {
-            return std::vector<std::string>();
-        }
-    }
-
+    std::vector<std::string> getSubTopicsEntries(const std::string& subtopic) const;
 
     /// @brief return the type name for the given option
-    std::string getTypeName(const std::string name) {
-        return getSecure(name)->getTypeName();
-    }
+    std::string getTypeName(const std::string name);
 
+    /// @brief get options full name
+    const std::string& getFullName() const;
 
-    inline const std::string& getFullName() const {
-        return myFullName;
-    }
+    /// @brief check if options container is empty
+    bool isEmpty() const;
+
+    /// @brief get begin addresses iterator
+    std::vector<std::pair<std::string, Option*> >::const_iterator begin() const;
+
+    /// @brief get begin addresses iterator
+    std::vector<std::pair<std::string, Option*> >::const_iterator end() const;
+
+    /// @brief make a copy of this OptionsCont instance
+    OptionsCont* clone() const;
 
 private:
     /** @brief Returns the named option
@@ -673,7 +683,6 @@ private:
      */
     Option* getSecure(const std::string& name) const;
 
-
     /** @brief Reports an error that the option has already been set
      *
      * Using the given option name, an error string is generated and reported to
@@ -683,7 +692,6 @@ private:
      */
     void reportDoubleSetting(const std::string& arg) const;
 
-
     /** @brief Converts an abbreviation into a name
      *
      * Build and returns the string which consists of the given character only.
@@ -692,7 +700,6 @@ private:
      * @return The abbreviation converted into a string
      */
     std::string convertChar(char abbr) const;
-
 
     /** @brief Writes the given string 'formatted'
      *
@@ -705,53 +712,41 @@ private:
      * @param[in] nextOffset ?
      * @todo Describe parameter
      */
-    void splitLines(std::ostream& os, std::string what,
-                    int offset, int nextOffset);
+    void splitLines(std::ostream& os, std::string what, int offset, int nextOffset);
 
+    /// @brief Whether the descriptino has already been translated to the locale language
+    bool myAmLocalized = false;
 
-private:
-    /// The static options container used
+    /// @brief The static options container used
     static OptionsCont myOptions;
 
-    /** definition of the type that stores the addresses of used options */
-    typedef std::vector<Option*> ItemAddressContType;
+    /// @brief option-addresses
+    std::vector<std::pair<std::string, Option*> > myAddresses;
 
-    /** definition of the type that realises the access to options */
-    typedef std::map<std::string, Option*> KnownContType;
+    /// @brief option maps sorted by name (for addresses AND their synonyms)
+    std::map<std::string, Option*> myValues;
 
-    /** storage for option-addresses */
-    ItemAddressContType myAddresses;
-
-    /** access map of options */
-    KnownContType myValues;
-
-    /// some information on the application
+    /// @brief some information on the application
     std::string myAppName, myFullName, myAppDescription, myAdditionalMessage;
 
-    /// list of call examples
+    /// @brief list of call examples
     std::vector< std::pair<std::string, std::string> > myCallExamples;
 
-    /// lists of option subtopics and copyright notices
+    /// @brief lists of option subtopics and copyright notices
     std::vector<std::string> mySubTopics, myCopyrightNotices;
 
-    /// A map from subtopic to option
+    /// @brief A map from subtopic to option
     std::map<std::string, std::vector<std::string> > mySubTopicEntries;
 
-    /// A map from XML root element to option
+    /// @brief A map from XML root element to option
     std::map<std::string, std::string> myXMLDefaults;
 
-    /// A map from deprecated options to a bool indicating whether we warned about deprecation
+    /// @brief A map from deprecated options to a bool indicating whether we warned about deprecation
     mutable std::map<std::string, bool> myDeprecatedSynonymes;
 
-    /// Information whether we should always include license information in file headers
-    bool myWriteLicense;
+    /// @brief default copy constructor, but private
+    OptionsCont(const OptionsCont& s) = default;
 
-
-private:
-    /** invalid copy constructor */
-    OptionsCont(const OptionsCont& s);
-
-    /** invalid assignment operator */
-    OptionsCont& operator=(const OptionsCont& s);
-
+    /// @brief invalid assignment operator
+    OptionsCont& operator=(const OptionsCont& s) = delete;
 };

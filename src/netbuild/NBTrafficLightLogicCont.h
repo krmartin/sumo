@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -104,12 +104,12 @@ public:
     bool removeProgram(const std::string id, const std::string programID, bool del = true);
 
     /** @brief Extracts a traffic light definition from myDefinitions
-     * but keeps it in myExtracted for eventual * deletion (used by NETEDIT)
+     * but keeps it in myExtracted for eventual * deletion (used by netedit)
      */
     void extract(NBTrafficLightDefinition* definition);
 
     /// @brief check if exists a definition with the given ID
-    bool exist(const std::string& newID) const;
+    bool exist(const std::string& newID, bool requireComputed = true) const;
 
     /// @brief rename traffic light
     void rename(NBTrafficLightDefinition* tlDef, const std::string& newID);
@@ -131,7 +131,7 @@ public:
      */
     std::pair<int, int> computeLogics(OptionsCont& oc);
 
-    /** @brief Computes a specific traffic light logic (using by NETEDIT)
+    /** @brief Computes a specific traffic light logic (using by netedit)
      *
      * @param[in] oc Options used during the computation
      * @return whether the logic was computed successfully
@@ -139,7 +139,7 @@ public:
      */
     bool computeSingleLogic(OptionsCont& oc, NBTrafficLightDefinition* def);
 
-    /** @brief Replaces occurences of the removed edge in incoming/outgoing edges of all definitions
+    /** @brief Replaces occurrences of the removed edge in incoming/outgoing edges of all definitions
      *
      * @param[in] removed The removed edge
      * @param[in] incoming The edges to use instead if an incoming edge was removed
@@ -149,7 +149,7 @@ public:
     void remapRemoved(NBEdge* removed,
                       const EdgeVector& incoming, const EdgeVector& outgoing);
 
-    /** @brief Replaces occurences of the removed edge/lane in all definitions by the given edge
+    /** @brief Replaces occurrences of the removed edge/lane in all definitions by the given edge
      *
      * @param[in] removed The removed edge
      * @param[in] removed The removed lane
@@ -197,9 +197,19 @@ public:
     /// @brief set OpenDRIVE signal reference parameters after all link indices are known
     void setOpenDriveSignalParameters();
 
+    /// @brief post processing of signal programs to group tl indices according to OpenDrive controllers (signal groups)
+    void applyOpenDriveControllers(OptionsCont& oc);
+
     /// @brief Returns a list of all definitions (convenience for easier iteration)
     typedef std::vector<NBTrafficLightDefinition*> Definitions;
     Definitions getDefinitions() const;
+
+    /** @brief Returns a new (unused) programID for the given traffic light
+     *
+     * @param[in] id The id of the traffic light
+     * @return A new programID that isn't jet used by that traffic light
+     */
+    std::string getNextProgramID(const std::string& id) const;
 
 private:
     /// @brief Definition of internal the container types

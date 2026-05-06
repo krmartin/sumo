@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -42,30 +42,20 @@
 #include <utils/gui/div/GUIGlobalSelection.h>
 #include <utils/gui/images/GUIIconSubSys.h>
 #include <guisim/GUICalibrator.h>
+#include <utils/common/MsgHandler.h>
 #include <utils/gui/globjects/GLIncludes.h>
+#include <utils/gui/div/GUIDesigns.h>
 
 #include "GUICalibrator.h"
-
 
 // ===========================================================================
 // FOX callback mapping
 // ===========================================================================
-/* -------------------------------------------------------------------------
- * GUICalibrator::GUICalibratorPopupMenu - mapping
- * ----------------------------------------------------------------------- */
-FXDEFMAP(GUICalibrator::GUICalibratorPopupMenu)
-GUICalibratorPopupMenuMap[] = {
-    FXMAPFUNC(SEL_COMMAND,  MID_MANIP,         GUICalibrator::GUICalibratorPopupMenu::onCmdOpenManip),
 
+FXDEFMAP(GUICalibrator::GUICalibratorPopupMenu) GUICalibratorPopupMenuMap[] = {
+    FXMAPFUNC(SEL_COMMAND,  MID_MANIP,  GUICalibrator::GUICalibratorPopupMenu::onCmdOpenManip),
 };
 
-// Object implementation
-FXIMPLEMENT(GUICalibrator::GUICalibratorPopupMenu, GUIGLObjectPopupMenu, GUICalibratorPopupMenuMap, ARRAYNUMBER(GUICalibratorPopupMenuMap))
-
-
-/* -------------------------------------------------------------------------
- * GUICalibrator::GUIManip_Calibrator - mapping
- * ----------------------------------------------------------------------- */
 FXDEFMAP(GUICalibrator::GUIManip_Calibrator) GUIManip_CalibratorMap[] = {
     FXMAPFUNC(SEL_COMMAND,  GUICalibrator::GUIManip_Calibrator::MID_USER_DEF, GUICalibrator::GUIManip_Calibrator::onCmdUserDef),
     FXMAPFUNC(SEL_UPDATE,   GUICalibrator::GUIManip_Calibrator::MID_USER_DEF, GUICalibrator::GUIManip_Calibrator::onUpdUserDef),
@@ -75,19 +65,18 @@ FXDEFMAP(GUICalibrator::GUIManip_Calibrator) GUIManip_CalibratorMap[] = {
     FXMAPFUNC(SEL_COMMAND,  GUICalibrator::GUIManip_Calibrator::MID_CLOSE,    GUICalibrator::GUIManip_Calibrator::onCmdClose),
 };
 
-FXIMPLEMENT(GUICalibrator::GUIManip_Calibrator, GUIManipulator, GUIManip_CalibratorMap, ARRAYNUMBER(GUIManip_CalibratorMap))
-
+// Object implementation
+FXIMPLEMENT(GUICalibrator::GUICalibratorPopupMenu,  GUIGLObjectPopupMenu,   GUICalibratorPopupMenuMap,  ARRAYNUMBER(GUICalibratorPopupMenuMap))
+FXIMPLEMENT(GUICalibrator::GUIManip_Calibrator,     GUIManipulator,         GUIManip_CalibratorMap,     ARRAYNUMBER(GUIManip_CalibratorMap))
 
 // ===========================================================================
 // method definitions
 // ===========================================================================
+
 /* -------------------------------------------------------------------------
  * GUICalibrator::GUIManip_Calibrator - methods
  * ----------------------------------------------------------------------- */
-GUICalibrator::GUIManip_Calibrator::GUIManip_Calibrator(
-    GUIMainWindow& app,
-    const std::string& name, GUICalibrator& o,
-    int /*xpos*/, int /*ypos*/) :
+GUICalibrator::GUIManip_Calibrator::GUIManip_Calibrator(GUIMainWindow& app, const std::string& name, GUICalibrator& o, int /*xpos*/, int /*ypos*/) :
     GUIManipulator(app, name, 0, 0),
     myParent(&app),
     myChosenValue(0),
@@ -100,57 +89,45 @@ GUICalibrator::GUIManip_Calibrator::GUIManip_Calibrator(
     FXVerticalFrame* f1 =
         new FXVerticalFrame(this, LAYOUT_FILL_X | LAYOUT_FILL_Y, 0, 0, 0, 0, 0, 0, 0, 0);
 
-    FXGroupBox* gp = new FXGroupBox(f1, "Change Speed",
-                                    GROUPBOX_TITLE_LEFT | FRAME_RIDGE,
+    FXGroupBox* gp = new FXGroupBox(f1, "Change Speed", GROUPBOX_TITLE_LEFT | FRAME_RIDGE,
                                     0, 0, 0, 0,  4, 4, 1, 1, 2, 0);
     {
         // default
-        FXHorizontalFrame* gf1 =
-            new FXHorizontalFrame(gp, LAYOUT_TOP | LAYOUT_LEFT, 0, 0, 0, 0, 10, 10, 5, 5);
-        new FXRadioButton(gf1, "Default", &myChosenTarget, FXDataTarget::ID_OPTION + 0,
-                          ICON_BEFORE_TEXT | LAYOUT_SIDE_TOP,
+        FXHorizontalFrame* gf1 = new FXHorizontalFrame(gp, LAYOUT_TOP | LAYOUT_LEFT, 0, 0, 0, 0, 10, 10, 5, 5);
+        new FXRadioButton(gf1, "Default", &myChosenTarget, FXDataTarget::ID_OPTION + 0, ICON_BEFORE_TEXT | LAYOUT_SIDE_TOP,
                           0, 0, 0, 0,   2, 2, 0, 0);
     }
     {
         // loaded
-        FXHorizontalFrame* gf0 =
-            new FXHorizontalFrame(gp, LAYOUT_TOP | LAYOUT_LEFT, 0, 0, 0, 0, 10, 10, 5, 5);
-        new FXRadioButton(gf0, "Loaded", &myChosenTarget, FXDataTarget::ID_OPTION + 1,
-                          ICON_BEFORE_TEXT | LAYOUT_SIDE_TOP,
+        FXHorizontalFrame* gf0 = new FXHorizontalFrame(gp, LAYOUT_TOP | LAYOUT_LEFT, 0, 0, 0, 0, 10, 10, 5, 5);
+        new FXRadioButton(gf0, "Loaded", &myChosenTarget, FXDataTarget::ID_OPTION + 1, ICON_BEFORE_TEXT | LAYOUT_SIDE_TOP,
                           0, 0, 0, 0,   2, 2, 0, 0);
     }
     {
         // predefined
-        FXHorizontalFrame* gf2 =
-            new FXHorizontalFrame(gp, LAYOUT_TOP | LAYOUT_LEFT, 0, 0, 0, 0, 10, 10, 5, 5);
-        new FXRadioButton(gf2, "Predefined: ", &myChosenTarget, FXDataTarget::ID_OPTION + 2,
-                          ICON_BEFORE_TEXT | LAYOUT_SIDE_TOP | LAYOUT_CENTER_Y,
+        FXHorizontalFrame* gf2 = new FXHorizontalFrame(gp, LAYOUT_TOP | LAYOUT_LEFT, 0, 0, 0, 0, 10, 10, 5, 5);
+        new FXRadioButton(gf2, "Predefined: ", &myChosenTarget, FXDataTarget::ID_OPTION + 2, ICON_BEFORE_TEXT | LAYOUT_SIDE_TOP | LAYOUT_CENTER_Y,
                           0, 0, 0, 0,   2, 2, 0, 0);
-        myPredefinedValues =
-            new FXComboBox(gf2, 10, this, MID_PRE_DEF,
-                           ICON_BEFORE_TEXT | LAYOUT_SIDE_TOP | LAYOUT_CENTER_Y | COMBOBOX_STATIC);
-        myPredefinedValues->appendItem("20 km/h");
-        myPredefinedValues->appendItem("40 km/h");
-        myPredefinedValues->appendItem("60 km/h");
-        myPredefinedValues->appendItem("80 km/h");
-        myPredefinedValues->appendItem("100 km/h");
-        myPredefinedValues->appendItem("120 km/h");
-        myPredefinedValues->appendItem("140 km/h");
-        myPredefinedValues->appendItem("160 km/h");
-        myPredefinedValues->appendItem("180 km/h");
-        myPredefinedValues->appendItem("200 km/h");
-        myPredefinedValues->setNumVisible(5);
+        myPredefinedValues = new MFXComboBoxIcon(gf2, nullptr, false, GUIDesignComboBoxVisibleItems, this, MID_PRE_DEF,
+                ICON_BEFORE_TEXT | LAYOUT_SIDE_TOP | LAYOUT_CENTER_Y | COMBOBOX_STATIC);
+        myPredefinedValues->appendIconItem("20 km/h");
+        myPredefinedValues->appendIconItem("40 km/h");
+        myPredefinedValues->appendIconItem("60 km/h");
+        myPredefinedValues->appendIconItem("80 km/h");
+        myPredefinedValues->appendIconItem("100 km/h");
+        myPredefinedValues->appendIconItem("120 km/h");
+        myPredefinedValues->appendIconItem("140 km/h");
+        myPredefinedValues->appendIconItem("160 km/h");
+        myPredefinedValues->appendIconItem("180 km/h");
+        myPredefinedValues->appendIconItem("200 km/h");
     }
     {
         // free
-        FXHorizontalFrame* gf12 =
-            new FXHorizontalFrame(gp, LAYOUT_TOP | LAYOUT_LEFT, 0, 0, 0, 0, 10, 10, 5, 5);
+        FXHorizontalFrame* gf12 = new FXHorizontalFrame(gp, LAYOUT_TOP | LAYOUT_LEFT, 0, 0, 0, 0, 10, 10, 5, 5);
         new FXRadioButton(gf12, "Free Entry: ", &myChosenTarget, FXDataTarget::ID_OPTION + 3,
                           ICON_BEFORE_TEXT | LAYOUT_SIDE_TOP | LAYOUT_CENTER_Y,
                           0, 0, 0, 0,   2, 2, 0, 0);
-        myUserDefinedSpeed =
-            new FXRealSpinner(gf12, 10, this, MID_USER_DEF,
-                              LAYOUT_TOP | FRAME_SUNKEN | FRAME_THICK);
+        myUserDefinedSpeed = new FXRealSpinner(gf12, 10, this, MID_USER_DEF, LAYOUT_TOP | FRAME_SUNKEN | FRAME_THICK);
         //myUserDefinedSpeed->setFormatString("%.0f km/h");
         //myUserDefinedSpeed->setIncrements(1, 10, 10);
         myUserDefinedSpeed->setIncrement(10);
@@ -158,8 +135,8 @@ GUICalibrator::GUIManip_Calibrator::GUIManip_Calibrator(
         myUserDefinedSpeed->setValue(0);
         //static_cast<GUICalibrator*>(myObject)->getDefaultSpeed() * 3.6);
     }
-    new FXButton(f1, "Close", nullptr, this, MID_CLOSE,
-                 BUTTON_INITIAL | BUTTON_DEFAULT | FRAME_RAISED | FRAME_THICK | LAYOUT_TOP | LAYOUT_LEFT | LAYOUT_CENTER_X, 0, 0, 0, 0, 30, 30, 4, 4);
+    GUIDesigns::buildFXButton(f1, "Close", "", "", nullptr, this, MID_CLOSE,
+                              BUTTON_INITIAL | BUTTON_DEFAULT | FRAME_RAISED | FRAME_THICK | LAYOUT_TOP | LAYOUT_LEFT | LAYOUT_CENTER_X, 0, 0, 0, 0, 30, 30, 4, 4);
     //static_cast<GUICalibrator*>(myObject)->setOverriding(true);
 }
 
@@ -246,10 +223,10 @@ GUICalibrator::GUIManip_Calibrator::onCmdChangeOption(FXObject*, FXSelector, voi
 /* -------------------------------------------------------------------------
  * GUICalibrator::GUICalibratorPopupMenu - methods
  * ----------------------------------------------------------------------- */
+
 GUICalibrator::GUICalibratorPopupMenu::GUICalibratorPopupMenu(
-    GUIMainWindow& app, GUISUMOAbstractView& parent,
-    GUIGlObject& o)
-    : GUIGLObjectPopupMenu(app, parent, o) {}
+    GUIMainWindow& app, GUISUMOAbstractView& parent, GUIGlObject* o) :
+    GUIGLObjectPopupMenu(app, parent, o) {}
 
 
 GUICalibrator::GUICalibratorPopupMenu::~GUICalibratorPopupMenu() {}
@@ -272,16 +249,21 @@ GUICalibrator::GUICalibrator(MSCalibrator* calibrator) :
     GUIGlObject_AbstractAdd(GLO_CALIBRATOR, calibrator->getID(), GUIIconSubSys::getIcon(GUIIcon::CALIBRATOR)),
     myCalibrator(calibrator),
     myShowAsKMH(true) {
-    const std::vector<MSLane*>& destLanes = calibrator->myEdge->getLanes();
-    const MSLane* lane = calibrator->myLane;
-    const double pos = calibrator->myPos;
-    for (std::vector<MSLane*>::const_iterator i = destLanes.begin(); i != destLanes.end(); ++i) {
-        if (lane == nullptr || (*i) == lane) {
-            const PositionVector& v = (*i)->getShape();
-            myFGPositions.push_back(v.positionAtOffset(pos));
-            myBoundary.add(v.positionAtOffset(pos));
-            myFGRotations.push_back(-v.rotationDegreeAtOffset(pos));
+    if (calibrator->getEdge() != nullptr) {
+        const std::vector<MSLane*>& destLanes = calibrator->getEdge()->getLanes();
+        const MSLane* lane = calibrator->getLane();
+        const double pos = calibrator->myPos;
+        for (std::vector<MSLane*>::const_iterator i = destLanes.begin(); i != destLanes.end(); ++i) {
+            if (lane == nullptr || (*i) == lane) {
+                const PositionVector& v = (*i)->getShape();
+                myFGPositions.push_back(v.positionAtOffset(pos));
+                myBoundary.add(v.positionAtOffset(pos));
+                myFGRotations.push_back(-v.rotationDegreeAtOffset(pos));
+            }
         }
+    }
+    if (calibrator->myNode != nullptr) {
+        myBoundary.add(calibrator->myNode->getPosition());
     }
 }
 
@@ -290,9 +272,8 @@ GUICalibrator::~GUICalibrator() {}
 
 
 GUIGLObjectPopupMenu*
-GUICalibrator::getPopUpMenu(GUIMainWindow& app,
-                            GUISUMOAbstractView& parent) {
-    GUIGLObjectPopupMenu* ret = new GUICalibratorPopupMenu(app, parent, *this);
+GUICalibrator::getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) {
+    GUIGLObjectPopupMenu* ret = new GUICalibratorPopupMenu(app, parent, this);
     buildPopupHeader(ret, app);
     buildCenterPopupEntry(ret);
     //buildShowManipulatorPopupEntry(ret);
@@ -305,32 +286,31 @@ GUICalibrator::getPopUpMenu(GUIMainWindow& app,
 
 
 GUIParameterTableWindow*
-GUICalibrator::getParameterWindow(GUIMainWindow& app,
-                                  GUISUMOAbstractView&) {
+GUICalibrator::getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView&) {
     GUIParameterTableWindow* ret;
     auto myCurrentStateInterval = myCalibrator->myCurrentStateInterval;
     if (myCalibrator->isActive()) {
         ret = new GUIParameterTableWindow(app, *this);
         // add items
-        ret->mkItem("interval start", false, STEPS2TIME(myCurrentStateInterval->begin));
-        ret->mkItem("interval end", false, STEPS2TIME(myCurrentStateInterval->end));
-        ret->mkItem("aspired flow [veh/h]", false, myCurrentStateInterval->q);
-        ret->mkItem("aspired speed", false, myCurrentStateInterval->v);
-        ret->mkItem("current flow [veh/h]", true, new FunctionBinding<MSCalibrator, double>(myCalibrator, &MSCalibrator::currentFlow));
-        ret->mkItem("current speed", true, new FunctionBinding<MSCalibrator, double>(myCalibrator, &MSCalibrator::currentSpeed));
-        ret->mkItem("default speed", false, myCalibrator->myDefaultSpeed);
-        ret->mkItem("required vehicles", true, new FunctionBinding<MSCalibrator, int>(myCalibrator, &MSCalibrator::totalWished));
-        ret->mkItem("passed vehicles", true, new FunctionBinding<MSCalibrator, int>(myCalibrator, &MSCalibrator::passed));
-        ret->mkItem("inserted vehicles", true, new FunctionBinding<MSCalibrator, int>(myCalibrator, &MSCalibrator::inserted));
-        ret->mkItem("removed vehicles", true, new FunctionBinding<MSCalibrator, int>(myCalibrator, &MSCalibrator::removed));
-        ret->mkItem("cleared in jam", true, new FunctionBinding<MSCalibrator, int>(myCalibrator, &MSCalibrator::clearedInJam));
+        ret->mkItem(TL("interval start"), false, STEPS2TIME(myCurrentStateInterval->begin));
+        ret->mkItem(TL("interval end"), false, STEPS2TIME(myCurrentStateInterval->end));
+        ret->mkItem(TL("aspired flow [veh/h]"), false, myCurrentStateInterval->q);
+        ret->mkItem(TL("aspired speed"), false, myCurrentStateInterval->v);
+        ret->mkItem(TL("current flow [veh/h]"), true, new FunctionBinding<MSCalibrator, double>(myCalibrator, &MSCalibrator::currentFlow));
+        ret->mkItem(TL("current speed"), true, new FunctionBinding<MSCalibrator, double>(myCalibrator, &MSCalibrator::currentSpeed));
+        ret->mkItem(TL("default speed"), false, myCalibrator->myDefaultSpeed);
+        ret->mkItem(TL("required vehicles"), true, new FunctionBinding<MSCalibrator, int>(myCalibrator, &MSCalibrator::totalWished));
+        ret->mkItem(TL("passed vehicles"), true, new FunctionBinding<MSCalibrator, int>(myCalibrator, &MSCalibrator::passed));
+        ret->mkItem(TL("inserted vehicles"), true, new FunctionBinding<MSCalibrator, int>(myCalibrator, &MSCalibrator::inserted));
+        ret->mkItem(TL("removed vehicles"), true, new FunctionBinding<MSCalibrator, int>(myCalibrator, &MSCalibrator::removed));
+        ret->mkItem(TL("cleared in jam"), true, new FunctionBinding<MSCalibrator, int>(myCalibrator, &MSCalibrator::clearedInJam));
     } else {
         ret = new GUIParameterTableWindow(app, *this);
         const std::string nextStart =
             (myCurrentStateInterval != myCalibrator->myIntervals.end() ?
              time2string(myCurrentStateInterval->begin) :
              "simulation end");
-        ret->mkItem("inactive until", false, nextStart);
+        ret->mkItem(TL("inactive until"), false, nextStart);
     }
     // close building
     ret->closeBuilding();

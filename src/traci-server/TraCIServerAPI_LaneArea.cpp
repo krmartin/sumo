@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2014-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2014-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -34,25 +34,6 @@
 // method definitions
 // ===========================================================================
 bool
-TraCIServerAPI_LaneArea::processGet(TraCIServer& server, tcpip::Storage& inputStorage,
-                                    tcpip::Storage& outputStorage) {
-    const int variable = inputStorage.readUnsignedByte();
-    const std::string id = inputStorage.readString();
-    server.initWrapper(libsumo::RESPONSE_GET_LANEAREA_VARIABLE, variable, id);
-    try {
-        if (!libsumo::LaneArea::handleVariable(id, variable, &server, &inputStorage)) {
-            return server.writeErrorStatusCmd(libsumo::CMD_GET_LANEAREA_VARIABLE, "Get Lane Area Detector Variable: unsupported variable " + toHex(variable, 2) + " specified", outputStorage);
-        }
-    } catch (libsumo::TraCIException& e) {
-        return server.writeErrorStatusCmd(libsumo::CMD_GET_LANEAREA_VARIABLE, e.what(), outputStorage);
-    }
-    server.writeStatusCmd(libsumo::CMD_GET_LANEAREA_VARIABLE, libsumo::RTYPE_OK, "", outputStorage);
-    server.writeResponseWithLength(outputStorage, server.getWrapperStorage());
-    return true;
-}
-
-
-bool
 TraCIServerAPI_LaneArea::processSet(TraCIServer& server, tcpip::Storage& inputStorage,
                                     tcpip::Storage& outputStorage) {
     std::string warning = ""; // additional description for response
@@ -69,10 +50,7 @@ TraCIServerAPI_LaneArea::processSet(TraCIServer& server, tcpip::Storage& inputSt
     try {
         switch (variable) {
             case libsumo::VAR_VIRTUAL_DETECTION: {
-                int vehNum = -1;
-                if (!server.readTypeCheckingInt(inputStorage, vehNum)) {
-                    return server.writeErrorStatusCmd(libsumo::CMD_SET_LANEAREA_VARIABLE, "Overriding the number of detected vehicles requires an integer", outputStorage);
-                }
+                const int vehNum = StoHelp::readTypedInt(inputStorage, "Overriding the number of detected vehicles requires an integer");
                 libsumo::LaneArea::overrideVehicleNumber(id, vehNum);
                 break;
             }

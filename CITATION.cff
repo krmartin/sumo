@@ -32,6 +32,7 @@ authors:
   - name: "David Rusu"
   - name: "Dominik Buse"
   - name: "Dominik Salles"
+  - name: "Edson Pereira"
   - name: "Eric Melde"
   - name: "Eric Nicolay"
   - name: "Erik Newton"
@@ -49,6 +50,7 @@ authors:
   - name: "Gregory Albiston"
   - name: "Harald Schaefer"
   - name: "Hollow Man"
+  - name: "Hongsheng Cui"
   - name: "Ioan-Alexandru Stef"
   - name: "Jakob Erdmann"
   - name: "Jakob Stigloher"
@@ -59,6 +61,7 @@ authors:
   - name: "Jim Div"
   - name: "Joerg Schweizer"
   - name: "Johannes Rummel"
+  - name: "João Pedro Egidio da Silva"
   - name: "Julia Ringel"
   - name: "Karl Schrab"
   - name: "Karol Stosiek"
@@ -100,11 +103,13 @@ authors:
   - name: "Mirco Sturari"
   - name: "Mirko Barthauer"
   - name: "Moritz Gütlein"
+  - name: "Necip Güzel"
   - name: "Niklas Freund"
   - name: "Nikolaus Furian"
   - name: "Pablo Alvarez Lopez"
   - name: "Peter Mieth"
   - name: "Peter Wagner"
+  - name: "Philip Ritzer"
   - name: "Pieter Loof"
   - name: "Piotr Woznica"
   - name: "Qichao Wang"
@@ -134,6 +139,7 @@ authors:
   - name: "Vijay Jaisankar"
   - name: "Walter Bamberger"
   - name: "Wolfgang Schnerring"
+  - name: "Xiaoxu Bei"
   - name: "Yun-Pang Flötteröd"
 message: "If you use this software, please cite both the conference paper from preferred-citation and the software itself."
 title: "Eclipse SUMO - Simulation of Urban MObility"
@@ -142,18 +148,19 @@ keywords:
   - simulation
   - microscopic
   - traffic
-date-released: "2022-07-19"
-version: 1.14.1
-repository-code: "https://github.com/eclipse/sumo"
+date-released: "2026-01-29"
+version: 1.26.0
+doi: 10.5281/zenodo.18406080
+repository-code: "https://github.com/eclipse-sumo/sumo"
 type: software
-url: "https://www.eclipse.org/sumo/"
+url: "https://www.eclipse.dev/sumo/"
 identifiers:
   - description: "The GitHub tag"
     type: url
-    value: "https://github.com/eclipse/sumo/releases/tag/v1_14_1"
+    value: "https://github.com/eclipse-sumo/sumo/releases/tag/v1_26_0"
   - description: "The download folder"
     type: url
-    value: "https://sumo.dlr.de/releases/1.14.1/"
+    value: "https://sumo.dlr.de/releases/1.26.0/"
 license:
   - "EPL-2.0"
   - "GPL-2.0-or-later"

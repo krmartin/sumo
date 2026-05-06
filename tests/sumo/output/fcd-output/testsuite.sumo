@@ -7,6 +7,12 @@ cartesian
 # output fcd data in geo-coordinates
 geo
 
+# output fcd data in utm-coordinates
+utm
+
+# write vectorized speed and acceleration
+vectorized
+
 # check whether slope works
 cartesian_slope
 cartesian_slope_geom
@@ -58,11 +64,17 @@ edge_filter
 # output vehicle leader information
 leader
 
+# look beyond best lanes along 1-lane edges
+leader_beyond_bestLanes
+
 # automatically set precision on long step length
 precision
 
 # filter written attributes
 attributes
+
+# see #17767
+delay
 
 # filter written attributes, using those that must otherwise be activated by extra options
 extended_attributes
@@ -70,5 +82,10 @@ extended_attributes
 # filter written attributes with "all"
 all_attributes
 
+# filter written attributes with "emissions"
+emissions
+
 # filter output with shape
 shape_filter
+begin
+period_begin

@@ -1,8 +1,17 @@
+# test edge type and vClass/vType specific routing preferences
+preference
+
+# load trips specified with coordinates
+geo
+
 # test attributes fromJunction toJunction and viaJunctions
 junctionTaz
 
 # test routing on shared roads
 opposite-factor
+
+# person uses "normal" vehicle connection as part of the walk
+vehicle_connection
 
 # Copy of basic
 basic
@@ -37,6 +46,12 @@ car_walk_departPos
 # public transport and walk possible
 public_walk
 
+# public transport and walk possible
+public_any_walk
+
+# public transport and walk possible
+public_line_walk
+
 # public transport  cannot be used due to speedfactor
 public_walk_speedfactor
 
@@ -52,10 +67,12 @@ busstop
 # public transport via bustops, person arrives very early
 busstop_early
 
-# public transport via bustops but the person departs to late to use a bus
+# public transport via bus stops but the person departs to late to use a bus
+# 
 busstop_too_late
 
-# public transport via bustops but the person misses barely misses the last bus
+# public transport via bus stops but the person barely misses the last bus
+# 
 busstop_too_late2
 
 # public transport via bustops, two busses at the same time
@@ -96,6 +113,9 @@ intermodal_car_walk_junctionTaz
 # train access
 access
 
+# train access with random position
+access_random
+
 # walk to train stop via access
 access_walk
 
@@ -121,6 +141,10 @@ car_public_walk5
 # check correct routing network when using internal edges
 car_public_walk_internal
 car_public_walk_parkingAreas
+taxi_public_taxi_anywhere
+
+# test transfer at parkingAreas
+taxi_public_taxi_parkingAreas
 
 # output bus route as well
 ptline_routing
@@ -171,4 +195,15 @@ taz
 
 # last edge of the ride differs from first edge of the walk
 atJunction_ride_walk
+
+# see #11820
+toJunction_twice
+
+# trip between identical stops
+sameStops
+carNoRoute
+
+# person must transfer between trains of the same line
+pt_looped_need_transfer
+car_between_stops
 errors

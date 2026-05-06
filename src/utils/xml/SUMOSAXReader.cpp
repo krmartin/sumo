@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2012-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -46,9 +46,18 @@ using XERCES_CPP_NAMESPACE::XMLUni;
 // ===========================================================================
 // method definitions
 // ===========================================================================
-SUMOSAXReader::SUMOSAXReader(GenericSAXHandler& handler, const std::string& validationScheme, XERCES_CPP_NAMESPACE::XMLGrammarPool* grammarPool)
-    : myHandler(nullptr), myValidationScheme(validationScheme), myGrammarPool(grammarPool), myXMLReader(nullptr),
-      myIStream(nullptr), myInputStream(nullptr), mySchemaResolver(true, false), myLocalResolver(false, false), myNoOpResolver(false, true), myNextSection(-1, nullptr) {
+
+SUMOSAXReader::SUMOSAXReader(GenericSAXHandler& handler, const std::string& validationScheme, XERCES_CPP_NAMESPACE::XMLGrammarPool* grammarPool) :
+    myHandler(nullptr),
+    myValidationScheme(validationScheme),
+    myGrammarPool(grammarPool),
+    myXMLReader(nullptr),
+    myIStream(nullptr),
+    myInputStream(nullptr),
+    mySchemaResolver(true, false),
+    myLocalResolver(false, false),
+    myNoOpResolver(false, true),
+    myNextSection(-1, nullptr) {
     setHandler(handler);
 }
 
@@ -98,10 +107,10 @@ SUMOSAXReader::setValidation(std::string validationScheme) {
 void
 SUMOSAXReader::parse(std::string systemID) {
     if (!FileHelpers::isReadable(systemID)) {
-        throw ProcessError("Cannot read file '" + systemID + "'!");
+        throw IOError(TLF("Cannot read file '%'!", systemID));
     }
     if (FileHelpers::isDirectory(systemID)) {
-        throw ProcessError("File '" + systemID + "' is a directory!");
+        throw IOError(TLF("File '%' is a directory!", systemID));
     }
     ensureSAXReader();
 #ifdef HAVE_ZLIB
@@ -124,10 +133,10 @@ SUMOSAXReader::parseString(std::string content) {
 bool
 SUMOSAXReader::parseFirst(std::string systemID) {
     if (!FileHelpers::isReadable(systemID)) {
-        throw ProcessError("Cannot read file '" + systemID + "'!");
+        throw IOError(TLF("Cannot read file '%'!", systemID));
     }
     if (FileHelpers::isDirectory(systemID)) {
-        throw ProcessError("File '" + systemID + "' is a directory!");
+        throw IOError(TLF("File '%' is a directory!", systemID));
     }
     ensureSAXReader();
     myToken = XERCES_CPP_NAMESPACE::XMLPScanToken();
@@ -144,20 +153,25 @@ SUMOSAXReader::parseFirst(std::string systemID) {
 bool
 SUMOSAXReader::parseNext() {
     if (myXMLReader == nullptr) {
-        throw ProcessError("The XML-parser was not initialized.");
+        throw ProcessError(TL("The XML-parser was not initialized."));
     }
     return myXMLReader->parseNext(myToken);
 }
 
 
 bool
-SUMOSAXReader::parseSection(int element) {
+SUMOSAXReader::parseSection(SumoXMLTag element) {
     if (myXMLReader == nullptr) {
-        throw ProcessError("The XML-parser was not initialized.");
+        throw ProcessError(TL("The XML-parser was not initialized."));
     }
     bool started = false;
     if (myNextSection.first != -1) {
         started = myNextSection.first == element;
+        if (!started) {
+            // This enforces that the next parsed section starts right after the last one.
+            // If we want to skip sections we need to change this.
+            WRITE_WARNINGF("Expected different XML section '%', some content may be missing.", toString(element));
+        }
         myHandler->myStartElement(myNextSection.first, *myNextSection.second);
         delete myNextSection.second;
         myNextSection.first = -1;
@@ -179,12 +193,18 @@ SUMOSAXReader::ensureSAXReader() {
     if (myXMLReader == nullptr) {
         myXMLReader = XERCES_CPP_NAMESPACE::XMLReaderFactory::createXMLReader(XERCES_CPP_NAMESPACE::XMLPlatformUtils::fgMemoryManager, myGrammarPool);
         if (myXMLReader == nullptr) {
-            throw ProcessError("The XML-parser could not be build.");
+            throw ProcessError(TL("The XML-parser could not be build."));
         }
         setValidation();
         myXMLReader->setContentHandler(myHandler);
         myXMLReader->setErrorHandler(myHandler);
     }
+}
+
+
+SUMOSAXReader::LocalSchemaResolver::LocalSchemaResolver(const bool haveFallback, const bool noOp) :
+    myHaveFallback(haveFallback),
+    myNoOp(noOp) {
 }
 
 

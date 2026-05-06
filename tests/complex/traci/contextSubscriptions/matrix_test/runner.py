@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2008-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -26,9 +26,12 @@ if "SUMO_HOME" in os.environ:
     sys.path.append(os.path.join(os.environ["SUMO_HOME"], "tools"))
 import sumolib  # noqa
 import traci  # noqa
+useDefaults = "--defaults" in sys.argv
+sumoOptions = [a for a in sys.argv[1:] if a.startswith('--') and a != '--defaults']
+positionalArgs = [a for a in sys.argv[1:] if not a.startswith('--')]
 
 
-def runSingle(viewRange, domain, domain2):
+def runSingle(viewRange, domain, domain2, varIDs):
     name = domain._name if hasattr(domain, "_name") else domain.__name__
     name2 = domain2._name if hasattr(domain2, "_name") else domain2.__name__
     ids = domain.getIDList() if name != "simulation" else [""]
@@ -41,12 +44,14 @@ def runSingle(viewRange, domain, domain2):
     print("trying to subscribe to %s around %s '%s' at time %s" % (
         name2, name, egoID, traci.simulation.getTime()))
     domain.subscribeContext(egoID, domain2.DOMAIN_ID, viewRange,
-                            [traci.constants.TRACI_ID_LIST])
-    responses = traci.simulationStep()
+                            varIDs)
+    traci.simulationStep()
+    responses = domain.getAllContextSubscriptionResults()
     print("   found %s objects" % len(responses))
 
     domain.unsubscribeContext(egoID, domain2.DOMAIN_ID, viewRange)
-    responses = traci.simulationStep()
+    traci.simulationStep()
+    responses = domain.getAllContextSubscriptionResults()
     if responses:
         print("Error: Unsubscribe did not work", responses)
     else:
@@ -54,25 +59,19 @@ def runSingle(viewRange, domain, domain2):
     sys.stdout.flush()
 
 
-def restart():
-    traci.start([sumolib.checkBinary(sys.argv[1]),
-                 '-Q', "-c", "sumo.sumocfg",
-                 '-a', 'input_additional.add.xml'])
+#  main
+try:
+    traci.start([sumolib.checkBinary(positionalArgs[0]),
+                '-Q', "-c", "sumo.sumocfg",
+                 '-a', 'input_additional.add.xml'] + sumoOptions)
     traci.simulationStep()
 
-
-#  main
-restart()
-for domain in traci.DOMAINS:
-    for domain2 in traci.DOMAINS:
-        try:
-            runSingle(100, domain, domain2)
-        except traci.FatalTraCIError as e:
-            print("restarting sumo due to FatalTraCIError '%s'" % e)
-            traci.close()
-            restart()
-        except traci.TraCIException as e:  # libsumo case
-            print("restarting sumo due to FatalTraCIError '%s'" % e)
-            traci.close()
-            restart()
-traci.close()
+    varIDs = None if useDefaults else [traci.constants.TRACI_ID_LIST]
+    for domain in traci.DOMAINS:
+        for domain2 in traci.DOMAINS:
+            try:
+                runSingle(100, domain, domain2, varIDs)
+            except traci.TraCIException:
+                pass
+finally:
+    traci.close()

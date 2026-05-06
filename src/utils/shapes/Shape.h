@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2012-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -37,7 +37,7 @@
  */
 class Shape : public Named {
 public:
-    /// @nane default shape's values
+    /// @name default shape's values
     /// @{
     static const std::string DEFAULT_TYPE;
     static const double DEFAULT_LAYER;
@@ -45,12 +45,16 @@ public:
     static const double DEFAULT_LAYER_POI;
     static const double DEFAULT_ANGLE;
     static const std::string DEFAULT_IMG_FILE;
-    static const bool DEFAULT_RELATIVEPATH;
     static const double DEFAULT_IMG_WIDTH;
     static const double DEFAULT_IMG_HEIGHT;
     static const std::string DEFAULT_NAME;
     static const Parameterised::Map DEFAULT_PARAMETERS;
     /// @}
+
+    /** @brief default consructor
+     * @param[in] id The name of the shape
+     */
+    Shape(const std::string& id);
 
     /** @brief Constructor
      * @param[in] id The name of the shape
@@ -60,13 +64,17 @@ public:
      * @param[in] angle The rotation of the shape in navigational degrees
      * @param[in] imgFile The raster image of the shape
      * @param[in] name shape name
-     * @param[in] relativePath set image file as relative path
      */
     Shape(const std::string& id, const std::string& type, const RGBColor& color, double layer,
-          double angle, const std::string& imgFile, const std::string& name, bool relativePath);
+          double angle, const std::string& imgFile, const std::string& name);
 
     /// @brief Destructor
     virtual ~Shape();
+
+    /**@brief write shape attributes in a xml file
+    * @param[in] device device in which write parameters of shape
+    */
+    void writeShapeAttributes(OutputDevice& device, const RGBColor& defaultColor, const double defaultLayer) const;
 
     /// @name Getter
     /// @{
@@ -74,51 +82,32 @@ public:
     /** @brief Returns the (abstract) type of the Shape
      * @return The Shape's (abstract) type
      */
-    inline const std::string& getShapeType() const {
-        return myType;
-    }
+    const std::string& getShapeType() const;
 
     /** @brief Returns the color of the Shape
      * @return The Shape's color
      */
-    inline const RGBColor& getShapeColor() const {
-        return myColor;
-    }
+    const RGBColor& getShapeColor() const;
 
     /** @brief Returns the layer of the Shape
      * @return The Shape's layer
      */
-    inline double getShapeLayer() const {
-        return myLayer;
-    }
+    double getShapeLayer() const;
 
     /** @brief Returns the angle of the Shape in navigational degrees
      * @return The Shape's rotation angle
      */
-    inline double getShapeNaviDegree() const {
-        return myNaviDegreeAngle;
-    }
+    double getShapeNaviDegree() const;
 
     /** @brief Returns the imgFile of the Shape
      * @return The Shape's rotation imgFile
      */
-    inline const std::string& getShapeImgFile() const {
-        return myImgFile;
-    }
+    const std::string& getShapeImgFile() const;
 
     /// @brief Returns the name of the Shape
-    inline const std::string getShapeName() const {
-        return myName;
-    }
+    const std::string& getShapeName() const;
 
-    /** @brief Returns the relativePath of the Shape
-     * @return The Shape's relativePath
-     */
-    inline bool getShapeRelativePath() const {
-        return myRelativePath;
-    }
     /// @}
-
 
     /// @name Setter
     /// @{
@@ -126,56 +115,36 @@ public:
     /** @brief Sets a new type
      * @param[in] type The new type to use
      */
-    inline void setShapeType(const std::string& type) {
-        myType = type;
-    }
+    void setShapeType(const std::string& type);
 
     /** @brief Sets a new color
      * @param[in] col The new color to use
      */
-    inline void setShapeColor(const RGBColor& col) {
-        myColor = col;
-    }
+    void setShapeColor(const RGBColor& col);
 
     /** @brief Sets a new alpha value
      * @param[in] alpha The new value to use
      */
-    inline void setShapeAlpha(unsigned char alpha) {
-        myColor.setAlpha(alpha);
-    }
+    void setShapeAlpha(unsigned char alpha);
 
     /** @brief Sets a new layer
      * @param[in] layer The new layer to use
      */
-    inline void setShapeLayer(const double layer) {
-        myLayer = layer;
-    }
+    void setShapeLayer(const double layer);
 
     /** @brief Sets a new angle in navigational degrees
      * @param[in] layer The new angle to use
      */
-    virtual void setShapeNaviDegree(const double angle) {
-        myNaviDegreeAngle = angle;
-    }
+    virtual void setShapeNaviDegree(const double angle);
 
     /** @brief Sets a new imgFile
      * @param[in] imgFile The new imgFile to use
      */
-    inline void setShapeImgFile(const std::string& imgFile) {
-        myImgFile = imgFile;
-    }
+    void setShapeImgFile(const std::string& imgFile);
 
     /// @brief Sets a new shape name
-    inline void setShapeName(const std::string& name) {
-        myName = name;
-    }
+    void setShapeName(const std::string& name);
 
-    /** @brief Sets a new relativePath value
-     * @param[in] relativePath The new relative path to set
-     */
-    inline void setShapeRelativePath(bool relativePath) {
-        myRelativePath = relativePath;
-    }
     /// @}
 
 private:
@@ -196,7 +165,4 @@ private:
 
     /// @brief shape name
     std::string myName;
-
-    /// @brief Enable or disable save imgFile as relative path
-    bool myRelativePath;
 };

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -50,14 +50,12 @@ MSSimpleTrafficLightLogic::MSSimpleTrafficLightLogic(MSTLLogicControl& tlcontrol
     MSTrafficLightLogic(tlcontrol, id, programID, offset, logicType, delay, parameters),
     myPhases(phases),
     myStep(step) {
-    for (const MSPhaseDefinition* phase : myPhases) {
-        myDefaultCycleTime += phase->duration;
-    }
+    myDefaultCycleTime = computeCycleTime(myPhases);
     if (myStep < (int)myPhases.size()) {
         myPhases[myStep]->myLastSwitch = SIMSTEP;
     }
     // the following initializations are only used by 'actuated' and 'delay_based' but do not affect 'static'
-    if (knowsParameter(toString(SUMO_ATTR_CYCLETIME))) {
+    if (hasParameter(toString(SUMO_ATTR_CYCLETIME))) {
         myDefaultCycleTime = TIME2STEPS(StringUtils::toDouble(Parameterised::getParameter(toString(SUMO_ATTR_CYCLETIME), "")));
     }
     myCoordinated = StringUtils::toBool(Parameterised::getParameter("coordinated", "false"));
@@ -148,6 +146,12 @@ MSSimpleTrafficLightLogic::getCurrentPhaseIndex() const {
 const MSPhaseDefinition&
 MSSimpleTrafficLightLogic::getCurrentPhaseDef() const {
     return *myPhases[myStep];
+}
+
+
+void
+MSSimpleTrafficLightLogic::resetLastSwitch(SUMOTime t) {
+    myPhases[myStep]->myLastSwitch = t;
 }
 
 
@@ -294,7 +298,10 @@ MSSimpleTrafficLightLogic::changeStepAndDuration(MSTLLogicControl& tlcontrol,
     if (step >= 0 && step != myStep) {
         myStep = step;
         myPhases[myStep]->myLastSwitch = MSNet::getInstance()->getCurrentTimeStep();
-        setTrafficLightSignals(simStep);
+        if (myAmActive) {
+            // when loading from state, the last loaded program isn't always the active one
+            setTrafficLightSignals(simStep);
+        }
         tlcontrol.get(getID()).executeOnSwitchActions();
     }
     MSNet::getInstance()->getBeginOfTimestepEvents()->addEvent(
@@ -305,9 +312,12 @@ MSSimpleTrafficLightLogic::changeStepAndDuration(MSTLLogicControl& tlcontrol,
 void
 MSSimpleTrafficLightLogic::setPhases(const Phases& phases, int step) {
     assert(step < (int)phases.size());
+    SUMOTime lastSwitch = myPhases[myStep]->getState() == phases[step]->getState() ? myPhases[myStep]->myLastSwitch : SIMSTEP;
     deletePhases();
     myPhases = phases;
     myStep = step;
+    myDefaultCycleTime = computeCycleTime(myPhases);
+    myPhases[myStep]->myLastSwitch = lastSwitch;
 }
 
 
@@ -318,15 +328,24 @@ MSSimpleTrafficLightLogic::deletePhases() {
     }
 }
 
+
 void
-MSSimpleTrafficLightLogic::saveState(OutputDevice& out) const {
-    out.openTag(SUMO_TAG_TLLOGIC);
+MSSimpleTrafficLightLogic::saveStateAttrs(OutputDevice& out) const {
     out.writeAttr(SUMO_ATTR_ID, getID());
     out.writeAttr(SUMO_ATTR_PROGRAMID, getProgramID());
     out.writeAttr(SUMO_ATTR_PHASE, getCurrentPhaseIndex());
     out.writeAttr(SUMO_ATTR_DURATION, getSpentDuration());
+    out.writeAttr(SUMO_ATTR_ACTIVE, myAmActive);
+}
+
+
+void
+MSSimpleTrafficLightLogic::saveState(OutputDevice& out) const {
+    out.openTag(SUMO_TAG_TLLOGIC);
+    saveStateAttrs(out);
     out.closeTag();
 }
+
 
 const std::string
 MSSimpleTrafficLightLogic::getParameter(const std::string& key, const std::string defaultValue) const {
@@ -338,6 +357,8 @@ MSSimpleTrafficLightLogic::getParameter(const std::string& key, const std::strin
         return toString(myCoordinated);
     } else if (key == "cycleSecond") {
         return toString(STEPS2TIME(getTimeInCycle()));
+    } else if (key == "typeName") {
+        return toString(this->getLogicType());
     }
     return Parameterised::getParameter(key, defaultValue);
 }
@@ -347,7 +368,7 @@ MSSimpleTrafficLightLogic::setParameter(const std::string& key, const std::strin
     if (key == "cycleTime") {
         myDefaultCycleTime = string2time(value);
         Parameterised::setParameter(key, value);
-    } else if (key == "cycleSecond") {
+    } else if (key == "cycleSecond" || key == "typeName") {
         throw InvalidArgument(key + " cannot be changed dynamically for traffic light '" + getID() + "'");
     } else if (key == "offset") {
         myOffset = string2time(value);

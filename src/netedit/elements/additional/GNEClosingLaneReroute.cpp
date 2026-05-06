@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -19,32 +19,31 @@
 /****************************************************************************/
 #include <config.h>
 
-#include "GNEClosingLaneReroute.h"
 #include <netedit/changes/GNEChange_Attribute.h>
-
-#include <netedit/GNEUndoList.h>
 #include <netedit/GNENet.h>
 
+#include "GNEClosingLaneReroute.h"
 
 // ===========================================================================
 // member method definitions
 // ===========================================================================
 
 GNEClosingLaneReroute::GNEClosingLaneReroute(GNENet* net) :
-    GNEAdditional("", net, GLO_REROUTER_CLOSINGLANEREROUTE, SUMO_TAG_CLOSING_LANE_REROUTE, 
-    GUIIconSubSys::getIcon(GUIIcon::CLOSINGLANEREROUTE), "", {}, {}, {}, {}, {}, {}),
+    GNEAdditional(net, SUMO_TAG_CLOSING_LANE_REROUTE),
+    GNEAdditionalListed(this),
     myClosedLane(nullptr),
     myPermissions(0) {
-    // reset default values
-    resetDefaultValues();
 }
 
 
 GNEClosingLaneReroute::GNEClosingLaneReroute(GNEAdditional* rerouterIntervalParent, GNELane* closedLane, SVCPermissions permissions) :
-    GNEAdditional(rerouterIntervalParent->getNet(), GLO_REROUTER_CLOSINGLANEREROUTE, SUMO_TAG_CLOSING_LANE_REROUTE, 
-    GUIIconSubSys::getIcon(GUIIcon::CLOSINGLANEREROUTE), "", {}, {}, {}, {rerouterIntervalParent}, {}, {}),
+    GNEAdditional(rerouterIntervalParent, SUMO_TAG_CLOSING_LANE_REROUTE, ""),
+    GNEAdditionalListed(this),
     myClosedLane(closedLane),
     myPermissions(permissions) {
+    // set parents
+    setParent<GNEAdditional*>(rerouterIntervalParent);
+    setParent<GNELane*>(closedLane);
     // update boundary of rerouter parent
     rerouterIntervalParent->getParentAdditionals().front()->updateCenteringBoundary(true);
 }
@@ -53,11 +52,32 @@ GNEClosingLaneReroute::GNEClosingLaneReroute(GNEAdditional* rerouterIntervalPare
 GNEClosingLaneReroute::~GNEClosingLaneReroute() {}
 
 
+GNEMoveElement*
+GNEClosingLaneReroute::getMoveElement() const {
+    return nullptr;
+}
+
+
+Parameterised*
+GNEClosingLaneReroute::getParameters() {
+    return nullptr;
+}
+
+
+const Parameterised*
+GNEClosingLaneReroute::getParameters() const {
+    return nullptr;
+}
+
+
 void
 GNEClosingLaneReroute::writeAdditional(OutputDevice& device) const {
     device.openTag(SUMO_TAG_CLOSING_LANE_REROUTE);
+    // write common additional attributes
+    writeAdditionalAttributes(device);
+    // write specific attributes
     device.writeAttr(SUMO_ATTR_ID, getAttribute(SUMO_ATTR_LANE));
-    if (getAttribute(SUMO_ATTR_ALLOW) != "authority") {
+    if (getAttribute(SUMO_ATTR_ALLOW) != getVehicleClassNames(SVCAll)) {
         if (!getAttribute(SUMO_ATTR_ALLOW).empty()) {
             device.writeAttr(SUMO_ATTR_ALLOW, getAttribute(SUMO_ATTR_ALLOW));
         } else {
@@ -68,36 +88,45 @@ GNEClosingLaneReroute::writeAdditional(OutputDevice& device) const {
 }
 
 
-GNEMoveOperation*
-GNEClosingLaneReroute::getMoveOperation() {
-    // GNEClosingLaneReroute cannot be moved
-    return nullptr;
+bool
+GNEClosingLaneReroute::isAdditionalValid() const {
+    return true;
+}
+
+
+std::string
+GNEClosingLaneReroute::getAdditionalProblem() const {
+    return "";
+}
+
+
+void
+GNEClosingLaneReroute::fixAdditionalProblem() {
+    // nothing to fix
+}
+
+
+bool
+GNEClosingLaneReroute::checkDrawMoveContour() const {
+    return false;
 }
 
 
 void
 GNEClosingLaneReroute::updateGeometry() {
-    // update centering boundary (needed for centering)
-    updateCenteringBoundary(false);
+    updateGeometryListedAdditional();
 }
 
 
 Position
 GNEClosingLaneReroute::getPositionInView() const {
-    // get rerouter parent position
-    Position signPosition = getParentAdditionals().front()->getParentAdditionals().front()->getPositionInView();
-    // set position depending of indexes
-    signPosition.add(4.5 + 6.25, (getDrawPositionIndex() * -1) - getParentAdditionals().front()->getDrawPositionIndex() + 1, 0);
-    // return signPosition
-    return signPosition;
+    return getListedPositionInView();
 }
 
 
 void
 GNEClosingLaneReroute::updateCenteringBoundary(const bool /*updateGrid*/) {
-    myAdditionalBoundary.reset();
-    myAdditionalBoundary.add(getPositionInView());
-    myAdditionalBoundary.grow(5);
+    // nothing to update
 }
 
 
@@ -115,11 +144,9 @@ GNEClosingLaneReroute::getParentName() const {
 
 void
 GNEClosingLaneReroute::drawGL(const GUIVisualizationSettings& s) const {
-    // draw closing lane reroute as listed attribute
-    drawListedAddtional(s, getParentAdditionals().front()->getParentAdditionals().front()->getPositionInView(),
-                        1, getParentAdditionals().front()->getDrawPositionIndex(),
-                        RGBColor::RED, RGBColor::YELLOW, GUITexture::REROUTER_CLOSINGLANEREROUTE,
-                        getAttribute(SUMO_ATTR_LANE));
+    // draw closing reroute as listed attribute
+    drawListedAdditional(s, RGBColor::RED, RGBColor::YELLOW, GUITexture::REROUTER_CLOSINGLANEREROUTE,
+                         getAttribute(SUMO_ATTR_LANE));
 }
 
 
@@ -136,25 +163,28 @@ GNEClosingLaneReroute::getAttribute(SumoXMLAttr key) const {
             return getVehicleClassNames(invertPermissions(myPermissions));
         case GNE_ATTR_PARENT:
             return getParentAdditionals().at(0)->getID();
-        case GNE_ATTR_SELECTED:
-            return toString(isAttributeCarrierSelected());
         case GNE_ATTR_SHIFTLANEINDEX:
             return "";
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return getCommonAttribute(key);
     }
 }
 
 
 double
 GNEClosingLaneReroute::getAttributeDouble(SumoXMLAttr key) const {
-    throw InvalidArgument(getTagStr() + " doesn't have a double attribute of type '" + toString(key) + "'");
+    return getCommonAttributeDouble(key);
 }
 
 
-const Parameterised::Map&
-GNEClosingLaneReroute::getACParametersMap() const {
-    return PARAMETERS_EMPTY;
+Position GNEClosingLaneReroute::getAttributePosition(SumoXMLAttr key) const {
+    return getCommonAttributePosition(key);
+}
+
+
+PositionVector
+GNEClosingLaneReroute::getAttributePositionVector(SumoXMLAttr key) const {
+    return getCommonAttributePositionVector(key);
 }
 
 
@@ -165,12 +195,12 @@ GNEClosingLaneReroute::setAttribute(SumoXMLAttr key, const std::string& value, G
         case SUMO_ATTR_LANE:
         case SUMO_ATTR_ALLOW:
         case SUMO_ATTR_DISALLOW:
-        case GNE_ATTR_SELECTED:
         case GNE_ATTR_SHIFTLANEINDEX:
-            undoList->changeAttribute(new GNEChange_Attribute(this, key, value));
+            GNEChange_Attribute::changeAttribute(this, key, value, undoList);
             break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setCommonAttribute(key, value, undoList);
+            break;
     }
 }
 
@@ -185,10 +215,8 @@ GNEClosingLaneReroute::isValid(SumoXMLAttr key, const std::string& value) {
         case SUMO_ATTR_ALLOW:
         case SUMO_ATTR_DISALLOW:
             return canParseVehicleClasses(value);
-        case GNE_ATTR_SELECTED:
-            return canParse<double>(value);
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return isCommonAttributeValid(key, value);
     }
 }
 
@@ -213,7 +241,7 @@ GNEClosingLaneReroute::setAttribute(SumoXMLAttr key, const std::string& value) {
     switch (key) {
         case SUMO_ATTR_ID:
             // update microsimID
-            setMicrosimID(value);
+            setAdditionalID(value);
             break;
         case SUMO_ATTR_LANE:
             myClosedLane = myNet->getAttributeCarriers()->retrieveLane(value);
@@ -224,31 +252,13 @@ GNEClosingLaneReroute::setAttribute(SumoXMLAttr key, const std::string& value) {
         case SUMO_ATTR_DISALLOW:
             myPermissions = invertPermissions(parseVehicleClasses(value));
             break;
-        case GNE_ATTR_SELECTED:
-            if (parse<bool>(value)) {
-                selectAttributeCarrier();
-            } else {
-                unselectAttributeCarrier();
-            }
-            break;
         case GNE_ATTR_SHIFTLANEINDEX:
             shiftLaneIndex();
             break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setCommonAttribute(key, value);
+            break;
     }
-}
-
-
-void
-GNEClosingLaneReroute::setMoveShape(const GNEMoveResult& /*moveResult*/) {
-    // nothing to do
-}
-
-
-void
-GNEClosingLaneReroute::commitMoveShape(const GNEMoveResult& /*moveResult*/, GNEUndoList* /*undoList*/) {
-    // nothing to do
 }
 
 /****************************************************************************/

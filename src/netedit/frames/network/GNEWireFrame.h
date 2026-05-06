@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2021-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2021-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,20 +21,20 @@
 #include <config.h>
 
 #include <netedit/frames/GNEFrame.h>
-#include <netedit/frames/GNEAttributesCreator.h>
-#include <netedit/frames/GNEConsecutiveSelector.h>
-#include <netedit/frames/GNESelectorParent.h>
-#include <netedit/frames/GNETagSelector.h>
-#include <netedit/frames/GNENeteditAttributes.h>
 
+// ===========================================================================
+// class declaration
+// ===========================================================================
+
+class GNETagSelector;
+class GNEAttributesEditor;
+class GNESelectorParent;
+class GNEConsecutiveSelector;
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @class GNEWireFrame
- * The Widget for editing connection foes
- */
+
 class GNEWireFrame : public GNEFrame {
 
 public:
@@ -42,7 +42,7 @@ public:
      * @brief viewParent GNEViewParent in which this GNEFrame is placed
      * @brief viewNet viewNet that uses this GNEFrame
      */
-    GNEWireFrame(GNEViewParent *viewParent, GNEViewNet* viewNet);
+    GNEWireFrame(GNEViewParent* viewParent, GNEViewNet* viewNet);
 
     /// @brief Destructor
     ~GNEWireFrame();
@@ -51,16 +51,16 @@ public:
     void show();
 
     /**@brief add wire element
-     * @param objectsUnderCursor collection of objects under cursor after click over view
+     * @param viewObjects collection of objects under cursor after click over view
      * @return true if wire was successfully added
      */
-    bool addWire(const GNEViewNetHelper::ObjectsUnderCursor& objectsUnderCursor);
+    bool addWire(const GNEViewNetHelper::ViewObjectsSelector& viewObjects);
 
     /// @brief get consecutive lane selector
     GNEConsecutiveSelector* getConsecutiveLaneSelector() const;
 
     /// @brief create path
-    void createPath(const bool useLastRoute);
+    bool createPath(const bool useLastRoute);
 
 protected:
     /// @brief SumoBaseObject used for create wire
@@ -71,23 +71,23 @@ protected:
 
 private:
     // @brief create baseWireObject
-    bool createBaseWireObject(const GNETagProperties& tagProperty);
+    bool createBaseWireObject(const GNETagProperties* tagProperty);
 
     /// @brief build wire over view
-    bool buildWireOverView(const GNETagProperties& tagValues);
+    bool buildWireOverView(const GNETagProperties* tagProperty);
 
     /// @brief item selector
     GNETagSelector* myWireTagSelector = nullptr;
 
     /// @brief internal wire attributes
-    GNEAttributesCreator* myWireAttributes = nullptr;
-
-    /// @brief Netedit parameter
-    GNENeteditAttributes* myNeteditAttributes = nullptr;
+    GNEAttributesEditor* myWireAttributesEditor = nullptr;
 
     /// @brief Select wire parent
     GNESelectorParent* mySelectorWireParent = nullptr;
 
     /// @brief Module for select consecutive lanes
-    GNEConsecutiveSelector* myConsecutiveLaneSelector;
+    GNEConsecutiveSelector* myConsecutiveLaneSelector = nullptr;
+
+    /// @brief Warn about experimental state
+    bool myWarnedExperimental = false;
 };

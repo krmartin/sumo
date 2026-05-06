@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2009-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2009-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -19,56 +19,49 @@
 import os
 import sys
 
-testRoot = os.path.join(os.environ.get('SUMO_HOME', '.'), 'tests')
-neteditTestRoot = os.path.join(
-    os.environ.get('TEXTTEST_HOME', testRoot), 'netedit')
-sys.path.append(neteditTestRoot)
+sys.path.append(os.path.join(os.environ.get("SUMO_HOME", "."), "tools"))
 import neteditTestFunctions as netedit  # noqa
 
 # Open netedit
-neteditProcess, referencePosition = netedit.setupAndStart(neteditTestRoot)
+neteditProcess, referencePosition = netedit.setupAndStart()
 
-# force save additionals
-netedit.forceSaveAdditionals()
-
-# inspecte edge
-netedit.leftClick(referencePosition, 210, 210)
+# go to inspect mode
+netedit.changeMode("inspect")
 
 # select edge using control
-netedit.leftClickControl(referencePosition, 210, 210)
+netedit.leftClickControl(referencePosition, netedit.positions.selection.edge)
 
 # unselect edge using control
-netedit.leftClickControl(referencePosition, 210, 210)
+netedit.leftClickControl(referencePosition, netedit.positions.selection.edge)
+
+# this should not delete anything
+netedit.delete()
 
 # go to select mode
-netedit.selectMode()
+netedit.changeMode("select")
 
-# select edge using a simple click
-netedit.leftClickControl(referencePosition, 210, 210)
+# select lane using shift + click
+netedit.leftClickShift(referencePosition, netedit.positions.selection.edge)
+
+# unselect lane using shift + click
+netedit.leftClickShift(referencePosition, netedit.positions.selection.edge)
+
+# this should not delete anything
+netedit.delete()
 
 # toggle edges selection
 netedit.changeEditMode(netedit.attrs.modes.network.selectLane)
 
 # select lane using a simple click
-netedit.leftClickControl(referencePosition, 210, 240)
-
+netedit.leftClick(referencePosition, netedit.positions.selection.edge)
 # unselect lane using a simple click
-netedit.leftClickControl(referencePosition, 210, 240)
+netedit.leftClick(referencePosition, netedit.positions.selection.edge)
 
-# go to inspect mode
-netedit.inspectMode()
+# this should not delete anything
+netedit.delete()
 
-# select lane using control + click
-netedit.leftClickControl(referencePosition, 210, 240)
-
-# select lane using control + click in an edge previously selected
-netedit.leftClickControl(referencePosition, 210, 210)
-
-# save network
-netedit.saveNetwork(referencePosition)
-
-# save shapes
-netedit.saveAdditionals(referencePosition)
+# save Netedit config
+netedit.saveExistentFile("neteditConfig")
 
 # quit netedit
 netedit.quit(neteditProcess)

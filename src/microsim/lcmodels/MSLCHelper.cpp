@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2013-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2013-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -62,6 +62,10 @@ MSLCHelper::getRoundaboutDistBonus(const MSVehicle& veh,
                   << "\n";
     }
 #endif
+    if (neigh.lane == inner.lane && curr.bestContinuations.size() < neigh.bestContinuations.size()) {
+        // the current lane does not continue to the roundabout and we need a strategic change first.
+        return 0;
+    }
 
     int roundaboutJunctionsAhead = 0;
     bool enteredRoundabout = false;
@@ -105,9 +109,13 @@ MSLCHelper::getRoundaboutDistBonus(const MSVehicle& veh,
     }
     // no bonus if we want to take the next exit
     if (roundaboutJunctionsAhead < 2) {
+#ifdef DEBUG_WANTS_CHANGE
+        if (debugVehicle) {
+            std::cout << "   noBonus: roundaboutJunctionsAhead=" << roundaboutJunctionsAhead << "\n";
+        }
+#endif
         return 0;
     }
-
     // compute bonus value based on jamming and exact distances (taking into
     // account internal lanes)
     double occupancyOuter = 0;
@@ -192,17 +200,31 @@ MSLCHelper::getRoundaboutDistBonus(const MSVehicle& veh,
                   << "\n";
     }
 #endif
+    if (abs(curr.bestLaneOffset) > 1 && enteredRoundabout) {
+        const double bGap = veh.getCarFollowModel().brakeGap(veh.getSpeed() + ACCEL2SPEED(veh.getCarFollowModel().getMaxAccel()), veh.getCarFollowModel().getMaxDecel(), veh.getActionStepLengthSecs());
+        const double reservation = veh.getLaneChangeModel().getExtraReservation(curr.bestLaneOffset);
+        const double leftSpace = distanceInRoundabout - reservation - veh.getPositionOnLane();
+#ifdef DEBUG_WANTS_CHANGE
+        if (debugVehicle) {
+            std::cout << "   bGap=" << bGap << " reserving=" << reservation << " leftover=" << (leftSpace - bGap) << "\n";
+        }
+#endif
+        if (bGap > leftSpace) {
+            return 0;
+        }
+    }
 
     const double maxOccupancy = MAX2(occupancyInner, occupancyOuter);
-    if (maxOccupancy == 0) {
-        // no bonues if the roundabout is empty
-        return 0;
-    }
     // give some bonus for using the inside lane at equal occupancy
     const double bonus = roundaboutJunctionsAhead * 7.5;
     const double relativeJam = (occupancyOuter - occupancyInner + bonus) / (maxOccupancy + bonus);
     // no bonus if the inner lane or the left lane entering the roundabout is jammed
-    const double jamFactor = MAX2(0.0, relativeJam);
+    double jamFactor = MAX2(0.0, relativeJam);
+    if (veh.getLane()->getEdge().isRoundabout() && curr.lane->getIndex() > neigh.lane->getIndex()) {
+        // only use jamFactor when deciding to move to the inside lane but prefer
+        // staying inside if the distance allows it
+        jamFactor = 1;
+    }
     const double result = distanceInRoundabout * jamFactor * bonusParam * 9; // the 9 is abitrary and only there for backward compatibility
 #ifdef DEBUG_WANTS_CHANGE
     if (debugVehicle) {
@@ -217,7 +239,7 @@ MSLCHelper::getRoundaboutDistBonus(const MSVehicle& veh,
 
 
 bool
-MSLCHelper::saveBlockerLength(const MSVehicle& veh,  MSVehicle* blocker, int lcaCounter, double leftSpace, bool reliefConnection, double& leadingBlockerLength) {
+MSLCHelper::updateBlockerLength(const MSVehicle& veh,  MSVehicle* blocker, int lcaCounter, double leftSpace, bool reliefConnection, double& leadingBlockerLength) {
 #ifdef DEBUG_SAVE_BLOCKER_LENGTH
     if (DEBUG_COND) {
         std::cout << SIMTIME
@@ -229,15 +251,18 @@ MSLCHelper::saveBlockerLength(const MSVehicle& veh,  MSVehicle* blocker, int lca
 #endif
     if (blocker != nullptr && (blocker->getLaneChangeModel().getOwnState() & lcaCounter) != 0) {
         // is there enough space in front of us for the blocker?
+        const double required = blocker->getVehicleType().getLengthWithGap() + veh.getVehicleType().getMinGap();
         const double potential = leftSpace - veh.getCarFollowModel().brakeGap(
                                      veh.getSpeed(), veh.getCarFollowModel().getMaxDecel(), 0);
-        if (blocker->getVehicleType().getLengthWithGap() <= potential) {
+        if (required <= potential) {
             // save at least his length in myLeadingBlockerLength
-            leadingBlockerLength = MAX2(blocker->getVehicleType().getLengthWithGap(), leadingBlockerLength);
+            leadingBlockerLength = MAX2(required, leadingBlockerLength);
 #ifdef DEBUG_SAVE_BLOCKER_LENGTH
             if (DEBUG_COND) {
                 std::cout << SIMTIME
                           << " veh=" << veh.getID()
+                          << " required=" << required
+                          << " potential=" << potential
                           << " blocker=" << Named::getIDSecure(blocker)
                           << " saving myLeadingBlockerLength=" << leadingBlockerLength
                           << "\n";
@@ -246,24 +271,36 @@ MSLCHelper::saveBlockerLength(const MSVehicle& veh,  MSVehicle* blocker, int lca
         } else {
             // we cannot save enough space for the blocker. It needs to save
             // space for ego instead
-            const bool canReserve = blocker->getLaneChangeModel().saveBlockerLength(veh.getVehicleType().getLengthWithGap(), leftSpace);
+            const double required2 = veh.getVehicleType().getLengthWithGap() + blocker->getVehicleType().getMinGap();
+            const double foeLeftSpace = leftSpace - veh.getPositionOnLane() + blocker->getPositionOnLane() - POSITION_EPS;
+            const bool canReserve = blocker->getLaneChangeModel().saveBlockerLength(required2, foeLeftSpace);
             //reliefConnection ? std::numeric_limits<double>::max() : leftSpace);
 #ifdef DEBUG_SAVE_BLOCKER_LENGTH
             if (DEBUG_COND) {
                 std::cout << SIMTIME
                           << " veh=" << veh.getID()
-                          << " blocker=" << Named::getIDSecure(blocker)
-                          << " cannot save space=" << blocker->getVehicleType().getLengthWithGap()
+                          << " required=" << required
                           << " potential=" << potential
+                          << " blocker=" << Named::getIDSecure(blocker)
+                          << " required2=" << required2
+                          << " foeCanReserve=" << canReserve
                           << " myReserved=" << leadingBlockerLength
-                          << " canReserve=" << canReserve
                           << " reliefConnection=" << reliefConnection
                           << "\n";
             }
 #endif
             if (!canReserve && !reliefConnection) {
-                // reserve anyway and try to avoid deadlock with emergency deceleration
-                leadingBlockerLength = MAX2(blocker->getVehicleType().getLengthWithGap(), leadingBlockerLength);
+                const int blockerState = blocker->getLaneChangeModel().getOwnState();
+                if ((blockerState & LCA_STRATEGIC) != 0
+                        && (blockerState & LCA_URGENT) != 0) {
+                    // reserve anyway and try to avoid deadlock with emergency deceleration
+                    leadingBlockerLength = MAX2(required, leadingBlockerLength);
+#ifdef DEBUG_SAVE_BLOCKER_LENGTH
+                    if (DEBUG_COND) {
+                        std::cout << "   reserving anyway to avoid deadlock (will cause emergency braking)\n";
+                    }
+#endif
+                }
             }
             return canReserve;
         }
@@ -290,6 +327,66 @@ MSLCHelper::divergentRoute(const MSVehicle& v1, const MSVehicle& v2) {
     return (v1.getLane()->isInternal() && v2.getLane()->isInternal()
             && v1.getLane()->getEdge().getFromJunction() == v2.getLane()->getEdge().getFromJunction()
             && &v1.getLane()->getEdge() != &v2.getLane()->getEdge());
+}
+
+
+double
+MSLCHelper::getSpeedPreservingSecureGap(const MSVehicle& leader, const MSVehicle& follower, double currentGap, double leaderPlannedSpeed) {
+    // whatever speed the follower choses in the next step, it will change both
+    // the secureGap and the required followSpeed.
+    // Let's assume the leader maintains speed
+    const double nextGap = currentGap + SPEED2DIST(leaderPlannedSpeed - follower.getSpeed());
+    double sGap = follower.getCarFollowModel().getSecureGap(&follower, &leader, follower.getSpeed(), leaderPlannedSpeed, leader.getCarFollowModel().getMaxDecel());
+    if (nextGap >= sGap) {
+        // follower may still accelerate
+        const double nextGapMin = currentGap + SPEED2DIST(leaderPlannedSpeed - follower.getCarFollowModel().maxNextSpeed(follower.getSpeed(), &follower));
+        const double vSafe = follower.getCarFollowModel().followSpeed(
+                                 &follower, follower.getSpeed(), nextGapMin, leaderPlannedSpeed, leader.getCarFollowModel().getMaxDecel());
+        return MAX2(vSafe, follower.getSpeed());
+    } else {
+        // follower must brake. The following brakes conservatively since the actual gap will be lower due to braking.
+        const double vSafe = follower.getCarFollowModel().followSpeed(
+                                 &follower, follower.getSpeed(), nextGap, leaderPlannedSpeed, leader.getCarFollowModel().getMaxDecel());
+        // avoid emergency deceleration
+        return MAX2(vSafe, follower.getCarFollowModel().minNextSpeed(follower.getSpeed(), &follower));
+    }
+}
+
+
+bool
+MSLCHelper::isBidiLeader(const MSVehicle* leader, const std::vector<MSLane*>& cont) {
+    if (leader == nullptr) {
+        return false;
+    }
+    const MSLane* lane1 = leader->getLane()->getNormalSuccessorLane()->getBidiLane();
+    const MSLane* lane2 = leader->getLane()->getNormalPredecessorLane()->getBidiLane();
+    if (lane1 == nullptr && lane2 == nullptr) {
+        return false;
+    }
+    bool result = std::find(cont.begin(), cont.end(), lane1) != cont.end();
+    if (!result && lane1 != lane2 && lane2 != nullptr) {
+        result = std::find(cont.begin(), cont.end(), lane2) != cont.end();
+    }
+    return result;
+}
+
+
+bool
+MSLCHelper::isBidiFollower(const MSVehicle* ego, const MSVehicle* follower) {
+    if (follower == nullptr) {
+        return false;
+    }
+    bool result = false;
+    const MSLane* lane1 = follower->getLane()->getNormalSuccessorLane()->getBidiLane();
+    const MSLane* lane2 = follower->getLane()->getNormalPredecessorLane()->getBidiLane();
+    const ConstMSEdgeVector& route = ego->getRoute().getEdges();
+    if (lane1 != nullptr) {
+        result = std::find(route.begin(), route.end(), &lane1->getEdge()) != route.end();
+    }
+    if (!result && lane1 != lane2 && lane2 != nullptr) {
+        result = std::find(route.begin(), route.end(), &lane2->getEdge()) != route.end();
+    }
+    return result;
 }
 
 /****************************************************************************/

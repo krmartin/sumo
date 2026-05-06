@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2005-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2005-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -30,7 +30,11 @@
 #define UNUSED_PARAMETER(x)  ((void)(x))
 
 #ifdef _MSC_VER
+#if _MSC_VER < 1943
 #define FALLTHROUGH /* do nothing */
+#else
+#define FALLTHROUGH [[fallthrough]]
+#endif
 #elif __GNUC__ < 7
 #define FALLTHROUGH /* do nothing */
 #else
@@ -57,15 +61,20 @@ const double SUMO_const_waitingContainerDepth = 6.2;
 /// @brief the speed threshold at which vehicles are considered as halting
 const double SUMO_const_haltingSpeed = (double) 0.1;
 
+/// @brief invalid int
+const int INVALID_INT = std::numeric_limits<int>::max();
+
+/// @brief invalid double
 const double INVALID_DOUBLE = std::numeric_limits<double>::max();
 
-/// @brief version for written networks and default version for loading
-const double NETWORK_VERSION = 1.9;
-
+/// @brief (M)ajor/(M)inor version for written networks and default version for loading
+typedef std::pair<int, double> MMVersion;
+const MMVersion NETWORK_VERSION(1, 20);
 
 /* -------------------------------------------------------------------------
  * templates for mathematical functions missing in some c++-implementations
  * ----------------------------------------------------------------------- */
+
 template<typename T>
 inline T
 MIN2(T a, T b) {
@@ -107,23 +116,28 @@ MAX4(T a, T b, T c, T d) {
 }
 
 
-template<typename T>
-inline T
-ISNAN(T a) {
-    volatile T d = a;
-    return d != d;
-}
-
-
 /// the precision for floating point outputs
 extern int gPrecision;
+extern int gPrecisionEmissions;
 extern int gPrecisionGeo; // for lon,lat
 extern int gPrecisionRandom; // for randomized values (i.e. speedFactor)
 extern bool gHumanReadableTime;
 extern bool gSimulation; // whether the current application is sumo or sumo-gui (as opposed to a router)
+extern bool gIgnoreUnknownVClass; // whether the unknown vehicle classes shall be ignored on loading (for upward compatibility)
+extern bool gLocaleInitialized; // whether the gettext locale for translating messages has already been loaded
 extern double gWeightsRandomFactor; // randomization for edge weights
 extern double gWeightsWalkOppositeFactor; // factor for walking against flow of traffic
+extern bool gRoutingPreferences; // whether routing preferences have been loaded
+extern int gTaxiClasses; // SVCPermissions for taxi routing
 
+/// the language for GUI elements and messages
+extern std::string gLanguage;
+
+/// the default height for GUI elements
+extern int GUIDesignHeight;
+
+/// the default height for dialog buttons
+extern int GUIDesignDialogButtonsHeight;
 
 /// @brief global utility flags for debugging
 extern bool gDebugFlag1;
@@ -133,8 +147,8 @@ extern bool gDebugFlag4;
 extern bool gDebugFlag5;
 extern bool gDebugFlag6;
 
-// synchronized output to stdout with << (i.e. DEBUGOUT(SIMTIME << " var=" << var << "\n")
-#define DEBUGOUT(msg) {std::ostringstream oss; oss << msg; std::cout << oss.str();}
+// synchronized output to stdout with << (i.e. DEBUGOUT(gDebugFlag1, SIMTIME << " var=" << var << "\n")
+#define DEBUGOUT(cond, msg) if (cond) {std::ostringstream oss; oss << msg; std::cout << oss.str();}
 
 /// @brief discrds mantissa bits beyond the given number
 double truncate(double x, int fractionBits);
@@ -145,9 +159,12 @@ double roundBits(double x, int fractionBits);
 /// @brief round to the given number of decimal digits
 double roundDecimal(double x, int precision);
 
+/// @brief round to the given number of decimal digits (bankers rounding)
+double roundDecimalToEven(double x, int precision);
+
 /** @brief Returns the number of instances of the current object that shall be emitted
  * given the number of loaded objects
  * considering that "frac" of all objects shall be emitted overall
  * @return the number of objects to create (something between 0 and ceil(frac))
  */
-int getScalingQuota(double frac, int loaded);
+int getScalingQuota(double frac, long long int loaded);

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -158,6 +158,10 @@ public:
     bool indirectLeftTurnConflict(const NBEdge* from, const NBEdge::Connection& con,
                                   const NBEdge* prohibitorFrom,  const NBEdge::Connection& prohibitorCon, bool foes) const;
 
+    /// @brief whether straight connections are in conflict via bidirectional lane use
+    bool bidiConflict(const NBEdge* from, const NBEdge::Connection& con,
+                      const NBEdge* prohibitorFrom,  const NBEdge::Connection& prohibitorCon, bool foes) const;
+
 
     /// @brief whether there are conflicting streams of traffic at this node
     bool hasConflict() const;
@@ -201,8 +205,7 @@ private:
 
 
     /** writes which participating links are foes to the given */
-    std::string getFoesString(NBEdge* from, NBEdge* to,
-                              int fromLane, int toLane, const bool checkLaneFoes) const;
+    std::string getFoesString(NBEdge* from, const NBEdge::Connection& c, const bool checkLaneFoes) const;
 
 
     /** @brief Returns the index to the internal combination container for the given edge combination

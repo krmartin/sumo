@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2002-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,7 +17,7 @@
 /// @author  Michael Behrisch
 /// @date    Sept 2002
 ///
-// A handler which converts occuring elements and attributes into enums
+// A handler which converts occurring elements and attributes into enums
 /****************************************************************************/
 #pragma once
 #include <config.h>
@@ -39,7 +39,7 @@
 // ===========================================================================
 /**
  * @class GenericSAXHandler
- * @brief A handler which converts occuring elements and attributes into enums
+ * @brief A handler which converts occurring elements and attributes into enums
  *
  * Normally, when using a standard SAX-handler, we would have to compare
  *  the incoming XMLCh*-element names with the ones we can parse. The same
@@ -76,17 +76,17 @@ public:
      *  internal container. This container is cleared within the destructor.
      *
      * @param[in] tags The list of known tags
-     * @param[in] terminatorTag The tag which signales the end of tags (usually the last entry)
+     * @param[in] terminatorTag The tag which indicates the end of tags (usually the last entry)
      * @param[in] attrs The list of known attributes
-     * @param[in] terminatorAttr The attr which signales the end of attrs (usually the last entry)
+     * @param[in] terminatorAttr The attr which indicates the end of attrs (usually the last entry)
      * @param[in] file The name of the processed file
      * @param[in] expectedRoot The expected root element, empty string disables the check
      *
      * @todo Why are both lists non-const and given as pointers?
      */
     GenericSAXHandler(
-        StringBijection<int>::Entry* tags, int terminatorTag,
-        StringBijection<int>::Entry* attrs, int terminatorAttr,
+        SequentialStringBijection::Entry* tags, int terminatorTag,
+        SequentialStringBijection::Entry* attrs, int terminatorAttr,
         const std::string& file, const std::string& expectedRoot = "");
 
 
@@ -198,7 +198,6 @@ public:
     void fatalError(const XERCES_CPP_NAMESPACE::SAXParseException& exception);
     //@}
 
-
     void setSection(const int element, const bool seen) {
         mySection = element;
         mySectionSeen = seen;
@@ -224,7 +223,6 @@ public:
     // Reader needs access to myStartElement, myEndElement
     friend class SUMOSAXReader;
 
-
 protected:
     /**
      * @brief Builds an error message
@@ -237,7 +235,6 @@ protected:
      */
     std::string buildErrorMessage(const XERCES_CPP_NAMESPACE::SAXParseException& exception);
 
-
     /**
      * @brief Callback method for an opening tag to implement by derived classes
      *
@@ -249,7 +246,6 @@ protected:
     virtual void myStartElement(int element,
                                 const SUMOSAXAttributes& attrs);
 
-
     /**
      * @brief Callback method for characters to implement by derived classes
      *
@@ -260,7 +256,6 @@ protected:
      */
     virtual void myCharacters(int element,
                               const std::string& chars);
-
 
     /** @brief Callback method for a closing tag to implement by derived classes
      *
@@ -283,7 +278,6 @@ private:
      */
     XMLCh* convert(const std::string& name) const;
 
-
     /**
      * @brief Converts a tag from its string into its numerical representation
      *
@@ -293,7 +287,6 @@ private:
      * @return The int-value that represents the string, SUMO_TAG_NOTHING if the named attribute is not known
      */
     int convertTag(const std::string& tag) const;
-
 
 private:
     /// @name attributes parsing
@@ -354,6 +347,7 @@ private:
     bool mySectionOpen = false;
 
     std::pair<int, SUMOSAXAttributes*> myNextSectionStart;
+
 
 private:
     /// @brief invalidated copy constructor

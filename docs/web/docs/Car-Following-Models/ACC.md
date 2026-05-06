@@ -9,11 +9,13 @@ Shladover [\[1\]](#references) and Xiao, Wang & van Arem [\[2\]](#references), w
 control law in the ACC control algorithm is explicitly divided into
 three modes: (i) speed (or cruising) control, (ii) gap control
 and (iii) gap-closing control. A fourth mode (i.e. collision avoidance mode) has
-been introduced within the project [TransAID](https://www.transaid.eu).
+been introduced within the project [TransAID](https://www.transaid.eu), when the ACC model was first integrated to SUMO [\[3\]](#references).
 
-Note, that the additional modes (iii) and (iv) aim to enable stable and safe car-following behaviour in SUMO, 
-whereas the original publication [\[1\]](#references) reveals string instablities in experimental data and simulations 
+Note, that the additional modes (iii) and (iv) aim to enable stable and safe car-following behavior in SUMO,
+whereas the original publication [\[1\]](#references) reveals string instabilities in experimental data and simulations
 for vehicle platoons with ACC controllers (see [String Instabilities in ACC Platoons](#string_instabilities_in_acc_platoons)).
+
+The full list if model parameters can be found at [carFollowing model parameters](../Definition_of_Vehicles%2C_Vehicle_Types%2C_and_Routes.md#car-following_model_parameters).
 
 see also [CACC model](CACC.md).
 
@@ -50,9 +52,9 @@ negative.
 Also, if the `followSpeed` computed by the ACC model grows higher than the safe `followSpeed` as computed by the default *Krauss* model by a given margin (configured by `collisionAvoidanceOverride`), the speed is limited to the value of *Krauss*-speed + margin. The override margin defaults to 2m/s.
 
 # String Instabilities in ACC Platoons
-Milanés & Shladover [\[1\]](#references) showed in their experiments that the proposed ACC controller is string instable. Although ACC controllers can be calibrated to be string stable, e.g. Gunter et al. [\[3\]](#references) raise concern that commercial vehicles mostly deploy ACC controllers that are string instable due to driving comfort reasons.
+Milanés & Shladover [\[1\]](#references) showed in their experiments that the proposed ACC controller is string instable. Although ACC controllers can be calibrated to be string stable, e.g. Gunter et al. [\[4\]](#references) raise concern that commercial vehicles mostly deploy ACC controllers that are string instable due to driving comfort reasons.
 
-To investigate stablity effects of vehicle platoons deploying the original ACC model with SUMO, it's possible to disable the modes (iii) and (iv) by resetting the following parameters to:
+To investigate stability effects of vehicle platoons deploying the original ACC model with SUMO, it's possible to disable the modes (iii) and (iv) by resetting the following parameters to:
 
 | Mode | Attribute | Value |
 | --- | --- | --- |
@@ -61,11 +63,11 @@ To investigate stablity effects of vehicle platoons deploying the original ACC m
 | iv | collisionAvoidanceGainSpeed | 0.07 |
 | iv | collisionAvoidanceGainSpace | 0.23 |
 
-Note, that the parameter `collisionAvoidanceOverride` (default: 2) affects the mode (iv) by overriding the followSpeed when deemed unsafe by the given margin. To eliminate this case, which slightly affects the platooning behaviour, but not the string instability itself, you this parameter may be set to to a much larger value (i.e. 100) to avoid the effect.
+Note, that the parameter `collisionAvoidanceOverride` (default: 2) affects the mode (iv) by overriding the followSpeed when deemed unsafe by the given margin. To eliminate this case, which slightly affects the platooning behavior, but not the string instability itself, this parameter may be set to to a much larger value (i.e. 100) to avoid the effect.
 
 The default parameters of the ACC model can be found here: [Car-Following Model Parameters](../Definition_of_Vehicles,_Vehicle_Types,_and_Routes.md#car-following_model_parameters)
 
-Given the parametrization from the table, you could replicate the platoon oscilation as in Fig.12 in [\[1\]](#references) with SUMO:
+Given the parametrization from the table, you could replicate the platoon oscillation as in Fig.12 in [\[1\]](#references) with SUMO:
 
 ![ACC platoon](../images/ACC_platoon_speed.png "ACC platoon")
 
@@ -96,4 +98,9 @@ Given the parametrization from the table, you could replicate the platoon oscila
     Adaptive Cruise Control Vehicles. Transportation Research Record:
     Journal of the Transportation Research Board, 2623, pp. 1–9.
     <https://doi.org/10.3141/2623-01>
-3.  G. Gunter et al., "Are Commercially Implemented Adaptive Cruise Control Systems String Stable?," in IEEE Transactions on Intelligent Transportation Systems, vol. 22, no. 11, pp. 6992-7003, Nov. 2021. <https://doi.org/10.1109/TITS.2020.3000682>
+3.	Porfyri, K. N., Mintsis, E., & Mitsakis, E. (2018). Assessment of ACC and CACC systems using SUMO.
+	EPiC Series in Engineering, 2, 82-93.
+	<https://doi.org/10.29007/r343>
+4.  G. Gunter et al., "Are Commercially Implemented Adaptive Cruise Control Systems String Stable?,"
+	in IEEE Transactions on Intelligent Transportation Systems, vol. 22, no. 11, pp. 6992-7003, Nov. 2021.
+	<https://doi.org/10.1109/TITS.2020.3000682>

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -42,6 +42,7 @@ class MSVehicleType;
 class OutputDevice;
 class SUMOVehicleParameter;
 class SUMOVehicle;
+class MSStageTrip;
 class MSTransportableDevice;
 class MSTransportable;
 class MSTransportableStateAdapter;
@@ -65,13 +66,20 @@ enum class MSStageType {
 * The "abstract" class for a single stage of a movement
 * Contains the destination of the current movement step
 */
-class MSStage {
+class MSStage : public Parameterised {
 public:
+    /// @brief sentinel value
+    static const double ARRIVALPOS_UNSPECIFIED;
+
     /// constructor
-    MSStage(const MSEdge* destination, MSStoppingPlace* toStop, const double arrivalPos, MSStageType type, const std::string& group = "");
+    MSStage(const MSStageType type, const MSEdge* destination, MSStoppingPlace* toStop, const double arrivalPos,
+            const double arrivalPosLat = 0.0, const std::string& group = "");
 
     /// destructor
     virtual ~MSStage();
+
+    /// initialization, e.g. for param-related events
+    virtual void init(MSTransportable* /*transportable*/) {};
 
     /// returns the destination edge
     const MSEdge* getDestination() const;
@@ -90,6 +98,13 @@ public:
         return myArrivalPos;
     }
 
+    bool unspecifiedArrivalPos() const;
+
+
+    virtual double getArrivalPosLat() const {
+        return myArrivalPosLat;
+    }
+
     void setArrivalPos(double arrivalPos) {
         myArrivalPos = arrivalPos;
     }
@@ -98,6 +113,7 @@ public:
     virtual const MSEdge* getEdge() const;
     virtual const MSEdge* getFromEdge() const;
     virtual double getEdgePos(SUMOTime now) const;
+    virtual double getEdgePosLat(SUMOTime now) const;
 
     /// @brief Return the movement directon on the edge
     virtual int getDirection() const;
@@ -111,6 +127,11 @@ public:
     /// Returns the current lane (if applicable)
     virtual const MSLane* getLane() const {
         return nullptr;
+    }
+
+    /// @brief Return the current jump duration (if applicable)
+    virtual SUMOTime getJumpDuration() const {
+        return -1;
     }
 
     ///
@@ -144,11 +165,20 @@ public:
     /// get arrival time of stage
     SUMOTime getArrived() const;
 
-    /// logs end of the step
+    virtual SUMOTime getTimeLoss(const MSTransportable* transportable) const;
+    virtual SUMOTime getDuration() const;
+    virtual SUMOTime getTravelTime() const;
+    virtual SUMOTime getWaitingTime() const;
+    virtual SUMOTime getTotalWaitingTime() const;
+
+    /// logs beginning of stage
     void setDeparted(SUMOTime now);
 
     /// logs end of the step
     virtual const std::string setArrived(MSNet* net, MSTransportable* transportable, SUMOTime now, const bool vehicleArrived);
+
+    /// @brief sets end of stage
+    void setEnded(SUMOTime t);
 
     /// Whether the transportable waits for the given vehicle
     virtual bool isWaitingFor(const SUMOVehicle* vehicle) const;
@@ -158,13 +188,15 @@ public:
         return false;
     }
 
+    /// @brief Whether the transportable is walking
+    virtual bool isWalk() const {
+        return false;
+    }
+
     /// @brief Current vehicle in which the transportable is driving (or nullptr)
     virtual SUMOVehicle* getVehicle() const {
         return nullptr;
     }
-
-    /// @brief the time this transportable spent waiting
-    virtual SUMOTime getWaitingTime(SUMOTime now) const;
 
     /// @brief the speed of the transportable
     virtual double getSpeed() const;
@@ -188,6 +220,12 @@ public:
 
     void setDestination(const MSEdge* newDestination, MSStoppingPlace* newDestStop);
 
+    virtual void setOrigin(const MSEdge* origin, MSStoppingPlace* originStop, double departPos) {
+        UNUSED_PARAMETER(origin);
+        UNUSED_PARAMETER(originStop);
+        UNUSED_PARAMETER(departPos);
+    }
+
     /// @brief get travel distance in this stage
     virtual double getDistance() const = 0;
 
@@ -210,8 +248,9 @@ public:
 
     /** @brief Saves the current state into the given stream, standard implementation does nothing
      */
-    virtual void saveState(std::ostringstream& out) {
+    virtual void saveState(std::ostringstream& out, MSTransportable* transportable) {
         UNUSED_PARAMETER(out);
+        UNUSED_PARAMETER(transportable);
     }
 
     /** @brief Reconstructs the current state, standard implementation does nothing
@@ -229,6 +268,38 @@ public:
         myParametersSet |= what;
     }
 
+    /** @brief Returns the costs of the stage
+     *
+     * @return The stage's costs (normally the time needed to pass it)
+     */
+    double getCosts() const {
+        return myCosts;
+    }
+
+    /** @brief Sets the costs of the stage
+     *
+     * @param[in] costs The new stage costs
+     */
+    void setCosts(double costs) {
+        myCosts = costs;
+    }
+
+    MSStageTrip* getTrip() const {
+        return myTrip;
+    }
+
+    void setTrip(MSStageTrip* trip) {
+        myTrip = trip;
+    }
+
+    virtual bool equals(const MSStage& s) const {
+        return myDestination == s.myDestination &&
+               myDestinationStop == s.myDestinationStop &&
+               myArrivalPos == s.myArrivalPos &&
+               myArrivalPosLat == s.myArrivalPosLat &&
+               myType == s.myType &&
+               myGroup == s.myGroup;
+    }
 
 protected:
     /// the next edge to reach by getting transported
@@ -237,8 +308,11 @@ protected:
     /// the stop to reach by getting transported (if any)
     MSStoppingPlace* myDestinationStop;
 
-    /// the position at which we want to arrive
+    /// @brief the longitudinal position at which we want to arrive
     double myArrivalPos;
+
+    /// @brief the lateral position at which we want to arrive
+    double myArrivalPosLat;
 
     /// the time at which this stage started
     SUMOTime myDeparted;
@@ -252,8 +326,13 @@ protected:
     /// The id of the group of transportables traveling together
     const std::string myGroup;
 
+    /// @brief The assigned or calculated costs
+    double myCosts;
+
     /// @brief Information on which parameter were set (mainly for vehroute output)
     int myParametersSet;
+
+    MSStageTrip* myTrip = nullptr;
 
     /// @brief the offset for computing positions when standing at an edge
     static const double ROADSIDE_OFFSET;

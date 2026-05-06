@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2002-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -137,7 +137,7 @@ public:
      * @param[in] oc The options container holding options needed during the building
      * @return The built logic (may be 0)
      */
-    NBTrafficLightLogic* compute(OptionsCont& oc);
+    NBTrafficLightLogic* compute(const OptionsCont& oc);
 
     /// @name Access to controlled nodes
     /// @{
@@ -154,7 +154,7 @@ public:
     virtual void removeNode(NBNode* node);
 
     /** @brief removes the given connection from the traffic light
-     * if recontruct=true, reconstructs the logic and informs the edges for immediate use in NETEDIT
+     * if recontruct=true, reconstructs the logic and informs the edges for immediate use in netedit
      * @note: tlIndex is not necessarily unique. we need the whole connection data here
      */
     virtual void removeConnection(const NBConnection& conn, bool reconstruct = true) {
@@ -255,7 +255,7 @@ public:
      */
     std::vector<std::string> getControlledInnerEdges() const;
 
-    /** @brief Replaces occurences of the removed edge in incoming/outgoing edges of all definitions
+    /** @brief Replaces occurrences of the removed edge in incoming/outgoing edges of all definitions
      * @param[in] removed The removed edge
      * @param[in] incoming The edges to use instead if an incoming edge was removed
      * @param[in] outgoing The edges to use instead if an outgoing edge was removed
@@ -341,13 +341,15 @@ public:
      */
     bool needsCont(const NBEdge* fromE, const NBEdge* toE, const NBEdge* otherFromE, const NBEdge* otherToE) const;
 
-    /// @brief whether the given index must yield to the foeIndex while turning right on a red light
-    virtual bool rightOnRedConflict(int index, int foeIndex) const;
+    /// @brief whether the given index must yield to the foeIndex (i.e. while turning right on a red light)
+    virtual bool extraConflict(int index, int foeIndex) const;
 
     /* initialize myNeedsContRelation and set myNeedsContRelationReady to true
      * This information is a byproduct of NBOwnTLDef::myCompute. All other
      * subclasses instantiate a private instance of NBOwnTLDef to answer this query */
     virtual void initNeedsContRelation() const;
+
+    virtual void initExtraConflicts() const;
 
     ///@brief Returns the maximum index controlled by this traffic light and assigned to a connection
     virtual int getMaxIndex() = 0;
@@ -374,6 +376,10 @@ public:
 
     /// @brief perform optional final checks
     virtual void finalChecks() const {}
+
+    /// @brief processing parameter for rail signal edges and nodes
+    static const std::string OSM_DIRECTION;
+    static const std::string OSM_SIGNAL_DIRECTION;
 
 protected:
     /// @brief id for temporary definitions
@@ -463,12 +469,14 @@ protected:
     mutable NeedsContRelation myNeedsContRelation;
     mutable bool myNeedsContRelationReady;
 
-    typedef std::set<std::pair<int, int> > RightOnRedConflicts;
-    mutable RightOnRedConflicts myRightOnRedConflicts;
-    mutable bool myRightOnRedConflictsReady;
+    typedef std::set<std::pair<int, int> > ExtraConflicts;
+    // extra conflicts that arises if the signal plan permits conflicting streams to drive at the same time (i.e. right-on-red)
+    mutable ExtraConflicts myExtraConflicts;
+    mutable bool myExtraConflictsReady;
 
 private:
     static std::set<NBEdge*> collectReachable(EdgeVector outer, const EdgeVector& within, bool checkControlled);
 
+    static bool railSignalUncontrolled(const NBEdge* in, const NBEdge* out);
 
 };

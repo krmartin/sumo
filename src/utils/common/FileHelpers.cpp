@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -70,7 +70,7 @@ FileHelpers::isDirectory(std::string path) {
     struct stat fileInfo;
     if (stat(StringUtils::transcodeToLocal(path).c_str(), &fileInfo) != 0) {
 #endif
-        throw ProcessError("Cannot get file attributes for file '" + path + "'!");
+        throw ProcessError(TLF("Cannot get file attributes for file '%'!", path));
     }
     return (fileInfo.st_mode & S_IFMT) == S_IFDIR;
 }
@@ -81,11 +81,29 @@ FileHelpers::isDirectory(std::string path) {
 
 std::string
 FileHelpers::getFilePath(const std::string& path) {
-    const std::string::size_type beg = path.find_last_of("\\/");
+    const auto beg = path.find_last_of("\\/");
     if (beg == std::string::npos) {
         return "";
     }
     return path.substr(0, beg + 1);
+}
+
+
+std::string
+FileHelpers::getFileFromPath(std::string path, const bool removeExtension) {
+    // first remove extension
+    if (removeExtension) {
+        const auto begExtension = path.find_last_of(".");
+        if (begExtension != std::string::npos) {
+            path = path.substr(0, begExtension);
+        }
+    }
+    // now remove path
+    const auto begPath = path.find_last_of("\\/");
+    if (begPath != std::string::npos) {
+        path = path.substr(begPath + 1, path.size());
+    }
+    return path;
 }
 
 
@@ -128,7 +146,7 @@ FileHelpers::getConfigurationRelative(const std::string& configPath, const std::
 bool
 FileHelpers::isSocket(const std::string& name) {
     const std::string::size_type colonPos = name.find(":");
-    return (colonPos != std::string::npos) && (colonPos > 1);
+    return (colonPos != std::string::npos) && (colonPos > 1 || name[0] == '[');
 }
 
 
@@ -251,6 +269,29 @@ FileHelpers::prependToLastPathComponent(const std::string& prefix, const std::st
         return path.substr(0, sep_index + 1) + prefix + path.substr(sep_index + 1);
     }
 }
+
+
+std::string
+FileHelpers::appendBeforeExtension(const std::string& path, const std::string& suffix, bool checkSep) {
+    if (checkSep) {
+        const std::string::size_type sep_index = path.find_last_of("\\/");
+        if (sep_index == std::string::npos) {
+            return appendBeforeExtension(path, suffix, false);
+        } else {
+            return path.substr(0, sep_index + 1) + appendBeforeExtension(path.substr(sep_index + 1), suffix, false);
+        }
+    }
+    auto components = StringTokenizer(path, ".").getVector();
+    for (int i = (int)components.size() - 1; i >= 0; i--) {
+        // assume anything after a dot with less then 5 letters is part of the extension
+        if (i == 0 || components[i].size() > 4) {
+            components[i] += suffix;
+            break;
+        }
+    }
+    return joinToString(components, ".");
+}
+
 
 // ---------------------------------------------------------------------------
 // binary reading/writing functions

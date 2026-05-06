@@ -14,6 +14,8 @@ SET(mesosim_STAT_SRCS
    MEVehicle.h
    MEVehicleControl.cpp
    MEVehicleControl.h
+   METypeHandler.cpp
+   METypeHandler.h
 )
 
 add_library(mesosim STATIC ${mesosim_STAT_SRCS})
@@ -34,4 +36,4 @@ set_property(TARGET mesosim PROPERTY PROJECT_LABEL "z_mesosim")
 #MESegment.cpp MESegment.h \
 #METriggeredCalibrator.cpp METriggeredCalibrator.h \
 #MEVehicle.cpp MEVehicle.h \
-#MEVehicleControl.cpp MEVehicleControl.h 
+#MEVehicleControl.cpp MEVehicleControl.h

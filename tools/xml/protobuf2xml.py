@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2014-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2014-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -26,27 +26,26 @@ import sys
 import struct
 import contextlib
 
-from optparse import OptionParser
-import xml2csv
 import xml2protobuf
+
 import google.protobuf.descriptor  # we need to do this late because the xml2protobuf import modifies sys.path
+
+if 'SUMO_HOME' in os.environ:
+    tools = os.path.join(os.environ['SUMO_HOME'], 'tools')
+    sys.path.append(tools)
+else:
+    sys.exit("please declare environment variable 'SUMO_HOME'")
+import sumolib  # noqa
 
 
 def get_options():
-    optParser = OptionParser(
-        usage=os.path.basename(sys.argv[0]) + " [<options>] <input_file_or_port>")
-    optParser.add_option("-p", "--protodir", default=".",
-                         help="where to put and read .proto files")
-    optParser.add_option("-x", "--xsd", help="xsd schema to use")
-    optParser.add_option("-o", "--output", help="name for generic output file")
-    options, args = optParser.parse_args()
-    if len(args) != 1:
-        optParser.print_help()
-        sys.exit()
-    if not options.xsd:
-        print("a schema is mandatory", file=sys.stderr)
-        sys.exit()
-    options.source = args[0]
+    optParser = sumolib.options.ArgumentParser(description="Convert a protocol buffer to an XML file.")
+    optParser.add_argument("source", category="input", type=optParser.data_file, help="the input protobuf file")
+    optParser.add_argument("-p", "--protodir", category="input", default=".", help="where to put and read .proto files")
+    optParser.add_argument("-x", "--xsd", category="processing", required=True, help="xsd schema to use")
+    optParser.add_argument("-o", "--output", category="output",
+                           type=optParser.data_file, help="name for generic output file")
+    options = optParser.parse_args()
     if not options.output:
         options.output = os.path.splitext(options.source)[0] + ".xml"
     return options
@@ -67,13 +66,20 @@ def read_n(inputf, n):
     return buf
 
 
+def _is_repeated(attr):
+    # protobuf 6.31 introduced "is_repeated" and 6.33 removed "label", this convoluted check works with both
+    if hasattr(attr, 'is_repeated'):
+        return attr.is_repeated
+    return attr.label == google.protobuf.descriptor.FieldDescriptor.LABEL_REPEATED
+
+
 def msg2xml(desc, cont, out, depth=1):
     out.write(u">\n%s<%s" % (depth * '    ', desc.name))
     haveChildren = False
 #    print(depth, cont)
     for attr, value in cont.ListFields():
         if attr.type == google.protobuf.descriptor.FieldDescriptor.TYPE_MESSAGE:
-            if attr.label == google.protobuf.descriptor.FieldDescriptor.LABEL_REPEATED:
+            if _is_repeated(attr):
                 haveChildren = True
                 for item in value:
                     msg2xml(attr, item, out, depth + 1)
@@ -90,13 +96,9 @@ def msg2xml(desc, cont, out, depth=1):
 
 
 def writeXml(root, module, options):
-    with contextlib.closing(xml2csv.getOutStream(options.output)) as outputf:
+    with contextlib.closing(sumolib.openz(options.output, "w", trySocket=True)) as outputf:
         outputf.write(u'<?xml version="1.0" encoding="UTF-8"?>\n\n<%s' % root)
-        if options.source.isdigit():
-            inp = xml2csv.getSocketStream(int(options.source))
-        else:
-            inp = open(options.source, 'rb')
-        with contextlib.closing(inp) as inputf:
+        with contextlib.closing(sumolib.openz(options.source, "rb", trySocket=True)) as inputf:
             first = True
             while True:
                 length = struct.unpack('>L', read_n(inputf, 4))[0]
@@ -106,7 +108,7 @@ def writeXml(root, module, options):
                 obj.ParseFromString(read_n(inputf, length))
                 for attr, value in obj.ListFields():
                     if attr.type == google.protobuf.descriptor.FieldDescriptor.TYPE_MESSAGE:
-                        if attr.label == google.protobuf.descriptor.FieldDescriptor.LABEL_REPEATED:
+                        if _is_repeated(attr):
                             for item in value:
                                 msg2xml(attr, item, outputf)
                     elif first:
@@ -118,7 +120,7 @@ def writeXml(root, module, options):
 def main():
     options = get_options()
     # get attributes
-    attrFinder = xml2csv.AttrFinder(options.xsd, options.source, False)
+    attrFinder = sumolib.xml.AttrFinder(options.xsd, options.source, False)
     base = os.path.basename(options.xsd).split('.')[0]
     # generate proto format description
     module = xml2protobuf.generateProto(attrFinder.tagAttrs, attrFinder.depthTags,

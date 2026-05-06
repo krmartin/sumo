@@ -4,14 +4,23 @@ default
 # replace first stop before the vehicle has departed
 first_init
 
+# test interaction of stopping and setSpeed
+first_init_setSpeed
+
 # replace first stop after the vehicle has departed
 first
+
+# insert a stop that requires looping back to the first stop edge.  (#14883)
+first_loop
 
 # replace first stop while already on the stop edge
 first_later
 
 # replace first stop after the vehicle has departed
 first_teleport
+
+# insert stop while the vehicle is fast and ahead of a junction
+first_highspeed
 
 # replace second stop after the vehicle has departed
 second
@@ -35,6 +44,12 @@ second_teleport_oncoming
 # change attributes of second stop without rerouting
 second_change_attribute
 
+# replace second stop after the vehicle has departed. new stop isn't reachable due to rerouter
+second_unreachable_ignore_rerouter
+
+# insert stop on an edge that is dynamically forbidden but the vehicle should ignore it
+stop_forbidden_ignore_rerouter_copy
+
 # insertstop before the last stop
 third
 
@@ -45,8 +60,26 @@ third_later
 # insert stop after the last stop
 last
 
-# replace all stops after the vehicle has departed
+# add multiple stops after the vehicle has departed
 all
+
+# insert a single stop on a looped route (#17741)
+looped
+
+# insert multiple stops on a looped route (#17718)
+looped2
+
+# insert multiple stops that imply a looped route on a non-looped initial route (#17718)
+non_looped_routes_2same_stops
+
+# insert multiple stops that imply a looped route on a non-looped initial route (#17718)
+non_looped_routes_3same_stops
+
+# insert multiple stops that imply a looped route on a non-looped initial route (#17718)
+non_looped_routes_3same_stops_init
+
+# insert multiple stops that imply a looped route on a non-looped initial route (#17718)
+non_looped_routes_6_stops_init
 
 # replace stop with invalid index
 invalid
@@ -59,3 +92,9 @@ unreachable
 
 # replace first stop while on a junction leading away from the new stop
 on_junction
+
+# insert a stop along the current route
+keepRoute
+
+# insert a stop along the current route
+keepRoute2

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -55,7 +55,7 @@ MSCFModel_Krauss::MSCFModel_Krauss(const MSVehicleType* vtype) :
         } else {
             myDawdleStep += DELTA_T - rem;
         }
-        WRITE_WARNINGF("Rounding 'sigmaStep' to % for vType '%'", STEPS2TIME(myDawdleStep), vtype->getID());
+        WRITE_WARNINGF(TL("Rounding 'sigmaStep' to % for vType '%'"), STEPS2TIME(myDawdleStep), vtype->getID());
 
     }
 }
@@ -98,12 +98,13 @@ MSCFModel_Krauss::patchSpeedBeforeLC(const MSVehicle* veh, double vMin, double v
 
 
 double
-MSCFModel_Krauss::stopSpeed(const MSVehicle* const veh, const double speed, double gap, double decel, const CalcReason /*usage*/) const {
+MSCFModel_Krauss::stopSpeed(const MSVehicle* const veh, const double speed, double gap, double decel, const CalcReason usage) const {
     // NOTE: This allows return of smaller values than minNextSpeed().
     // Only relevant for the ballistic update: We give the argument headway=veh->getActionStepLengthSecs(), to assure that
     // the stopping position is approached with a uniform deceleration also for tau!=veh->getActionStepLengthSecs().
     applyHeadwayPerceptionError(veh, speed, gap);
-    return MIN2(maximumSafeStopSpeed(gap, decel, speed, false, veh->getActionStepLengthSecs()), maxNextSpeed(speed, veh));
+    const bool relaxEmergency = usage != FUTURE; // do not relax insertionStopSpeed
+    return MIN2(maximumSafeStopSpeed(gap, decel, speed, false, veh->getActionStepLengthSecs(), relaxEmergency), maxNextSpeed(speed, veh));
 }
 
 
@@ -114,14 +115,13 @@ MSCFModel_Krauss::followSpeed(const MSVehicle* const veh, double speed, double g
     //gDebugFlag1 = DEBUG_COND; // enable for DEBUG_EMERGENCYDECEL
     const double vsafe = maximumSafeFollowSpeed(gap, speed, predSpeed, predMaxDecel);
     //gDebugFlag1 = false;
-    const double vmin = minNextSpeedEmergency(speed);
     const double vmax = maxNextSpeed(speed, veh);
     if (MSGlobals::gSemiImplicitEulerUpdate) {
         return MIN2(vsafe, vmax);
     } else {
         // ballistic
         // XXX: the euler variant can break as strong as it wishes immediately! The ballistic cannot, refs. #2575.
-        return MAX2(MIN2(vsafe, vmax), vmin);
+        return MAX2(MIN2(vsafe, vmax), minNextSpeedEmergency(speed));
     }
 }
 

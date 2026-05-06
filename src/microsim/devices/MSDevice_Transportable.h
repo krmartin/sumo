@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -48,7 +48,6 @@ public:
      * @param[filled] into The vector to store the built device in
      */
     static MSDevice_Transportable* buildVehicleDevices(SUMOVehicle& v, std::vector<MSVehicleDevice*>& into, const bool isContainer);
-
 
 
 public:
@@ -119,6 +118,9 @@ public:
 
     bool anyLeavingAtStop(const MSStop& stop) const;
 
+    /// @brief transfers transportables that want to continue in the other train part (without boarding/loading delays)
+    void transferAtSplitOrJoin(MSBaseVehicle* otherVeh);
+
     /** @brief Saves the state of the device
      *
      * @param[in] out The OutputDevice to write the information into
@@ -146,6 +148,13 @@ public:
         return myTransportables;
     }
 
+    std::vector<Position>& getUnboardingPositions() {
+        return myUnboardingPositions;
+    }
+
+    /// @brief check if boardingDuration should be applied
+    static bool willTransferAtJoin(const MSTransportable* t, const MSBaseVehicle* joinVeh);
+
 protected:
     /** @brief Internal notification about the vehicle moves, see MSMoveReminder::notifyMoveInternal()
      *
@@ -159,6 +168,9 @@ protected:
                             const double travelledDistanceVehicleOnLane,
                             const double meanLengthOnLane);
 
+    /// @brief modifiy vehicle properties when loading/unloading (optional)
+    void changeAttached();
+
 private:
     /** @brief Constructor
      *
@@ -166,7 +178,6 @@ private:
      * @param[in] id The ID of the device
      */
     MSDevice_Transportable(SUMOVehicle& holder, const std::string& id, const bool isContainer);
-
 
 
 private:
@@ -181,6 +192,14 @@ private:
      */
     bool myStopped;
 
+    /// @brief unboarding positions of passengers if vehicle is a train
+    std::vector<Position> myUnboardingPositions;
+
+    /// @brief the original type to set when nothing is being transported
+    const MSVehicleType* myOriginalType;
+
+    /// @brief the type to consult if loading/unloading changes vehicle properties
+    MSVehicleType* myLoadedType;
 
 private:
     /// @brief Invalidated copy constructor.

@@ -1,5 +1,6 @@
 on("ready", function(){
-    var PORT = "8010";
+    const params = new URLSearchParams(window.location.search);
+    const PORT = params.has("port") ? params.get("port") : "8010";
 
     /**
      * @class
@@ -73,9 +74,11 @@ on("ready", function(){
 
             var node = elem("<div>", {className: "container"});
             var header = elem("<h4>", {textContent: category});
+            var checkbox = elem("<input>",{type: "checkbox", checked:true, className: "checkAll", id: category.toLowerCase()});
             node.append(header);
+            node.append(checkbox);
 
-            var types = elem("<div>", {className: "roadTypes"});
+            var types = elem("<div>", {className: "roadTypes " + category.toLowerCase()});
             var label = elem("<label>");
 
             for (var i = 0; i < typeList.length; i++) {
@@ -111,9 +114,10 @@ on("ready", function(){
         "living_street", "unsurfaced", "service", "raceway", "bus_guideway"];
     categories["Pedestrians"] = ["track", "footway", "pedestrian", "path", "bridleway", "cycleway", "step", "steps",
         "stairs"];              //"Pedestrians" has also the "highway" key in OSM, this will be transformed in startBuild()
-    categories["Railway"] = ["preserved", "tram", "subway", "light_rail", "rail", "highspeed"];
+    categories["Railway"] = ["preserved", "tram", "subway", "light_rail", "rail", "highspeed", "monorail"];
     categories["Aeroway"] = ["stopway", "parking_position", "taxiway", "taxilane", "runway", "highway_strip"]
     categories["Waterway"] = ["river", "canal"];
+    categories["Aerialway"] = ["cable_car", "gondola"];
     categories["Route"] = ["ferry"];
 
     var roadClasses = [];
@@ -318,61 +322,117 @@ on("ready", function(){
     canvasToggle.on("click", toggleCanvas);
     toggleCanvas();
 
-    // OSM map
-    // avoid cross domain resource sharing issues (#3991)
-    // (https://gis.stackexchange.com/questions/83953/openlayers-maps-issue-with-ssl)
-    var map = new OpenLayers.Map("map");
-    var maplayer = new OpenLayers.Layer.OSM("OpenStreetMap", 
-    // Official OSM tileset as protocol-independent URLs
-    [
-        'https://a.tile.openstreetmap.org/${z}/${x}/${y}.png',
-        'https://b.tile.openstreetmap.org/${z}/${x}/${y}.png',
-        'https://c.tile.openstreetmap.org/${z}/${x}/${y}.png'
-    ], null);
-    map.addLayer(maplayer);
+    // Enable/disable pt mode checkboxes depending on the main publicTransport checkbox
+    var ptModesContainer = elem("#pt-modes");
+    function updatePtModesState() {
+        var enabled = elem("#publicTransport").checked;
+        if(ptModesContainer) {
+            Array.from(ptModesContainer.querySelectorAll("input[type=checkbox]")).forEach(function(ch){ ch.disabled = !enabled; });
+        }
+    }
+    elem("#publicTransport").on("click", updatePtModesState);
+    updatePtModesState();
+
+    // function to check or uncheck all checkboxes for a certain roadType
+    var checkOrUncheckAll = function() {
+        Array.from(document.querySelectorAll(".roadTypes." + this.getAttribute("id") + " input[type=checkbox]")).forEach(el => el.checked = this.checked);
+    };
+
+    // listen if a roadType checkbox is selected/unselected
+    var roadTypeCheckboxes = document.getElementsByClassName("checkAll");
+
+    Array.from(roadTypeCheckboxes).forEach(function(element) {
+        element.addEventListener("click", checkOrUncheckAll);
+    });
+
+    // Base map (using Leaflet)
+    var worldBounds = L.latLngBounds(
+        L.latLng(-85, -180),
+        L.latLng(85, 180)
+    );
+
+    var map = L.map("map", {
+        maxBounds: worldBounds,
+        worldCopyJump: false,
+        zoomControl: true,
+        minZoom: 3,
+        maxZoom: 17, // the highest zoom level available for the OpenTopoMap tile layer
+        attributionControl: false
+    });
+
+    L.control.attribution({
+        position: "bottomleft",
+        prefix: false
+    }).addTo(map);
+
+    var tileLayers = {
+        "OpenStreetMap": L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            noWrap: true,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap contributors</a>'
+        }),
+        "OpenStreetMap Deutschland": L.tileLayer("https://tile.openstreetmap.de/{z}/{x}/{y}.png", {
+            noWrap: true,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap contributors</a>'
+        }),
+        "OpenTopoMap": L.tileLayer("https://a.tile.opentopomap.org/{z}/{x}/{y}.png", {
+            noWrap: true,
+            attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap contributors</a> | DEM: <a href="http://viewfinderpanoramas.org/" target="_blank">SRTM</a>, <a href="https://sonny.4lima.de/" target="_blank">Sonny</a> | Map style: &copy; <a href="https://opentopomap.org" target="_blank">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank">CC-BY-SA</a>)'
+        }),
+        "ÖPNVKarte (public transport facilities)": L.tileLayer("https://tile.memomaps.de/tilegen/{z}/{x}/{y}.png", {
+            noWrap: true,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap contributors</a> | &copy; <a href="https://memomaps.de/" target="_blank">MeMoMaps</a> (<a href="https://creativecommons.org/licenses/by-sa/2.0/" target="_blank">CC-BY-SA</a>)'
+        }),
+    };
+
+    tileLayers["OpenStreetMap"].addTo(map);
+
+    L.control.layers(tileLayers, null, {
+        collapsed: true,
+        position: "topleft"
+    }).addTo(map);
 
     function setPosition(lon, lat){
         if(!lon || !lat){
-            latLon = elem("#lat_lon").value.split(" ")
+            var latLon = elem("#lat_lon").value.split(" ");
             lon = parseFloat(latLon[1]);
             lat = parseFloat(latLon[0]);
         } else {
             elem("#lat_lon").value = lat.toFixed(6) + " " + lon.toFixed(6);
         }
 
-        var leftHandBounds = [new OpenLayers.Bounds(-9, 50, 3, 60), // British Isles
-                              new OpenLayers.Bounds(66, 3, 90, 30), // India, Pakistan
-                              new OpenLayers.Bounds(95, -45, 179, 2), // Australia, Indonesia
-                              new OpenLayers.Bounds(-20, -35, 40, -15), // Southern Africa
-                              new OpenLayers.Bounds(135, 30, 150, 42), // Japan
-                             ];
+        var leftHandBounds = [
+            [[50, -11], [60, 1]], // British Isles
+            [[50.986099, 0.774536], [53.146770, 1.779785]], // British Isles (part2)
+            [[3, 66], [30, 90]], // India, Pakistan
+            [[-45, 95], [2, 179]], // Australia, Indonesia
+            [[-35, -20], [-15, 40]], // Southern Africa
+            [[30, 135], [42, 150]] // Japan
+        ];
+
         elem("#leftHand").checked = false;
         for (var i = 0; i < leftHandBounds.length; i++) {
-            if (leftHandBounds[i].contains(lon, lat)) {
+            if (
+                lat >= leftHandBounds[i][0][0] && lat <= leftHandBounds[i][1][0] &&
+                lon >= leftHandBounds[i][0][1] && lon <= leftHandBounds[i][1][1]
+            ) {
                 elem("#leftHand").checked = true;
                 break;
             }
         }
 
-        var lonLat = new OpenLayers.LonLat(lon, lat);
-        lonLat.transform(
-            new OpenLayers.Projection("EPSG:4326"), // transform from WGS 1984
-            map.getProjectionObject() // to Spherical Mercator Projection
-        );
-
-        map.setCenter(lonLat, 16);
+        map.setView([lat, lon], 16);
     }
 
     function setPositionByString() {
-        query = elem("#address").value
+        var query = elem("#address").value;
         $.ajax({
         url: "https://nominatim.openstreetmap.org/search?q=" + query + "&format=json&polygon=0&addressdetails=0&limit=1&callback",
         cache: false,
         dataType: "json",
             success: function(data) {
                 var result = data[0];
-                lon = parseFloat(result.lon);
-                lat = parseFloat(result.lat);
+                var lon = parseFloat(result.lon);
+                var lat = parseFloat(result.lat);
                 setPosition(lon, lat);
             },
             error: function (request, status, err) {
@@ -387,7 +447,7 @@ on("ready", function(){
         }
     });
 
-    var getJSON = function(url, callback) {
+/*     var getJSON = function(url, callback) {
         var xhr = new XMLHttpRequest();
         xhr.open('GET', url, true);
         xhr.responseType = 'json';
@@ -400,8 +460,7 @@ on("ready", function(){
           }
         };
         xhr.send();
-    };
-    
+    }; */
 
     // set default position to center Berlin
     setPosition(13.4, 52.52);
@@ -429,14 +488,10 @@ on("ready", function(){
      * @listener
      * whenever the map coordinates changes, update the input boxes
      */
-    map.events.register("move", map, function(){
-        var cor = map.getExtent();
-        cor.transform(
-            map.getProjectionObject(), // from Spherical Mercator Projection
-            new OpenLayers.Projection("EPSG:4326")
-        );
-        lat = (cor.top + (cor.bottom - cor.top) / 2);
-        lon = (cor.left + (cor.right - cor.left) / 2);
+    map.on("move", function(){
+        var center = map.getCenter();
+        var lat = center.lat;
+        var lon = center.lng;
 
         elem("#lat_lon").value = lat.toFixed(6) + " " + lon.toFixed(6);
     });
@@ -445,6 +500,27 @@ on("ready", function(){
     var totalSteps;
     var currentStep;
     var presentedErrorLog = false;
+    let progressTimer = null;
+
+    function errorMessage(error) {
+        if (presentedErrorLog == false) {
+            window.alert("Server connection failed (" + error + "). Please (re-)open the OSM Web Wizard by using osmWebWizard.py or the link in your start menu.");
+            presentedErrorLog = true;
+        }
+    }
+
+    async function safeFetch(url, options) {
+        try {
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response;
+        } catch (err) {
+            errorMessage(err);
+            throw err;
+        }
+    }
 
     /**
      * @function
@@ -459,67 +535,94 @@ on("ready", function(){
             socket = new WebSocket("ws://" + address + ":" + PORT);
         } catch(e){
             // connection failed, wait five seconds, then try again
-	    setTimeout(connectSocket, 5000);
+            setTimeout(connectSocket, 5000);
             return;
         }
 
-	socket.onerror = function(error) {
-	    if (presentedErrorLog == false) {
-		window.alert("Socket connection failed. Please open the OSM WebWizard by using osmWebWizard.py or the link in your start menu.");
-		presentedErrorLog = true;
-	    }
-	};
-	
+        socket.onerror = errorMessage;
+
         // whenever the socket closes (e.g. restart) try to reconnect
         socket.addEventListener("close", connectSocket);
-        socket.addEventListener("message", function(evt){
-            var message = evt.data;
-            // get the first space
-            var index = message.indexOf(" ");
-            // split the message type from the message
-            var type = message.substr(0, index);
-            message = message.substr(index + 1);
-
-            if(type === "zip"){
-                showZip(message);
-            } else if(type === "report"){
-                currentStep++;
-                elem("#status > span").textContent = message;
-                elem("#status > div").style.width = (100 * currentStep / totalSteps) + "%";
-
-                if(currentStep === totalSteps){
-                    setTimeout(function(){
-                        elem("#status").style.display = "none";
-                    elem("#export-button").style.display = "block";
-                    }, 2000);
-                }
-            } else if(type === "steps"){
-                totalSteps = parseInt(message);
-                currentStep = 0;
-            }
-        });
+        socket.addEventListener("message", messageHandler);
     }
 
-    connectSocket();
+    function messageHandler(evt){
+        var message = evt.data;
+        // get the first space
+        var index = message.indexOf(" ");
+        // split the message type from the message
+        var type = message.substr(0, index);
+        message = message.substr(index + 1);
+
+        if(type === "zip"){
+            showZip(message);
+        } else if(type === "report"){
+            currentStep++;
+            elem("#status > span").textContent = message;
+            elem("#status > div").style.width = (100 * currentStep / totalSteps) + "%";
+
+            if(currentStep === totalSteps){
+                setTimeout(function(){
+                    elem("#status").style.display = "none";
+                    elem("#export-button").style.display = "block";
+                }, 2000);
+                if (progressTimer) {
+                    clearInterval(progressTimer);
+                    progressTimer = null;
+                }
+            }
+        } else if(type === "steps"){
+            totalSteps = parseInt(message);
+            currentStep = 0;
+        }
+    }
+
+    if (window.location.protocol == "file:") {
+        connectSocket();
+    }
+
+    async function pollProgress() {
+        const r = await fetch("/progress");
+        const d = await r.json();
+        if (d.data) {
+            messageHandler(d);
+        }
+    }
 
     /**
      * @function
      * generate and send the data to the websocket
      */
     function startBuild(){
-        var cor = map.getExtent();
-        cor.transform(
-            map.getProjectionObject(), // from Spherical Mercator Projection
-            new OpenLayers.Projection("EPSG:4326")
-        );
+        var bounds = map.getBounds();
+        var cor = {
+            left: bounds.getWest(),
+            bottom: bounds.getSouth(),
+            right: bounds.getEast(),
+            top: bounds.getNorth()
+        };
 
         var data = {
             poly: elem("#polygons").checked,
             duration: parseInt(elem("#duration").value),
             publicTransport: elem("#publicTransport").checked,
+            ptModes: {
+                bus: elem("#pt_bus").checked,
+                tram: elem("#pt_tram").checked,
+                subway: elem("#pt_subway").checked,
+                light_rail: elem("#pt_light_rail").checked,
+                train: elem("#pt_train").checked,
+                trolleybus: elem("#pt_trolleybus").checked,
+                monorail: elem("#pt_monorail").checked,
+                minibus: elem("#pt_minibus").checked,
+                share_taxi: elem("#pt_share_taxi").checked,
+                ferry: elem("#pt_ferry").checked,
+                aerialway: elem("#pt_aerialway").checked
+            },
             leftHand: elem("#leftHand").checked,
             decal: elem("#decal").checked,
             carOnlyNetwork: elem("#carOnlyNetwork").checked,
+            verbose: elem("#verbose").checked,
             vehicles: {},
             roadTypes:{}                                                            // sab-inf
         };
@@ -560,10 +663,20 @@ on("ready", function(){
             }
         });
 
-        try {
-            socket.send(JSON.stringify(data));
-        } catch(e){
-            return;
+        if (window.location.protocol == "file:") {
+            try {
+                socket.send(JSON.stringify(data));
+            } catch(e){
+                return;
+            }
+        } else {
+            safeFetch("/build", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            })
+            // poll for messages
+            progressTimer = setInterval(pollProgress, 500);
         }
 
         elem("#status").style.display = "block";

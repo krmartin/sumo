@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -20,7 +20,8 @@
 #pragma once
 #include <config.h>
 
-#include <utils/foxtools/MFXGroupBoxModule.h>
+#include <netedit/GNETagProperties.h>
+#include <netedit/frames/common/GNEGroupBoxModule.h>
 
 // ===========================================================================
 // class declaration
@@ -32,19 +33,20 @@ class GNEFrame;
 // class definitions
 // ===========================================================================
 
-class DemandElementSelector : public MFXGroupBoxModule {
+class GNEDemandElementSelector : public GNEGroupBoxModule {
     /// @brief FOX-declaration
-    FXDECLARE(DemandElementSelector)
+    FXDECLARE(GNEDemandElementSelector)
 
 public:
     /// @brief constructor with a single tag
-    DemandElementSelector(GNEFrame* frameParent, SumoXMLTag demandElementTag, GNEDemandElement* defaultElement = nullptr);
+    GNEDemandElementSelector(GNEFrame* frameParent, SumoXMLTag demandElementTag, const GNETagProperties::Type tagType);
 
     /// @brief constructor with tag type
-    DemandElementSelector(GNEFrame* frameParent, const std::vector<GNETagProperties::TagType>& tagTypes);
+    GNEDemandElementSelector(GNEFrame* frameParent, const std::vector<GNETagProperties::Type> tagTypes,
+                             const std::vector<SumoXMLTag> exceptions = {});
 
     /// @brief destructor
-    ~DemandElementSelector();
+    ~GNEDemandElementSelector();
 
     /// @brief get current demand element
     GNEDemandElement* getCurrentDemandElement() const;
@@ -70,11 +72,8 @@ public:
     /// @brief refresh demand element selector
     void refreshDemandElementSelector();
 
-    /// @brief get previous edge for the current person plan
-    GNEEdge* getPersonPlanPreviousEdge() const;
-
-    /// @brief get previous edge for the current container plan
-    GNEEdge* getContainerPlanPreviousEdge() const;
+    /// @brief get previous plan element
+    GNEDemandElement* getPreviousPlanElement() const;
 
     /// @name FOX-callbacks
     /// @{
@@ -84,23 +83,23 @@ public:
 
 protected:
     /// @brief FOX need this
-    FOX_CONSTRUCTOR(DemandElementSelector)
+    FOX_CONSTRUCTOR(GNEDemandElementSelector)
 
 private:
     /// @brief pointer to frame Parent
     GNEFrame* myFrameParent;
 
     /// @brief comboBox with the list of elements type
-    MFXIconComboBox* myDemandElementsMatchBox;
-
-    /// @brief info label
-    FXLabel* myInfoLabel;
+    MFXComboBoxIcon* myDemandElementsComboBox;
 
     /// @brief current demand element
     GNEDemandElement* myCurrentDemandElement;
 
     /// @brief demand element tags
     std::vector<SumoXMLTag> myDemandElementTags;
+
+    /// @brief tag type (person, container or vehicle)
+    GNETagProperties::Type myTagType;
 
     /// @brief flag for enable/disable multiple element selection
     bool mySelectingMultipleElements;

@@ -11,7 +11,6 @@ file like this:
 <instantInductionLoop id="<ID>" lane="<LANE_ID>" pos="<POSITION_ON_LANE>" file="<OUTPUT_FILE>" [friendlyPos="x"]/>
 ```
 
-
 The "`id`" is any string by which you can name
 the detector. The attributes "`lane` and
 "`pos`" describe on which lane and at which
@@ -76,18 +75,14 @@ teleported a leave event without occupancy is generated.
 
 ## Visualisation
 
-![instantaneous_loops.svg](../../images/Instantaneous_loops.svg "instantaneous_loops.svg") 
-**Figure: A scenario with induction loops**
-
-
-![instantaneous_loop_closeup.svg](../../images/Instantaneous_loop_closeup.svg "instantaneous_loop_closeup.svg") 
-**Figure: A close-up view at an
-induction loop**
+| A scenario with induction loops | A close-up view at an induction loop |
+|:---:|:---:|
+| ![A scenario with induction loops](../../images/Instantaneous_loops.svg) | ![A close-up view at an induction loop](../../images/Instantaneous_loop_closeup.svg) |
 
 ## Further Notes
 
 - Instantaneous induct loops are not directly supported by
-  [TraCI](../../TraCI.md). As [Simulated induction loops can be
+  [TraCI](../../TraCI/index.md). As [Simulated induction loops can be
   accessed using
   TraCI](../../TraCI/Induction_Loop_Value_Retrieval.md) allows a
   per-second value retrieval from plain [induction

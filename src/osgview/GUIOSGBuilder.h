@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -44,7 +44,8 @@ class Tessellator;
 class MSVehicleType;
 class MSEdge;
 class GUIJunctionWrapper;
-
+class SUMOPolygon;
+class PointOfInterest;
 
 // ===========================================================================
 // class definitions
@@ -69,6 +70,8 @@ public:
 
     static GUIOSGView::OSGMovable buildMovable(const MSVehicleType& type);
 
+    static osg::Node* buildPlane(const float length = 1000.f); // OSG needs float coordinates here
+
 private:
     static osg::PositionAttitudeTransform* createTrafficLightState(const GUISUMOAbstractView::Decal& d, osg::Node* tl, const double withPole, const double size, osg::Vec4d color);
 
@@ -77,6 +80,9 @@ private:
 
     static void buildOSGJunctionGeometry(GUIJunctionWrapper& junction,
                                          osg::Group& addTo, osgUtil::Tessellator& tessellator);
+
+    static void buildPolygonGeometry(const SUMOPolygon& poly, osg::Group& addTo, osgUtil::Tessellator& tessellator);
+    static void buildPoIGeometry(const PointOfInterest& poi, osg::Group& addTo, osgUtil::Tessellator& tessellator);
 
     static void setShapeState(osg::ref_ptr<osg::ShapeDrawable> shape);
 

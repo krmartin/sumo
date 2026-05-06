@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -135,6 +135,10 @@ public:
         return myJamSoundTime;
     }
 
+    std::vector<std::string> getTrackers() {
+        return myTrackers;
+    }
+
     const std::string& getSettingName() const {
         return mySettings.name;
     }
@@ -157,6 +161,9 @@ private:
 
     /// @brief The point to look at, only needed for osg view
     Position myLookAt;
+
+    /// @brief Whether the Z coordinate is set in 3D view
+    bool myZCoordSet;
 
     /// @brief View rotation
     double myRotation;
@@ -186,6 +193,9 @@ private:
     std::map<std::string, RandomDistributor<std::string> > myEventDistributions;
     double myJamSoundTime;
 
+    /// @brief list of tlsIDs to open trackers for
+    std::vector<std::string> myTrackers;
+
 private:
     /// @brief parse color attribute
     RGBColor parseColor(const SUMOSAXAttributes& attrs, const std::string attribute, const RGBColor& defaultValue) const;
@@ -199,4 +209,9 @@ private:
     GUIVisualizationSizeSettings parseSizeSettings(
         const std::string& prefix, const SUMOSAXAttributes& attrs,
         GUIVisualizationSizeSettings defaults);
+
+    /// @brief parse attributes for rainbowSettings
+    GUIVisualizationRainbowSettings parseRainbowSettings(
+        const std::string& prefix, const SUMOSAXAttributes& attrs,
+        GUIVisualizationRainbowSettings defaults);
 };

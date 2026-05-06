@@ -3,3 +3,9 @@ assignment
 
 # override default precision
 tripinfo_precision
+
+# using a vtype file to define the phemlight-parameters
+phemlight_vtype
+
+# influence of the radial drag coefficient
+energy_radial_drag

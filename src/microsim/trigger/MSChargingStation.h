@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -15,9 +15,10 @@
 /// @author  Daniel Krajzewicz
 /// @author  Tamas Kurczveil
 /// @author  Pablo Alvarez Lopez
+/// @author  Mirko Barthauer
 /// @date    20-12-13
 ///
-// Chargin Station for Electric vehicles
+// Charging Station for Electric vehicles
 /****************************************************************************/
 #pragma once
 #include <config.h>
@@ -37,7 +38,7 @@ class MSLane;
 class MSBusStop;
 class OptionsCont;
 class MSDevice_Battery;
-
+class Command;
 
 // ===========================================================================
 // class definitions
@@ -47,17 +48,61 @@ class MSDevice_Battery;
  * @brief Definition of charging stations
  */
 class MSChargingStation : public MSStoppingPlace {
+
+public:
+    enum ChargeType {
+        CHARGETYPE_NORMAL = 0,
+        CHARGETYPE_BATTERYEXCHANGE,
+        CHARGETYPE_FUEL
+    };
+
+    /** @brief Get the string representation of a charge type
+    * @param[in] type The charge type to represent
+    */
+    static inline std::string chargeTypeToString(ChargeType type) {
+        if (type == CHARGETYPE_NORMAL) {
+            return "normal";
+        } else if (type == CHARGETYPE_BATTERYEXCHANGE) {
+            return "battery-exchange";
+        } else if (type == CHARGETYPE_FUEL) {
+            return "fuel";
+        } else {
+            WRITE_WARNING(TL("Encountered an unknown charge type. Assuming charge type 'normal'."));
+            return "normal";
+        }
+    }
+
+    /** @brief Get the charge type from its string representation
+    * @param[in] repr The string to convert into charge type
+    */
+    static inline ChargeType stringToChargeType(const std::string& repr) {
+        if (repr == "normal") {
+            return ChargeType::CHARGETYPE_NORMAL;
+        } else if (repr == "battery-exchange") {
+            return ChargeType::CHARGETYPE_BATTERYEXCHANGE;
+        } else if (repr == "fuel") {
+            return ChargeType::CHARGETYPE_FUEL;
+        } else {
+            WRITE_WARNINGF("Encountered an unknown charge type string '%'. Assuming charge type 'normal'.", repr);
+            return ChargeType::CHARGETYPE_NORMAL;
+        }
+    }
+
 public:
 
     /// @brief constructor
     MSChargingStation(const std::string& chargingStationID, MSLane& lane, double startPos, double endPos,
-                      const std::string& name, double chargingPower, double efficency, bool chargeInTransit,
-                      SUMOTime chargeDelay);
+                      const std::string& name, double chargingPower, double totalPower, double efficency, bool chargeInTransit,
+                      SUMOTime chargeDelay, const std::string& chargeType, SUMOTime waitingTime);
+
+    MSChargingStation(const std::string& chargingStationID, const MSParkingArea* parkingArea, const std::string& name, double chargingPower,
+                      double totalPower, double efficency, bool chargeInTransit, SUMOTime chargeDelay, const std::string& chargeType,
+                      SUMOTime waitingTime);
 
     /// @brief destructor
     ~MSChargingStation();
 
-    /// @brief Get charging station's charging power in the
+    /// @brief Get charging station's charging power
     double getChargingPower(bool usingFuel) const;
 
     /// @brief Get efficiency of the charging station
@@ -69,8 +114,40 @@ public:
     /// @brief Get Charge Delay
     SUMOTime getChargeDelay() const;
 
+    /// @brief Get charge type
+    ChargeType getChargeType() const;
+
+    /// @brief Get waiting time
+    SUMOTime getWaitingTime() const;
+
+    /** @brief Get the parking area the charging station is placed on
+     * @return pointer to the parking area or nullptr
+     */
+    const MSParkingArea* getParkingArea() const;
+
+    /// @brief set charging station's charging power
+    void setChargingPower(double chargingPower);
+
+    /// @brief set efficiency of the charging station
+    void setEfficiency(double efficiency);
+
+    /// @brief set charging delay of the charging station
+    void setChargeDelay(SUMOTime delay);
+
+    /// @brief set charging in transit
+    void setChargeInTransit(bool value);
+
+    /// @brief Get charging station's total power
+    double getTotalChargingPower() const;
+
+    /// @brief set charging station's total power
+    void setTotalChargingPower(double totalPower);
+
     /// @brief enable or disable charging vehicle
     void setChargingVehicle(bool value);
+
+    /// @brief update the delivered power to all charging vehicles after all requests are known
+    SUMOTime checkTotalPower(SUMOTime currentTime);
 
     /** @brief Check if a vehicle is inside in  the Charge Station
      * @param[in] position Position of vehicle in the LANE
@@ -90,6 +167,9 @@ public:
 
     /// @brief write charging station values
     void writeChargingStationOutput(OutputDevice& output);
+
+    /// @brief write ungrouped output (flush data after writing)
+    void writeAggregatedChargingStationOutput(OutputDevice& output, bool includeUnfinished = false);
 
 protected:
 
@@ -134,28 +214,47 @@ protected:
 
     static void writeVehicle(OutputDevice& out, const std::vector<Charge>& chargeSteps, int iStart, int iEnd, double charged);
 
-    /// @brief Charging station's charging power
-    double myChargingPower;
+    /// @brief Charging station's nominal charging power per vehicle
+    double myNominalChargingPower = 0;
+
+    /// @brief The maximal charging power available to serve all charging vehicles (value <= 0 take no effect)
+    double myTotalChargingPower = 0;
 
     /// @brief Efficiency of the charging station
-    double myEfficiency;
+    double myEfficiency = 0;
 
     /// @brief Allow charge in transit
     bool myChargeInTransit;
 
     /// @brief Charge Delay
-    SUMOTime myChargeDelay;
+    SUMOTime myChargeDelay = 0;
+
+    /// @brief charge type
+    const ChargeType myChargeType;
+
+    /// @brief waiting time
+    SUMOTime myWaitingTime = 0;
 
     /// @brief Check if in the current TimeStep chargingStation is charging a vehicle
-    bool myChargingVehicle;
+    bool myChargingVehicle = false;
 
     /// @brief total energy charged by this charging station
-    double myTotalCharge;
+    double myTotalCharge = 0;
+
+    /// @brief parkingArea the charging station is placed on
+    const MSParkingArea* myParkingArea = nullptr;
 
     /// @brief map with the charges of this charging station (key = vehicleID)
     std::map<std::string, std::vector<Charge> > myChargeValues;
     /// @brief order vehicles by time of first charge
     std::vector<std::string> myChargedVehicles;
+
+    /// @brief map with the Batteries charged by this charging station (key = vehicleID)
+    std::map<std::string, MSDevice_Battery*> myChargedBatteries;
+
+    /// @brief Event for checking at every time-step if myTotalPower has been exceeded
+    Command* myTotalPowerCheckEvent;
+
 
 private:
     /// @brief Invalidated copy constructor.
@@ -164,4 +263,3 @@ private:
     /// @brief Invalidated assignment operator.
     MSChargingStation& operator=(const MSChargingStation&) = delete;
 };
-

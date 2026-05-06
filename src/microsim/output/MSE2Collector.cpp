@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -47,8 +47,11 @@
 #include <microsim/MSNet.h>
 #include <microsim/MSVehicle.h>
 #include <microsim/MSVehicleType.h>
+#include <microsim/MSVehicleControl.h>
 #include <microsim/transportables/MSTransportable.h>
 #include <microsim/transportables/MSPModel.h>
+#include <utils/common/StringUtils.h>
+#include <utils/iodevices/OutputDevice.h>
 #include "MSE2Collector.h"
 
 //#define DEBUG_E2_CONSTRUCTOR
@@ -76,21 +79,7 @@ MSE2Collector::MSE2Collector(const std::string& id,
     myName(name),
     myJamHaltingSpeedThreshold(haltingSpeedThreshold),
     myJamHaltingTimeThreshold(haltingTimeThreshold),
-    myJamDistanceThreshold(jamDistThreshold),
-    myNumberOfEnteredVehicles(0),
-    myNumberOfSeenVehicles(0),
-    myNumberOfLeftVehicles(0),
-    myCurrentVehicleSamples(0),
-    myCurrentOccupancy(0),
-    myCurrentMeanSpeed(0),
-    myCurrentMeanLength(0),
-    myCurrentJamNo(0),
-    myCurrentMaxJamLengthInMeters(0),
-    myCurrentJamLengthInMeters(0),
-    myCurrentJamLengthInVehicles(0),
-    myCurrentHaltingsNumber(0),
-    myOverrideVehNumber(-1) {
-    reset();
+    myJamDistanceThreshold(jamDistThreshold) {
 
 #ifdef DEBUG_E2_CONSTRUCTOR
     if (DEBUG_COND) {
@@ -117,11 +106,11 @@ MSE2Collector::MSE2Collector(const std::string& id,
     if (lengthInvalid) {
         // assume that the detector is only located on a single lane
         if (posInvalid) {
-            WRITE_WARNING("No valid detector length and start position given. Assuming startPos = 0 and length = end position");
+            WRITE_WARNING(TL("No valid detector length and start position given. Assuming startPos = 0 and length = end position"));
             startPos = 0;
         }
         if (endPosInvalid) {
-            WRITE_WARNING("No valid detector length and end position given. Assuming endPos = lane length and length = endPos-startPos");
+            WRITE_WARNING(TL("No valid detector length and end position given. Assuming endPos = lane length and length = endPos-startPos"));
             endPos = lane->getLength();
         }
         endPos = endPos < 0 ? lane->getLength() + endPos : endPos;
@@ -179,20 +168,7 @@ MSE2Collector::MSE2Collector(const std::string& id,
     myEndPos(endPos),
     myJamHaltingSpeedThreshold(haltingSpeedThreshold),
     myJamHaltingTimeThreshold(haltingTimeThreshold),
-    myJamDistanceThreshold(jamDistThreshold),
-    myNumberOfEnteredVehicles(0),
-    myNumberOfSeenVehicles(0),
-    myNumberOfLeftVehicles(0),
-    myCurrentVehicleSamples(0),
-    myCurrentOccupancy(0),
-    myCurrentMeanSpeed(0),
-    myCurrentMeanLength(0),
-    myCurrentJamNo(0),
-    myCurrentJamLengthInMeters(0),
-    myCurrentJamLengthInVehicles(0),
-    myCurrentHaltingsNumber(0),
-    myOverrideVehNumber(-1) {
-    reset();
+    myJamDistanceThreshold(jamDistThreshold) {
 
     for (std::vector<MSLane*>::const_iterator i = lanes.begin(); i != lanes.end(); ++i) {
         assert((*i) != 0);
@@ -257,9 +233,9 @@ MSE2Collector::checkPositioning(bool posGiven, double desiredLength) {
     myStartPos = snap(myStartPos, 0., POSITION_EPS);
     myStartPos = snap(myStartPos, myFirstLane->getLength() - POSITION_EPS, POSITION_EPS);
     myStartPos = snap(myStartPos, 0., POSITION_EPS);
-    myEndPos = snap(myEndPos, myFirstLane->getLength(), POSITION_EPS);
+    myEndPos = snap(myEndPos, myLastLane->getLength(), POSITION_EPS);
     myEndPos = snap(myEndPos, POSITION_EPS, POSITION_EPS);
-    myEndPos = snap(myEndPos, myFirstLane->getLength(), POSITION_EPS);
+    myEndPos = snap(myEndPos, myLastLane->getLength(), POSITION_EPS);
     recalculateDetectorLength();
 
 #ifdef DEBUG_E2_CONSTRUCTOR
@@ -313,7 +289,7 @@ MSE2Collector::recalculateDetectorLength() {
         }
         previous = *j;
     }
-    // substract uncovered area on first and last lane
+    // subtract uncovered area on first and last lane
     myDetectorLength -= myStartPos;
     myDetectorLength -= myLastLane->getLength() - myEndPos;
 
@@ -337,7 +313,7 @@ MSE2Collector::selectLanes(MSLane* lane, double length, std::string dir) {
     assert(dir == "fw" || dir == "bw");
     bool fw = dir == "fw";
     double linkLength = 0; // linkLength (used if no internal lanes are present)
-    bool substractedLinkLength = false; // whether linkLength was substracted during the last iteration.
+    bool subtractedLinkLength = false; // whether linkLength was subtracted during the last iteration.
 
 #ifdef DEBUG_E2_CONSTRUCTOR
     if (DEBUG_COND) {
@@ -347,7 +323,7 @@ MSE2Collector::selectLanes(MSLane* lane, double length, std::string dir) {
     std::vector<MSLane*> lanes;
     // Selected lanes are stacked into vector 'lanes'. If dir == "bw" lanes will be reversed after this is done.
     // The length is reduced while adding lanes to the detector
-    // First we adjust the starting value for length (in the first iteration, the whole length of the first considered lane is substracted,
+    // First we adjust the starting value for length (in the first iteration, the whole length of the first considered lane is subtracted,
     // while it might only be partially covered by the detector)
     if (fw) {
         assert(myStartPos != std::numeric_limits<double>::max());
@@ -378,7 +354,7 @@ MSE2Collector::selectLanes(MSLane* lane, double length, std::string dir) {
         }
 
 
-        substractedLinkLength = false;
+        subtractedLinkLength = false;
         if (lane != nullptr && !MSGlobals::gUsingInternalLanes && length > POSITION_EPS) {
             // In case wher no internal lanes are used,
             // take into account the link length for the detector range
@@ -389,7 +365,7 @@ MSE2Collector::selectLanes(MSLane* lane, double length, std::string dir) {
                 linkLength = lane->getLinkTo(lanes.back())->getLength();
             }
             length -= linkLength;
-            substractedLinkLength = true;
+            subtractedLinkLength = true;
         }
 
 
@@ -403,8 +379,8 @@ MSE2Collector::selectLanes(MSLane* lane, double length, std::string dir) {
 #endif
     }
 
-    if (substractedLinkLength) {
-        // if the link's length was substracted during the last step,
+    if (subtractedLinkLength) {
+        // if the link's length was subtracted during the last step,
         // the start/endPos would lie on a non-existing internal lane,
         // therefore revert and truncate detector part on the non-existing internal lane.
         length += linkLength;
@@ -485,7 +461,7 @@ MSE2Collector::initAuxiliaries(std::vector<MSLane*>& lanes) {
     myOffsets.clear();
 
     // loop over detector lanes and accumulate offsets with respect to the first lane's begin
-    // (these will be corrected afterwards by substracting the start position.)
+    // (these will be corrected afterwards by subtracting the start position.)
     std::vector<MSLane*>::iterator il = lanes.begin();
 
     // start on an internal lane?
@@ -499,14 +475,7 @@ MSE2Collector::initAuxiliaries(std::vector<MSLane*>& lanes) {
     }
 #endif
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4127) // do not warn about constant conditional expression
-#endif
     while (true) {
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
         // Consider the next internal lanes
         while (internal != nullptr) {
             myLanes.push_back(internal->getID());
@@ -578,7 +547,7 @@ MSE2Collector::initAuxiliaries(std::vector<MSLane*>& lanes) {
         // find the connection to next
         const MSLink* link = lane->getLinkTo(*il);
         if (link == nullptr) {
-            throw InvalidArgument("Lanes '" + lane->getID() + "' and '" + (*il)->getID() + "' are not consecutive in defintion of e2Detector '" + getID() + "'");
+            throw InvalidArgument("Lanes '" + lane->getID() + "' and '" + (*il)->getID() + "' are not consecutive in definition of e2Detector '" + getID() + "'");
         }
 
         if (!MSGlobals::gUsingInternalLanes) {
@@ -588,7 +557,7 @@ MSE2Collector::initAuxiliaries(std::vector<MSLane*>& lanes) {
         }
     }
 
-    // Substract distance not covered on the last considered lane
+    // Subtract distance not covered on the last considered lane
     bool fw = myEndPos == std::numeric_limits<double>::max();
     if (fw) {
         myDetectorLength -= myStartPos;
@@ -778,7 +747,7 @@ MSE2Collector::notifyEnter(SUMOTrafficObject& veh, MSMoveReminder::Notification 
 #endif
     // notifyEnter() should only be called for lanes of the detector
     assert(std::find(myLanes.begin(), myLanes.end(), enteredLane->getID()) != myLanes.end());
-    assert(veh.getLane() == enteredLane);
+    assert(veh.getLane() == enteredLane || !veh.isVehicle());
 
     // vehicles must be kept if the "inductionloop" wants to detect passeengers
     if (!vehicleApplies(veh) && (veh.isPerson() || myDetectPersons <= (int)PersonMode::WALK)) {
@@ -908,7 +877,7 @@ MSE2Collector::detectorUpdate(const SUMOTime /* step */) {
         if (myLanes.size() > 1) {
             /// code is more complicated because we have to make persons with
             //dir=BACKWARD send a virtual forward-lane-sequence
-            throw ProcessError("Multi-lane e2Detector does not support detecting persons yet");
+            throw ProcessError(TL("Multi-lane e2Detector does not support detecting persons yet"));
         }
         for (MSLane* lane : getLanes()) {
             if (lane->hasPedestrians()) {
@@ -1126,7 +1095,8 @@ MSE2Collector::makeMoveNotification(const SUMOTrafficObject& veh, double oldPos,
     /* Store new infos */
     return new MoveNotificationInfo(veh.getID(), oldPos, newPos, newSpeed, veh.getAcceleration(),
                                     myDetectorLength - (vehInfo.entryOffset + newPos),
-                                    timeOnDetector, lengthOnDetector, timeLoss, stillOnDetector);
+                                    timeOnDetector, lengthOnDetector, timeLoss,
+                                    STEPS2TIME(veh.getWaitingTime()), stillOnDetector);
 }
 
 void
@@ -1260,6 +1230,7 @@ MSE2Collector::processJams(std::vector<JamInfo*>& jams, JamInfo* currentJam) {
     myCurrentMaxJamLengthInVehicles = 0;
     myCurrentJamLengthInMeters = 0;
     myCurrentJamLengthInVehicles = 0;
+    myCurrentJamDuration = 0;
     for (std::vector<JamInfo*>::const_iterator i = jams.begin(); i != jams.end(); ++i) {
         // compute current jam's values
         MoveNotificationInfo* lastVeh = *((*i)->lastStandingVehicle);
@@ -1275,6 +1246,7 @@ MSE2Collector::processJams(std::vector<JamInfo*>& jams, JamInfo* currentJam) {
         myJamLengthInVehiclesSum += jamLengthInVehicles;
         myCurrentJamLengthInMeters += jamLengthInMeters;
         myCurrentJamLengthInVehicles += jamLengthInVehicles;
+        myCurrentJamDuration = MAX2(myCurrentJamDuration, firstVeh->waitingTime);
 #ifdef DEBUG_E2_JAMS
         if (DEBUG_COND) {
             std::cout << SIMTIME << " processing jam nr." << ((int) distance((std::vector<JamInfo*>::const_iterator) jams.begin(), i) + 1)
@@ -1359,18 +1331,22 @@ MSE2Collector::writeXMLDetectorProlog(OutputDevice& dev) const {
 
 void
 MSE2Collector::writeXMLOutput(OutputDevice& dev, SUMOTime startTime, SUMOTime stopTime) {
+    const double meanSpeed = getIntervalMeanSpeed();
+    const double meanOccupancy = getIntervalOccupancy();
+    const double meanTimeLoss = getIntervalMeanTimeLoss();
+    myPreviousMeanOccupancy = meanOccupancy;
+    myPreviousMeanSpeed = meanSpeed;
+    myPreviousMaxJamLengthInMeters = myMaxJamInMeters;
+    myPreviousNumberOfSeenVehicles = myNumberOfSeenVehicles;
+    myPreviousMeanTimeLoss = meanTimeLoss;
+
     if (dev.isNull()) {
         reset();
         return;
     }
-    dev << "   <interval begin=\"" << time2string(startTime) << "\" end=\"" << time2string(stopTime) << "\" " << "id=\"" << getID() << "\" ";
-
-    const double meanSpeed = myVehicleSamples != 0 ? mySpeedSum / myVehicleSamples : -1;
-    const double meanOccupancy = myTimeSamples != 0 ? myOccupancySum / (double) myTimeSamples : 0;
     const double meanJamLengthInMeters = myTimeSamples != 0 ? myMeanMaxJamInMeters / (double) myTimeSamples : 0;
     const double meanJamLengthInVehicles = myTimeSamples != 0 ? myMeanMaxJamInVehicles / (double) myTimeSamples : 0;
     const double meanVehicleNumber = myTimeSamples != 0 ? (double) myMeanVehicleNumber / (double) myTimeSamples : 0;
-    const double meanTimeLoss = myNumberOfSeenVehicles != 0 ? myTotalTimeLoss / myNumberOfSeenVehicles : -1;
 
     SUMOTime haltingDurationSum = 0;
     SUMOTime maxHaltingDuration = 0;
@@ -1415,31 +1391,33 @@ MSE2Collector::writeXMLOutput(OutputDevice& dev, SUMOTime startTime, SUMOTime st
     }
 #endif
 
+    dev.openTag(SUMO_TAG_INTERVAL).writeTime(SUMO_ATTR_BEGIN, startTime).writeTime(SUMO_ATTR_END, stopTime);
+    dev.writeAttr(SUMO_ATTR_ID, StringUtils::escapeXML(getID()));
+    dev.writeAttr("sampledSeconds", myVehicleSamples)
+    .writeAttr("nVehEntered", myNumberOfEnteredVehicles)
+    .writeAttr("nVehLeft", myNumberOfLeftVehicles)
+    .writeAttr("nVehSeen", myNumberOfSeenVehicles)
+    .writeAttr("meanSpeed", meanSpeed)
+    .writeAttr("meanTimeLoss", meanTimeLoss)
+    .writeAttr("meanOccupancy", meanOccupancy)
+    .writeAttr("maxOccupancy", myMaxOccupancy)
+    .writeAttr("meanMaxJamLengthInVehicles", meanJamLengthInVehicles)
+    .writeAttr("meanMaxJamLengthInMeters", meanJamLengthInMeters)
+    .writeAttr("maxJamLengthInVehicles", myMaxJamInVehicles)
+    .writeAttr("maxJamLengthInMeters", myMaxJamInMeters)
+    .writeAttr("jamLengthInVehiclesSum", myJamLengthInVehiclesSum)
+    .writeAttr("jamLengthInMetersSum", myJamLengthInMetersSum)
+    .writeAttr("meanHaltingDuration", STEPS2TIME(meanHaltingDuration))
+    .writeAttr("maxHaltingDuration", STEPS2TIME(maxHaltingDuration))
+    .writeAttr("haltingDurationSum", STEPS2TIME(haltingDurationSum))
+    .writeAttr("meanIntervalHaltingDuration", STEPS2TIME(intervalMeanHaltingDuration))
+    .writeAttr("maxIntervalHaltingDuration", STEPS2TIME(intervalMaxHaltingDuration))
+    .writeAttr("intervalHaltingDurationSum", STEPS2TIME(intervalHaltingDurationSum))
+    .writeAttr("startedHalts", myStartedHalts)
+    .writeAttr("meanVehicleNumber", meanVehicleNumber)
+    .writeAttr("maxVehicleNumber", myMaxVehicleNumber)
+    .closeTag();
 
-    dev << "sampledSeconds=\"" << myVehicleSamples << "\" "
-        << "nVehEntered=\"" << myNumberOfEnteredVehicles << "\" "
-        << "nVehLeft=\"" << myNumberOfLeftVehicles << "\" "
-        << "nVehSeen=\"" << myNumberOfSeenVehicles << "\" "
-        << "meanSpeed=\"" << meanSpeed << "\" "
-        << "meanTimeLoss=\"" << meanTimeLoss << "\" "
-        << "meanOccupancy=\"" << meanOccupancy << "\" "
-        << "maxOccupancy=\"" << myMaxOccupancy << "\" "
-        << "meanMaxJamLengthInVehicles=\"" << meanJamLengthInVehicles << "\" "
-        << "meanMaxJamLengthInMeters=\"" << meanJamLengthInMeters << "\" "
-        << "maxJamLengthInVehicles=\"" << myMaxJamInVehicles << "\" "
-        << "maxJamLengthInMeters=\"" << myMaxJamInMeters << "\" "
-        << "jamLengthInVehiclesSum=\"" << myJamLengthInVehiclesSum << "\" "
-        << "jamLengthInMetersSum=\"" << myJamLengthInMetersSum << "\" "
-        << "meanHaltingDuration=\"" << STEPS2TIME(meanHaltingDuration) << "\" "
-        << "maxHaltingDuration=\"" << STEPS2TIME(maxHaltingDuration) << "\" "
-        << "haltingDurationSum=\"" << STEPS2TIME(haltingDurationSum) << "\" "
-        << "meanIntervalHaltingDuration=\"" << STEPS2TIME(intervalMeanHaltingDuration) << "\" "
-        << "maxIntervalHaltingDuration=\"" << STEPS2TIME(intervalMaxHaltingDuration) << "\" "
-        << "intervalHaltingDurationSum=\"" << STEPS2TIME(intervalHaltingDurationSum) << "\" "
-        << "startedHalts=\"" << myStartedHalts << "\" "
-        << "meanVehicleNumber=\"" << meanVehicleNumber << "\" "
-        << "maxVehicleNumber=\"" << myMaxVehicleNumber << "\" "
-        << "/>\n";
     reset();
 }
 
@@ -1549,19 +1527,19 @@ double
 MSE2Collector::getEstimateQueueLength() const {
 
     if (myVehicleInfos.empty()) {
-        return -1;
+        return 0;
     }
 
-    double distance = std::numeric_limits<double>::max();
+    double distance = 0;
     double realDistance = 0;
     bool flowing =  true;
     for (VehicleInfoMap::const_iterator it = myVehicleInfos.begin();
             it != myVehicleInfos.end(); it++) {
-        if (it->second->onDetector) {
-            distance = MIN2(it->second->lastPos, distance);
+        if (it->second->onDetector && it->second->totalTimeOnDetector > 0) {
             //  double distanceTemp = myLane->getLength() - distance;
-            if (it->second->lastSpeed <= 0.5) {
-                realDistance = distance - it->second->length + it->second->minGap;
+            if (it->second->lastSpeed <= myJamHaltingSpeedThreshold) {
+                distance = MAX2(it->second->distToDetectorEnd, distance);
+                realDistance = distance + it->second->length;
                 flowing = false;
             }
             //            DBG(
@@ -1580,9 +1558,33 @@ MSE2Collector::getEstimateQueueLength() const {
     if (flowing) {
         return 0;
     } else {
-        return myLane->getLength() - realDistance;
+        return realDistance;
     }
 }
+
+
+double
+MSE2Collector::getArrivalDelay() const {
+#ifdef HAVE_FOX
+    ScopedLocker<> lock(myNotificationMutex, MSGlobals::gNumSimThreads > 1);
+#endif
+    MSVehicleControl& vc = MSNet::getInstance()->getVehicleControl();
+    double result = -INVALID_DOUBLE;
+    for (auto item : myVehicleInfos) {
+        if (item.second->onDetector) {
+            SUMOVehicle* v = vc.getVehicle(item.first);
+            if (v != nullptr) {
+                MSBaseVehicle* veh = dynamic_cast<MSBaseVehicle*>(v);
+                double ad = veh->getStopArrivalDelay();
+                if (ad != INVALID_DOUBLE) {
+                    result = MAX2(result, ad);
+                }
+            }
+        }
+    }
+    return result;
+}
+
 
 
 void

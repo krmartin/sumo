@@ -1,3 +1,6 @@
+# Tests for detector generation script
+generateDetectors
+
 # Tests for E1 Detector generation script
 generateTLSE1Detectors
 
@@ -20,10 +23,12 @@ tripinfoDiff
 
 # difference of tripinfo output with personInfo elements
 tripinfoDiff_persons
-edgeDataDiff
+edgeDepartDelay
 tripinfoByType
 tripinfoByTAZ
 attributeStats
+attributeDiff
+attributeCompare
 
 # tests for evaluating the coordination factor along a corridor
 computeCoordination
@@ -41,3 +46,13 @@ parkingSearchTraffic
 
 # aggregate battery outputs
 aggregateBatteryOutput
+vehrouteCountValidation
+fcdDiff
+edgeDataDiff
+
+# tools for comparing instant detector data files
+instantOutDiff
+analyze_pedestrian_jam
+
+# Copy of analyze_pedestrian_jam
+analyze_teleports

@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -104,8 +104,6 @@ public:
 
     void prepareStep() override;
 
-    double getExtraReservation(int bestLaneOffset) const override;
-
     /// @brief try to retrieve the given parameter from this device. Throw exception for unsupported key
     std::string getParameter(const std::string& key) const override;
 
@@ -115,9 +113,15 @@ public:
     /// @brief decides the next lateral speed (for continuous lane changing)
     double computeSpeedLat(double latDist, double& maneuverDist, bool urgent) const override;
 
-    /// @brief Returns a deceleration value which is used for the estimation of the duration of a lane change.
-    /// @note  Effective only for continuous lane-changing when using attributes myMaxSpeedLatFactor and myMaxSpeedLatStanding. See #3771
-    double getAssumedDecelForLaneChangeDuration() const override;
+    /** @brief Save the state of the laneChangeModel
+     * @param[in] out The OutputDevice to write the information into
+     */
+    virtual void saveState(OutputDevice& out) const override;
+
+    /** @brief Loads the state of the laneChangeModel from the given attributes
+     * @param[in] attrs XML attributes describing the current state
+     */
+    virtual void loadState(const SUMOSAXAttributes& attrs) override;
 
 protected:
 
@@ -135,8 +139,8 @@ protected:
         const std::pair<MSVehicle*, double>& neighFollow,
         const MSLane& neighLane,
         const std::vector<MSVehicle::LaneQ>& preb,
-        MSVehicle** lastBlocked,
-        MSVehicle** firstBlocked);
+        MSVehicle* lastBlocked,
+        MSVehicle* firstBlocked);
 
     /* @brief decide whether we will overtake or follow a blocking leader
      * and inform it accordingly
@@ -167,7 +171,7 @@ protected:
     static double overtakeDistance(const MSVehicle* follower, const MSVehicle* leader, const double gap, double followerSpeed = INVALID_SPEED, double leaderSpeed = INVALID_SPEED);
 
     /// @brief compute useful slowdowns for blocked vehicles
-    int slowDownForBlocked(MSVehicle** blocked, int state);
+    int slowDownForBlocked(MSVehicle* blocked, int state);
 
     /// @brief anticipate future follow speed for the given leader
     double anticipateFollowSpeed(const std::pair<MSVehicle*, double>& leaderDist, double dist, double vMax, bool acceleratingLeader);
@@ -197,25 +201,22 @@ protected:
         return dist / abs(laneOffset) > lookForwardDist;
     }
 
-    /** @brief Takes a vSafe (speed advice for speed in the next simulation step), converts it into an acceleration
-     *         and stores it into myLCAccelerationAdvices.
-     *  @note  This construction was introduced to deal with action step lengths,
-     *         where operation on the speed in the next sim step had to be replaced by acceleration
-     *         throughout the next action step.
-     */
-    void addLCSpeedAdvice(const double vSafe);
+    /// @brief whether there is a lane beyond laneOffset that can be used to overtake the stopped leader on the neighboring lane
+    bool hasFreeLane(int laneOffset, const std::pair<MSVehicle*, double>& neighLeadStopped) const;
 
 protected:
 
     /// @brief information regarding save velocity (unused) and state flags of the ego vehicle
     typedef std::pair<double, int> Info;
 
-    /// @brief a value for tracking the probability that a change to the offset with the same sign is beneficial
-    double mySpeedGainProbability;
+    /// @brief a value for tracking the probability that a change to that side is beneficial
+    long long int mySpeedGainProbabilityLeft;
+    long long int mySpeedGainProbabilityRight;
+
     /* @brief a value for tracking the probability of following the/"Rechtsfahrgebot"
      * A larger negative value indicates higher probability for moving to the
      * right (as in mySpeedGainProbability) */
-    double myKeepRightProbability;
+    long long int myKeepRightProbability;
 
     double myLeadingBlockerLength;
     double myLeftSpace;
@@ -223,10 +224,6 @@ protected:
     /*@brief the speed to use when computing the look-ahead distance for
      * determining urgency of strategic lane changes */
     double myLookAheadSpeed;
-
-    /// @brief vector of LC-related acceleration recommendations
-    ///        Filled in wantsChange() and applied in patchSpeed()
-    std::vector<double> myLCAccelerationAdvices;
 
     bool myDontBrake; // XXX: myDontBrake is initialized as false and seems not to be changed anywhere... What's its purpose???
 
@@ -243,10 +240,12 @@ protected:
     // @brief the factor by which the speedGain-threshold for the leftdiffers from the threshold for the right
     double mySpeedGainRight;
 
-    // @brief willingness to undercut longitudinal safe gaps
-    double myAssertive;
     // @brief lookahead for speedGain in seconds
     double mySpeedGainLookahead;
+    // @brief the minimum time to spent driving without lane change after a speed-gain change
+    double mySpeedGainRemainTime;
+    // @brief the threshold value of mySpeedGainProbability for making a speedGain change urgent
+    double mySpeedGainUrgency;
     // @brief bounus factor staying on the inside of multi-lane roundabout
     double myRoundaboutBonus;
     // @brief factor for cooperative speed adjustment
@@ -265,8 +264,8 @@ protected:
 
     /// @name derived parameters
     //@{
-    // @brief willingness to encroach on other vehicles laterally (pushing them around)
-    double myChangeProbThresholdRight;
-    double myChangeProbThresholdLeft;
+    // @brief thresholds for changing to the right/left
+    long long int myChangeProbThresholdRight;
+    long long int myChangeProbThresholdLeft;
     //@}
 };

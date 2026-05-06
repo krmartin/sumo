@@ -33,11 +33,11 @@ has been given, the application does not know what to do and prints only
 an information about itself:
 
 ```
-Eclipse SUMO netgenerate Version {{Version}}
- Build features: Linux-4.1.39-56-default Proj GDAL GUI
- Copyright (C) 2001-2020 German Aerospace Center (DLR) and others; https://sumo.dlr.de
- License EPL-2.0: Eclipse Public License Version 2 <https://eclipse.org/legal/epl-v20.html>
- Use --help to get the list of options.
+Eclipse SUMO netgenerate Version {{Version}}
+ Build features: Linux-4.1.39-56-default Proj GDAL GUI
+ Copyright (C) 2001-2020 German Aerospace Center (DLR) and others; https://sumo.dlr.de
+ License EPL-2.0: Eclipse Public License Version 2 <https://www.eclipse.org/legal/epl-2.0/>
+ Use --help to get the list of options.
 ```
 
 # Options
@@ -61,7 +61,7 @@ example, if one wants the simulation to load a certain road network,
 "mynet.net.xml", the following must be written:
 
 ```
---net mynet.net.xml
+--net mynet.net.xml
 ```
 
 The '--' in front indicates that the option's long name is following
@@ -77,7 +77,7 @@ Some often used options can be abbreviated. The abbreviation for the
 above:
 
 ```
--n mynet.net.xml
+-n mynet.net.xml
 ```
 
 Please note that an abbreviation is indicated using a single '-'.
@@ -85,11 +85,11 @@ Please note that an abbreviation is indicated using a single '-'.
 !!! note
     Not all abbreviations have the same meaning across the applications from the SUMO-suite.
 
-If you want to append options to a list of values given in a 
+If you want to append options to a list of values given in a
 [configuration file](#configuration_files_vs_command_line_parameter) you will use the following syntax:
 
 ```
-+a myAdditional.add.xml
++a myAdditional.add.xml
 ```
 
 Please note that you can use the abbreviated or the non-abbreviated name here but always a single '+'.
@@ -156,7 +156,7 @@ The according [sumo](../sumo.md) execution call - working with both
 configuration versions - would be:
 
 ```
-sumo.exe -c test.sumocfg
+sumo.exe -c test.sumocfg
 ```
 
 This means that instead of the parameters, we only give the name of the
@@ -165,7 +165,7 @@ options on the command line it is possible to leave out the "-c" as
 well:
 
 ```
-sumo.exe test.sumocfg
+sumo.exe test.sumocfg
 ```
 
 ## Naming Conventions for Configuration Files
@@ -215,12 +215,15 @@ In either case, if further information on the parameters is wanted, one
 can also pass the option **--save-commented**. Then, some further comments on each parameter
 are generated.
 
+!!! note
+    SUMO applications will quit after saving a configuration. The application has to be called a second time to run the configuration.
+
 ## Environment variables in Configuration Files
 
 It is possible to refer to environment variables in configuration files. The syntax to refer to an environment variable is **${VARNAME}**.
 For example, your configuration file may reference a variable called **NETFILENAME**, containing the name of a network file, with the following configuration settings.
 
-```
+```xml
 <configuration>
     <input>
         <net-file value="${NETFILENAME}.net.xml"/>
@@ -269,6 +272,7 @@ given in the following.
 | **-l** {{DT_FILE}}<br>**--log** {{DT_FILE}}  | Writes all messages to FILE (implies verbose)  |
 | **--message-log** {{DT_FILE}}  | Writes all non-error messages to FILE (implies verbose)  |
 | **--error-log** {{DT_FILE}}  | Writes all warnings and errors to FILE  |
+| **--language** {{DT_STR}} | Language to use in messages; *default:* **C** |
 
 The logging options **--log** and **--message-log** also enable the verbose output but only into
 the given file (unless **--verbose** was given as well). Errors get always printed to
@@ -280,6 +284,12 @@ the XML parser. This performs a basic validation of the input and is
 highly recommended especially for beginners because it easily finds
 spelling mistakes in the input which otherwise might be silently
 ignored. Validation is only performed if the [XML-schema is declared within the input file](../XMLValidation.md).
+
+The **--language** option sets the language for messages, warnings and the GUI elements. The translation is still very incomplete
+thus by default the language is set to "C", which means untranslated. The parameter accepts a two letter language code
+such as *tr* or *de*. If it is explicitly set to the empty string, it will try to determine the language from
+environment variables as described in the [gettext documentation](https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html).
+If you want to contribute to translations please have a look at the [translation documentation](../Developer/Translating.md).
 
 ## Random Number Options
 
@@ -372,20 +382,19 @@ All time values in options and xml input may always be given as seconds or in "H
 # Using Python tools from the Command Line
 
 Many [tools](../Tools/index.md) that are distributed by SUMO (in the
-{{SUMO}}/tools folder are written in the [python](https://www.python.org/)
+{{SUMO}}/tools folder) are written in the [python](https://www.python.org/)
 programming language. To use them, **Python 3.7 or later** must be [installed on your computer](https://www.python.org/downloads/).
 
-Then you need to make sure that the [environment variable *SUMO_HOME*](#additional_environment_variables) is set. The
-easiest way is to open the command-line window using
-[start-command-line.bat](#sumo_0123_and_later).
+Then you need to make sure that the [environment variable *SUMO_HOME*](Basic_Computer_Skills.md#sumo_home) is set. The
+easiest way is to open the command-line window using **start-command-line.bat**.
 
 Furthermore you need to make sure that your computer knows where to find
 the python tools. The easiest (but somewhat cumbersome) method is to run
 the tool using its full path:
 
 ```
-C:\Users\yourname>D:\path_to_sumo\tools\randomTrips.py  ... arguments ...
+C:\Users\yourname>D:\path_to_sumo\tools\randomTrips.py  ... arguments ...
 ```
 
 Alternatively, you can add the directory in which the tool lies to your
-[PATH-Variable](#configuring_path_settings).
+[PATH-Variable](Basic_Computer_Skills.md#configuring_path_settings).

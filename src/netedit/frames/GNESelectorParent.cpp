@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,9 +17,9 @@
 ///
 // Frame for select parents
 /****************************************************************************/
-#include <config.h>
 
 #include <netedit/GNENet.h>
+#include <netedit/GNETagPropertiesDatabase.h>
 #include <netedit/GNEViewNet.h>
 #include <netedit/frames/common/GNEInspectorFrame.h>
 #include <utils/gui/div/GUIDesigns.h>
@@ -27,18 +27,17 @@
 
 #include "GNESelectorParent.h"
 
-
 // ===========================================================================
 // method definitions
 // ===========================================================================
 
 GNESelectorParent::GNESelectorParent(GNEFrame* frameParent) :
-    MFXGroupBoxModule(frameParent, "Parent selector"),
+    GNEGroupBoxModule(frameParent, TL("Parent selector")),
     myFrameParent(frameParent) {
     // Create label with the type of GNESelectorParent
-    myParentsLabel = new FXLabel(getCollapsableFrame(), "No element selected", nullptr, GUIDesignLabelLeftThick);
+    myParentsLabel = new FXLabel(getCollapsableFrame(), TL("No element selected"), nullptr, GUIDesignLabelThick(JUSTIFY_NORMAL));
     // Create list
-    myParentsList = new FXList(getCollapsableFrame(), this, MID_GNE_SET_TYPE, GUIDesignListSingleElementFixedHeight);
+    myParentsList = new FXList(getCollapsableFrame(), this, MID_GNE_SET_TYPE, GUIDesignListFixedHeight);
     // Hide List
     hideSelectorParentModule();
 }
@@ -79,7 +78,7 @@ void
 GNESelectorParent::showSelectorParentModule(const std::vector<SumoXMLTag>& parentTags) {
     if (parentTags.size() > 0) {
         myParentTags = parentTags;
-        myParentsLabel->setText(("Parent type: " + toString(parentTags.front())).c_str());
+        myParentsLabel->setText((TL("Parent type: ") + toString(parentTags.front())).c_str());
         refreshSelectorParentModule();
         show();
     } else {
@@ -112,11 +111,11 @@ GNESelectorParent::refreshSelectorParentModule() {
         // fill list with IDs
         for (const auto& parentTag : myParentTags) {
             // check type
-            const auto tagProperty = GNEAttributeCarrier::getTagProperty(parentTag);
+            const auto tagProperty = myFrameParent->getViewNet()->getNet()->getTagPropertiesDatabase()->getTagProperty(parentTag, true);
             // additionals
-            if (tagProperty.isAdditionalElement()) {
+            if (tagProperty->isAdditionalElement()) {
                 for (const auto& additional : myFrameParent->getViewNet()->getNet()->getAttributeCarriers()->getAdditionals().at(parentTag)) {
-                    IDs.insert(additional->getID().c_str());
+                    IDs.insert(additional.second->getID().c_str());
                 }
             }
         }

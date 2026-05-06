@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,14 +17,12 @@
 ///
 // File for lane2lane geometry classes and functions
 /****************************************************************************/
-#include <utils/geom/GeomHelper.h>
 
 #include <netedit/elements/network/GNEEdge.h>
 #include <netedit/elements/network/GNELane.h>
 #include <netedit/elements/network/GNEJunction.h>
 
 #include "GNELane2laneConnection.h"
-
 
 // ===========================================================================
 // method definitions
@@ -44,7 +42,7 @@ GNELane2laneConnection::updateLane2laneConnection() {
     myConnectionsMap.clear();
     // iterate over outgoingEdge's lanes
     for (const auto& outgoingEdge : myFromLane->getParentEdge()->getToJunction()->getGNEOutgoingEdges()) {
-        for (const auto& outgoingLane : outgoingEdge->getLanes()) {
+        for (const auto& outgoingLane : outgoingEdge->getChildLanes()) {
             // get NBEdges from and to
             const NBEdge* NBEdgeFrom = myFromLane->getParentEdge()->getNBEdge();
             const NBEdge* NBEdgeTo = outgoingLane->getParentEdge()->getNBEdge();
@@ -52,7 +50,7 @@ GNELane2laneConnection::updateLane2laneConnection() {
             PositionVector shape;
             // only create smooth shapes if Edge From has as maximum 10 lanes
             if ((NBEdgeFrom->getNumLanes() <= maximumLanes) && (NBEdgeFrom->getToNode()->getShape().area() > 4)) {
-                // calculate smoot shape
+                // calculate smooth shape
                 shape = NBEdgeFrom->getToNode()->computeSmoothShape(
                             NBEdgeFrom->getLaneShape(myFromLane->getIndex()),
                             NBEdgeTo->getLaneShape(outgoingLane->getIndex()),

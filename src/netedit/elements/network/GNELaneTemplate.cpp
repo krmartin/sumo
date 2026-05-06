@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -17,7 +17,6 @@
 ///
 // Template for lanes
 /****************************************************************************/
-#include <config.h>
 
 #include <netedit/elements/network/GNELane.h>
 
@@ -43,8 +42,38 @@ GNELaneTemplate::getHierarchicalElement() {
 }
 
 
+GNEMoveElement*
+GNELaneTemplate::getMoveElement() const {
+    return nullptr;
+}
+
+
+Parameterised*
+GNELaneTemplate::getParameters() {
+    return nullptr;
+}
+
+
+const Parameterised*
+GNELaneTemplate::getParameters() const {
+    return nullptr;
+}
+
+
+FileBucket*
+GNELaneTemplate::getFileBucket() const {
+    return myLane->getFileBucket();
+}
+
+
 GUIGlObject*
 GNELaneTemplate::getGUIGlObject() {
+    return nullptr;
+}
+
+
+const GUIGlObject*
+GNELaneTemplate::getGUIGlObject() const {
     return nullptr;
 }
 
@@ -55,9 +84,75 @@ GNELaneTemplate::updateGeometry() {
 }
 
 
+bool
+GNELaneTemplate::checkDrawFromContour() const {
+    return false;
+}
+
+
+bool
+GNELaneTemplate::checkDrawToContour() const {
+    return false;
+}
+
+
+bool
+GNELaneTemplate::checkDrawRelatedContour() const {
+    return false;
+}
+
+
+bool
+GNELaneTemplate::checkDrawOverContour() const {
+    return false;
+}
+
+
+bool
+GNELaneTemplate::checkDrawDeleteContour() const {
+    return false;
+}
+
+
+bool
+GNELaneTemplate::checkDrawDeleteContourSmall() const {
+    return false;
+}
+
+
+bool
+GNELaneTemplate::checkDrawSelectContour() const {
+    return false;
+}
+
+
+bool
+GNELaneTemplate::checkDrawMoveContour() const {
+    return false;
+}
+
+
 std::string
 GNELaneTemplate::getAttribute(SumoXMLAttr key) const {
     return myLane->getAttribute(key);
+}
+
+
+double
+GNELaneTemplate::getAttributeDouble(SumoXMLAttr key) const {
+    return myLane->getAttributeDouble(key);
+}
+
+
+Position
+GNELaneTemplate::getAttributePosition(SumoXMLAttr key) const {
+    return getCommonAttributePosition(key);
+}
+
+
+PositionVector
+GNELaneTemplate::getAttributePositionVector(SumoXMLAttr key) const {
+    return myLane->getAttributePositionVector(key);
 }
 
 
@@ -89,12 +184,6 @@ GNELaneTemplate::getPopUpID() const {
 std::string
 GNELaneTemplate::getHierarchyName() const {
     return myLane->getHierarchyName();
-}
-
-
-const Parameterised::Map&
-GNELaneTemplate::getACParametersMap() const {
-    return myLane->getACParametersMap();
 }
 
 // ===========================================================================

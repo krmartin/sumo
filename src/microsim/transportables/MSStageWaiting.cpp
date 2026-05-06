@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -37,14 +37,16 @@
 * ----------------------------------------------------------------------- */
 MSStageWaiting::MSStageWaiting(const MSEdge* destination, MSStoppingPlace* toStop,
                                SUMOTime duration, SUMOTime until, double pos, const std::string& actType,
-                               const bool initial) :
-    MSStage(destination, toStop, SUMOVehicleParameter::interpretEdgePos(
-                pos, destination->getLength(), SUMO_ATTR_DEPARTPOS, "stopping at " + destination->getID()),
-            initial ? MSStageType::WAITING_FOR_DEPART : MSStageType::WAITING),
+                               const bool initial, SUMOTime jumpDuration) :
+    MSStage(initial ? MSStageType::WAITING_FOR_DEPART : MSStageType::WAITING,
+            destination,
+            toStop,
+            SUMOVehicleParameter::interpretEdgePos(pos, destination->getLength(), SUMO_ATTR_DEPARTPOS, "stopping at " + destination->getID())),
     myWaitingDuration(duration),
     myWaitingUntil(until),
     myStopWaitPos(Position::INVALID),
     myActType(actType),
+    myJumpDuration(jumpDuration),
     myStopEndTime(-1) {
 }
 
@@ -53,7 +55,10 @@ MSStageWaiting::~MSStageWaiting() {}
 
 MSStage*
 MSStageWaiting::clone() const {
-    return new MSStageWaiting(myDestination, myDestinationStop, myWaitingDuration, myWaitingUntil, myArrivalPos, myActType, myType == MSStageType::WAITING_FOR_DEPART);
+    MSStage* const clon = new MSStageWaiting(myDestination, myDestinationStop, myWaitingDuration, myWaitingUntil, myArrivalPos,
+            myActType, myType == MSStageType::WAITING_FOR_DEPART);
+    clon->setParameters(*this);
+    return clon;
 }
 
 SUMOTime
@@ -62,10 +67,14 @@ MSStageWaiting::getUntil() const {
 }
 
 SUMOTime
-MSStageWaiting::getDuration() const {
+MSStageWaiting::getPlannedDuration() const {
     return myWaitingDuration;
 }
 
+SUMOTime
+MSStageWaiting::getDuration() const {
+    return myType == MSStageType::WAITING_FOR_DEPART ? 0 : MSStage::getDuration();
+}
 
 Position
 MSStageWaiting::getPosition(SUMOTime /* now */) const {
@@ -79,7 +88,8 @@ MSStageWaiting::getPosition(SUMOTime /* now */) const {
 
 double
 MSStageWaiting::getAngle(SUMOTime /* now */) const {
-    return getEdgeAngle(myDestination, myArrivalPos) + M_PI / 2 * (MSGlobals::gLefthand ? -1 : 1);
+    const double offset = myDestinationStop == nullptr ? M_PI / 2 : myDestinationStop->getAngle();
+    return getEdgeAngle(myDestination, myArrivalPos) + offset * (MSGlobals::gLefthand ? -1 : 1);
 }
 
 
@@ -87,12 +97,15 @@ void
 MSStageWaiting::proceed(MSNet* net, MSTransportable* transportable, SUMOTime now, MSStage* previous) {
     myDeparted = now;
     myStopEndTime = MAX3(now, now + myWaitingDuration, myWaitingUntil);
+    if (unspecifiedArrivalPos()) {
+        myArrivalPos = previous->getArrivalPos();
+    }
     if (myDestinationStop != nullptr) {
         myDestinationStop->addTransportable(transportable);
         myStopWaitPos = myDestinationStop->getWaitPosition(transportable);
     }
 
-    previous->getEdge()->addTransportable(transportable);
+    myDestination->addTransportable(transportable);
     if (transportable->isPerson()) {
         net->getPersonControl().setWaitEnd(myStopEndTime, transportable);
     } else {
@@ -105,7 +118,7 @@ void
 MSStageWaiting::tripInfoOutput(OutputDevice& os, const MSTransportable* const) const {
     if (myType != MSStageType::WAITING_FOR_DEPART) {
         os.openTag(SUMO_TAG_STOP);
-        os.writeAttr("duration", time2string(myArrived - myDeparted));
+        os.writeAttr("duration", getDuration() != SUMOTime_MAX ? time2string(getDuration()) : "-1");
         os.writeAttr("arrival", time2string(myArrived));
         os.writeAttr("arrivalPos", toString(myArrivalPos));
         os.writeAttr("actType", myActType == "" ? "waiting" : myActType);
@@ -139,9 +152,14 @@ MSStageWaiting::routeOutput(const bool /* isPerson */, OutputDevice& os, const b
             os.writeAttr(SUMO_ATTR_STARTED, myDeparted >= 0 ? time2string(myDeparted) : "-1");
             os.writeAttr(SUMO_ATTR_ENDED, myArrived >= 0 ? time2string(myArrived) : "-1");
         }
+        if (myJumpDuration >= 0) {
+            os.writeAttr(SUMO_ATTR_JUMP, time2string(myJumpDuration));
+        }
         if (myActType != "") {
             os.writeAttr(SUMO_ATTR_ACTTYPE, myActType);
         }
+        // Write rest of parameters
+        writeParams(os);
         os.closeTag(comment);
     }
 }
@@ -188,7 +206,7 @@ MSStageWaiting::getStageSummary(const bool /* isPerson */) const {
 }
 
 void
-MSStageWaiting::saveState(std::ostringstream& out) {
+MSStageWaiting::saveState(std::ostringstream& out, MSTransportable* /*transportable*/) {
     out << " " << myDeparted;
 }
 
@@ -202,12 +220,11 @@ MSStageWaiting::loadState(MSTransportable* transportable, std::istringstream& st
     }
     if (myDeparted >= 0) {
         myDestination->addTransportable(transportable);
-    }
-    MSNet* net = MSNet::getInstance();
-    if (transportable->isPerson()) {
-        net->getPersonControl().setWaitEnd(until, transportable);
-    } else {
-        net->getContainerControl().setWaitEnd(until, transportable);
+        MSNet* net = MSNet::getInstance();
+        if (transportable->isPerson()) {
+            net->getPersonControl().setWaitEnd(until, transportable);
+        } else {
+            net->getContainerControl().setWaitEnd(until, transportable);
+        }
     }
 }
-

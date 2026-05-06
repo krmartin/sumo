@@ -1,5 +1,5 @@
-# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2011-2022 German Aerospace Center (DLR) and others.
+# Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+# Copyright (C) 2011-2026 German Aerospace Center (DLR) and others.
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # https://www.eclipse.org/legal/epl-2.0/
@@ -57,8 +57,26 @@ SUMO_VEHICLE_CLASSES = set([
     "pedestrian",
     "evehicle",
     "ship",
+    "container",
+    "cable_car",
+    "subway",
+    "aircraft",
+    "wheelchair",
+    "scooter",
+    "drone",
     "custom1",
     "custom2"])
+
+SUMO_VEHICLE_CLASSES_DEPRECATED = set([
+    "public_emergency",
+    "public_authority",
+    "public_army",
+    "public_transport",
+    "transport",
+    "lightrail",
+    "cityrail",
+    "rail_slow",
+    "rail_fast"])
 
 
 def is_vehicle_class(s):
@@ -92,7 +110,7 @@ class Lane:
 
     """ Lanes from a sumo network """
 
-    def __init__(self, edge, speed, length, width, allow, disallow):
+    def __init__(self, edge, speed, length, width, allow, disallow, acceleration):
         self._edge = edge
         self._speed = speed
         self._length = length
@@ -105,6 +123,9 @@ class Lane:
         self._params = {}
         self._allowed = get_allowed(allow, disallow)
         self._neigh = None
+        self._selected = False
+        self._acceleration = acceleration
+        self._lengthGeometryFactor = 1
         edge.addLane(self)
 
     def getSpeed(self):
@@ -128,6 +149,9 @@ class Lane:
 
         self._shape3D = shape
         self._shape = [(x, y) for x, y, z in shape]
+        shapeLength = sumolib.geomhelper.polyLength(self.getShape())
+        if shapeLength > 0:
+            self._lengthGeometryFactor = self.getLength() / shapeLength
 
     def getShape(self, includeJunctions=False):
         """Returns the shape of the lane in 2d.
@@ -193,7 +217,8 @@ class Lane:
         return (xmin, ymin, xmax, ymax)
 
     def getClosestLanePosAndDist(self, point, perpendicular=False):
-        return sumolib.geomhelper.polygonOffsetAndDistanceToPoint(point, self.getShape(), perpendicular)
+        shapePos, dist = sumolib.geomhelper.polygonOffsetAndDistanceToPoint(point, self.getShape(), perpendicular)
+        return shapePos * self._lengthGeometryFactor, dist
 
     def getIndex(self):
         return self._edge._lanes.index(self)
@@ -213,6 +238,16 @@ class Lane:
         """
         return self._outgoing
 
+    def getOutgoingEdges(self):
+        """
+        Returns all outgoing edges from this lane.
+        """
+        result = []
+        for conn in self.getOutgoing():
+            if conn.getTo() not in result:
+                result.append(conn.getTo())
+        return result
+
     def getOutgoingLanes(self):
         """
         Returns all outgoing lanes from this lane.
@@ -228,14 +263,32 @@ class Lane:
         lanes = [c.getFromLane() for c in candidates if self == c.getToLane()]
         if onlyDirect:
             hasInternal = False
-            for l in lanes:
-                if l.getID()[0] == ":":
+            for _lane in lanes:
+                if _lane.getID()[0] == ":":
                     hasInternal = True
                     break
             if hasInternal:
-                return [l for l in lanes if l.getID()[0] == ":" and
-                        l.getOutgoing()[0].getViaLaneID() == ""]
+                return [_lane for _lane in lanes if _lane.getID()[0] == ":" and
+                        _lane.getOutgoing()[0].getViaLaneID() == ""]
         return lanes
+
+    def getIncomingConnections(self, onlyDirect=False):
+        """
+        Returns all incoming connections for this lane
+        If onlyDirect is True, then only connections from internal lanes are returned for a normal lane if they exist
+        """
+        candidates = reduce(lambda x, y: x + y, [cons for e, cons in self._edge.getIncoming().items()], [])
+        cons = [c for c in candidates if self == c.getToLane()]
+        if onlyDirect:
+            hasInternal = False
+            for c in cons:
+                if c.getFromLane().getID()[0] == ":":
+                    hasInternal = True
+                    break
+            if hasInternal:
+                return [c for c in cons if c.getFromLane()[0] == ":" and
+                        c.getFromLane().getOutgoing()[0].getViaLaneID() == ""]
+        return cons
 
     def getConnection(self, toLane):
         """Returns the connection to the given target lane or None"""
@@ -248,8 +301,14 @@ class Lane:
         """return the allowed vehicle classes"""
         return self._allowed
 
+    def setPermissions(self, allowed):
+        """set the allowed vehicle classes"""
+        self._allowed = allowed
+
     def allows(self, vClass):
         """true if this lane allows the given vehicle class"""
+        if vClass is None or vClass == "ignoring":
+            return True
         return vClass in self._allowed
 
     def setNeigh(self, neigh):
@@ -266,3 +325,15 @@ class Lane:
 
     def getParams(self):
         return self._params
+
+    def isAccelerationLane(self):
+        return self._acceleration
+
+    def isNormal(self):
+        return self.getID()[0] != ":"
+
+    def interpretOffset(self, lanePos):
+        if lanePos >= 0:
+            return lanePos
+        else:
+            return lanePos + self.getLength()

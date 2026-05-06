@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -19,17 +19,13 @@
 /****************************************************************************/
 #pragma once
 #include <config.h>
-#include "GNEStoppingPlace.h"
 
+#include "GNEStoppingPlace.h"
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
 
-/**
- * @class GNEParkingArea
- * @brief A lane area vehicles can park at (netedit-version)
- */
 class GNEParkingArea : public GNEStoppingPlace {
 
 public:
@@ -37,23 +33,27 @@ public:
     GNEParkingArea(GNENet* net);
 
     /**@brief Constructor
-     * @param[in] id The storage of gl-ids to get the one for this lane representation from
-     * @param[in] lane Lane of this StoppingPlace belongs
+     * @param[in] id parking area ID
      * @param[in] net pointer to GNENet of this additional element belongs
+     * @param[in] fileBucket file in which this element is stored
+     * @param[in] lane Lane of this StoppingPlace belongs
      * @param[in] startPos Start position of the StoppingPlace
      * @param[in] endPos End position of the StoppingPlace
      * @param[in] departPos lane position in that vehicle must depart when leaves parkingArea
      * @param[in] name Name of ParkingArea
+     * @param[in] badges names which grant access to the parkingArea
      * @param[in] friendlyPos enable or disable friendly position
      * @param[in] roadSideCapacity road side capacity of ParkingArea
      * @param[in] width ParkingArea's length
      * @param[in] length ParkingArea's length
      * @param[in] angle ParkingArea's angle
+     * @param[in] lefthand enable or disable lefthand
      * @param[in] parameters generic parameters
      */
-    GNEParkingArea(const std::string& id, GNELane* lane, GNENet* net, const double startPos, const double endPos, const std::string& departPos,
-                   const std::string& name, bool friendlyPosition, int roadSideCapacity, bool onRoad, double width, const double length,
-                   double angle, const Parameterised::Map& parameters);
+    GNEParkingArea(const std::string& id, GNENet* net, FileBucket* fileBucket, GNELane* lane, const double startPos, const double endPos,
+                   const std::string& departPos, const std::string& name, const std::vector<std::string>& badges, const bool friendlyPosition,
+                   const int roadSideCapacity, const bool onRoad, const double width, const double length, const double angle, const bool lefthand,
+                   const Parameterised::Map& parameters);
 
     /// @brief Destructor
     ~GNEParkingArea();
@@ -61,50 +61,55 @@ public:
     /**@brief write additional element into a xml file
      * @param[in] device device in which write parameters of additional element
      */
-    void writeAdditional(OutputDevice& device) const;
+    void writeAdditional(OutputDevice& device) const override;
 
     /// @name Functions related with geometry of element
     /// @{
+
     /// @brief update pre-computed geometry information
-    void updateGeometry();
+    void updateGeometry() override;
+
     /// @}
 
     /// @name inherited from GUIGlObject
     /// @{
+
     /**@brief Draws the object
      * @param[in] s The settings for the current view (may influence drawing)
      * @see GUIGlObject::drawGL
      */
-    void drawGL(const GUIVisualizationSettings& s) const;
+    void drawGL(const GUIVisualizationSettings& s) const override;
+
     /// @}
 
     /// @name inherited from GNEAttributeCarrier
     /// @{
+
     /* @brief method for getting the Attribute of an XML key
      * @param[in] key The attribute key
      * @return string with the value associated to key
      */
-    std::string getAttribute(SumoXMLAttr key) const;
+    std::string getAttribute(SumoXMLAttr key) const override;
 
-    /* @brief method for getting the Attribute of an XML key in double format (to avoid unnecessary parse<double>(...) for certain attributes)
+    /* @brief method for getting the Attribute of an XML key in double format
      * @param[in] key The attribute key
      * @return double with the value associated to key
      */
-    double getAttributeDouble(SumoXMLAttr key) const;
+    double getAttributeDouble(SumoXMLAttr key) const override;
 
     /* @brief method for setting the attribute and letting the object perform additional changes
      * @param[in] key The attribute key
      * @param[in] value The new value
      * @param[in] undoList The undoList on which to register changes
      */
-    void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList);
+    void setAttribute(SumoXMLAttr key, const std::string& value, GNEUndoList* undoList) override;
 
     /* @brief method for checking if the key and their correspond attribute are valids
      * @param[in] key The attribute key
      * @param[in] value The value associated to key key
      * @return true if the value is valid, false in other case
      */
-    bool isValid(SumoXMLAttr key, const std::string& value);
+    bool isValid(SumoXMLAttr key, const std::string& value) override;
 
     /// @}
 
@@ -136,26 +141,29 @@ protected:
     std::string myDepartPos;
 
     /// @brief roadside capacity of Parking Area
-    int myRoadSideCapacity;
+    int myRoadSideCapacity = 0;
 
     /// @brief Whether vehicles stay on the road
-    bool myOnRoad;
+    bool myOnRoad = false;
 
     /// @brief width of Parking Area
-    double myWidth;
+    double myWidth = 0;
 
     /// @brief Length of Parking Area (by default (endPos - startPos) / roadsideCapacity
-    double myLength;
+    double myLength = 0;
 
-    /// @brief Angle of Parking Area
-    double myAngle;
+    /// @brief lefthand
+    bool myLefthand = false;
+
+    /// @brief The list of badges that allow accessing the parkingArea
+    std::vector<std::string> myAcceptedBadges;
 
     /// @brief vector with GNELotSpaceDefinition
     std::vector<GNELotSpaceDefinition> myLotSpaceDefinitions;
 
 private:
     /// @brief set attribute after validation
-    void setAttribute(SumoXMLAttr key, const std::string& value);
+    void setAttribute(SumoXMLAttr key, const std::string& value) override;
 
     /// @brief Invalidated copy constructor.
     GNEParkingArea(const GNEParkingArea&) = delete;
@@ -163,5 +171,3 @@ private:
     /// @brief Invalidated assignment operator.
     GNEParkingArea& operator=(const GNEParkingArea&) = delete;
 };
-
-

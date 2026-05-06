@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -15,49 +15,67 @@
 /// @author  Pablo Alvarez Lopez
 /// @date    Jan 2022
 ///
-// VehicleType distribution used in NETEDIT
+// VehicleType distribution used in netedit
 /****************************************************************************/
+
+#include <netedit/GNETagProperties.h>
 #include <netedit/GNENet.h>
-#include <netedit/GNEUndoList.h>
 #include <netedit/changes/GNEChange_Attribute.h>
+#include <utils/xml/NamespaceIDs.h>
 
 #include "GNEVTypeDistribution.h"
-
 
 // ===========================================================================
 // member method definitions
 // ===========================================================================
 
 GNEVTypeDistribution::GNEVTypeDistribution(GNENet* net) :
-    GNEDemandElement("", net, GLO_VTYPE, SUMO_TAG_VTYPE_DISTRIBUTION, GUIIconSubSys::getIcon(GUIIcon::VTYPEDISTRIBUTION),
-    GNEPathManager::PathElement::Options::DEMAND_ELEMENT, {}, {}, {}, {}, {}, {}) {
-    // reset default values
-    resetDefaultValues();
+    GNEDemandElement(net, SUMO_TAG_VTYPE_DISTRIBUTION) {
 }
 
 
-GNEVTypeDistribution::GNEVTypeDistribution(GNENet* net, const std::string& vTypeID) :
-    GNEDemandElement(vTypeID, net, GLO_VTYPE, SUMO_TAG_VTYPE_DISTRIBUTION,  GUIIconSubSys::getIcon(GUIIcon::VTYPEDISTRIBUTION),
-    GNEPathManager::PathElement::Options::DEMAND_ELEMENT, {}, {}, {}, {}, {}, {}) {
+GNEVTypeDistribution::GNEVTypeDistribution(const std::string& ID, GNENet* net, FileBucket* fileBucket,
+        const int deterministic) :
+    GNEDemandElement(ID, net, SUMO_TAG_VTYPE_DISTRIBUTION, fileBucket),
+    myDeterministic(deterministic) {
 }
 
 
 GNEVTypeDistribution::~GNEVTypeDistribution() {}
 
 
-GNEMoveOperation*
-GNEVTypeDistribution::getMoveOperation() {
+GNEMoveElement*
+GNEVTypeDistribution::getMoveElement() const {
+    return nullptr;
+}
+
+
+Parameterised*
+GNEVTypeDistribution::getParameters() {
+    return nullptr;
+}
+
+
+const Parameterised*
+GNEVTypeDistribution::getParameters() const {
     return nullptr;
 }
 
 
 void
 GNEVTypeDistribution::writeDemandElement(OutputDevice& device) const {
-    device.openTag(getTagProperty().getTag());
+    // now write attributes
+    device.openTag(getTagProperty()->getTag());
     device.writeAttr(SUMO_ATTR_ID, getID());
-    // write all vTypes
-    for (const auto& vType : getChildDemandElements()) {
-        vType->writeDemandElement(device);
+    if (myDeterministic != myTagProperty->getDefaultIntValue(SUMO_ATTR_DETERMINISTIC)) {
+        device.writeAttr(SUMO_ATTR_DETERMINISTIC, myDeterministic);
+    }
+    // write references
+    for (const auto& refChild : getChildDemandElements()) {
+        if (refChild->getTagProperty()->isDistributionReference() &&
+                (refChild->getParentDemandElements().front() == this)) {
+            refChild->writeDemandElement(device);
+        }
     }
     device.closeTag();
 }
@@ -65,7 +83,7 @@ GNEVTypeDistribution::writeDemandElement(OutputDevice& device) const {
 
 GNEDemandElement::Problem
 GNEVTypeDistribution::isDemandElementValid() const {
-    // currently vTypeDistributions don't have problems
+    // currently distributions don't have problems
     return GNEDemandElement::Problem::OK;
 }
 
@@ -84,13 +102,27 @@ GNEVTypeDistribution::fixDemandElementProblem() {
 
 SUMOVehicleClass
 GNEVTypeDistribution::getVClass() const {
-    return SVC_IGNORING;
+    // get value of first referenced vType
+    for (const auto& vTypeRef : getChildDemandElements()) {
+        if (vTypeRef->getTagProperty()->isDistributionReference()) {
+            return vTypeRef->getParentDemandElements().at(1)->getVClass();
+        }
+    }
+    // if this distribution doesn't have vTypes, use default vType
+    return myNet->getAttributeCarriers()->retrieveDemandElement(SUMO_TAG_TYPE, DEFAULT_VTYPE_ID)->getVClass();
 }
 
 
 const RGBColor&
 GNEVTypeDistribution::getColor() const {
-    return RGBColor::BLACK;
+    // get value of first referenced vType
+    for (const auto& vTypeRef : getChildDemandElements()) {
+        if (vTypeRef->getTagProperty()->isDistributionReference()) {
+            return vTypeRef->getParentDemandElements().at(1)->getColor();
+        }
+    }
+    // if this distribution doesn't have vTypes, use default vType
+    return myNet->getAttributeCarriers()->retrieveDemandElement(SUMO_TAG_TYPE, DEFAULT_VTYPE_ID)->getColor();
 }
 
 
@@ -102,7 +134,14 @@ GNEVTypeDistribution::updateGeometry() {
 
 Position
 GNEVTypeDistribution::getPositionInView() const {
-    return Position();
+    // get value of first referenced vType
+    for (const auto& vTypeRef : getChildDemandElements()) {
+        if (vTypeRef->getTagProperty()->isDistributionReference()) {
+            return vTypeRef->getParentDemandElements().at(1)->getPositionInView();
+        }
+    }
+    // if this distribution doesn't have vTypes, use default vType
+    return myNet->getAttributeCarriers()->retrieveDemandElement(SUMO_TAG_TYPE, DEFAULT_VTYPE_ID)->getPositionInView();
 }
 
 
@@ -112,15 +151,8 @@ GNEVTypeDistribution::getParentName() const {
 }
 
 
-double
-GNEVTypeDistribution::getExaggeration(const GUIVisualizationSettings& /*s*/) const {
-    return 1;
-}
-
-
 Boundary
 GNEVTypeDistribution::getCenteringBoundary() const {
-    // VehicleType distribution doesn't have boundaries
     return Boundary(-0.1, -0.1, 0.1, 0.1);
 }
 
@@ -144,27 +176,25 @@ GNEVTypeDistribution::computePathElement() {
 
 
 void
-GNEVTypeDistribution::drawPartialGL(const GUIVisualizationSettings& /*s*/, const GNELane* /*lane*/, const GNEPathManager::Segment* /*segment*/, const double /*offsetFront*/) const {
-    // vehicleType distributions don't use drawPartialGL
+GNEVTypeDistribution::drawLanePartialGL(const GUIVisualizationSettings& /*s*/, const GNESegment* /*segment*/, const double /*offsetFront*/) const {
+    // route distributions don't use drawJunctionPartialGL
 }
 
 
 void
-GNEVTypeDistribution::drawPartialGL(const GUIVisualizationSettings& /*s*/, const GNELane* /*fromLane*/, const GNELane* /*toLane*/, const GNEPathManager::Segment* /*segment*/, const double /*offsetFront*/) const {
-    // vehicleType distributions don't use drawPartialGL
+GNEVTypeDistribution::drawJunctionPartialGL(const GUIVisualizationSettings& /*s*/, const GNESegment* /*segment*/, const double /*offsetFront*/) const {
+    // route distributions don't use drawJunctionPartialGL
 }
 
 
 GNELane*
 GNEVTypeDistribution::getFirstPathLane() const {
-    // vehicle types don't use lanes
     return nullptr;
 }
 
 
 GNELane*
 GNEVTypeDistribution::getLastPathLane() const {
-    // vehicle types don't use lanes
     return nullptr;
 }
 
@@ -174,21 +204,53 @@ GNEVTypeDistribution::getAttribute(SumoXMLAttr key) const {
     switch (key) {
         case SUMO_ATTR_ID:
             return getMicrosimID();
+        case SUMO_ATTR_DETERMINISTIC:
+            if (myDeterministic == -1) {
+                return "";
+            } else {
+                return toString(myDeterministic);
+            }
+        case GNE_ATTR_SAVEFILE:
+            return getCommonAttribute(key);
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            // get value of first referenced vType
+            for (const auto& vTypeRef : getChildDemandElements()) {
+                if (vTypeRef->getTagProperty()->isDistributionReference() &&
+                        (vTypeRef->getParentDemandElements().at(1)->getTagProperty()->getTag() == SUMO_TAG_VTYPE)) {
+                    return vTypeRef->getParentDemandElements().at(1)->getAttribute(key);
+                }
+            }
+            // if this distribution doesn't have vTypes, use default vType
+            return myNet->getAttributeCarriers()->retrieveDemandElement(SUMO_TAG_VTYPE, DEFAULT_VTYPE_ID)->getAttribute(key);
     }
 }
 
 
 double
 GNEVTypeDistribution::getAttributeDouble(SumoXMLAttr key) const {
-    throw InvalidArgument(getTagStr() + " doesn't have a double attribute of type '" + toString(key) + "'");
+    // get value of first referenced vType
+    for (const auto& vTypeRef : getChildDemandElements()) {
+        if (vTypeRef->getTagProperty()->isDistributionReference() &&
+                (vTypeRef->getParentDemandElements().at(1)->getTagProperty()->getTag() == SUMO_TAG_VTYPE)) {
+            return vTypeRef->getParentDemandElements().at(1)->getAttributeDouble(key);
+        }
+    }
+    // if this distribution doesn't have vTypes, use default vType
+    return myNet->getAttributeCarriers()->retrieveDemandElement(SUMO_TAG_VTYPE, DEFAULT_VTYPE_ID)->getAttributeDouble(key);
 }
 
 
 Position
 GNEVTypeDistribution::getAttributePosition(SumoXMLAttr key) const {
-    throw InvalidArgument(getTagStr() + " doesn't have a Position attribute of type '" + toString(key) + "'");
+    // get value of first referenced vType
+    for (const auto& vTypeRef : getChildDemandElements()) {
+        if (vTypeRef->getTagProperty()->isDistributionReference() &&
+                (vTypeRef->getParentDemandElements().at(1)->getTagProperty()->getTag() == SUMO_TAG_VTYPE)) {
+            return vTypeRef->getParentDemandElements().at(1)->getAttributePosition(key);
+        }
+    }
+    // if this distribution doesn't have vTypes, use default vType
+    return myNet->getAttributeCarriers()->retrieveDemandElement(SUMO_TAG_VTYPE, DEFAULT_VTYPE_ID)->getAttributePosition(key);
 }
 
 
@@ -199,11 +261,12 @@ GNEVTypeDistribution::setAttribute(SumoXMLAttr key, const std::string& value, GN
     }
     switch (key) {
         case SUMO_ATTR_ID:
-            undoList->changeAttribute(new GNEChange_Attribute(this, key, value));
+        case SUMO_ATTR_DETERMINISTIC:
+            GNEChange_Attribute::changeAttribute(this, key, value, undoList);
             break;
-
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setCommonAttribute(key, value, undoList);
+            break;
     }
 }
 
@@ -212,14 +275,15 @@ bool
 GNEVTypeDistribution::isValid(SumoXMLAttr key, const std::string& value) {
     switch (key) {
         case SUMO_ATTR_ID:
-            // Vtypes and PTypes shares namespace
-            if (SUMOXMLDefinitions::isValidVehicleID(value) && (myNet->getAttributeCarriers()->retrieveDemandElement(SUMO_TAG_VTYPE, value, false) == nullptr)) {
+            return isValidDemandElementID(NamespaceIDs::routes, value);
+        case SUMO_ATTR_DETERMINISTIC:
+            if ((value == "-1") || value.empty()) {
                 return true;
             } else {
-                return false;
+                return canParse<int>(value) && (parse<int>(value) >= 0);
             }
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            return isCommonAttributeValid(key, value);
     }
 }
 
@@ -235,12 +299,6 @@ GNEVTypeDistribution::getHierarchyName() const {
     return getTagStr() + ": " + getAttribute(SUMO_ATTR_ID) ;
 }
 
-
-const Parameterised::Map&
-GNEVTypeDistribution::getACParametersMap() const {
-    throw InvalidArgument(getTagStr() + " doesn't have parameters");
-}
-
 // ===========================================================================
 // private
 // ===========================================================================
@@ -249,23 +307,19 @@ void
 GNEVTypeDistribution::setAttribute(SumoXMLAttr key, const std::string& value) {
     switch (key) {
         case SUMO_ATTR_ID:
-            setMicrosimID(value);
+            setDemandElementID(value);
+            break;
+        case SUMO_ATTR_DETERMINISTIC:
+            if (value.empty()) {
+                myDeterministic = -1;
+            } else {
+                myDeterministic = parse<int>(value);
+            }
             break;
         default:
-            throw InvalidArgument(getTagStr() + " doesn't have an attribute of type '" + toString(key) + "'");
+            setCommonAttribute(key, value);
+            break;
     }
-}
-
-
-void
-GNEVTypeDistribution::setMoveShape(const GNEMoveResult& /*moveResult*/) {
-    // vehicleType distributions cannot be moved
-}
-
-
-void
-GNEVTypeDistribution::commitMoveShape(const GNEMoveResult& /*moveResult*/, GNEUndoList* /*undoList*/) {
-    // vehicleType distributions cannot be moved
 }
 
 /****************************************************************************/

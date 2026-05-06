@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -21,20 +21,20 @@
 #include <config.h>
 
 #include <netedit/frames/GNEFrame.h>
+#include <netedit/frames/common/GNEGroupBoxModule.h>
 
 // ===========================================================================
 // class declarations
 // ===========================================================================
 
-class GNEVehicle;
-class GNEVTypeDistributionsDialog;
+class GNEAttributesEditor;
+class GNEDemandElement;
+class MFXComboBoxIcon;
 
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @class GNETypeFrame
- */
+
 class GNETypeFrame : public GNEFrame {
 
 public:
@@ -42,7 +42,7 @@ public:
     // class TypeSelector
     // ===========================================================================
 
-    class TypeSelector : public MFXGroupBoxModule {
+    class TypeSelector : public GNEGroupBoxModule {
         /// @brief FOX-declaration
         FXDECLARE(GNETypeFrame::TypeSelector)
 
@@ -60,15 +60,14 @@ public:
         void setCurrentType(GNEDemandElement* vType);
 
         /// @brief refresh vehicle type selector
-        void refreshTypeSelector();
-
-        /// @brief refresh vehicle type selector (only IDs, without refreshing attributes)
-        void refreshTypeSelectorIDs();
+        void refreshTypeSelector(const bool updateModuls);
 
         /// @name FOX-callbacks
         /// @{
+
         /// @brief Called when the user select another element in ComboBox
         long onCmdSelectItem(FXObject*, FXSelector, void*);
+
         /// @}
 
     protected:
@@ -82,14 +81,14 @@ public:
         GNEDemandElement* myCurrentType;
 
         /// @brief comboBox with the list of vTypes
-        MFXIconComboBox* myTypeComboBox;
+        MFXComboBoxIcon* myTypeComboBox;
     };
 
     // ===========================================================================
     // class TypeEditor
     // ===========================================================================
 
-    class TypeEditor : public MFXGroupBoxModule {
+    class TypeEditor : public GNEGroupBoxModule {
         /// @brief FOX-declaration
         FXDECLARE(GNETypeFrame::TypeEditor)
 
@@ -144,56 +143,11 @@ public:
         FXButton* myCopyTypeButton;
     };
 
-    // ===========================================================================
-    // class VTypeDistributions 
-    // ===========================================================================
-
-    class VTypeDistributions  : public MFXGroupBoxModule {
-        /// @brief FOX-declaration
-        FXDECLARE(GNETypeFrame::VTypeDistributions )
-
-    public:
-        /// @brief constructor
-        VTypeDistributions(GNETypeFrame* typeFrameParent);
-
-        /// @brief destructor
-        ~VTypeDistributions();
-
-        /// @brief get pointer to type frame Parent
-        GNETypeFrame* getTypeFrameParent() const;
-
-        /// @brief show VTypeDistributions  modul
-        void showVTypeDistributionsModule();
-
-        /// @brief hide group box
-        void hideVTypeDistributionsModule();
-
-        /// @brief get vType distribution dialog
-        GNEVTypeDistributionsDialog* getVTypeDistributionsDialog() const;
-
-        /// @name FOX-callbacks
-        /// @{
-        /// @brief Called when open dialog button is clicked
-        long onCmdOpenDialog(FXObject*, FXSelector, void*);
-        /// @}
-
-    protected:
-        /// @brief FOX need this
-        FOX_CONSTRUCTOR(VTypeDistributions )
-
-    private:
-        /// @brief pointer to type frame Parent
-        GNETypeFrame* myTypeFrameParent = nullptr;
-
-        /// @brief VType distribution dialog
-        GNEVTypeDistributionsDialog* myVTypeDistributionsDialog = nullptr;
-    };
-
     /**@brief Constructor
      * @brief viewParent GNEViewParent in which this GNEFrame is placed
      * @brief viewNet viewNet that uses this GNEFrame
      */
-    GNETypeFrame(GNEViewParent *viewParent, GNEViewNet* viewNet);
+    GNETypeFrame(GNEViewParent* viewParent, GNEViewNet* viewNet);
 
     /// @brief Destructor
     ~GNETypeFrame();
@@ -206,10 +160,7 @@ public:
 
 protected:
     /// @brief function called after set a valid attribute in AttributeCreator/AttributeEditor/ParametersEditor/...
-    void attributeUpdated();
-
-    /// @brief open GNEAttributesCreator extended dialog (used for editing advance attributes of Vehicle Types)
-    void attributesEditorExtendedDialogOpened();
+    void attributeUpdated(SumoXMLAttr attribute);
 
 private:
     /// @brief vehicle type selector
@@ -219,11 +170,5 @@ private:
     TypeEditor* myTypeEditor;
 
     /// @brief editorinternal vehicle type attributes
-    GNEFrameAttributeModules::AttributesEditor* myTypeAttributesEditor = nullptr;
-
-    /// @brief modul for open extended attributes dialog
-    GNEFrameAttributeModules::AttributesEditorExtended* myAttributesEditorExtended = nullptr;
-
-    /// @brief modul for open vType distributions dialog
-    VTypeDistributions* myVTypeDistributions = nullptr;
+    GNEAttributesEditor* myTypeAttributesEditor = nullptr;
 };

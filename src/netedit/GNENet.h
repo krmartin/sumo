@@ -1,6 +1,6 @@
 /****************************************************************************/
-// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2022 German Aerospace Center (DLR) and others.
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.dev/sumo
+// Copyright (C) 2001-2026 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // https://www.eclipse.org/legal/epl-2.0/
@@ -35,27 +35,51 @@
 // ===========================================================================
 // class definitions
 // ===========================================================================
-/**
- * @class GNENet
- * @brief A NBNetBuilder extended by visualisation and editing capabilities
- */
+
 class GNENet : public GUIGlObject {
 
 public:
-    /**@brief Constructor
-     * @param[in] netbuilder the netbuilder which may already have been filled
-     * GNENet becomes responsible for cleaning this up
-     **/
-    GNENet(NBNetBuilder* netBuilder);
+    /// @brief constructor
+    GNENet(GNEApplicationWindow* applicationWindow, NBNetBuilder* netBuilder);
 
     /// @brief Destructor
     ~GNENet();
 
+    /// @brief get tag properties database
+    GNEApplicationWindow* getGNEApplicationWindow() const;
+
+    /// @brief get view net (used for simplify code)
+    GNEViewNet* getViewNet() const;
+
+    /// @brief get view parent (used for simplify code)
+    GNEViewParent* getViewParent() const;
+
+    /// @brief get undo list(used for simplify code)
+    GNEUndoList* getUndoList() const;
+
+    /// @brief get tag properties database (used for simplify code)
+    const GNETagPropertiesDatabase* getTagPropertiesDatabase() const;
+
+    /// @brief get net builder
+    NBNetBuilder* getNetBuilder() const;
+
     /// @brief get all attribute carriers used in this net
     GNENetHelper::AttributeCarriers* getAttributeCarriers() const;
 
-    /// @brief get path manager
-    GNEPathManager* getPathManager();
+    /// @brief get all attribute carriers templates used in this net
+    GNENetHelper::ACTemplate* getACTemplates() const;
+
+    /// @brief get saving status
+    GNENetHelper::SavingStatus* getSavingStatus() const;
+
+    /// @brief get network path manager
+    GNEPathManager* getNetworkPathManager();
+
+    /// @brief get demand path manager
+    GNEPathManager* getDemandPathManager();
+
+    /// @brief get data path manager
+    GNEPathManager* getDataPathManager();
 
     /// @name inherited from GUIGlObject
     /// @{
@@ -66,7 +90,7 @@ public:
      * @return The built popup-menu
      * @see GUIGlObject::getPopUpMenu
      */
-    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent);
+    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /**@brief Returns an own parameter window
      *
@@ -75,17 +99,14 @@ public:
      * @return The built parameter window
      * @see GUIGlObject::getParameterWindow
      */
-    GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent);
-
-    /// @brief return exaggeration associated with this GLObject
-    double getExaggeration(const GUIVisualizationSettings& s) const;
+    GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
     /**@brief Returns the boundary to which the view shall be centered in order to show the object
      *
      * @return The boundary the object is within
      * @see GUIGlObject::getCenteringBoundary
      */
-    Boundary getCenteringBoundary() const;
+    Boundary getCenteringBoundary() const override;
 
     /// @brief expand boundary
     void expandBoundary(const Boundary& newBoundary);
@@ -100,7 +121,7 @@ public:
      * @param[in] s The settings for the current view (may influence drawing)
      * @see GUIGlObject::drawGL
      */
-    void drawGL(const GUIVisualizationSettings& s) const;
+    void drawGL(const GUIVisualizationSettings& s) const override;
 
     /// @}
 
@@ -109,7 +130,7 @@ public:
 
     /**@brief Returns the RTree used for visualisation speed-up
      * @return The visualisation speed-up
-     * @note only use in GNEViewNet constructor
+     * @note only use in GNEViewNet constructor. For edit grid ALWAYS use addGLObjectIntoGrid/removeGLObjectIntoGrid
      */
     SUMORTree& getGrid();
 
@@ -183,10 +204,16 @@ public:
     void deleteCrossing(GNECrossing* crossing, GNEUndoList* undoList);
 
     /**@brief remove additional
-     * @param[in] additional The Shape to be removed
+     * @param[in] additional The additional to be removed
      * @param[in] undoList The undolist in which to mark changes
      */
     void deleteAdditional(GNEAdditional* additional, GNEUndoList* undoList);
+
+    /**@brief remove TAZSourceSink
+     * @param[in] TAZSourceSink The TAZSourceSink to be removed
+     * @param[in] undoList The undolist in which to mark changes
+     */
+    void deleteTAZSourceSink(GNETAZSourceSink* TAZSourceSink, GNEUndoList* undoList);
 
     /**@brief remove demand element
      * @param[in] demandElement The Shape to be removed
@@ -211,6 +238,12 @@ public:
      * @param[in] undoList The undolist in which to mark changes
      */
     void deleteGenericData(GNEGenericData* genericData, GNEUndoList* undoList);
+
+    /**@brief remove generic data
+     * @param[in] genericData The generic data to be removed
+     * @param[in] undoList The undolist in which to mark changes
+     */
+    void deleteMeanData(GNEMeanData* meanData, GNEUndoList* undoList);
 
     /**@brief duplicates lane
      * @param[in] lane The lane to be duplicated
@@ -250,9 +283,9 @@ public:
     /**@brief split edge at position by inserting a new junction
      * @param[in] edge The edge to be split
      * @param[in] pos The position on which to insert the new junction
-     * @return The new junction
+     * @return The new junction and the new edge
      */
-    GNEJunction* splitEdge(GNEEdge* edge, const Position& pos, GNEUndoList* undoList, GNEJunction* newJunction = 0);
+    std::pair<GNEJunction*, GNEEdge*> splitEdge(GNEEdge* edge, const Position& pos, GNEUndoList* undoList, GNEJunction* newJunction = 0);
 
     /**@brief split all edges at position by inserting one new junction
      * @param[in] edge The edge to be split
@@ -268,7 +301,7 @@ public:
 
     /**@brief add reversed edge
      * @param[in] edge The edge of which to add the reverse
-     * @param[in] disconnected add edge reversed or disconnected pararell
+     * @param[in] disconnected add edge reversed or disconnected parallel
      * @return Return the new edge or 0
      */
     GNEEdge* addReversedEdge(GNEEdge* edge, const bool disconnected, GNEUndoList* undoList);
@@ -279,7 +312,7 @@ public:
      * @param[in] target The junction that will be enlarged
      * @param[in] undoList The undo list with which to register changes
      */
-    void mergeJunctions(GNEJunction* moved, GNEJunction* target, GNEUndoList* undoList);
+    void mergeJunctions(GNEJunction* moved, const GNEJunction* target, GNEUndoList* undoList);
 
     /// @brief select all roundabout edges and junctions for the current roundabout
     void selectRoundabout(GNEJunction* junction, GNEUndoList* undoList);
@@ -287,29 +320,14 @@ public:
     /// @brief transform the given junction into a roundabout
     void createRoundabout(GNEJunction* junction, GNEUndoList* undoList);
 
-    /// @brief inform that net has to be saved
-    void requireSaveNet(bool value);
+    /// @brief save the network
+    void saveNetwork();
 
-    /// @brief return if net has to be saved
-    bool isNetSaved() const;
+    /// @brief save plain xml representation of the network (and nothing else)
+    void savePlain(const std::string& prefix, const OptionsCont& netconvertOptions);
 
-    /**@brief save the network
-     * @param[in] oc The OptionsCont which knows how and where to save
-     */
-    void saveNetwork(OptionsCont& oc);
-
-    /**@brief save plain xml representation of the network (and nothing else)
-     * @param[in] oc The OptionsCont which knows how and where to save
-     */
-    void savePlain(OptionsCont& oc, const std::string& prefix);
-
-    /**@brief save log of joined junctions (and nothing else)
-     * @param[in] oc The OptionsCont which knows how and where to save
-     */
-    void saveJoined(OptionsCont& oc, const std::string& filename);
-
-    /// @brief Set the net to be notified of network changes
-    void setViewNet(GNEViewNet* viewNet);
+    /// @brief save log of joined junctions (and nothing else)
+    void saveJoined(const std::string& filename);
 
     /// @brief add GL Object into net
     void addGLObjectIntoGrid(GNEAttributeCarrier* AC);
@@ -320,8 +338,6 @@ public:
     /// @brief modifies endpoins of the given edge
     void changeEdgeEndpoints(GNEEdge* edge, const std::string& newSourceID, const std::string& newDestID);
 
-    /// @brief get view net
-    GNEViewNet* getViewNet() const;
 
     /// @brief returns the tllcont of the underlying netbuilder
     NBTrafficLightLogicCont& getTLLogicCont();
@@ -333,17 +349,14 @@ public:
     void initGNEConnections();
 
     /// @brief recompute the network and update lane geometries
-    void computeAndUpdate(OptionsCont& oc, bool volatileOptions);
+    void computeAndUpdate(OptionsCont& neteditOptions, bool volatileOptions);
 
     /**@brief trigger full netbuild computation
      * param[in] window The window to inform about delay
      * param[in] force Whether to force recomputation even if not needed
      * param[in] volatileOptions enable or disable volatile options
-     * param[in] additionalPath path in wich additionals were saved before recomputing with volatile options
-     * param[in] demandPath path in wich demand elements were saved before recomputing with volatile options
-     * param[in] dataPath path in wich data elements were saved before recomputing with volatile options
      */
-    void computeNetwork(GNEApplicationWindow* window, bool force = false, bool volatileOptions = false, std::string additionalPath = "", std::string demandPath = "", std::string dataPath = "");
+    void computeNetwork(GNEApplicationWindow* window, bool force = false, bool volatileOptions = false);
 
     /**@brief compute demand elements
      * param[in] window The window to inform about delay
@@ -359,7 +372,7 @@ public:
      * @note difference to mergeJunctions:
      *  - can join more than 2
      *  - connected edges will keep their geometry (big junction shape is created)
-     *  - no hirarchy: if any junction has a traffic light than the resuling junction will
+     *  - no hierarchy: if any junction has a traffic light than the resulting junction will
      */
     bool joinSelectedJunctions(GNEUndoList* undoList);
 
@@ -402,6 +415,9 @@ public:
     /// @brief clear data elements
     void clearDataElements(GNEUndoList* undoList);
 
+    /// @brief clear meanDatas
+    void clearMeanDataElements(GNEUndoList* undoList);
+
     /**@brief trigger recomputation of junction shape and logic
      * param[in] window The window to inform about delay
      */
@@ -413,50 +429,23 @@ public:
     /// @brief check if net require recomputing
     bool isNetRecomputed() const;
 
-    /// @brief get pointer to the main App
-    FXApp* getApp();
-
-    /// @brief get net builder
-    NBNetBuilder* getNetBuilder() const;
-
     /// @brief add edge id to the list of explicit turnarounds
     void addExplicitTurnaround(std::string id);
 
     /// @brief remove edge id from the list of explicit turnarounds
     void removeExplicitTurnaround(std::string id);
 
-    /// @brief inform that additionals has to be saved
-    void requireSaveAdditionals(bool value);
+    /// @brief save additional elements
+    bool saveAdditionals();
 
-    /**@brief save additional elements of the network
-     * @param[in] filename name of the file in wich save additionals
-    */
-    void saveAdditionals(const std::string& filename);
+    /// @brief save JuPedSim elements
+    bool saveJuPedSimElements(const std::string& filename);
 
-    /// @brief check if additionals are saved
-    bool isAdditionalsSaved() const;
+    /// @brief save demand element elements of the network
+    bool saveDemandElements();
 
-    /// @brief inform that demand elements has to be saved
-    void requireSaveDemandElements(bool value);
-
-    /**@brief save demand element elements of the network
-     * @param[in] filename name of the file in wich save demand elements
-    */
-    void saveDemandElements(const std::string& filename);
-
-    /// @brief check if demand elements are saved
-    bool isDemandElementsSaved() const;
-
-    /// @brief inform that data sets has to be saved
-    void requireSaveDataElements(bool value);
-
-    /**@brief save data set elements of the network
-     * @param[in] filename name of the file in wich save data sets
-    */
-    void saveDataElements(const std::string& filename);
-
-    /// @brief check if data sets are saved
-    bool isDataElementsSaved() const;
+    /// @brief save data set elements of the network
+    bool saveDataElements();
 
     /// @brief get minimum interval
     double getDataSetIntervalMinimumBegin() const;
@@ -464,11 +453,11 @@ public:
     /// @brief get maximum interval
     double getDataSetIntervalMaximumEnd() const;
 
-    /// @brief inform that TLS Programs has to be saved
-    void requireSaveTLSPrograms();
+    /// @brief save meanData elements of the network
+    bool saveMeanDatas();
 
     /**@brief save TLS Programs elements of the network
-     * @param[in] filename name of the file in wich save TLS Programs
+     * @param[in] filename name of the file in which save TLS Programs
      */
     void saveTLSPrograms(const std::string& filename);
 
@@ -476,11 +465,11 @@ public:
     int getNumberOfTLSPrograms() const;
 
     /**@brief save edgeTypes elements of the network
-     * @param[in] filename name of the file in wich save edgeTypes
+     * @param[in] filename name of the file in which save edgeTypes
     */
     void saveEdgeTypes(const std::string& filename);
 
-    /// @name Functions related to Enable or disable update geometry of elements after insertio
+    /// @name Functions related to Enable or disable update geometry of elements after insertion
     /// @{
     /// @brief enable update geometry of elements after inserting or removing an element in net
     void enableUpdateGeometry();
@@ -506,54 +495,60 @@ public:
 
     /// @}
 
+    /// @name get junction id counter
+    unsigned int& getJunctionIDCounter();
+
+    /// @name get edge id counter
+    unsigned int& getEdgeIDCounter();
+
+    /// @brief variable used for write headers in additional, demand and data elements
+    static const std::map<SumoXMLAttr, std::string> EMPTY_HEADER;
+
 protected:
     /// @brief the rtree which contains all GUIGlObjects (so named for historical reasons)
     SUMORTree myGrid;
 
-    /// @brief The net to be notofied of about changes
-    GNEViewNet* myViewNet;
+    /// @brief pointer to application window
+    GNEApplicationWindow* myApplicationWindow = nullptr;
 
     /// @brief The internal netbuilder
-    NBNetBuilder* myNetBuilder;
+    NBNetBuilder* myNetBuilder = nullptr;
 
-    /// @brief AttributeCarriers of net
-    GNENetHelper::AttributeCarriers* myAttributeCarriers;
+    /// @brief attributeCarriers module
+    GNENetHelper::AttributeCarriers* myAttributeCarriers = nullptr;
 
-    /// @brief Path manager
-    GNEPathManager* myPathManager;
+    /// @brief attributeCarriers templates
+    GNENetHelper::ACTemplate* myACTemplates = nullptr;
+
+    /// @brief saving status module
+    GNENetHelper::SavingStatus* mySavingStatus = nullptr;
+
+    /// @brief Network path manager
+    GNEPathManager* myNetworkPathManager = nullptr;
+
+    /// @brief Demand path manager
+    GNEPathManager* myDemandPathManager = nullptr;
+
+    /// @brief Data path manager
+    GNEPathManager* myDataPathManager = nullptr;
 
     /// @name counters for junction/edge IDs
     // @{
-    unsigned int myJunctionIDCounter;
-    unsigned int myEdgeIDCounter;
+    unsigned int myJunctionIDCounter = 0;
+    unsigned int myEdgeIDCounter = 0;
     // @}
 
     /// @brief list of edge ids for which turn-arounds must be added explicitly
     std::set<std::string> myExplicitTurnarounds;
 
     /// @brief whether the net needs recomputation
-    bool myNeedRecompute;
-
-    /// @brief Flag to check if net has to be saved
-    bool myNetSaved;
-
-    /// @brief Flag to check if additionals has to be saved
-    bool myAdditionalsSaved;
-
-    /// @brief Flag to check if shapes has to be saved
-    bool myTLSProgramsSaved;
-
-    /// @brief Flag to check if demand elements has to be saved
-    bool myDemandElementsSaved;
-
-    /// @brief Flag to check if data elements has to be saved
-    bool myDataElementsSaved;
+    bool myNeedRecompute = true;
 
     /// @brief Flag to enable or disable update geometry of elements after inserting or removing element in net
-    bool myUpdateGeometryEnabled;
+    bool myUpdateGeometryEnabled = true;
 
     /// @brief Flag to enable or disable update data elements after inserting or removing element in net
-    bool myUpdateDataEnabled;
+    bool myUpdateDataEnabled = true;
 
 private:
     /// @brief Init Junctions and edges
@@ -562,56 +557,74 @@ private:
     /// @brief return true if there are already a Junction in the given position, false in other case
     bool checkJunctionPosition(const Position& pos);
 
-    /// @brief save additionals after confirming invalid objects
-    void saveAdditionalsConfirmed(const std::string& filename);
-
-    /// @brief save demand elements after confirming invalid objects
-    void saveDemandElementsConfirmed(const std::string& filename);
-
-    /// @brief save data elements after confirming invalid objects
-    void saveDataElementsConfirmed(const std::string& filename);
+    /// @brief write additionals demand elements and meanData in output device
+    void writeAdditionalFileElements(OutputDevice& device, const FileBucket* fileBucket);
 
     /// @brief write additional element by type and sorted by ID
-    void writeAdditionalByType(OutputDevice& device, const std::vector<SumoXMLTag> tags) const;
+    void writeAdditionalByType(OutputDevice& device, const FileBucket* fileBucket, const std::vector<SumoXMLTag> tags) const;
 
     /// @brief write demand element by type and sorted by ID
-    void writeDemandByType(OutputDevice& device, SumoXMLTag tag) const;
+    void writeDemandByType(OutputDevice& device, const FileBucket* fileBucket, SumoXMLTag tag) const;
+
+    /// @brief write route distributions sorted by ID
+    void writeRouteDistributions(OutputDevice& device, const FileBucket* fileBucket) const;
 
     /// @brief write route sorted by ID
-    void writeRoutes(OutputDevice& device, const bool additionalFile) const;
+    void writeRoutes(OutputDevice& device, const FileBucket* fileBucket) const;
+
+    /// @brief write vTypeDistributions sorted by ID
+    void writeVTypeDistributions(OutputDevice& device, const FileBucket* fileBucket) const;
 
     /// @brief write vTypes sorted by ID
-    void writeVTypes(OutputDevice& device, const bool additionalFile) const;
+    void writeVTypes(OutputDevice& device, const FileBucket* fileBucket) const;
+
+    /// @brief write meanData element by type and sorted by ID
+    void writeMeanDatas(OutputDevice& device, const FileBucket* fileBucket, SumoXMLTag tag) const;
 
     /// @brief write vType comment
-    bool writeVTypeComment(OutputDevice& device, const bool additionalFile) const;
+    bool writeVTypeComment(OutputDevice& device, const FileBucket* fileBucket) const;
 
     /// @brief write route comment
-    bool writeRouteComment(OutputDevice& device, const bool additionalFile) const;
+    bool writeRouteComment(OutputDevice& device, const FileBucket* fileBucket) const;
+
+    /// @brief write rerouter comment
+    bool writeRerouterComment(OutputDevice& device, const FileBucket* fileBucket) const;
+
+    /// @brief write variable speed sign comment
+    bool writeVariableSpeedSignComment(OutputDevice& device, const FileBucket* fileBucket) const;
 
     /// @brief write routeProbe comment
-    bool writeRouteProbeComment(OutputDevice& device) const;
+    bool writeRouteProbeComment(OutputDevice& device, const FileBucket* fileBucket) const;
+
+    /// @brief write vaporizer comment
+    bool writeVaporizerComment(OutputDevice& device, const FileBucket* fileBucket) const;
 
     /// @brief write calibrator comment
-    bool writeCalibratorComment(OutputDevice& device) const;
+    bool writeCalibratorComment(OutputDevice& device, const FileBucket* fileBucket) const;
 
     /// @brief write stoppingPlace comment
-    bool writeStoppingPlaceComment(OutputDevice& device) const;
+    bool writeStoppingPlaceComment(OutputDevice& device, const FileBucket* fileBucket) const;
 
     /// @brief write detector comment
-    bool writeDetectorComment(OutputDevice& device) const;
-
-    /// @brief write other additional comment
-    bool writeOtherAdditionalsComment(OutputDevice& device) const;
+    bool writeDetectorComment(OutputDevice& device, const FileBucket* fileBucket) const;
 
     /// @brief write shape comment
-    bool writeShapesComment(OutputDevice& device) const;
+    bool writeShapesComment(OutputDevice& device, const FileBucket* fileBucket) const;
+
+    /// @brief write JuPedSim comment
+    bool writeJuPedSimComment(OutputDevice& device, const FileBucket* fileBucket) const;
 
     /// @brief write TAZ comment
-    bool writeTAZComment(OutputDevice& device) const;
+    bool writeTAZComment(OutputDevice& device, const FileBucket* fileBucket) const;
 
     /// @brief write Wire comment
-    bool writeWireComment(OutputDevice& device) const;
+    bool writeWireComment(OutputDevice& device, const FileBucket* fileBucket) const;
+
+    /// @brief write meanDataEdge comment
+    bool writeMeanDataEdgeComment(OutputDevice& device, const FileBucket* fileBucket) const;
+
+    /// @brief write Wire comment
+    bool writeMeanDataLaneComment(OutputDevice& device, const FileBucket* fileBucket) const;
 
     /// @brief replace in list attribute
     static void replaceInListAttribute(GNEAttributeCarrier* ac, SumoXMLAttr key, const std::string& which, const std::string& by, GNEUndoList* undoList);
@@ -625,8 +638,8 @@ private:
     /// @brief marker for whether the z-boundary is initialized
     static const double Z_INITIALIZED;
 
-    /// @brief variable used for write headers in additional, demand and data elements
-    static const std::map<SumoXMLAttr, std::string> EMPTY_HEADER;
+    /// @brief Invalidated default constructor.
+    GNENet() = delete;
 
     /// @brief Invalidated copy constructor.
     GNENet(const GNENet&) = delete;
